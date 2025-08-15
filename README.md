@@ -8,26 +8,24 @@
 
 ```
 book-management-system/
-├── build.gradle                    # ルートプロジェクト設定
-├── settings.gradle                 # マルチモジュール設定
-├── compose.yaml                    # PostgreSQL Docker設定
-├── .env.sample                     # 環境変数テンプレート
-├── src/                            # メインアプリケーション
-├── presentation/                   # プレゼンテーション層（Controller）
-├── usecase/                        # アプリケーション層（Service）
 ├── domain/                         # ドメイン層（Entity / Repository Interface）
-└── infrastructure/                 # インフラ層（外部接続 / Repository Impl / jOOQ、Flyway関連のファイル）
+├── infrastructure/                 # インフラ層（外部接続 / Repository Impl / jOOQ、Flyway関連のファイル）
+├── presentation/                   # プレゼンテーション層（Controller）
+└── usecase/                        # アプリケーション層（Service）
 ```
 
 ## 技術スタック
 
-- **言語**: Kotlin（Java: Amazon Corretto 21）
-- **フレームワーク**: Spring Boot 3.4.1
+- **言語**: Kotlin
+- **Java バージョン**: Java 21（OpenJDK/Amazon Corretto）
+- **フレームワーク**: Spring Boot
 - **テスト**: Kotest, MockK
 - **データベース**: PostgreSQL
 - **ORM**: jOOQ
 - **マイグレーション**: Flyway
 - **ビルドツール**: Gradle - Groovy
+- **静的解析**: Detekt
+- **開発環境**: Docker Compose（PostgreSQL）
 - **利用ツール**: Spring initializr（ https://start.spring.io/ ）
 
 ## アプリケーション起動前の準備
