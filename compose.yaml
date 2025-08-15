@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: 'postgres:latest'
+    ports:
+      - '5433:5432'
+    environment:
+      - POSTGRES_DB=book_management
+    env_file:
+      - .env # NOTE: .env.sample を参照して .env ファイルを作成してください
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

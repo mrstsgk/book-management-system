@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: bookmanagementsystem
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5433/book_management
+    username: # .env ファイルで設定した POSTGRES_USER を記入してください
+    password: # .env ファイルで設定した POSTGRES_PASSWORD を記入してください
+    driver-class-name: org.postgresql.Driver
+
+  # Flyway Configuration
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # jOOQ Configuration
+  jooq:
+    sql-dialect: postgres

@@ -1,0 +1,64 @@
+apply plugin: 'org.jetbrains.kotlin.plugin.spring'
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'org.jooq.jooq-codegen-gradle'
+
+dependencyManagement {
+	imports {
+		mavenBom 'org.springframework.boot:spring-boot-dependencies:3.4.2'
+	}
+}
+
+dependencies {
+	implementation project(':domain')
+	implementation project(':usecase')
+	implementation 'org.springframework.boot:spring-boot-starter-jooq'
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	implementation 'org.jetbrains.kotlin:kotlin-reflect'
+	runtimeOnly 'org.postgresql:postgresql'
+	jooqCodegen 'org.postgresql:postgresql:42.7.4'
+	jooqCodegen 'org.jooq:jooq-meta:3.19.15'
+	jooqCodegen 'org.jooq:jooq-codegen:3.19.15'
+}
+
+// NOTE: .env.sample を参照して .env ファイルを作成してください
+def properties = new Properties()
+def envFile = rootProject.file(".env")
+if (envFile.exists()) {
+    properties.load(new FileInputStream(envFile))
+}
+
+def postgresUser = System.getenv("POSTGRES_USER") ?: properties.getProperty("POSTGRES_USER")
+def postgresPassword = System.getenv("POSTGRES_PASSWORD") ?: properties.getProperty("POSTGRES_PASSWORD")
+
+jooq {
+	configuration {
+		jdbc {
+			driver = 'org.postgresql.Driver'
+			url = 'jdbc:postgresql://localhost:5433/book_management'
+			user = postgresUser
+			password = postgresPassword
+		}
+		generator {
+			name = 'org.jooq.codegen.KotlinGenerator'
+			database {
+				name = 'org.jooq.meta.postgres.PostgresDatabase'
+				inputSchema = 'public'
+				includes = '.*'
+				excludes = 'flyway_schema_history'
+			}
+			target {
+				packageName = 'com.bookmanagementsystem.jooq'
+				directory = 'src/main/jooq'
+			}
+			generate {
+				pojos = true
+				daos = false
+				records = true
+				relations = true
+				fluentSetters = true
+				javaTimeTypes = true
+			}
+		}
+	}
+}
