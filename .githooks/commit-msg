@@ -1,0 +1,10 @@
+#!/bin/bash
+
+PREFIXES="feat|fix|docs|refactor|test|chore"
+MSG=$(head -n 1 "$1")
+
+if [[ ! $MSG =~ ^($PREFIXES|Merge): ]]; then
+  echo "Error: Commit message must start with: ${PREFIXES//|/, }, or Merge"
+  echo "Your message: $MSG"
+  exit 1
+fi
