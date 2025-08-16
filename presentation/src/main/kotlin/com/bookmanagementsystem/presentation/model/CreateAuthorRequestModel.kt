@@ -19,7 +19,6 @@ data class CreateAuthorRequestModel(
 
     /* 生年月日 */
     @field:Valid
-    @field:NotNull
     @get:JsonProperty("birthDate") val birthDate: java.time.LocalDate
 ) {
 
