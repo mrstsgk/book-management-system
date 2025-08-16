@@ -17,20 +17,20 @@ data class AuthorResponseModel(
 
     /* 著者ID */
     @field:NotNull
-    @get:JsonProperty("id") val id: kotlin.Int,
+    @get:JsonProperty("id") val id: kotlin.Int?,
 
     /* 著者名 */
     @field:NotNull
-    @get:JsonProperty("name") val name: kotlin.String,
+    @get:JsonProperty("name") val name: kotlin.String?,
 
     /* 著者の書籍一覧 書籍がない場合は空配列  */
     @field:Valid
     @field:NotNull
-    @get:JsonProperty("books") val books: kotlin.collections.List<BookResponseModel>,
+    @get:JsonProperty("books") val books: kotlin.collections.List<BookResponseModel>?,
 
     /* 生年月日 */
     @field:Valid
-    @get:JsonProperty("birthDate") val birthDate: java.time.LocalDate
+    @get:JsonProperty("birthDate") val birthDate: java.time.LocalDate?
 ) {
 
 }

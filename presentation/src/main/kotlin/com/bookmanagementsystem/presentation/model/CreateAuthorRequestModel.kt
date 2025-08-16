@@ -15,11 +15,11 @@ data class CreateAuthorRequestModel(
 
     /* 著者名 */
     @field:NotNull
-    @get:JsonProperty("name") val name: kotlin.String,
+    @get:JsonProperty("name") val name: kotlin.String?,
 
     /* 生年月日 */
     @field:Valid
-    @get:JsonProperty("birthDate") val birthDate: java.time.LocalDate
+    @get:JsonProperty("birthDate") val birthDate: java.time.LocalDate?
 ) {
 
 }

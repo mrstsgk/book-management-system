@@ -16,20 +16,20 @@ data class BookResponseModel(
 
     /* 書籍ID */
     @field:NotNull
-    @get:JsonProperty("id") val id: kotlin.Int,
+    @get:JsonProperty("id") val id: kotlin.Int?,
 
     /* 書籍タイトル */
     @field:NotNull
-    @get:JsonProperty("title") val title: kotlin.String,
+    @get:JsonProperty("title") val title: kotlin.String?,
 
     /* 価格（円）(10桁) */
     @get:Min(0L)
     @get:Max(9999999999L)
     @field:NotNull
-    @get:JsonProperty("price") val price: kotlin.Long,
+    @get:JsonProperty("price") val price: kotlin.Long?,
     @field:Valid
     @field:NotNull
-    @get:JsonProperty("status") val status: BookStatus
+    @get:JsonProperty("status") val status: BookStatus?
 ) {
 
 }
