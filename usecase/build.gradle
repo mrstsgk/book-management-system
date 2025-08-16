@@ -1,4 +1,14 @@
+apply plugin: 'org.jetbrains.kotlin.plugin.spring'
+
+dependencyManagement {
+	imports {
+		mavenBom 'org.springframework.boot:spring-boot-dependencies:3.4.2'
+	}
+}
+
 dependencies {
 	implementation project(':domain')
+	implementation 'org.springframework:spring-context'
+	testImplementation 'io.mockk:mockk:1.13.8'
 }
 
