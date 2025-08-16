@@ -1,0 +1,23 @@
+build:
+  excludes:
+    # jOOQ generated files
+    - "**/src/main/jooq/**"
+    - "**/build/generated/**"
+
+style:
+  ForbiddenComment:
+    active: false
+  MagicNumber:
+    ignoreEnums: true
+  UseDataClass:
+    active: true
+  ReturnCount:
+    max: 3
+  ThrowsCount:
+    max: 4
+exceptions:
+  SwallowedException:
+    allowedExceptionNameRegex: "_"
+complexity:
+  TooManyFunctions:
+    ignorePrivate: true
