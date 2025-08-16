@@ -4,7 +4,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication(
-    scanBasePackages = ["com.bookmanagementsystem.presentation", "com.bookmanagementsystem.infrastructure"]
+    scanBasePackages = [
+        "com.bookmanagementsystem.presentation",
+        "com.bookmanagementsystem.infrastructure",
+        "com.bookmanagementsystem.usecase"
+    ]
 )
 class BookmanagementsystemApplication
 

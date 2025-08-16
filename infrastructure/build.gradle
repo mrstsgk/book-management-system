@@ -8,6 +8,14 @@ dependencyManagement {
 	}
 }
 
+sourceSets {
+	main {
+		kotlin {
+			srcDirs += 'src/main/jooq'
+		}
+	}
+}
+
 dependencies {
 	implementation project(':domain')
 	implementation project(':usecase')
@@ -49,7 +57,7 @@ jooq {
 			}
 			target {
 				packageName = 'com.bookmanagementsystem.jooq'
-				directory = 'src/main/jooq'
+				directory = "${projectDir}/src/main/jooq"
 			}
 			generate {
 				pojos = true
