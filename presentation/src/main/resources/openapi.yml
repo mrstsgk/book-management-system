@@ -31,12 +31,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthorResponseModel'
+  /api/authors/{id}:
+    put:
+      tags:
+        - Authors
+      summary: 著者を更新する
+      operationId: updateAuthor
+      description: |
+        生年月日は現在より過去日付
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 更新する著者のID
+          schema:
+            type: integer
+            format: int32
+      requestBody:
+        description: 更新する著者の情報
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAuthorRequestModel'
+      responses:
+        '200':
+          description: 著者の更新に成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorResponseModel'
+        '404':
+          description: 著者が見つからない場合
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponseModel'
 
 components:
   schemas:
     CreateAuthorRequestModel:
       type: object
       description: 著者登録APIのリクエスト情報
+      properties:
+        name:
+          type: string
+          description: 著者名
+          example: 太宰治
+        birthDate:
+          type: string
+          format: date
+          description: 生年月日
+          example: "1909-06-19"
+      required:
+        - name
+
+    UpdateAuthorRequestModel:
+      type: object
+      description: 著者更新APIのリクエスト情報
       properties:
         name:
           type: string
@@ -71,3 +123,25 @@ components:
       required:
         - id
         - name
+
+    NotFoundErrorResponseModel:
+      type: object
+      description: 汎用的なエラーレスポンス
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorModel'
+
+    ErrorModel:
+      type: object
+      description: エラー情報
+      properties:
+        code:
+          type: string
+          description: エラーコード
+          example: "AUTHOR_NOT_FOUND"
+        message:
+          type: string
+          description: エラーメッセージ
+          example: "指定された著者が見つかりません"
