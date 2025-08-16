@@ -4,7 +4,9 @@
 package com.bookmanagementsystem.jooq.keys
 
 
+import com.bookmanagementsystem.jooq.tables.Author
 import com.bookmanagementsystem.jooq.tables.Book
+import com.bookmanagementsystem.jooq.tables.records.AuthorRecord
 import com.bookmanagementsystem.jooq.tables.records.BookRecord
 
 import org.jooq.UniqueKey
@@ -17,4 +19,5 @@ import org.jooq.impl.Internal
 // UNIQUE and PRIMARY KEY definitions
 // -------------------------------------------------------------------------
 
+val AUTHOR_PKEY: UniqueKey<AuthorRecord> = Internal.createUniqueKey(Author.AUTHOR, DSL.name("author_pkey"), arrayOf(Author.AUTHOR.ID), true)
 val BOOK_PKEY: UniqueKey<BookRecord> = Internal.createUniqueKey(Book.BOOK, DSL.name("book_pkey"), arrayOf(Book.BOOK.ID), true)
