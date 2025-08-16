@@ -44,7 +44,7 @@ data class {{classname}}(
 {{/minimum}}{{#maximum}}    @get:Max({{maximum}}L)
 {{/maximum}}{{#complexType}}    @field:Valid
 {{/complexType}}{{#required}}    @field:NotNull
-{{/required}}    @get:JsonProperty("{{baseName}}") val {{name}}: {{{dataType}}}{{^-last}},{{/-last}}
+{{/required}}    @get:JsonProperty("{{baseName}}") val {{name}}: {{{dataType}}}?{{^-last}},{{/-last}}
 {{/vars}}) {
 
 }

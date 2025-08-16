@@ -3,8 +3,9 @@ build:
     # jOOQ generated files
     - "**/src/main/jooq/**"
     - "**/build/generated/**"
-    # Exclude presentation model classes
-    - "**/com/bookmanagementsystem/presentation/model/**"
+    # Exclude presentation model classes (OpenAPI generated)
+    # 設定してもOpenAPIの自動生成ファイルが対象外にならにので、detektBaselineを利用して対象外にする
+    # - "**/com/bookmanagementsystem/presentation/model/**"
 
 style:
   ForbiddenComment:
