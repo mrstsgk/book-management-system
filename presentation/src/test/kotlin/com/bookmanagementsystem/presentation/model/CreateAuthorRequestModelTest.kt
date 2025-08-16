@@ -44,6 +44,7 @@ class CreateAuthorRequestModelTest : FunSpec({
 
         val result = validator.validate(requestModel)
         result.size shouldBe 1
-        result.first().message shouldBe "null は許可されていません"
+        // デフォルトのロケールに依存しないようにメッセージテンプレートで検証
+        result.first().messageTemplate shouldBe "{jakarta.validation.constraints.NotNull.message}"
     }
 })
