@@ -3,6 +3,8 @@ build:
     # jOOQ generated files
     - "**/src/main/jooq/**"
     - "**/build/generated/**"
+    # Exclude presentation model classes
+    - "**/com/bookmanagementsystem/presentation/model/**"
 
 style:
   ForbiddenComment:

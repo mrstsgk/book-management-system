@@ -1,3 +1,7 @@
+plugins {
+	id 'org.openapi.generator' version '7.2.0'
+}
+
 apply plugin: 'org.jetbrains.kotlin.plugin.spring'
 apply plugin: 'org.springframework.boot'
 
@@ -5,13 +9,63 @@ springBoot {
 	mainClass = 'com.bookmanagementsystem.BookmanagementsystemApplicationKt'
 }
 
+// OpenAPI Generator設定  
+openApiGenerate {
+	generatorName = "kotlin-spring"
+	inputSpec = "$projectDir/src/main/resources/openapi.yml"
+	outputDir = "$projectDir"
+	modelPackage = "com.bookmanagementsystem.presentation.model"
+	templateDir = "$projectDir/src/main/resources/openapi-templates"
+	configOptions = [
+		dateLibrary: "java8-localdatetime",
+		useBeanValidation: "true",
+		useSpringBoot3: "true",
+		enumPropertyNaming: "UPPERCASE",
+		serializableModel: "false",
+		documentationProvider: "none",
+		trimWhiteSpace: "false"
+	]
+	// モデルのみ生成するための設定
+	globalProperties = [
+		models: "",
+		apis: "false",
+		supportingFiles: "false",
+		modelTests: "false",
+		modelDocs: "false"
+	]
+}
+
+// 不要なディレクトリを削除するタスク
+tasks.openApiGenerate.doLast {
+	delete "$projectDir/.openapi-generator"
+	delete "$projectDir/src/main/kotlin/org"
+}
+
+// コンパイル前にOpenAPIコード生成を実行（無効化済み）
+// tasks.compileKotlin {
+//	dependsOn tasks.openApiGenerate
+// }
+
+// processResourcesタスクはopenApiGenerateの後に実行（無効化済み）
+// tasks.processResources {
+//	mustRunAfter tasks.openApiGenerate
+// }
+
 dependencies {
 	implementation project(':domain')
 	implementation project(':usecase')
 	implementation project(':infrastructure')
 
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
 	implementation 'org.jetbrains.kotlin:kotlin-reflect'
+	
+	// OpenAPI Generator用の依存関係
+	implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+	implementation 'jakarta.validation:jakarta.validation-api'
+	implementation 'jakarta.annotation:jakarta.annotation-api'
+	
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
-

@@ -1,0 +1,52 @@
+{{#models}}{{#model}}package {{package}}
+
+{{#isEnum}}
+import com.fasterxml.jackson.annotation.JsonValue
+{{/isEnum}}
+{{^isEnum}}
+import com.fasterxml.jackson.annotation.JsonProperty
+import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.Max
+import jakarta.validation.Valid
+{{/isEnum}}
+
+{{#description}}
+/**
+ * {{description}}
+{{#hasVars}}{{#vars}}{{#description}} * @param {{name}} {{description}}
+{{/description}}{{/vars}}{{/hasVars}} */
+{{/description}}
+{{^description}}
+/**
+ * {{classname}}
+{{#hasVars}}{{#vars}}{{#description}} * @param {{name}} {{description}}
+{{/description}}{{/vars}}{{/hasVars}} */
+{{/description}}
+{{#isEnum}}
+enum class {{classname}}(@JsonValue val value: {{{dataType}}}) {
+
+{{#allowableValues}}{{#enumVars}}    {{name}}({{value}}){{^-last}},{{/-last}}{{#-last}};{{/-last}}
+{{/enumVars}}{{/allowableValues}}
+
+    companion object {
+        fun of(value: {{{dataType}}}): {{classname}} {
+            return entries.first { it.value == value }
+        }
+    }
+}
+{{/isEnum}}
+{{^isEnum}}
+data class {{classname}}(
+{{#vars}}{{#description}}
+    /* {{description}} */
+{{/description}}{{#minimum}}    @get:Min({{minimum}}L)
+{{/minimum}}{{#maximum}}    @get:Max({{maximum}}L)
+{{/maximum}}{{#complexType}}    @field:Valid
+{{/complexType}}{{#required}}    @field:NotNull
+{{/required}}    @get:JsonProperty("{{baseName}}") val {{name}}: {{{dataType}}}{{^-last}},{{/-last}}
+{{/vars}}) {
+
+}
+{{/isEnum}}
+{{/model}}{{/models}}
