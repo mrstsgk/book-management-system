@@ -63,6 +63,10 @@ paths:
                 $ref: '#/components/schemas/AuthorResponseModel'
         '404':
           description: 著者が見つからない場合
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponseModel'
 
 components:
   schemas:
@@ -119,3 +123,25 @@ components:
       required:
         - id
         - name
+
+    NotFoundErrorResponseModel:
+      type: object
+      description: 汎用的なエラーレスポンス
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorModel'
+
+    ErrorModel:
+      type: object
+      description: エラー情報
+      properties:
+        code:
+          type: string
+          description: エラーコード
+          example: "AUTHOR_NOT_FOUND"
+        message:
+          type: string
+          description: エラーメッセージ
+          example: "指定された著者が見つかりません"
