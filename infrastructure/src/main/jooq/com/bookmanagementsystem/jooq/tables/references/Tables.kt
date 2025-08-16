@@ -4,9 +4,15 @@
 package com.bookmanagementsystem.jooq.tables.references
 
 
+import com.bookmanagementsystem.jooq.tables.Author
 import com.bookmanagementsystem.jooq.tables.Book
 
 
+
+/**
+ * 著者情報を管理するテーブル
+ */
+val AUTHOR: Author = Author.AUTHOR
 
 /**
  * 書籍情報を管理するテーブル
