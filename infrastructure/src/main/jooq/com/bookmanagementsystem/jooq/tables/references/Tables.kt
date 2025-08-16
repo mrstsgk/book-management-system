@@ -6,6 +6,7 @@ package com.bookmanagementsystem.jooq.tables.references
 
 import com.bookmanagementsystem.jooq.tables.Author
 import com.bookmanagementsystem.jooq.tables.Book
+import com.bookmanagementsystem.jooq.tables.BookAuthor
 
 
 
@@ -18,3 +19,8 @@ val AUTHOR: Author = Author.AUTHOR
  * 書籍情報を管理するテーブル
  */
 val BOOK: Book = Book.BOOK
+
+/**
+ * 書籍と著者の中間テーブル（多対多対応）
+ */
+val BOOK_AUTHOR: BookAuthor = BookAuthor.BOOK_AUTHOR

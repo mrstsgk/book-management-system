@@ -5,7 +5,10 @@ package com.bookmanagementsystem.jooq.tables
 
 
 import com.bookmanagementsystem.jooq.Public
+import com.bookmanagementsystem.jooq.keys.BOOK_AUTHOR__BOOK_AUTHOR_BOOK_ID_FKEY
 import com.bookmanagementsystem.jooq.keys.BOOK_PKEY
+import com.bookmanagementsystem.jooq.tables.Author.AuthorPath
+import com.bookmanagementsystem.jooq.tables.BookAuthor.BookAuthorPath
 import com.bookmanagementsystem.jooq.tables.records.BookRecord
 
 import kotlin.collections.Collection
@@ -16,6 +19,7 @@ import org.jooq.ForeignKey
 import org.jooq.Identity
 import org.jooq.InverseForeignKey
 import org.jooq.Name
+import org.jooq.Path
 import org.jooq.PlainSQL
 import org.jooq.QueryPart
 import org.jooq.Record
@@ -28,6 +32,7 @@ import org.jooq.TableField
 import org.jooq.TableOptions
 import org.jooq.UniqueKey
 import org.jooq.impl.DSL
+import org.jooq.impl.Internal
 import org.jooq.impl.SQLDataType
 import org.jooq.impl.TableImpl
 
@@ -107,9 +112,45 @@ open class Book(
      * Create a <code>public.book</code> table reference
      */
     constructor(): this(DSL.name("book"), null)
+
+    constructor(path: Table<out Record>, childPath: ForeignKey<out Record, BookRecord>?, parentPath: InverseForeignKey<out Record, BookRecord>?): this(Internal.createPathAlias(path, childPath, parentPath), path, childPath, parentPath, BOOK, null, null)
+
+    /**
+     * A subtype implementing {@link Path} for simplified path-based joins.
+     */
+    open class BookPath : Book, Path<BookRecord> {
+        constructor(path: Table<out Record>, childPath: ForeignKey<out Record, BookRecord>?, parentPath: InverseForeignKey<out Record, BookRecord>?): super(path, childPath, parentPath)
+        private constructor(alias: Name, aliased: Table<BookRecord>): super(alias, aliased)
+        override fun `as`(alias: String): BookPath = BookPath(DSL.name(alias), this)
+        override fun `as`(alias: Name): BookPath = BookPath(alias, this)
+        override fun `as`(alias: Table<*>): BookPath = BookPath(alias.qualifiedName, this)
+    }
     override fun getSchema(): Schema? = if (aliased()) null else Public.PUBLIC
     override fun getIdentity(): Identity<BookRecord, Int?> = super.getIdentity() as Identity<BookRecord, Int?>
     override fun getPrimaryKey(): UniqueKey<BookRecord> = BOOK_PKEY
+
+    private lateinit var _bookAuthor: BookAuthorPath
+
+    /**
+     * Get the implicit to-many join path to the <code>public.book_author</code>
+     * table
+     */
+    fun bookAuthor(): BookAuthorPath {
+        if (!this::_bookAuthor.isInitialized)
+            _bookAuthor = BookAuthorPath(this, null, BOOK_AUTHOR__BOOK_AUTHOR_BOOK_ID_FKEY.inverseKey)
+
+        return _bookAuthor;
+    }
+
+    val bookAuthor: BookAuthorPath
+        get(): BookAuthorPath = bookAuthor()
+
+    /**
+     * Get the implicit many-to-many join path to the <code>public.author</code>
+     * table
+     */
+    val author: AuthorPath
+        get(): AuthorPath = bookAuthor().author()
     override fun `as`(alias: String): Book = Book(DSL.name(alias), this)
     override fun `as`(alias: Name): Book = Book(alias, this)
     override fun `as`(alias: Table<*>): Book = Book(alias.qualifiedName, this)
