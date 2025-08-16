@@ -10,13 +10,13 @@ class IDTest : FunSpec({
         id.value shouldBe 1
     }
 
-    test("0でIDを作成する際は例外が発生する") {
+    test("0でIDを作成できない") {
         shouldThrow<IllegalArgumentException> {
             ID<String>(0)
         }
     }
 
-    test("負の値でIDを作成する際は例外が発生する") {
+    test("負の値でIDを作成できない") {
         shouldThrow<IllegalArgumentException> {
             ID<String>(-1)
         }
