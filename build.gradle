@@ -71,6 +71,9 @@ subprojects {
 
 	dependencies {
 		testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
+		testImplementation 'io.kotest:kotest-runner-junit5:5.9.1'
+		testImplementation 'io.kotest:kotest-assertions-core:5.9.1'
+		testImplementation 'io.kotest:kotest-property:5.9.1'
 		testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 		detektPlugins 'io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8'
 	}
@@ -90,5 +93,9 @@ subprojects {
 			html.required = true
 			xml.required = true
 		}
+	}
+
+	test {
+		useJUnitPlatform()
 	}
 }
