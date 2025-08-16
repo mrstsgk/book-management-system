@@ -6,6 +6,9 @@ package com.bookmanagementsystem.jooq.tables
 
 import com.bookmanagementsystem.jooq.Public
 import com.bookmanagementsystem.jooq.keys.AUTHOR_PKEY
+import com.bookmanagementsystem.jooq.keys.BOOK_AUTHOR__BOOK_AUTHOR_AUTHOR_ID_FKEY
+import com.bookmanagementsystem.jooq.tables.Book.BookPath
+import com.bookmanagementsystem.jooq.tables.BookAuthor.BookAuthorPath
 import com.bookmanagementsystem.jooq.tables.records.AuthorRecord
 
 import java.time.LocalDate
@@ -18,6 +21,7 @@ import org.jooq.ForeignKey
 import org.jooq.Identity
 import org.jooq.InverseForeignKey
 import org.jooq.Name
+import org.jooq.Path
 import org.jooq.PlainSQL
 import org.jooq.QueryPart
 import org.jooq.Record
@@ -30,6 +34,7 @@ import org.jooq.TableField
 import org.jooq.TableOptions
 import org.jooq.UniqueKey
 import org.jooq.impl.DSL
+import org.jooq.impl.Internal
 import org.jooq.impl.SQLDataType
 import org.jooq.impl.TableImpl
 
@@ -84,7 +89,7 @@ open class Author(
     /**
      * The column <code>public.author.birth_date</code>. 生年月日
      */
-    val BIRTH_DATE: TableField<AuthorRecord, LocalDate?> = createField(DSL.name("birth_date"), SQLDataType.LOCALDATE.nullable(false), this, "生年月日")
+    val BIRTH_DATE: TableField<AuthorRecord, LocalDate?> = createField(DSL.name("birth_date"), SQLDataType.LOCALDATE, this, "生年月日")
 
     private constructor(alias: Name, aliased: Table<AuthorRecord>?): this(alias, null, null, null, aliased, null, null)
     private constructor(alias: Name, aliased: Table<AuthorRecord>?, parameters: Array<Field<*>?>?): this(alias, null, null, null, aliased, parameters, null)
@@ -104,9 +109,45 @@ open class Author(
      * Create a <code>public.author</code> table reference
      */
     constructor(): this(DSL.name("author"), null)
+
+    constructor(path: Table<out Record>, childPath: ForeignKey<out Record, AuthorRecord>?, parentPath: InverseForeignKey<out Record, AuthorRecord>?): this(Internal.createPathAlias(path, childPath, parentPath), path, childPath, parentPath, AUTHOR, null, null)
+
+    /**
+     * A subtype implementing {@link Path} for simplified path-based joins.
+     */
+    open class AuthorPath : Author, Path<AuthorRecord> {
+        constructor(path: Table<out Record>, childPath: ForeignKey<out Record, AuthorRecord>?, parentPath: InverseForeignKey<out Record, AuthorRecord>?): super(path, childPath, parentPath)
+        private constructor(alias: Name, aliased: Table<AuthorRecord>): super(alias, aliased)
+        override fun `as`(alias: String): AuthorPath = AuthorPath(DSL.name(alias), this)
+        override fun `as`(alias: Name): AuthorPath = AuthorPath(alias, this)
+        override fun `as`(alias: Table<*>): AuthorPath = AuthorPath(alias.qualifiedName, this)
+    }
     override fun getSchema(): Schema? = if (aliased()) null else Public.PUBLIC
     override fun getIdentity(): Identity<AuthorRecord, Int?> = super.getIdentity() as Identity<AuthorRecord, Int?>
     override fun getPrimaryKey(): UniqueKey<AuthorRecord> = AUTHOR_PKEY
+
+    private lateinit var _bookAuthor: BookAuthorPath
+
+    /**
+     * Get the implicit to-many join path to the <code>public.book_author</code>
+     * table
+     */
+    fun bookAuthor(): BookAuthorPath {
+        if (!this::_bookAuthor.isInitialized)
+            _bookAuthor = BookAuthorPath(this, null, BOOK_AUTHOR__BOOK_AUTHOR_AUTHOR_ID_FKEY.inverseKey)
+
+        return _bookAuthor;
+    }
+
+    val bookAuthor: BookAuthorPath
+        get(): BookAuthorPath = bookAuthor()
+
+    /**
+     * Get the implicit many-to-many join path to the <code>public.book</code>
+     * table
+     */
+    val book: BookPath
+        get(): BookPath = bookAuthor().book()
     override fun `as`(alias: String): Author = Author(DSL.name(alias), this)
     override fun `as`(alias: Name): Author = Author(alias, this)
     override fun `as`(alias: Table<*>): Author = Author(alias.qualifiedName, this)

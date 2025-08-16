@@ -6,6 +6,7 @@ package com.bookmanagementsystem.jooq
 
 import com.bookmanagementsystem.jooq.tables.Author
 import com.bookmanagementsystem.jooq.tables.Book
+import com.bookmanagementsystem.jooq.tables.BookAuthor
 
 import kotlin.collections.List
 
@@ -37,10 +38,16 @@ open class Public : SchemaImpl("public", DefaultCatalog.DEFAULT_CATALOG) {
      */
     val BOOK: Book get() = Book.BOOK
 
+    /**
+     * 書籍と著者の中間テーブル（多対多対応）
+     */
+    val BOOK_AUTHOR: BookAuthor get() = BookAuthor.BOOK_AUTHOR
+
     override fun getCatalog(): Catalog = DefaultCatalog.DEFAULT_CATALOG
 
     override fun getTables(): List<Table<*>> = listOf(
         Author.AUTHOR,
-        Book.BOOK
+        Book.BOOK,
+        BookAuthor.BOOK_AUTHOR
     )
 }
