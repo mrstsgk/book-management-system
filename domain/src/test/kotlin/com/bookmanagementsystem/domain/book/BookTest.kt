@@ -14,7 +14,7 @@ class BookTest : FunSpec({
         val status = BookPublishStatus.PUBLISHED
         val authorIds: List<ID<Author>> = listOf(ID(1))
 
-        val book = Book(bookId, title, price, status, authorIds)
+        val book = Book(bookId, title, price, authorIds, status)
 
         book.id shouldBe bookId
         book.title shouldBe title
@@ -30,7 +30,7 @@ class BookTest : FunSpec({
         val status = BookPublishStatus.UNPUBLISHED
         val authorIds: List<ID<Author>> = listOf(ID(1), ID(2), ID(3))
 
-        val book = Book(bookId, title, price, status, authorIds)
+        val book = Book(bookId, title, price, authorIds, status)
 
         book.authorIds.size shouldBe 3
         book.authorIds shouldBe authorIds
@@ -44,7 +44,7 @@ class BookTest : FunSpec({
         val authorIds: List<ID<Author>> = emptyList()
 
         shouldThrow<IllegalArgumentException> {
-            Book(bookId, title, price, status, authorIds)
+            Book(bookId, title, price, authorIds, status)
         }
     }
 })
