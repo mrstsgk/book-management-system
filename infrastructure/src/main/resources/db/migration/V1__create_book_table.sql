@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS book (
     id             SERIAL PRIMARY KEY,
     title          VARCHAR(255) NOT NULL,
-    price          INTEGER NOT NULL,
+    price          NUMERIC(10, 2) NOT NULL,
     publish_status INTEGER NOT NULL
 );
 

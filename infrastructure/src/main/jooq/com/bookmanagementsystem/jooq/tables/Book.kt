@@ -11,6 +11,8 @@ import com.bookmanagementsystem.jooq.tables.Author.AuthorPath
 import com.bookmanagementsystem.jooq.tables.BookAuthor.BookAuthorPath
 import com.bookmanagementsystem.jooq.tables.records.BookRecord
 
+import java.math.BigDecimal
+
 import kotlin.collections.Collection
 
 import org.jooq.Condition
@@ -87,7 +89,7 @@ open class Book(
     /**
      * The column <code>public.book.price</code>. 価格（円）
      */
-    val PRICE: TableField<BookRecord, Int?> = createField(DSL.name("price"), SQLDataType.INTEGER.nullable(false), this, "価格（円）")
+    val PRICE: TableField<BookRecord, BigDecimal?> = createField(DSL.name("price"), SQLDataType.NUMERIC(10, 2).nullable(false), this, "価格（円）")
 
     /**
      * The column <code>public.book.publish_status</code>. 出版状況（1: 未出版, 2: 出版済み）

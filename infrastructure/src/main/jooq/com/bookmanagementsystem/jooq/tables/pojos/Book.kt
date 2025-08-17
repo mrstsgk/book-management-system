@@ -5,6 +5,7 @@ package com.bookmanagementsystem.jooq.tables.pojos
 
 
 import java.io.Serializable
+import java.math.BigDecimal
 
 
 /**
@@ -14,7 +15,7 @@ import java.io.Serializable
 data class Book(
     var id: Int? = null,
     var title: String? = null,
-    var price: Int? = null,
+    var price: BigDecimal? = null,
     var publishStatus: Int? = null
 ): Serializable {
 
