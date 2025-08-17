@@ -1,12 +1,19 @@
 package com.bookmanagementsystem.config
 
+import org.slf4j.LoggerFactory
 import org.springframework.core.io.ClassPathResource
+import org.springframework.jdbc.datasource.init.ScriptException
 import org.springframework.jdbc.datasource.init.ScriptUtils
 import org.springframework.test.context.TestContext
 import org.springframework.test.context.TestExecutionListener
+import java.sql.SQLException
 import javax.sql.DataSource
 
 class SqlScriptTestExecutionListener : TestExecutionListener {
+    companion object {
+        private val logger = LoggerFactory.getLogger(SqlScriptTestExecutionListener::class.java)
+    }
+
     /**
      * 各テストメソッドの実行前に呼び出される処理。
      *
@@ -40,9 +47,15 @@ class SqlScriptTestExecutionListener : TestExecutionListener {
                     ScriptUtils.executeSqlScript(connection, resource)
                 }
             }
-        } catch (_: Exception) {
-            // SQLスクリプトの実行でエラーが発生した場合は無視（他のテストクラスでも使用可能にするため）
-            // 必要に応じてログ出力
+        } catch (e: ScriptException) {
+            // SQLスクリプトの構文エラーや実行エラー
+            logger.warn("Failed to execute SQL script '$sqlScript': ${e.message}", e)
+        } catch (e: SQLException) {
+            // データベース接続やSQL実行に関するエラー
+            logger.warn("Database error while executing SQL script '$sqlScript': ${e.message}", e)
+        } catch (e: Exception) {
+            // その他の予期しないエラー
+            logger.error("Unexpected error while executing SQL script '$sqlScript': ${e.message}", e)
         }
     }
 }
