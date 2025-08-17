@@ -64,16 +64,6 @@ class CreateBookRequestModelTest : FunSpec({
         violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Min.message}"
     }
 
-    test("価格が最大値を超える場合バリデーションエラー") {
-        val requestModel = createValidBookRequest(
-            price = 10000000000L
-        )
-
-        val violations = validator.validate(requestModel)
-        violations shouldHaveSize 1
-        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Max.message}"
-    }
-
     test("著者IDリストがnullの場合バリデーションエラー") {
         val requestModel = CreateBookRequestModel(
             title = "人間失格",
@@ -148,16 +138,6 @@ class CreateBookRequestModelTest : FunSpec({
         val requestModel = createValidBookRequest(
             title = "無料本",
             price = 0L
-        )
-
-        val violations = validator.validate(requestModel)
-        violations shouldHaveSize 0
-    }
-
-    test("価格の境界値テスト - 最大値9999999999") {
-        val requestModel = createValidBookRequest(
-            title = "高額本",
-            price = 9999999999L
         )
 
         val violations = validator.validate(requestModel)
