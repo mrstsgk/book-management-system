@@ -6,7 +6,7 @@ import org.springframework.test.context.support.DirtiesContextTestExecutionListe
 import org.springframework.test.context.transaction.TransactionalTestExecutionListener
 
 /**
- *　### 注意事項
+ * ### 注意事項
  *  ```
  * このアノテーションがついたテストを実行する際は以下の二点事前に実行する
  * - docker の起動
