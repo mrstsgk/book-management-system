@@ -82,6 +82,7 @@ components:
           type: string
           format: date
           description: 生年月日
+          x-field-extra-annotation: "@field:com.bookmanagementsystem.usecase.validation.PastOnly"
           example: "1909-06-19"
       required:
         - name
@@ -98,6 +99,7 @@ components:
           type: string
           format: date
           description: 生年月日
+          x-field-extra-annotation: "@field:com.bookmanagementsystem.usecase.validation.PastOnly"
           example: "1909-06-19"
       required:
         - name
