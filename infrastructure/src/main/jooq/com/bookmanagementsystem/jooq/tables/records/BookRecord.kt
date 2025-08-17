@@ -6,6 +6,8 @@ package com.bookmanagementsystem.jooq.tables.records
 
 import com.bookmanagementsystem.jooq.tables.Book
 
+import java.math.BigDecimal
+
 import org.jooq.Record1
 import org.jooq.impl.UpdatableRecordImpl
 
@@ -24,9 +26,9 @@ open class BookRecord() : UpdatableRecordImpl<BookRecord>(Book.BOOK) {
         set(value): Unit = set(1, value)
         get(): String? = get(1) as String?
 
-    open var price: Int?
+    open var price: BigDecimal?
         set(value): Unit = set(2, value)
-        get(): Int? = get(2) as Int?
+        get(): BigDecimal? = get(2) as BigDecimal?
 
     open var publishStatus: Int?
         set(value): Unit = set(3, value)
@@ -41,7 +43,7 @@ open class BookRecord() : UpdatableRecordImpl<BookRecord>(Book.BOOK) {
     /**
      * Create a detached, initialised BookRecord
      */
-    constructor(id: Int? = null, title: String? = null, price: Int? = null, publishStatus: Int? = null): this() {
+    constructor(id: Int? = null, title: String? = null, price: BigDecimal? = null, publishStatus: Int? = null): this() {
         this.id = id
         this.title = title
         this.price = price
