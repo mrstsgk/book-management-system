@@ -12,7 +12,7 @@ import com.bookmanagementsystem.usecase.validation.PastOnly
  * 書籍登録APIのリクエスト情報
  * @param title 書籍タイトル
  * @param price 書籍価格
- * @param authors 著者のリスト
+ * @param authorIds 著者のリスト
  * @param status BookStatus
  */
 data class CreateBookRequestModel(
@@ -28,9 +28,8 @@ data class CreateBookRequestModel(
 
     /* 著者のリスト */
     @get:Size(min = 1)
-    @field:Valid
     @field:NotNull
-    @get:JsonProperty("authors") val authors: kotlin.collections.List<AuthorResponseModel>?,
+    @get:JsonProperty("authorIds") val authorIds: kotlin.collections.List<kotlin.Int>?,
 
     @field:Valid
     @field:NotNull
