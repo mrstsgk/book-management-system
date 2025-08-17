@@ -68,4 +68,6 @@ dependencies {
 	implementation 'jakarta.annotation:jakarta.annotation-api'
 	
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework:spring-jdbc'
+	testImplementation 'io.kotest.extensions:kotest-extensions-spring:1.1.3'
 }

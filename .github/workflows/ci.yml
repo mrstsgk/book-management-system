@@ -37,6 +37,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: book_management
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +75,9 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run Tests
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
         run: ./gradlew test
 
   build:
