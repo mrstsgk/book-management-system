@@ -4,10 +4,10 @@ import com.bookmanagementsystem.domain.author.AuthorBirthDate
 import com.bookmanagementsystem.domain.book.Book
 import com.bookmanagementsystem.domain.core.ID
 import com.bookmanagementsystem.infrastructure.config.IntegrationTestWithSql
+import com.bookmanagementsystem.usecase.author.read.AuthorQueryService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
-import org.springframework.beans.factory.annotation.Autowired
 import java.time.LocalDate
 
 /**
@@ -16,19 +16,11 @@ import java.time.LocalDate
  * 実際にデータベースに対してクエリを実行し、著者情報の取得機能を検証する。
  * モックではなく実際の環境に近い構成（Spring Boot + PostgreSQL）で実行される。
  *
- * ### 各ケースで1パス通せばOK
- *  context("正常系") - 書籍に紐づく著者が正常に取得できる：
- *  context("境界値") - 著者がいない書籍や存在しない書籍のケース：
- *
- * 本テストでは、最低限「1パス通ること」で動作確認済みとする。
  * インフラストラクチャ層として、データベースからの正確なデータ取得を保証する目的。
  */
 @IntegrationTestWithSql(sqlScript = "AuthorQueryServiceImplTest.sql")
-class AuthorQueryServiceImplTest : FunSpec() {
+class AuthorQueryServiceImplTest(private val authorQueryService: AuthorQueryService) : FunSpec() {
     override fun extensions() = listOf(SpringExtension)
-
-    @Autowired
-    private lateinit var authorQueryService: AuthorQueryServiceImpl
 
     init {
         context("正常系") {
