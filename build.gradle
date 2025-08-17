@@ -45,13 +45,14 @@ if (envFile.exists()) {
     properties.load(new FileInputStream(envFile))
 }
 
-def postgresUser = System.getenv("DB_USERNAME") ?: properties.getProperty("DB_USERNAME")
-def postgresPassword = System.getenv("DB_PASSWORD") ?: properties.getProperty("DB_PASSWORD")
+def postgresUser = System.getenv("POSTGRES_USER") ?: properties.getProperty("POSTGRES_USER")
+def postgresPassword = System.getenv("POSTGRES_PASSWORD") ?: properties.getProperty("POSTGRES_PASSWORD")
 
 bootRun {
+	mainClass = 'com.bookmanagementsystem.BookmanagementsystemApplicationKt'
 	environment 'DB_URL', 'jdbc:postgresql://localhost:5433/book_management'
-	environment 'DB_USERNAME', postgresUser
-	environment 'DB_PASSWORD', postgresPassword
+	environment 'POSTGRES_USER', postgresUser
+	environment 'POSTGRES_PASSWORD', postgresPassword
 }
 
 subprojects {
