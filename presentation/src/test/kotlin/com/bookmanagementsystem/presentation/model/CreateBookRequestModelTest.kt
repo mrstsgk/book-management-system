@@ -13,16 +13,10 @@ class CreateBookRequestModelTest : FunSpec({
     test("有効なパラメータでCreateBookRequestModelを作成できる") {
         val title = "人間失格"
         val price = 1500L
-        val authors = listOf(
-            AuthorResponseModel(
-                id = 1,
-                name = "太宰治",
-                birthDate = LocalDate.of(1909, 6, 19)
-            )
-        )
+        val authors = createDefaultAuthors()
         val status = BookStatus.PUBLISHED
 
-        val requestModel = CreateBookRequestModel(
+        val requestModel = createValidBookRequest(
             title = title,
             price = price,
             authors = authors,
@@ -39,13 +33,7 @@ class CreateBookRequestModelTest : FunSpec({
         val requestModel = CreateBookRequestModel(
             title = null,
             price = 1500L,
-            authors = listOf(
-                AuthorResponseModel(
-                    id = 1,
-                    name = "太宰治",
-                    birthDate = LocalDate.of(1909, 6, 19)
-                )
-            ),
+            authors = createDefaultAuthors(),
             status = BookStatus.PUBLISHED
         )
 
@@ -58,13 +46,7 @@ class CreateBookRequestModelTest : FunSpec({
         val requestModel = CreateBookRequestModel(
             title = "人間失格",
             price = null,
-            authors = listOf(
-                AuthorResponseModel(
-                    id = 1,
-                    name = "太宰治",
-                    birthDate = LocalDate.of(1909, 6, 19)
-                )
-            ),
+            authors = createDefaultAuthors(),
             status = BookStatus.PUBLISHED
         )
 
@@ -74,17 +56,8 @@ class CreateBookRequestModelTest : FunSpec({
     }
 
     test("価格が負の値の場合バリデーションエラー") {
-        val requestModel = CreateBookRequestModel(
-            title = "人間失格",
-            price = -1L,
-            authors = listOf(
-                AuthorResponseModel(
-                    id = 1,
-                    name = "太宰治",
-                    birthDate = LocalDate.of(1909, 6, 19)
-                )
-            ),
-            status = BookStatus.PUBLISHED
+        val requestModel = createValidBookRequest(
+            price = -1L
         )
 
         val violations = validator.validate(requestModel)
@@ -93,17 +66,8 @@ class CreateBookRequestModelTest : FunSpec({
     }
 
     test("価格が最大値を超える場合バリデーションエラー") {
-        val requestModel = CreateBookRequestModel(
-            title = "人間失格",
-            price = 10000000000L,
-            authors = listOf(
-                AuthorResponseModel(
-                    id = 1,
-                    name = "太宰治",
-                    birthDate = LocalDate.of(1909, 6, 19)
-                )
-            ),
-            status = BookStatus.PUBLISHED
+        val requestModel = createValidBookRequest(
+            price = 10000000000L
         )
 
         val violations = validator.validate(requestModel)
@@ -125,11 +89,8 @@ class CreateBookRequestModelTest : FunSpec({
     }
 
     test("著者リストが空の場合バリデーションエラー") {
-        val requestModel = CreateBookRequestModel(
-            title = "人間失格",
-            price = 1500L,
-            authors = emptyList(),
-            status = BookStatus.PUBLISHED
+        val requestModel = createValidBookRequest(
+            authors = emptyList()
         )
 
         val violations = validator.validate(requestModel)
@@ -141,13 +102,7 @@ class CreateBookRequestModelTest : FunSpec({
         val requestModel = CreateBookRequestModel(
             title = "人間失格",
             price = 1500L,
-            authors = listOf(
-                AuthorResponseModel(
-                    id = 1,
-                    name = "太宰治",
-                    birthDate = LocalDate.of(1909, 6, 19)
-                )
-            ),
+            authors = createDefaultAuthors(),
             status = null
         )
 
@@ -158,23 +113,14 @@ class CreateBookRequestModelTest : FunSpec({
 
     test("複数の著者を設定できる") {
         val authors = listOf(
-            AuthorResponseModel(
-                id = 1,
-                name = "太宰治",
-                birthDate = LocalDate.of(1909, 6, 19)
-            ),
-            AuthorResponseModel(
-                id = 2,
-                name = "夏目漱石",
-                birthDate = LocalDate.of(1867, 2, 9)
-            )
+            createDefaultAuthor(id = 1, name = "太宰治"),
+            createDefaultAuthor(id = 2, name = "夏目漱石", birthDate = LocalDate.of(1867, 2, 9))
         )
 
-        val requestModel = CreateBookRequestModel(
+        val requestModel = createValidBookRequest(
             title = "文学選集",
             price = 3000L,
-            authors = authors,
-            status = BookStatus.PUBLISHED
+            authors = authors
         )
 
         requestModel.authors?.shouldHaveSize(2)
@@ -182,16 +128,7 @@ class CreateBookRequestModelTest : FunSpec({
     }
 
     test("出版済みステータスを設定できる") {
-        val requestModel = CreateBookRequestModel(
-            title = "人間失格",
-            price = 1500L,
-            authors = listOf(
-                AuthorResponseModel(
-                    id = 1,
-                    name = "太宰治",
-                    birthDate = LocalDate.of(1909, 6, 19)
-                )
-            ),
+        val requestModel = createValidBookRequest(
             status = BookStatus.PUBLISHED
         )
 
@@ -200,16 +137,7 @@ class CreateBookRequestModelTest : FunSpec({
     }
 
     test("未出版ステータスを設定できる") {
-        val requestModel = CreateBookRequestModel(
-            title = "人間失格",
-            price = 1500L,
-            authors = listOf(
-                AuthorResponseModel(
-                    id = 1,
-                    name = "太宰治",
-                    birthDate = LocalDate.of(1909, 6, 19)
-                )
-            ),
+        val requestModel = createValidBookRequest(
             status = BookStatus.UNPUBLISHED
         )
 
@@ -218,17 +146,9 @@ class CreateBookRequestModelTest : FunSpec({
     }
 
     test("価格の境界値テスト - 最小値0") {
-        val requestModel = CreateBookRequestModel(
+        val requestModel = createValidBookRequest(
             title = "無料本",
-            price = 0L,
-            authors = listOf(
-                AuthorResponseModel(
-                    id = 1,
-                    name = "太宰治",
-                    birthDate = LocalDate.of(1909, 6, 19)
-                )
-            ),
-            status = BookStatus.PUBLISHED
+            price = 0L
         )
 
         val violations = validator.validate(requestModel)
@@ -236,20 +156,37 @@ class CreateBookRequestModelTest : FunSpec({
     }
 
     test("価格の境界値テスト - 最大値9999999999") {
-        val requestModel = CreateBookRequestModel(
+        val requestModel = createValidBookRequest(
             title = "高額本",
-            price = 9999999999L,
-            authors = listOf(
-                AuthorResponseModel(
-                    id = 1,
-                    name = "太宰治",
-                    birthDate = LocalDate.of(1909, 6, 19)
-                )
-            ),
-            status = BookStatus.PUBLISHED
+            price = 9999999999L
         )
 
         val violations = validator.validate(requestModel)
         violations shouldHaveSize 0
     }
 })
+
+// テストフィクスチャ
+fun createDefaultAuthor(
+    id: Int = 1,
+    name: String = "太宰治",
+    birthDate: LocalDate = LocalDate.of(1909, 6, 19)
+) = AuthorResponseModel(
+    id = id,
+    name = name,
+    birthDate = birthDate
+)
+
+fun createDefaultAuthors() = listOf(createDefaultAuthor())
+
+fun createValidBookRequest(
+    title: String = "人間失格",
+    price: Long = 1500L,
+    authors: List<AuthorResponseModel> = createDefaultAuthors(),
+    status: BookStatus = BookStatus.PUBLISHED
+) = CreateBookRequestModel(
+    title = title,
+    price = price,
+    authors = authors,
+    status = status
+)
