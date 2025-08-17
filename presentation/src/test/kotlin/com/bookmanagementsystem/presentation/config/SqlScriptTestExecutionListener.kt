@@ -1,4 +1,4 @@
-package com.bookmanagementsystem.config
+package com.bookmanagementsystem.presentation.config
 
 import org.slf4j.LoggerFactory
 import org.springframework.core.io.ClassPathResource

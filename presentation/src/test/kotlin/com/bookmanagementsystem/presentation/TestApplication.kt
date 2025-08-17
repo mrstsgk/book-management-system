@@ -1,4 +1,4 @@
-package com.bookmanagementsystem
+package com.bookmanagementsystem.presentation
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 

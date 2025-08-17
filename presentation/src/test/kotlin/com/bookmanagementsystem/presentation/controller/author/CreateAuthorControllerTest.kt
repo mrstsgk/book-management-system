@@ -1,6 +1,6 @@
 package com.bookmanagementsystem.presentation.controller.author
 
-import com.bookmanagementsystem.config.IntegrationTestWithSql
+import com.bookmanagementsystem.presentation.config.IntegrationTestWithSql
 import com.bookmanagementsystem.presentation.model.AuthorResponseModel
 import com.bookmanagementsystem.presentation.model.CreateAuthorRequestModel
 import com.fasterxml.jackson.databind.ObjectMapper

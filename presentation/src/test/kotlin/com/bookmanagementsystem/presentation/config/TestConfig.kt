@@ -1,4 +1,4 @@
-package com.bookmanagementsystem.config
+package com.bookmanagementsystem.presentation.config
 
 import org.springframework.boot.jdbc.DataSourceBuilder
 import org.springframework.boot.test.context.TestConfiguration

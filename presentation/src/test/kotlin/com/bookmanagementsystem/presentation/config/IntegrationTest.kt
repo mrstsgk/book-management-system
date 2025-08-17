@@ -1,4 +1,4 @@
-package com.bookmanagementsystem.config
+package com.bookmanagementsystem.presentation.config
 
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.TestPropertySource
