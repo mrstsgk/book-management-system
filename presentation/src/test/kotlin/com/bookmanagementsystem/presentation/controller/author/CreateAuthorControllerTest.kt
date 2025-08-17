@@ -92,9 +92,9 @@ class CreateAuthorControllerTest : FunSpec() {
                 val responseJson = result.response.contentAsString
                 val errorResponse = objectMapper.readValue(responseJson, BadRequestErrorResponseModel::class.java)
 
-                errorResponse.errors!!.size shouldBe 1
-                errorResponse.errors.first().code shouldBe "VALIDATION_ERROR"
-                errorResponse.errors.first().message shouldBe "name: must not be null"
+                errorResponse.errors?.size shouldBe 1
+                errorResponse.errors?.first()?.code shouldBe "VALIDATION_ERROR"
+                errorResponse.errors?.first()?.message shouldBe "name: must not be null"
             }
         }
     }
