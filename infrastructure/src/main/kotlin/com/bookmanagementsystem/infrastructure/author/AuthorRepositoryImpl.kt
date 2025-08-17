@@ -11,10 +11,25 @@ import org.springframework.stereotype.Repository
 
 @Repository
 class AuthorRepositoryImpl(private val dsl: DSLContext) : AuthorRepository {
+    override fun findById(id: ID<Author>): Author? = dsl
+        .selectFrom(AUTHOR)
+        .where(AUTHOR.ID.eq(id.value))
+        .fetchOne()
+        ?.let { convert(it) }
+
     override fun insert(author: Author) = dsl
         .insertInto(AUTHOR)
         .set(AUTHOR.NAME, author.name)
         .set(AUTHOR.BIRTH_DATE, author.birthDate?.value)
+        .returning()
+        .fetchSingle()
+        .let { convert(it) }
+
+    override fun update(author: Author) = dsl
+        .update(AUTHOR)
+        .set(AUTHOR.NAME, author.name)
+        .set(AUTHOR.BIRTH_DATE, author.birthDate?.value)
+        .where(AUTHOR.ID.eq(author.id!!.value))
         .returning()
         .fetchSingle()
         .let { convert(it) }
