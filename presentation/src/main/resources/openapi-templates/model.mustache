@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Max
 import jakarta.validation.Valid
+import com.bookmanagementsystem.usecase.validation.PastOnly
 {{/isEnum}}
 
 {{#description}}
@@ -43,7 +44,8 @@ data class {{classname}}(
 {{/description}}{{#minimum}}    @get:Min({{minimum}}L)
 {{/minimum}}{{#maximum}}    @get:Max({{maximum}}L)
 {{/maximum}}{{#complexType}}    @field:Valid
-{{/complexType}}{{#required}}    @field:NotNull
+{{/complexType}}{{#vendorExtensions.x-field-extra-annotation}}    {{vendorExtensions.x-field-extra-annotation}}
+{{/vendorExtensions.x-field-extra-annotation}}{{#required}}    @field:NotNull
 {{/required}}    @get:JsonProperty("{{baseName}}") val {{name}}: {{{dataType}}}?{{^-last}},{{/-last}}
 {{/vars}}) {
 

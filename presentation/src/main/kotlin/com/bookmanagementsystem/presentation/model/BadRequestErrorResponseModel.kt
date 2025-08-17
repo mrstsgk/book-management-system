@@ -8,17 +8,11 @@ import jakarta.validation.Valid
 import com.bookmanagementsystem.usecase.validation.PastOnly
 
 /**
- * エラー情報
- * @param code エラーコード
- * @param message エラーメッセージ
+ * リクエストのバリデーションエラー
  */
-data class ErrorModel(
-
-    /* エラーコード */
-    @get:JsonProperty("code") val code: kotlin.String?,
-
-    /* エラーメッセージ */
-    @get:JsonProperty("message") val message: kotlin.String?
+data class BadRequestErrorResponseModel(
+    @field:Valid
+    @get:JsonProperty("errors") val errors: kotlin.collections.List<ErrorModel>?
 ) {
 
 }

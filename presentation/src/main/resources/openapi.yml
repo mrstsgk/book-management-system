@@ -31,6 +31,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthorResponseModel'
+        '400':
+          description: リクエストのバリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestErrorResponseModel'
+
   /api/authors/{id}:
     put:
       tags:
@@ -61,6 +68,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthorResponseModel'
+        '400':
+          description: リクエストのバリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestErrorResponseModel'
         '404':
           description: 著者が見つからない場合
           content:
@@ -82,6 +95,7 @@ components:
           type: string
           format: date
           description: 生年月日
+          x-field-extra-annotation: "@field:com.bookmanagementsystem.usecase.validation.PastOnly"
           example: "1909-06-19"
       required:
         - name
@@ -98,6 +112,7 @@ components:
           type: string
           format: date
           description: 生年月日
+          x-field-extra-annotation: "@field:com.bookmanagementsystem.usecase.validation.PastOnly"
           example: "1909-06-19"
       required:
         - name
@@ -123,6 +138,15 @@ components:
       required:
         - id
         - name
+
+    BadRequestErrorResponseModel:
+      type: object
+      description: リクエストのバリデーションエラー
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorModel'
 
     NotFoundErrorResponseModel:
       type: object
