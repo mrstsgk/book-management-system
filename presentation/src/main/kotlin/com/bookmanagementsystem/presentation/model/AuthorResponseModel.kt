@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Size
 import jakarta.validation.Valid
 import com.bookmanagementsystem.usecase.validation.PastOnly
 
@@ -14,7 +15,6 @@ import com.bookmanagementsystem.usecase.validation.PastOnly
  * @param birthDate 生年月日
  */
 data class AuthorResponseModel(
-
     /* 著者ID */
     @field:NotNull
     @get:JsonProperty("id") val id: kotlin.Int?,
@@ -25,6 +25,7 @@ data class AuthorResponseModel(
 
     /* 生年月日 */
     @field:Valid
+    @field:com.bookmanagementsystem.usecase.validation.PastOnly
     @get:JsonProperty("birthDate") val birthDate: java.time.LocalDate?
 ) {
 

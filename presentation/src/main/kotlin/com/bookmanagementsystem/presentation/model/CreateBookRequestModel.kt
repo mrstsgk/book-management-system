@@ -9,18 +9,13 @@ import jakarta.validation.Valid
 import com.bookmanagementsystem.usecase.validation.PastOnly
 
 /**
- * 書籍のAPIで汎用的に使用するレスポンス情報
- * @param id 書籍ID
+ * 書籍登録APIのリクエスト情報
  * @param title 書籍タイトル
  * @param price 書籍価格
  * @param authors 著者のリスト
  * @param status BookStatus
  */
-data class BookResponseModel(
-    /* 書籍ID */
-    @field:NotNull
-    @get:JsonProperty("id") val id: kotlin.Int?,
-
+data class CreateBookRequestModel(
     /* 書籍タイトル */
     @field:NotNull
     @get:JsonProperty("title") val title: kotlin.String?,

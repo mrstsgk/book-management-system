@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Size
 import jakarta.validation.Valid
 import com.bookmanagementsystem.usecase.validation.PastOnly
 
@@ -13,7 +14,6 @@ import com.bookmanagementsystem.usecase.validation.PastOnly
  * @param birthDate 生年月日
  */
 data class CreateAuthorRequestModel(
-
     /* 著者名 */
     @field:NotNull
     @get:JsonProperty("name") val name: kotlin.String?,
