@@ -8,21 +8,22 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Size
 import jakarta.validation.Valid
 import com.bookmanagementsystem.usecase.validation.PastOnly
 {{/isEnum}}
 
 {{#description}}
 /**
- * {{description}}
-{{#hasVars}}{{#vars}}{{#description}} * @param {{name}} {{description}}
-{{/description}}{{/vars}}{{/hasVars}} */
+ * {{{description}}}
+{{#hasVars}}{{#vars}} * @param {{name}}{{#description}} {{{description}}}{{/description}}{{^description}} {{{dataType}}}{{/description}}
+{{/vars}}{{/hasVars}} */
 {{/description}}
 {{^description}}
 /**
  * {{classname}}
-{{#hasVars}}{{#vars}}{{#description}} * @param {{name}} {{description}}
-{{/description}}{{/vars}}{{/hasVars}} */
+{{#hasVars}}{{#vars}} * @param {{name}}{{#description}} {{{description}}}{{/description}}{{^description}} {{{dataType}}}{{/description}}
+{{/vars}}{{/hasVars}} */
 {{/description}}
 {{#isEnum}}
 enum class {{classname}}(@JsonValue val value: {{{dataType}}}) {
@@ -39,15 +40,18 @@ enum class {{classname}}(@JsonValue val value: {{{dataType}}}) {
 {{/isEnum}}
 {{^isEnum}}
 data class {{classname}}(
-{{#vars}}{{#description}}
-    /* {{description}} */
+{{#vars}}{{^-first}}
+
+{{/-first}}{{#description}}    /* {{{description}}} */
 {{/description}}{{#minimum}}    @get:Min({{minimum}}L)
 {{/minimum}}{{#maximum}}    @get:Max({{maximum}}L)
-{{/maximum}}{{#complexType}}    @field:Valid
+{{/maximum}}{{#minItems}}    @get:Size(min = {{minItems}}{{#maxItems}}, max = {{maxItems}}{{/maxItems}})
+{{/minItems}}{{^minItems}}{{#maxItems}}    @get:Size(max = {{maxItems}})
+{{/maxItems}}{{/minItems}}{{#complexType}}    @field:Valid
 {{/complexType}}{{#vendorExtensions.x-field-extra-annotation}}    {{vendorExtensions.x-field-extra-annotation}}
 {{/vendorExtensions.x-field-extra-annotation}}{{#required}}    @field:NotNull
-{{/required}}    @get:JsonProperty("{{baseName}}") val {{name}}: {{{dataType}}}?{{^-last}},{{/-last}}
-{{/vars}}) {
+{{/required}}    @get:JsonProperty("{{baseName}}") val {{name}}: {{{dataType}}}?{{^-last}},{{/-last}}{{/vars}}
+) {
 
 }
 {{/isEnum}}
