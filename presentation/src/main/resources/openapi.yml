@@ -92,7 +92,7 @@ paths:
         - 著者は1人以上
         - 出版ステータスは出版済みから未出版に変更できない
       requestBody:
-        description: 登録する著者の情報
+        description: 登録する書籍の情報
         required: true
         content:
           application/json:
@@ -100,11 +100,11 @@ paths:
               $ref: '#/components/schemas/CreateBookRequestModel'
       responses:
         '200':
-          description: 著者の作成に成功
+          description: 書籍の作成に成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthorResponseModel'
+                $ref: '#/components/schemas/BookResponseModel'
         '400':
           description: リクエストのバリデーションエラー
           content:
