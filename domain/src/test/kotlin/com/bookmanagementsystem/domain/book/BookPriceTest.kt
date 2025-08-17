@@ -20,7 +20,7 @@ class BookPriceTest : FunSpec({
 
         test("負の金額で書籍価格を作成できない") {
             shouldThrow<IllegalArgumentException> {
-                BookPrice(Amount.of(-100L))
+                BookPrice.of(-100L)
             }
         }
 
@@ -31,8 +31,7 @@ class BookPriceTest : FunSpec({
         }
 
         test("小数を含む書籍金額で価格を作成できる") {
-            val amount = Amount(BigDecimal("1500.50"))
-            val price = BookPrice(amount)
+            val price = BookPrice.of(BigDecimal("1500.50"))
             price.amount.value shouldBe BigDecimal("1500.50")
         }
     }
