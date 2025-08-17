@@ -27,6 +27,11 @@ dependencies {
 	jooqCodegen 'org.postgresql:postgresql:42.7.4'
 	jooqCodegen 'org.jooq:jooq-meta:3.19.15'
 	jooqCodegen 'org.jooq:jooq-codegen:3.19.15'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework:spring-jdbc'
+	testImplementation 'io.kotest.extensions:kotest-extensions-spring:1.1.3'
+	testImplementation 'io.mockk:mockk:1.13.13'
 }
 
 // NOTE: .env.sample を参照して .env ファイルを作成してください

@@ -22,6 +22,7 @@ class AuthorQueryServiceImpl(private val dsl: DSLContext) : AuthorQueryService {
         .join(BOOK_AUTHOR)
         .on(AUTHOR.ID.eq(BOOK_AUTHOR.AUTHOR_ID))
         .where(BOOK_AUTHOR.BOOK_ID.eq(bookId.value))
+        .orderBy(AUTHOR.ID)
         .fetch()
         .map { record ->
             AuthorDto(
