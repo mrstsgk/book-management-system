@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Size
 import jakarta.validation.Valid
 import com.bookmanagementsystem.usecase.validation.PastOnly
 
@@ -13,7 +14,6 @@ import com.bookmanagementsystem.usecase.validation.PastOnly
  * @param message エラーメッセージ
  */
 data class ErrorModel(
-
     /* エラーコード */
     @get:JsonProperty("code") val code: kotlin.String?,
 
