@@ -13,6 +13,8 @@ data class BookPrice(val amount: Amount) {
 
     companion object {
         fun of(amount: Long): BookPrice = BookPrice(Amount.of(amount))
+
+        fun of(amount: BigDecimal): BookPrice = BookPrice(Amount(amount))
     }
 
     fun toLong(): Long = amount.toLong()
