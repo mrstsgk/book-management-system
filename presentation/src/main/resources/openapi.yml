@@ -169,7 +169,7 @@ components:
           items:
             type: integer
             format: int32
-          description: 著者のリスト
+          description: 著者IDのリスト
         status:
           $ref: '#/components/schemas/BookStatus'
       required:
