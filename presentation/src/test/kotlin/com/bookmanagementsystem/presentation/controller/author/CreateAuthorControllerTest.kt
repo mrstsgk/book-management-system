@@ -2,6 +2,7 @@ package com.bookmanagementsystem.presentation.controller.author
 
 import com.bookmanagementsystem.presentation.config.IntegrationTestWithSql
 import com.bookmanagementsystem.presentation.model.AuthorResponseModel
+import com.bookmanagementsystem.presentation.model.BadRequestErrorResponseModel
 import com.bookmanagementsystem.presentation.model.CreateAuthorRequestModel
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.core.spec.style.FunSpec
@@ -78,12 +79,22 @@ class CreateAuthorControllerTest : FunSpec() {
             test("空のJSONの場合バリデーションエラーが発生する") {
                 val requestJson = "{}"
 
-                mockMvc.perform(
+                val result = mockMvc.perform(
                     post("/api/authors")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson)
                 )
                     .andExpect(status().isBadRequest)
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andReturn()
+
+                // BadRequestErrorResponseModel形式のレスポンス検証
+                val responseJson = result.response.contentAsString
+                val errorResponse = objectMapper.readValue(responseJson, BadRequestErrorResponseModel::class.java)
+
+                errorResponse.errors!!.size shouldBe 1
+                errorResponse.errors.first().code shouldBe "VALIDATION_ERROR"
+                errorResponse.errors.first().message shouldBe "name: must not be null"
             }
         }
     }
