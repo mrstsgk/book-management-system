@@ -29,20 +29,19 @@ class CreateAuthorControllerTest : FunSpec() {
     private lateinit var mockMvc: MockMvc
 
     init {
+        beforeEach {
+            mockMvc = MockMvcBuilders
+                .webAppContextSetup(webApplicationContext)
+                .build()
+        }
+
         context("200") {
             test("有効なリクエストで著者が正常に作成される") {
-                // Arrange
-                mockMvc = MockMvcBuilders
-                    .webAppContextSetup(webApplicationContext)
-                    .build()
-
                 val request = CreateAuthorRequestModel(
                     name = "夏目漱石",
                     birthDate = LocalDate.of(1867, 2, 9)
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
-
-                // Act & Assert
                 val result = mockMvc.perform(
                     post("/api/authors")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -62,18 +61,11 @@ class CreateAuthorControllerTest : FunSpec() {
             }
 
             test("生年月日がnullでも著者が正常に作成される") {
-                // Arrange
-                mockMvc = MockMvcBuilders
-                    .webAppContextSetup(webApplicationContext)
-                    .build()
-
                 val request = CreateAuthorRequestModel(
                     name = "太宰治",
                     birthDate = null
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
-
-                // Act & Assert
                 val result = mockMvc.perform(
                     post("/api/authors")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -95,18 +87,12 @@ class CreateAuthorControllerTest : FunSpec() {
 
         context("400") {
             test("nameがnullの場合バリデーションエラーが発生する") {
-                // Arrange
-                mockMvc = MockMvcBuilders
-                    .webAppContextSetup(webApplicationContext)
-                    .build()
-
                 val request = CreateAuthorRequestModel(
                     name = null,
                     birthDate = LocalDate.of(1867, 2, 9)
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
 
-                // Act & Assert
                 mockMvc.perform(
                     post("/api/authors")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -116,14 +102,8 @@ class CreateAuthorControllerTest : FunSpec() {
             }
 
             test("空のJSONの場合バリデーションエラーが発生する") {
-                // Arrange
-                mockMvc = MockMvcBuilders
-                    .webAppContextSetup(webApplicationContext)
-                    .build()
-
                 val requestJson = "{}"
 
-                // Act & Assert
                 mockMvc.perform(
                     post("/api/authors")
                         .contentType(MediaType.APPLICATION_JSON)
