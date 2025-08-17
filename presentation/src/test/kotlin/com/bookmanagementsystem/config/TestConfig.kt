@@ -19,28 +19,7 @@ class TestConfig {
      */
     @Bean
     fun dataSource(): DataSource {
-        val projectRoot = System.getProperty("user.dir")
-        // Check if we're in a subproject directory (presentation/), go up one level
-        val rootDir = if (projectRoot.endsWith("presentation")) {
-            File(projectRoot).parent
-        } else {
-            projectRoot
-        }
-        val envFile = File(rootDir, ".env")
-        check(envFile.exists()) {
-            "Required .env file not found at: ${envFile.absolutePath}. " +
-                "Please create .env file with POSTGRES_USER and POSTGRES_PASSWORD"
-        }
-
-        val properties = Properties()
-        properties.load(FileInputStream(envFile))
-
-        val postgresUser = properties.getProperty("POSTGRES_USER")
-        val postgresPassword = properties.getProperty("POSTGRES_PASSWORD")
-
-        require(!postgresUser.isNullOrBlank() && !postgresPassword.isNullOrBlank()) {
-            "POSTGRES_USER and POSTGRES_PASSWORD must be set in .env file"
-        }
+        val (postgresUser, postgresPassword) = getDatabaseCredentials()
 
         return DataSourceBuilder.create()
             .url("jdbc:postgresql://localhost:5433/book_management")
@@ -48,5 +27,43 @@ class TestConfig {
             .password(postgresPassword)
             .driverClassName("org.postgresql.Driver")
             .build()
+    }
+
+    private fun getDatabaseCredentials(): Pair<String, String> {
+        return getCredentialsForCiEnvironment() ?: getCredentialsForLocalEnvironment()
+    }
+
+    private fun getCredentialsForCiEnvironment(): Pair<String, String>? {
+        val envUser = System.getenv("POSTGRES_USER")
+        val envPassword = System.getenv("POSTGRES_PASSWORD")
+
+        return if (!envUser.isNullOrBlank() && !envPassword.isNullOrBlank()) {
+            Pair(envUser, envPassword)
+        } else {
+            null
+        }
+    }
+
+    private fun getCredentialsForLocalEnvironment(): Pair<String, String> {
+        val projectRoot = System.getProperty("user.dir")
+        val rootDir = if (projectRoot.endsWith("presentation")) {
+            File(projectRoot).parent
+        } else {
+            projectRoot
+        }
+        val envFile = File(rootDir, ".env")
+
+        if (!envFile.exists()) error("Required .env file not found at: ${envFile.absolutePath}")
+
+        val properties = Properties()
+        properties.load(FileInputStream(envFile))
+        val fileUser = properties.getProperty("POSTGRES_USER")
+        val filePassword = properties.getProperty("POSTGRES_PASSWORD")
+
+        require(fileUser.isNotBlank() && filePassword.isNotBlank()) {
+            "POSTGRES_USER and POSTGRES_PASSWORD must be set in .env file"
+        }
+
+        return Pair(fileUser, filePassword)
     }
 }
