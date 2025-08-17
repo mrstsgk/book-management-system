@@ -163,18 +163,19 @@ components:
           maximum: 9999999999
           description: 書籍価格
           example: 1500
-        authors:
+        authorIds:
           type: array
           minItems: 1
           items:
-            $ref: '#/components/schemas/AuthorResponseModel'
-          description: 著者のリスト
+            type: integer
+            format: int32
+          description: 著者IDのリスト
         status:
           $ref: '#/components/schemas/BookStatus'
       required:
         - title
         - price
-        - authors
+        - authorIds
         - status
 
     AuthorResponseModel:

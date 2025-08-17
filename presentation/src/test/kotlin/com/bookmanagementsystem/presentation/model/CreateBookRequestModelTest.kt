@@ -5,7 +5,6 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import jakarta.validation.Validation
 import jakarta.validation.Validator
-import java.time.LocalDate
 
 class CreateBookRequestModelTest : FunSpec({
     val validator: Validator = Validation.buildDefaultValidatorFactory().validator
@@ -13,19 +12,19 @@ class CreateBookRequestModelTest : FunSpec({
     test("有効なパラメータでCreateBookRequestModelを作成できる") {
         val title = "人間失格"
         val price = 1500L
-        val authors = createDefaultAuthors()
+        val authorIds = createDefaultAuthorIds()
         val status = BookStatus.PUBLISHED
 
         val requestModel = createValidBookRequest(
             title = title,
             price = price,
-            authors = authors,
+            authorIds = authorIds,
             status = status
         )
 
         requestModel.title shouldBe title
         requestModel.price shouldBe price
-        requestModel.authors shouldBe authors
+        requestModel.authorIds shouldBe authorIds
         requestModel.status shouldBe status
     }
 
@@ -33,7 +32,7 @@ class CreateBookRequestModelTest : FunSpec({
         val requestModel = CreateBookRequestModel(
             title = null,
             price = 1500L,
-            authors = createDefaultAuthors(),
+            authorIds = createDefaultAuthorIds(),
             status = BookStatus.PUBLISHED
         )
 
@@ -46,7 +45,7 @@ class CreateBookRequestModelTest : FunSpec({
         val requestModel = CreateBookRequestModel(
             title = "人間失格",
             price = null,
-            authors = createDefaultAuthors(),
+            authorIds = createDefaultAuthorIds(),
             status = BookStatus.PUBLISHED
         )
 
@@ -75,11 +74,11 @@ class CreateBookRequestModelTest : FunSpec({
         violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Max.message}"
     }
 
-    test("著者リストがnullの場合バリデーションエラー") {
+    test("著者IDリストがnullの場合バリデーションエラー") {
         val requestModel = CreateBookRequestModel(
             title = "人間失格",
             price = 1500L,
-            authors = null,
+            authorIds = null,
             status = BookStatus.PUBLISHED
         )
 
@@ -88,9 +87,12 @@ class CreateBookRequestModelTest : FunSpec({
         violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.NotNull.message}"
     }
 
-    test("著者リストが空の場合バリデーションエラー") {
-        val requestModel = createValidBookRequest(
-            authors = emptyList()
+    test("著者IDリストが空の場合バリデーションエラー") {
+        val requestModel = CreateBookRequestModel(
+            title = "人間失格",
+            price = 1500L,
+            authorIds = emptyList(),
+            status = BookStatus.PUBLISHED
         )
 
         val violations = validator.validate(requestModel)
@@ -102,7 +104,7 @@ class CreateBookRequestModelTest : FunSpec({
         val requestModel = CreateBookRequestModel(
             title = "人間失格",
             price = 1500L,
-            authors = createDefaultAuthors(),
+            authorIds = createDefaultAuthorIds(),
             status = null
         )
 
@@ -111,20 +113,17 @@ class CreateBookRequestModelTest : FunSpec({
         violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.NotNull.message}"
     }
 
-    test("複数の著者を設定できる") {
-        val authors = listOf(
-            createDefaultAuthor(id = 1, name = "太宰治"),
-            createDefaultAuthor(id = 2, name = "夏目漱石", birthDate = LocalDate.of(1867, 2, 9))
-        )
+    test("複数の著者IDを設定できる") {
+        val authorIds = listOf(1, 2)
 
         val requestModel = createValidBookRequest(
             title = "文学選集",
             price = 3000L,
-            authors = authors
+            authorIds = authorIds
         )
 
-        requestModel.authors?.shouldHaveSize(2)
-        requestModel.authors shouldBe authors
+        requestModel.authorIds?.shouldHaveSize(2)
+        requestModel.authorIds shouldBe authorIds
     }
 
     test("出版済みステータスを設定できる") {
@@ -167,26 +166,16 @@ class CreateBookRequestModelTest : FunSpec({
 })
 
 // テストフィクスチャ
-fun createDefaultAuthor(
-    id: Int = 1,
-    name: String = "太宰治",
-    birthDate: LocalDate = LocalDate.of(1909, 6, 19)
-) = AuthorResponseModel(
-    id = id,
-    name = name,
-    birthDate = birthDate
-)
-
-fun createDefaultAuthors() = listOf(createDefaultAuthor())
+fun createDefaultAuthorIds() = listOf(1)
 
 fun createValidBookRequest(
     title: String = "人間失格",
     price: Long = 1500L,
-    authors: List<AuthorResponseModel> = createDefaultAuthors(),
+    authorIds: List<Int> = createDefaultAuthorIds(),
     status: BookStatus = BookStatus.PUBLISHED
 ) = CreateBookRequestModel(
     title = title,
     price = price,
-    authors = authors,
+    authorIds = authorIds,
     status = status
 )
