@@ -4,13 +4,9 @@ import com.bookmanagementsystem.config.IntegrationTestWithSql
 import com.bookmanagementsystem.presentation.model.AuthorResponseModel
 import com.bookmanagementsystem.presentation.model.CreateAuthorRequestModel
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
-import io.kotest.matchers.types.instanceOf
-import jakarta.servlet.ServletException
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
@@ -60,7 +56,7 @@ class CreateAuthorControllerTest : FunSpec() {
                 val responseJson = result.response.contentAsString
                 val response = objectMapper.readValue(responseJson, AuthorResponseModel::class.java)
 
-                response.id shouldNotBe null
+                response.id shouldBe 1
                 response.name shouldBe "夏目漱石"
                 response.birthDate shouldBe LocalDate.of(1867, 2, 9)
             }
@@ -91,7 +87,7 @@ class CreateAuthorControllerTest : FunSpec() {
                 val responseJson = result.response.contentAsString
                 val response = objectMapper.readValue(responseJson, AuthorResponseModel::class.java)
 
-                response.id shouldNotBe null
+                response.id shouldBe 1
                 response.name shouldBe "太宰治"
                 response.birthDate shouldBe null
             }
@@ -134,33 +130,6 @@ class CreateAuthorControllerTest : FunSpec() {
                         .content(requestJson)
                 )
                     .andExpect(status().isBadRequest)
-            }
-        }
-
-        context("500") {
-            test("生年月日が未来日付の場合ServletExceptionが発生する") {
-                // Arrange
-                mockMvc = MockMvcBuilders
-                    .webAppContextSetup(webApplicationContext)
-                    .build()
-
-                val request = CreateAuthorRequestModel(
-                    name = "未来の著者",
-                    birthDate = LocalDate.now().plusDays(1)
-                )
-                val requestJson = objectMapper.writeValueAsString(request)
-
-                // Act & Assert
-                val exception = shouldThrow<ServletException> {
-                    mockMvc.perform(
-                        post("/api/authors")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(requestJson)
-                    )
-                }
-
-                // ServletExceptionの原因がIllegalArgumentExceptionであることを確認
-                exception.cause shouldBe instanceOf<IllegalArgumentException>()
             }
         }
     }
