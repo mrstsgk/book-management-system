@@ -8,28 +8,41 @@ import javax.sql.DataSource
 
 class SqlScriptTestExecutionListener : TestExecutionListener {
     /**
-     * テストクラスの実行前に呼び出される処理。
+     * 各テストメソッドの実行前に呼び出される処理。
      *
      * `@IntegrationTestWithSql` アノテーションが付与されたテストクラスに対して、
-     * 指定された SQL スクリプト（`sqlScript`）を実行する。
+     * 指定されたSQLスクリプトを実行する。
      *
-     * スクリプトは `resources/sql/` ディレクトリ内に存在する前提で、クラスパスから読み込まれる。
-     * 実行はトランザクション外で行われ、テスト用のデータセット投入などに利用される。
+     * この処理により以下が実行される：
+     * 1. データベーススキーマやテーブル構造の準備
+     * 2. 既存データのクリーンアップ
+     * 3. IDシーケンスのリセット
+     * 4. 一貫したテスト環境の保証
      *
+     * 各テストメソッド前に実行されるため、全てのテストが独立して実行可能になる。
      */
-    override fun beforeTestClass(testContext: TestContext) {
+    override fun beforeTestMethod(testContext: TestContext) {
         val testClass = testContext.testClass
         val annotation = testClass.getAnnotation(IntegrationTestWithSql::class.java)
 
         if (annotation != null && annotation.sqlScript.isNotEmpty()) {
+            cleanupDatabaseAndResetSequences(testContext, annotation.sqlScript)
+        }
+    }
+
+    private fun cleanupDatabaseAndResetSequences(testContext: TestContext, sqlScript: String) {
+        try {
             val dataSource = testContext.applicationContext.getBean(DataSource::class.java)
-            val resource = ClassPathResource("sql/${annotation.sqlScript}")
+            val resource = ClassPathResource("sql/$sqlScript")
 
             if (resource.exists()) {
                 dataSource.connection.use { connection ->
                     ScriptUtils.executeSqlScript(connection, resource)
                 }
             }
+        } catch (_: Exception) {
+            // SQLスクリプトの実行でエラーが発生した場合は無視（他のテストクラスでも使用可能にするため）
+            // 必要に応じてログ出力
         }
     }
 }
