@@ -115,7 +115,7 @@ paths:
     put:
       tags:
         - Books
-      summary: 著者を更新する
+      summary: 書籍を更新する
       operationId: updateBook
       description: |
         - 書籍価格は0以上
@@ -150,7 +150,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BadRequestErrorResponseModel'
         '404':
-          description: 著者が見つからない場合
+          description: 書籍が見つからない場合
           content:
             application/json:
               schema:
