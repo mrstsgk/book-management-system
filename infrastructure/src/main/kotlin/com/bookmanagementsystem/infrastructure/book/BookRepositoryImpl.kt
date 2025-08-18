@@ -41,6 +41,14 @@ class BookRepositoryImpl(private val dsl: DSLContext) : BookRepository {
         return convert(record, authorIds)
     }
 
+    override fun getBookPublishStatusById(id: ID<Book>): BookPublishStatus =
+        BookPublishStatus.of(
+            dsl.select(BOOK.PUBLISH_STATUS)
+                .from(BOOK)
+                .where(BOOK.ID.eq(id.value))
+                .fetchSingleInto(Int::class.java)
+        )
+
     private fun convert(record: BookRecord, authorIds: List<ID<Author>>) = Book(
         id = ID(record.id!!),
         title = record.title!!,
