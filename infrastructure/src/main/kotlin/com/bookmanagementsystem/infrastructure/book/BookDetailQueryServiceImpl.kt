@@ -28,8 +28,9 @@ class BookDetailQueryServiceImpl(private val dsl: DSLContext) : BookDetailQueryS
             AUTHOR.BIRTH_DATE.`as`("author_birth_date")
         )
             .from(BOOK)
-            .leftJoin(BOOK_AUTHOR).on(BOOK.ID.eq(BOOK_AUTHOR.BOOK_ID))
-            .leftJoin(AUTHOR).on(BOOK_AUTHOR.AUTHOR_ID.eq(AUTHOR.ID))
+            // NOTE: 書籍には必ず著者が存在するというビジネスルールが強制されるため innerJoin で実装する
+            .innerJoin(BOOK_AUTHOR).on(BOOK.ID.eq(BOOK_AUTHOR.BOOK_ID))
+            .innerJoin(AUTHOR).on(BOOK_AUTHOR.AUTHOR_ID.eq(AUTHOR.ID))
             .where(BOOK.ID.eq(id.value))
             .fetch()
 
@@ -42,10 +43,11 @@ class BookDetailQueryServiceImpl(private val dsl: DSLContext) : BookDetailQueryS
     }
 
     private fun convertAuthorDtoList(records: List<Record>): List<AuthorDto> {
-        return records.mapNotNull { record ->
-            val authorId = record.getValue("author_id") as? Int ?: return@mapNotNull null
-            val authorName = record.getValue("author_name") as? String ?: return@mapNotNull null
-            val authorBirthDate = record.getValue("author_birth_date") as? java.time.LocalDate
+        return records.map { record ->
+            // innerJoinを使用しているため、author_idとauthor_nameは必ずnon-null
+            val authorId = record.get("author_id", Int::class.java)!!
+            val authorName = record.get("author_name", String::class.java)!!
+            val authorBirthDate = record.get("author_birth_date", java.time.LocalDate::class.java)
 
             AuthorDto(
                 id = ID(authorId),
