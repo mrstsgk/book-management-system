@@ -3,12 +3,12 @@ package com.bookmanagementsystem.presentation.model
 import com.fasterxml.jackson.annotation.JsonValue
 
 /**
- * 出版ステータス
+ * 出版ステータス(1：未出版、2：出版済み)
  */
 enum class BookStatus(@JsonValue val value: kotlin.Int) {
 
-    PUBLISHED(1),
-    UNPUBLISHED(2);
+    UNPUBLISHED(1),
+    PUBLISHED(2);
 
 
     companion object {

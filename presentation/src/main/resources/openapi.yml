@@ -311,14 +311,14 @@ components:
     BookStatus:
       type: integer
       format: int32
-      description: 出版ステータス
+      description: 出版ステータス(1：未出版、2：出版済み)
       enum:
         - 1
         - 2
       example: 1
       x-enum-varnames:
-        - PUBLISHED
         - UNPUBLISHED
+        - PUBLISHED
 
     BadRequestErrorResponseModel:
       type: object

@@ -19,7 +19,7 @@ INSERT INTO author (id, name, birth_date) VALUES
 -- テスト用の書籍データを挿入
 INSERT INTO book (id, title, price, publish_status) VALUES
 (1, '吾輩は猫である', 1500.00, 2),
-(2, '日本文学選集', 3000.00, 2);
+(2, '日本文学選集', 3000.00, 1);
 
 -- 書籍と著者の関連データを挿入
 -- 書籍1: 夏目漱石のみ

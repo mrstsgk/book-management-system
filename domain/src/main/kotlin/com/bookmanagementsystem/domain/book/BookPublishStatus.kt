@@ -13,10 +13,12 @@ enum class BookPublishStatus(val value: Int) {
     }
 
     /**
-     * 出版可能かどうかを判定する
+     * 指定されたステータスへの変更が可能かどうかを判定する
      */
-    fun canPublish() = when (this) {
-        UNPUBLISHED -> true
-        PUBLISHED -> false
+    fun canChange(newStatus: BookPublishStatus): Boolean {
+        return when (this) {
+            UNPUBLISHED -> true // 未出版からはどの状態にも変更可能
+            PUBLISHED -> newStatus == PUBLISHED // 出版済みからは出版済みのみ
+        }
     }
 }

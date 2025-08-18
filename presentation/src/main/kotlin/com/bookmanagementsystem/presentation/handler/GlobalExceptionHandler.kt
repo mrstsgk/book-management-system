@@ -3,6 +3,7 @@ package com.bookmanagementsystem.presentation.handler
 import com.bookmanagementsystem.presentation.model.BadRequestErrorResponseModel
 import com.bookmanagementsystem.presentation.model.ErrorModel
 import com.bookmanagementsystem.presentation.model.NotFoundErrorResponseModel
+import com.bookmanagementsystem.usecase.exception.UsecaseViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -20,6 +21,18 @@ class GlobalExceptionHandler {
             )
         }
 
+        val errorResponse = BadRequestErrorResponseModel(errors = errors)
+        return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
+    }
+
+    @ExceptionHandler(UsecaseViolationException::class)
+    fun handleUsecaseViolationException(ex: UsecaseViolationException): ResponseEntity<BadRequestErrorResponseModel> {
+        val errors = ex.errors.map { error ->
+            ErrorModel(
+                code = "VALIDATION_ERROR",
+                message = error
+            )
+        }
         val errorResponse = BadRequestErrorResponseModel(errors = errors)
         return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
     }

@@ -5,6 +5,7 @@ import com.bookmanagementsystem.domain.book.Book
 import com.bookmanagementsystem.domain.book.BookPrice
 import com.bookmanagementsystem.domain.book.BookPublishStatus
 import com.bookmanagementsystem.domain.core.ID
+import com.bookmanagementsystem.usecase.validation.CanChangeBookPublishStatus
 
 sealed interface BookRegisterCommand
 
@@ -21,6 +22,7 @@ data class CreateBookCommand(
 /**
  * 書籍を更新するコマンド
  */
+@CanChangeBookPublishStatus
 data class UpdateBookCommand(
     val id: ID<Book>,
     val title: String,
