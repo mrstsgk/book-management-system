@@ -80,6 +80,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorResponseModel'
+        '409':
+          description: 楽観的ロックエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimisticLockErrorResponseModel'
 
   /api/authors/{id}/books:
     get:
@@ -222,8 +228,14 @@ components:
           description: 生年月日
           x-field-extra-annotation: "@field:PastOnly"
           example: "1909-06-19"
+        version:
+          type: integer
+          format: int32
+          description: バージョン番号(楽観的ロック用)
+          example: 1
       required:
         - name
+        - version
 
     CreateBookRequestModel:
       type: object
@@ -302,6 +314,11 @@ components:
           description: 生年月日
           x-field-extra-annotation: "@field:PastOnly"
           example: "1909-06-19"
+        version:
+          type: integer
+          format: int32
+          description: バージョン番号(楽観的ロック用)
+          example: 1
       required:
         - id
         - name
@@ -365,6 +382,15 @@ components:
     NotFoundErrorResponseModel:
       type: object
       description: 汎用的なエラーレスポンス
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorModel'
+
+    OptimisticLockErrorResponseModel:
+      type: object
+      description: 楽観的ロックエラーレスポンス
       properties:
         errors:
           type: array
