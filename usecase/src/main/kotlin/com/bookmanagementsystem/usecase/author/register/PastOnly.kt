@@ -1,4 +1,4 @@
-package com.bookmanagementsystem.usecase.validation
+package com.bookmanagementsystem.usecase.author.register
 
 import jakarta.validation.Constraint
 import jakarta.validation.ConstraintValidator
