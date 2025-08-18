@@ -38,7 +38,8 @@ class ReadAuthorBookUsecaseTest : FunSpec({
                     AuthorDto(
                         id = ID(1),
                         name = "夏目漱石",
-                        birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9))
+                        birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9)),
+                        version = 1
                     )
                 ),
                 status = BookPublishStatus.PUBLISHED
@@ -51,7 +52,8 @@ class ReadAuthorBookUsecaseTest : FunSpec({
                     AuthorDto(
                         id = ID(1),
                         name = "夏目漱石",
-                        birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9))
+                        birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9)),
+                        version = 1
                     )
                 ),
                 status = BookPublishStatus.PUBLISHED
@@ -125,17 +127,20 @@ class ReadAuthorBookUsecaseTest : FunSpec({
                     AuthorDto(
                         id = ID(1),
                         name = "夏目漱石",
-                        birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9))
+                        birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9)),
+                        version = 1
                     ),
                     AuthorDto(
                         id = ID(2),
                         name = "太宰治",
-                        birthDate = AuthorBirthDate(LocalDate.of(1909, 6, 19))
+                        birthDate = AuthorBirthDate(LocalDate.of(1909, 6, 19)),
+                        version = 1
                     ),
                     AuthorDto(
                         id = ID(3),
                         name = "芥川龍之介",
-                        birthDate = AuthorBirthDate(LocalDate.of(1892, 3, 1))
+                        birthDate = AuthorBirthDate(LocalDate.of(1892, 3, 1)),
+                        version = 1
                     )
                 ),
                 status = BookPublishStatus.PUBLISHED

@@ -23,7 +23,8 @@ class CreateAuthorUsecaseTest : FunSpec({
         val savedAuthor = Author(
             id = ID(1),
             name = "テスト著者",
-            birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1))
+            birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1)),
+            version = 1
         )
 
         every { repository.insert(any()) } returns savedAuthor
@@ -32,7 +33,8 @@ class CreateAuthorUsecaseTest : FunSpec({
         result shouldBe AuthorDto(
             id = ID(1),
             name = "テスト著者",
-            birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1))
+            birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1)),
+            version = 1
         )
         verify {
             repository.insert(
@@ -54,7 +56,8 @@ class CreateAuthorUsecaseTest : FunSpec({
         val savedAuthor = Author(
             id = ID(2),
             name = "テスト著者2",
-            birthDate = null
+            birthDate = null,
+            version = 1
         )
 
         every { repository.insert(any()) } returns savedAuthor
@@ -63,7 +66,8 @@ class CreateAuthorUsecaseTest : FunSpec({
         result shouldBe AuthorDto(
             id = ID(2),
             name = "テスト著者2",
-            birthDate = null
+            birthDate = null,
+            version = 1
         )
         verify {
             repository.insert(

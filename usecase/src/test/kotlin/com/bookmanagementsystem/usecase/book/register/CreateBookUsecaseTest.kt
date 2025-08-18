@@ -41,12 +41,14 @@ class CreateBookUsecaseTest : FunSpec({
             AuthorDto(
                 id = ID(1),
                 name = "著者1",
-                birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1))
+                birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1)),
+                version = 1
             ),
             AuthorDto(
                 id = ID(2),
                 name = "著者2",
-                birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15))
+                birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15)),
+                version = 1
             )
         )
 
@@ -102,7 +104,8 @@ class CreateBookUsecaseTest : FunSpec({
             AuthorDto(
                 id = ID(1),
                 name = "著者1",
-                birthDate = null
+                birthDate = null,
+                version = 1
             )
         )
 
@@ -155,17 +158,20 @@ class CreateBookUsecaseTest : FunSpec({
             AuthorDto(
                 id = ID(1),
                 name = "著者1",
-                birthDate = AuthorBirthDate(LocalDate.of(1980, 3, 10))
+                birthDate = AuthorBirthDate(LocalDate.of(1980, 3, 10)),
+                version = 1
             ),
             AuthorDto(
                 id = ID(2),
                 name = "著者2",
-                birthDate = AuthorBirthDate(LocalDate.of(1975, 8, 20))
+                birthDate = AuthorBirthDate(LocalDate.of(1975, 8, 20)),
+                version = 1
             ),
             AuthorDto(
                 id = ID(3),
                 name = "著者3",
-                birthDate = AuthorBirthDate(LocalDate.of(1990, 12, 5))
+                birthDate = AuthorBirthDate(LocalDate.of(1990, 12, 5)),
+                version = 1
             )
         )
 
