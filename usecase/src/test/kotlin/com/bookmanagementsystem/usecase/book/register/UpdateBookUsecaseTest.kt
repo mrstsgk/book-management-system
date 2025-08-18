@@ -13,15 +13,20 @@ import com.bookmanagementsystem.usecase.book.read.BookDetailQueryService
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 
 class UpdateBookUsecaseTest : FunSpec({
     val repository = mockk<BookRepository>()
-    val queryService = mockk<BookDetailQueryService>()
+    val detailQueryService = mockk<BookDetailQueryService>()
     val authorQueryService = mockk<AuthorQueryService>()
-    val usecase = UpdateBookUsecase(repository, queryService, authorQueryService)
+    val usecase = UpdateBookUsecase(repository, detailQueryService, authorQueryService)
+
+    beforeEach {
+        clearMocks(repository, detailQueryService, authorQueryService)
+    }
 
     test("書籍更新が正常に実行されること") {
         val bookId = ID<Book>(1)
@@ -46,7 +51,7 @@ class UpdateBookUsecaseTest : FunSpec({
             birthDate = null
         )
 
-        every { queryService.findById(bookId) } returns BookDto(
+        every { detailQueryService.findById(bookId) } returns BookDto(
             id = bookId,
             title = "元のタイトル",
             price = BookPrice.of(1500L),
@@ -65,7 +70,7 @@ class UpdateBookUsecaseTest : FunSpec({
             status = BookPublishStatus.UNPUBLISHED
         )
         verify {
-            queryService.findById(bookId)
+            detailQueryService.findById(bookId)
             repository.update(
                 Book(
                     id = bookId,
@@ -102,7 +107,7 @@ class UpdateBookUsecaseTest : FunSpec({
             AuthorDto(ID(3), "著者3", null)
         )
 
-        every { queryService.findById(bookId) } returns BookDto(
+        every { detailQueryService.findById(bookId) } returns BookDto(
             id = bookId,
             title = "複数著者の書籍",
             price = BookPrice.of(2500L),
@@ -121,7 +126,7 @@ class UpdateBookUsecaseTest : FunSpec({
             status = BookPublishStatus.PUBLISHED
         )
         verify {
-            queryService.findById(bookId)
+            detailQueryService.findById(bookId)
             repository.update(any())
             authorQueryService.findByBookId(bookId)
         }
@@ -137,14 +142,14 @@ class UpdateBookUsecaseTest : FunSpec({
             status = BookPublishStatus.PUBLISHED
         )
 
-        every { queryService.findById(bookId) } returns null
+        every { detailQueryService.findById(bookId) } returns null
 
         val exception = shouldThrow<NoSuchElementException> {
             usecase.execute(command)
         }
         exception.message shouldBe "書籍が見つかりません: ID(value=999)"
         verify {
-            queryService.findById(bookId)
+            detailQueryService.findById(bookId)
         }
         verify(exactly = 0) {
             repository.update(any())
