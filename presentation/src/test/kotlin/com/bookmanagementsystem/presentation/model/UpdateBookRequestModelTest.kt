@@ -118,19 +118,19 @@ class UpdateBookRequestModelTest : FunSpec({
 
     test("出版済みステータスを設定できる") {
         val requestModel = createValidUpdateBookRequest(
-            status = BookStatus.PUBLISHED
+            status = BookStatus.UNPUBLISHED
         )
 
-        requestModel.status shouldBe BookStatus.PUBLISHED
+        requestModel.status shouldBe BookStatus.UNPUBLISHED
         requestModel.status?.value shouldBe 1
     }
 
     test("未出版ステータスを設定できる") {
         val requestModel = createValidUpdateBookRequest(
-            status = BookStatus.UNPUBLISHED
+            status = BookStatus.PUBLISHED
         )
 
-        requestModel.status shouldBe BookStatus.UNPUBLISHED
+        requestModel.status shouldBe BookStatus.PUBLISHED
         requestModel.status?.value shouldBe 2
     }
 
