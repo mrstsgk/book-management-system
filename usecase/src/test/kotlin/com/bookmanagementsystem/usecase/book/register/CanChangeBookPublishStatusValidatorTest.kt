@@ -1,10 +1,9 @@
-package com.bookmanagementsystem.usecase.validation
+package com.bookmanagementsystem.usecase.book.register
 
 import com.bookmanagementsystem.domain.book.BookPrice
 import com.bookmanagementsystem.domain.book.BookPublishStatus
 import com.bookmanagementsystem.domain.book.BookRepository
 import com.bookmanagementsystem.domain.core.ID
-import com.bookmanagementsystem.usecase.book.register.UpdateBookCommand
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -22,7 +21,7 @@ class CanChangeBookPublishStatusValidatorTest : FunSpec({
             val command = UpdateBookCommand(
                 id = ID(1),
                 title = "テスト書籍",
-                price = BookPrice.of(1000L),
+                price = BookPrice.Companion.of(1000L),
                 authorIds = listOf(ID(1)),
                 status = BookPublishStatus.UNPUBLISHED
             )
@@ -37,7 +36,7 @@ class CanChangeBookPublishStatusValidatorTest : FunSpec({
             val command = UpdateBookCommand(
                 id = ID(1),
                 title = "テスト書籍",
-                price = BookPrice.of(1000L),
+                price = BookPrice.Companion.of(1000L),
                 authorIds = listOf(ID(1)),
                 status = BookPublishStatus.PUBLISHED
             )
@@ -52,7 +51,7 @@ class CanChangeBookPublishStatusValidatorTest : FunSpec({
             val command = UpdateBookCommand(
                 id = ID(1),
                 title = "テスト書籍",
-                price = BookPrice.of(1000L),
+                price = BookPrice.Companion.of(1000L),
                 authorIds = listOf(ID(1)),
                 status = BookPublishStatus.PUBLISHED
             )
@@ -67,7 +66,7 @@ class CanChangeBookPublishStatusValidatorTest : FunSpec({
             val command = UpdateBookCommand(
                 id = ID(1),
                 title = "テスト書籍",
-                price = BookPrice.of(1000L),
+                price = BookPrice.Companion.of(1000L),
                 authorIds = listOf(ID(1)),
                 status = BookPublishStatus.UNPUBLISHED
             )

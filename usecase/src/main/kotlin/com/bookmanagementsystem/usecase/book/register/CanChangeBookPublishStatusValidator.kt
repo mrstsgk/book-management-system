@@ -1,7 +1,6 @@
-package com.bookmanagementsystem.usecase.validation
+package com.bookmanagementsystem.usecase.book.register
 
 import com.bookmanagementsystem.domain.book.BookRepository
-import com.bookmanagementsystem.usecase.book.register.UpdateBookCommand
 import jakarta.validation.Constraint
 import jakarta.validation.ConstraintValidator
 import jakarta.validation.ConstraintValidatorContext
