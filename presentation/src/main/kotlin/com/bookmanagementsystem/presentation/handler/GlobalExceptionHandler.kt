@@ -27,11 +27,13 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(UsecaseViolationException::class)
     fun handleUsecaseViolationException(ex: UsecaseViolationException): ResponseEntity<BadRequestErrorResponseModel> {
-        val errorModel = ErrorModel(
-            code = "VALIDATION_ERROR",
-            message = ex.message
-        )
-        val errorResponse = BadRequestErrorResponseModel(errors = listOf(errorModel))
+        val errors = ex.errors.map { error ->
+            ErrorModel(
+                code = "VALIDATION_ERROR",
+                message = error
+            )
+        }
+        val errorResponse = BadRequestErrorResponseModel(errors = errors)
         return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
     }
 
