@@ -81,6 +81,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorResponseModel'
 
+  /api/authors/{id}/books:
+    get:
+      tags:
+        - Authors
+      summary: 著者に紐づく書籍一覧を取得する
+      operationId: getBooksByAuthorId
+      description: 指定された著者IDに紐づく書籍の一覧を取得する
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 著者ID
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: 書籍一覧の取得に成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookResponseModel'
+        '404':
+          description: 著者 または 書籍 が存在しない場合
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponseModel'
+
   /api/books:
     post:
       tags:
@@ -170,7 +201,7 @@ components:
           type: string
           format: date
           description: 生年月日
-          x-field-extra-annotation: "@field:com.bookmanagementsystem.usecase.validation.PastOnly"
+          x-field-extra-annotation: "@field:PastOnly"
           example: "1909-06-19"
       required:
         - name
@@ -187,7 +218,7 @@ components:
           type: string
           format: date
           description: 生年月日
-          x-field-extra-annotation: "@field:com.bookmanagementsystem.usecase.validation.PastOnly"
+          x-field-extra-annotation: "@field:PastOnly"
           example: "1909-06-19"
       required:
         - name
@@ -267,7 +298,7 @@ components:
           type: string
           format: date
           description: 生年月日
-          x-field-extra-annotation: "@field:com.bookmanagementsystem.usecase.validation.PastOnly"
+          x-field-extra-annotation: "@field:PastOnly"
           example: "1909-06-19"
       required:
         - id
