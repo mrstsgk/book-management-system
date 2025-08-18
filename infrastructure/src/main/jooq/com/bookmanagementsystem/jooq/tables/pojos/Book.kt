@@ -16,7 +16,8 @@ data class Book(
     var id: Int? = null,
     var title: String? = null,
     var price: BigDecimal? = null,
-    var publishStatus: Int? = null
+    var publishStatus: Int? = null,
+    var version: Int? = null
 ): Serializable {
 
 
@@ -52,6 +53,12 @@ data class Book(
         }
         else if (this.publishStatus != o.publishStatus)
             return false
+        if (this.version == null) {
+            if (o.version != null)
+                return false
+        }
+        else if (this.version != o.version)
+            return false
         return true
     }
 
@@ -62,6 +69,7 @@ data class Book(
         result = prime * result + (if (this.title == null) 0 else this.title.hashCode())
         result = prime * result + (if (this.price == null) 0 else this.price.hashCode())
         result = prime * result + (if (this.publishStatus == null) 0 else this.publishStatus.hashCode())
+        result = prime * result + (if (this.version == null) 0 else this.version.hashCode())
         return result
     }
 
@@ -72,6 +80,7 @@ data class Book(
         sb.append(", ").append(title)
         sb.append(", ").append(price)
         sb.append(", ").append(publishStatus)
+        sb.append(", ").append(version)
 
         sb.append(")")
         return sb.toString()

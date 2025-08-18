@@ -30,6 +30,10 @@ open class AuthorRecord() : UpdatableRecordImpl<AuthorRecord>(Author.AUTHOR) {
         set(value): Unit = set(2, value)
         get(): LocalDate? = get(2) as LocalDate?
 
+    open var version: Int?
+        set(value): Unit = set(3, value)
+        get(): Int? = get(3) as Int?
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -39,10 +43,11 @@ open class AuthorRecord() : UpdatableRecordImpl<AuthorRecord>(Author.AUTHOR) {
     /**
      * Create a detached, initialised AuthorRecord
      */
-    constructor(id: Int? = null, name: String? = null, birthDate: LocalDate? = null): this() {
+    constructor(id: Int? = null, name: String? = null, birthDate: LocalDate? = null, version: Int? = null): this() {
         this.id = id
         this.name = name
         this.birthDate = birthDate
+        this.version = version
         resetChangedOnNotNull()
     }
 
@@ -54,6 +59,7 @@ open class AuthorRecord() : UpdatableRecordImpl<AuthorRecord>(Author.AUTHOR) {
             this.id = value.id
             this.name = value.name
             this.birthDate = value.birthDate
+            this.version = value.version
             resetChangedOnNotNull()
         }
     }

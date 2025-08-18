@@ -96,6 +96,11 @@ open class Book(
      */
     val PUBLISH_STATUS: TableField<BookRecord, Int?> = createField(DSL.name("publish_status"), SQLDataType.INTEGER.nullable(false), this, "出版状況（1: 未出版, 2: 出版済み）")
 
+    /**
+     * The column <code>public.book.version</code>. バージョン（楽観的ロック用）
+     */
+    val VERSION: TableField<BookRecord, Int?> = createField(DSL.name("version"), SQLDataType.INTEGER, this, "バージョン（楽観的ロック用）")
+
     private constructor(alias: Name, aliased: Table<BookRecord>?): this(alias, null, null, null, aliased, null, null)
     private constructor(alias: Name, aliased: Table<BookRecord>?, parameters: Array<Field<*>?>?): this(alias, null, null, null, aliased, parameters, null)
     private constructor(alias: Name, aliased: Table<BookRecord>?, where: Condition?): this(alias, null, null, null, aliased, null, where)

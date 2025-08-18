@@ -15,7 +15,8 @@ import java.time.LocalDate
 data class Author(
     var id: Int? = null,
     var name: String? = null,
-    var birthDate: LocalDate? = null
+    var birthDate: LocalDate? = null,
+    var version: Int? = null
 ): Serializable {
 
 
@@ -45,6 +46,12 @@ data class Author(
         }
         else if (this.birthDate != o.birthDate)
             return false
+        if (this.version == null) {
+            if (o.version != null)
+                return false
+        }
+        else if (this.version != o.version)
+            return false
         return true
     }
 
@@ -54,6 +61,7 @@ data class Author(
         result = prime * result + (if (this.id == null) 0 else this.id.hashCode())
         result = prime * result + (if (this.name == null) 0 else this.name.hashCode())
         result = prime * result + (if (this.birthDate == null) 0 else this.birthDate.hashCode())
+        result = prime * result + (if (this.version == null) 0 else this.version.hashCode())
         return result
     }
 
@@ -63,6 +71,7 @@ data class Author(
         sb.append(id)
         sb.append(", ").append(name)
         sb.append(", ").append(birthDate)
+        sb.append(", ").append(version)
 
         sb.append(")")
         return sb.toString()
