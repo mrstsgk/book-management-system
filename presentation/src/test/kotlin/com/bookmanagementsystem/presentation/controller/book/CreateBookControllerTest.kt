@@ -146,7 +146,12 @@ class CreateBookControllerTest : FunSpec() {
 
                 errorResponse.errors?.isNotEmpty() shouldBe true
                 val errorMessages = errorResponse.errors?.map { it.message } ?: emptyList()
-                errorMessages.any { it?.contains("title") == true } shouldBe true
+                errorMessages.toSet() shouldBe setOf(
+                    "title: must not be null",
+                    "price: must not be null",
+                    "authorIds: must not be null",
+                    "status: must not be null"
+                )
             }
         }
     }
