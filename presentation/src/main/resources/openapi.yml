@@ -98,7 +98,9 @@ paths:
             format: int32
       responses:
         '200':
-          description: 書籍一覧の取得に成功
+          description: |
+            - 書籍一覧の取得に成功
+            - 書籍が見つからない場合は空配列を返す
           content:
             application/json:
               schema:
@@ -106,7 +108,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/BookResponseModel'
         '404':
-          description: 著者 または 書籍 が存在しない場合
+          description: 著者が存在しない場合
           content:
             application/json:
               schema:
