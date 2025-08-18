@@ -8,7 +8,6 @@ import com.bookmanagementsystem.domain.book.BookRepository
 import com.bookmanagementsystem.domain.core.ID
 import com.bookmanagementsystem.jooq.tables.records.BookRecord
 import com.bookmanagementsystem.jooq.tables.references.BOOK
-import com.bookmanagementsystem.jooq.tables.references.BOOK_AUTHOR
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 
@@ -22,20 +21,25 @@ class BookRepositoryImpl(private val dsl: DSLContext) : BookRepository {
             .returning()
             .fetchSingle()
 
-        val authorIds = insertBookAuthor(ID(record.id!!), book.authorIds)
+        val authorIds = BookAuthorHelper.insertBookAuthor(dsl, ID(record.id!!), book.authorIds)
         return convert(record, authorIds)
     }
 
-    private fun insertBookAuthor(bookId: ID<Book>, authorIds: List<ID<Author>>): List<ID<Author>> = dsl
-        .insertInto(
-            BOOK_AUTHOR,
-            BOOK_AUTHOR.BOOK_ID,
-            BOOK_AUTHOR.AUTHOR_ID
-        )
-        .apply { authorIds.forEach { values(bookId.value, it.value) } }
-        .returning()
-        .fetch()
-        .map { ID(it[BOOK_AUTHOR.AUTHOR_ID]!!) }
+    override fun update(book: Book): Book {
+        val record = dsl.update(BOOK)
+            .set(BOOK.TITLE, book.title)
+            .set(BOOK.PRICE, book.price.amount.value)
+            .set(BOOK.PUBLISH_STATUS, book.status.value)
+            .where(BOOK.ID.eq(book.id!!.value))
+            .returning()
+            .fetchSingle()
+
+        // 既存の著者関連を削除して再挿入
+        BookAuthorHelper.deleteBookAuthorByBookId(dsl, book.id!!)
+
+        val authorIds = BookAuthorHelper.insertBookAuthor(dsl, book.id!!, book.authorIds)
+        return convert(record, authorIds)
+    }
 
     private fun convert(record: BookRecord, authorIds: List<ID<Author>>) = Book(
         id = ID(record.id!!),
