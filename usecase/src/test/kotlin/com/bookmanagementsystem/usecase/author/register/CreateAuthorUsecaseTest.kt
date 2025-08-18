@@ -69,13 +69,6 @@ class CreateAuthorUsecaseTest : FunSpec({
             birthDate = null,
             version = 1
         )
-        verify {
-            repository.insert(
-                Author(
-                    name = "テスト著者2",
-                    birthDate = null
-                )
-            )
-        }
+        verify { repository.insert(Author(name = "テスト著者2", birthDate = null)) }
     }
 })

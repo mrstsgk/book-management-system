@@ -27,7 +27,8 @@ class ReadAuthorBookUsecaseTest : FunSpec({
         val author = Author(
             id = authorId,
             name = "夏目漱石",
-            birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9))
+            birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9)),
+            version = 1
         )
         val expectedBooks = listOf(
             BookDto(
@@ -78,7 +79,8 @@ class ReadAuthorBookUsecaseTest : FunSpec({
         val author = Author(
             id = authorId,
             name = "書籍なし著者",
-            birthDate = AuthorBirthDate(LocalDate.of(1900, 1, 1))
+            birthDate = AuthorBirthDate(LocalDate.of(1900, 1, 1)),
+            version = 1
         )
 
         every { authorRepository.findById(authorId) } returns author
@@ -116,7 +118,8 @@ class ReadAuthorBookUsecaseTest : FunSpec({
         val author = Author(
             id = authorId,
             name = "夏目漱石",
-            birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9))
+            birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9)),
+            version = 1
         )
         val expectedBooks = listOf(
             BookDto(
