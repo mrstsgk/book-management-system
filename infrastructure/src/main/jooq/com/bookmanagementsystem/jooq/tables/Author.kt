@@ -91,6 +91,11 @@ open class Author(
      */
     val BIRTH_DATE: TableField<AuthorRecord, LocalDate?> = createField(DSL.name("birth_date"), SQLDataType.LOCALDATE, this, "生年月日")
 
+    /**
+     * The column <code>public.author.version</code>. バージョン（楽観的ロック用）
+     */
+    val VERSION: TableField<AuthorRecord, Int?> = createField(DSL.name("version"), SQLDataType.INTEGER, this, "バージョン（楽観的ロック用）")
+
     private constructor(alias: Name, aliased: Table<AuthorRecord>?): this(alias, null, null, null, aliased, null, null)
     private constructor(alias: Name, aliased: Table<AuthorRecord>?, parameters: Array<Field<*>?>?): this(alias, null, null, null, aliased, parameters, null)
     private constructor(alias: Name, aliased: Table<AuthorRecord>?, where: Condition?): this(alias, null, null, null, aliased, null, where)

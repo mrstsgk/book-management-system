@@ -24,6 +24,10 @@ open class BookAuthorRecord() : UpdatableRecordImpl<BookAuthorRecord>(BookAuthor
         set(value): Unit = set(1, value)
         get(): Int? = get(1) as Int?
 
+    open var version: Int?
+        set(value): Unit = set(2, value)
+        get(): Int? = get(2) as Int?
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -33,9 +37,10 @@ open class BookAuthorRecord() : UpdatableRecordImpl<BookAuthorRecord>(BookAuthor
     /**
      * Create a detached, initialised BookAuthorRecord
      */
-    constructor(bookId: Int? = null, authorId: Int? = null): this() {
+    constructor(bookId: Int? = null, authorId: Int? = null, version: Int? = null): this() {
         this.bookId = bookId
         this.authorId = authorId
+        this.version = version
         resetChangedOnNotNull()
     }
 
@@ -46,6 +51,7 @@ open class BookAuthorRecord() : UpdatableRecordImpl<BookAuthorRecord>(BookAuthor
         if (value != null) {
             this.bookId = value.bookId
             this.authorId = value.authorId
+            this.version = value.version
             resetChangedOnNotNull()
         }
     }

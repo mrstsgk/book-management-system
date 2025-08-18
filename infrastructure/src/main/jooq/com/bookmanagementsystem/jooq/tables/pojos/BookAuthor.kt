@@ -13,7 +13,8 @@ import java.io.Serializable
 @Suppress("UNCHECKED_CAST")
 data class BookAuthor(
     var bookId: Int? = null,
-    var authorId: Int? = null
+    var authorId: Int? = null,
+    var version: Int? = null
 ): Serializable {
 
 
@@ -37,6 +38,12 @@ data class BookAuthor(
         }
         else if (this.authorId != o.authorId)
             return false
+        if (this.version == null) {
+            if (o.version != null)
+                return false
+        }
+        else if (this.version != o.version)
+            return false
         return true
     }
 
@@ -45,6 +52,7 @@ data class BookAuthor(
         var result = 1
         result = prime * result + (if (this.bookId == null) 0 else this.bookId.hashCode())
         result = prime * result + (if (this.authorId == null) 0 else this.authorId.hashCode())
+        result = prime * result + (if (this.version == null) 0 else this.version.hashCode())
         return result
     }
 
@@ -53,6 +61,7 @@ data class BookAuthor(
 
         sb.append(bookId)
         sb.append(", ").append(authorId)
+        sb.append(", ").append(version)
 
         sb.append(")")
         return sb.toString()
