@@ -27,7 +27,7 @@ import java.time.LocalDate
  * 実際に API を通じて書籍更新を行い、バリデーションや正常系の挙動を検証する。
  * モックではなく実際の環境に近い構成（Spring Boot + MockMvc）で実行される。
  *
- * ### 各HTTP ステータスで1パス通せばOK
+ * ### 各HTTP ステータス毎1パス通せばOK
  *  context("200") - 正常系：
  *  context("400") - 異常系：
  *  context("404") - 存在しない書籍：
@@ -59,7 +59,7 @@ class UpdateBookControllerTest : FunSpec() {
                     title = "更新された吾輩は猫である",
                     price = 2000L,
                     authorIds = listOf(1),
-                    status = BookStatus.UNPUBLISHED
+                    status = BookStatus.PUBLISHED
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
                 val result = mockMvc.perform(
@@ -81,7 +81,7 @@ class UpdateBookControllerTest : FunSpec() {
                 response.authors?.size shouldBe 1
                 response.authors?.first()?.name shouldBe "夏目漱石"
                 response.authors?.first()?.birthDate shouldBe LocalDate.of(1867, 2, 9)
-                response.status shouldBe BookStatus.UNPUBLISHED
+                response.status shouldBe BookStatus.PUBLISHED
             }
 
             test("複数の著者を持つ書籍が正常に更新される") {
@@ -128,12 +128,12 @@ class UpdateBookControllerTest : FunSpec() {
                     title = "負の価格の書籍",
                     price = -100L,
                     authorIds = listOf(1),
-                    status = BookStatus.PUBLISHED
+                    status = BookStatus.UNPUBLISHED
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
 
                 val result = mockMvc.perform(
-                    put("/api/books/1")
+                    put("/api/books/2") // 書籍ID 2は未出版(UNPUBLISHED)状態
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson)
                 )
@@ -148,6 +148,33 @@ class UpdateBookControllerTest : FunSpec() {
                 errorResponse.errors?.size shouldBe 1
                 errorResponse.errors?.first()?.code shouldBe "VALIDATION_ERROR"
                 errorResponse.errors?.first()?.message?.contains("price") shouldBe true
+            }
+
+            test("出版済みから未出版への変更でバリデーションエラーが発生する") {
+                val request = UpdateBookRequestModel(
+                    title = "出版状況変更テスト",
+                    price = 1000L,
+                    authorIds = listOf(1),
+                    status = BookStatus.UNPUBLISHED
+                )
+                val requestJson = objectMapper.writeValueAsString(request)
+
+                val result = mockMvc.perform(
+                    put("/api/books/1") // 書籍ID 1は出版済み(PUBLISHED)状態
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson)
+                )
+                    .andExpect(status().isBadRequest)
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andReturn()
+
+                // BadRequestErrorResponseModel形式のレスポンス検証
+                val responseJson = result.response.contentAsString
+                val errorResponse = objectMapper.readValue(responseJson, BadRequestErrorResponseModel::class.java)
+
+                errorResponse.errors?.size shouldBe 1
+                errorResponse.errors?.first()?.code shouldBe "VALIDATION_ERROR"
+                errorResponse.errors?.first()?.message shouldBe ": 出版状況は「出版済み」から「未出版」に変更できません"
             }
         }
 
