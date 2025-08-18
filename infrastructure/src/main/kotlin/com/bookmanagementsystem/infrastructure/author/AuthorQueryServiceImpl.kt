@@ -17,6 +17,7 @@ class AuthorQueryServiceImpl(private val dsl: DSLContext) : AuthorQueryService {
             AUTHOR.ID,
             AUTHOR.NAME,
             AUTHOR.BIRTH_DATE,
+            AUTHOR.VERSION,
         )
         .from(AUTHOR)
         .join(BOOK_AUTHOR)
@@ -28,7 +29,8 @@ class AuthorQueryServiceImpl(private val dsl: DSLContext) : AuthorQueryService {
             AuthorDto(
                 id = ID(record[AUTHOR.ID]!!),
                 name = record[AUTHOR.NAME]!!,
-                birthDate = record[AUTHOR.BIRTH_DATE]?.let { AuthorBirthDate(it) }
+                birthDate = record[AUTHOR.BIRTH_DATE]?.let { AuthorBirthDate(it) },
+                version = record[AUTHOR.VERSION]!!
             )
         }
 }

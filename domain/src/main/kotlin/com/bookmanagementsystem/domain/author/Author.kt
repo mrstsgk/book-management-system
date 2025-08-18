@@ -9,4 +9,5 @@ data class Author(
     val id: ID<Author>? = null,
     val name: String,
     val birthDate: AuthorBirthDate?,
+    val version: Int? = null
 )

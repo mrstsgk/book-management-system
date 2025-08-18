@@ -23,6 +23,7 @@ class CreateAuthorUsecase(private val repository: AuthorRepository) {
     private fun toDto(author: Author) = AuthorDto(
         id = author.id!!,
         name = author.name,
-        birthDate = author.birthDate
+        birthDate = author.birthDate,
+        version = author.version!!
     )
 }
