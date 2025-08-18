@@ -33,6 +33,7 @@ class AuthorQueryServiceImplTest(private val authorQueryService: AuthorQueryServ
                 authors[0].id.value shouldBe 1
                 authors[0].name shouldBe "夏目漱石"
                 authors[0].birthDate shouldBe AuthorBirthDate(LocalDate.of(1867, 2, 9))
+                authors[0].version shouldBe 1
             }
 
             test("複数の著者を持つ書籍の著者が正常に取得される") {
@@ -46,14 +47,17 @@ class AuthorQueryServiceImplTest(private val authorQueryService: AuthorQueryServ
                 authors[0].id.value shouldBe 1
                 authors[0].name shouldBe "夏目漱石"
                 authors[0].birthDate shouldBe AuthorBirthDate(LocalDate.of(1867, 2, 9))
+                authors[0].version shouldBe 1
 
                 authors[1].id.value shouldBe 2
                 authors[1].name shouldBe "太宰治"
                 authors[1].birthDate shouldBe AuthorBirthDate(LocalDate.of(1909, 6, 19))
+                authors[1].version shouldBe 1
 
                 authors[2].id.value shouldBe 3
                 authors[2].name shouldBe "芥川龍之介"
                 authors[2].birthDate shouldBe AuthorBirthDate(LocalDate.of(1892, 3, 1))
+                authors[2].version shouldBe 1
             }
 
             test("生年月日がnullの著者が正常に取得される") {
@@ -65,6 +69,7 @@ class AuthorQueryServiceImplTest(private val authorQueryService: AuthorQueryServ
                 authors[0].id.value shouldBe 4
                 authors[0].name shouldBe "匿名作家"
                 authors[0].birthDate shouldBe null
+                authors[0].version shouldBe 1
             }
         }
     }

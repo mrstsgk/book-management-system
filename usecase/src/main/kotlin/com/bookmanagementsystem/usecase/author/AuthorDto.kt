@@ -11,4 +11,5 @@ data class AuthorDto(
     val id: ID<Author>,
     val name: String,
     val birthDate: AuthorBirthDate?,
+    val version: Int,
 )

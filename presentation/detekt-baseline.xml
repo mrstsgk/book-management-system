@@ -9,6 +9,7 @@
     <ID>EmptyClassBlock:CreateBookRequestModel.kt$CreateBookRequestModel${ }</ID>
     <ID>EmptyClassBlock:ErrorModel.kt$ErrorModel${ }</ID>
     <ID>EmptyClassBlock:NotFoundErrorResponseModel.kt$NotFoundErrorResponseModel${ }</ID>
+    <ID>EmptyClassBlock:OptimisticLockErrorResponseModel.kt$OptimisticLockErrorResponseModel${ }</ID>
     <ID>EmptyClassBlock:UpdateAuthorRequestModel.kt$UpdateAuthorRequestModel${ }</ID>
     <ID>EmptyClassBlock:UpdateBookRequestModel.kt$UpdateBookRequestModel${ }</ID>
     <ID>ImportOrdering:AuthorResponseModel.kt$import com.fasterxml.jackson.annotation.JsonProperty import jakarta.validation.constraints.NotNull import jakarta.validation.constraints.Min import jakarta.validation.constraints.Max import jakarta.validation.constraints.Size import jakarta.validation.Valid import com.bookmanagementsystem.usecase.author.register.PastOnly</ID>
@@ -18,6 +19,7 @@
     <ID>ImportOrdering:CreateBookRequestModel.kt$import com.fasterxml.jackson.annotation.JsonProperty import jakarta.validation.constraints.NotNull import jakarta.validation.constraints.Min import jakarta.validation.constraints.Max import jakarta.validation.constraints.Size import jakarta.validation.Valid import com.bookmanagementsystem.usecase.author.register.PastOnly</ID>
     <ID>ImportOrdering:ErrorModel.kt$import com.fasterxml.jackson.annotation.JsonProperty import jakarta.validation.constraints.NotNull import jakarta.validation.constraints.Min import jakarta.validation.constraints.Max import jakarta.validation.constraints.Size import jakarta.validation.Valid import com.bookmanagementsystem.usecase.author.register.PastOnly</ID>
     <ID>ImportOrdering:NotFoundErrorResponseModel.kt$import com.fasterxml.jackson.annotation.JsonProperty import jakarta.validation.constraints.NotNull import jakarta.validation.constraints.Min import jakarta.validation.constraints.Max import jakarta.validation.constraints.Size import jakarta.validation.Valid import com.bookmanagementsystem.usecase.author.register.PastOnly</ID>
+    <ID>ImportOrdering:OptimisticLockErrorResponseModel.kt$import com.fasterxml.jackson.annotation.JsonProperty import jakarta.validation.constraints.NotNull import jakarta.validation.constraints.Min import jakarta.validation.constraints.Max import jakarta.validation.constraints.Size import jakarta.validation.Valid import com.bookmanagementsystem.usecase.author.register.PastOnly</ID>
     <ID>ImportOrdering:UpdateAuthorRequestModel.kt$import com.fasterxml.jackson.annotation.JsonProperty import jakarta.validation.constraints.NotNull import jakarta.validation.constraints.Min import jakarta.validation.constraints.Max import jakarta.validation.constraints.Size import jakarta.validation.Valid import com.bookmanagementsystem.usecase.author.register.PastOnly</ID>
     <ID>ImportOrdering:UpdateBookRequestModel.kt$import com.fasterxml.jackson.annotation.JsonProperty import jakarta.validation.constraints.NotNull import jakarta.validation.constraints.Min import jakarta.validation.constraints.Max import jakarta.validation.constraints.Size import jakarta.validation.Valid import com.bookmanagementsystem.usecase.author.register.PastOnly</ID>
     <ID>MagicNumber:BookResponseModel.kt$BookResponseModel$9999999999L</ID>
@@ -28,6 +30,7 @@
     <ID>NoBlankLineBeforeRbrace:CreateBookRequestModel.kt$CreateBookRequestModel$ </ID>
     <ID>NoBlankLineBeforeRbrace:ErrorModel.kt$ErrorModel$ </ID>
     <ID>NoBlankLineBeforeRbrace:NotFoundErrorResponseModel.kt$NotFoundErrorResponseModel$ </ID>
+    <ID>NoBlankLineBeforeRbrace:OptimisticLockErrorResponseModel.kt$OptimisticLockErrorResponseModel$ </ID>
     <ID>NoBlankLineBeforeRbrace:UpdateAuthorRequestModel.kt$UpdateAuthorRequestModel$ </ID>
     <ID>NoBlankLineBeforeRbrace:UpdateBookRequestModel.kt$UpdateBookRequestModel$ </ID>
     <ID>NoConsecutiveBlankLines:BookStatus.kt$BookStatus$ </ID>
@@ -38,6 +41,7 @@
     <ID>NoEmptyClassBody:CreateBookRequestModel.kt$CreateBookRequestModel${ }</ID>
     <ID>NoEmptyClassBody:ErrorModel.kt$ErrorModel${ }</ID>
     <ID>NoEmptyClassBody:NotFoundErrorResponseModel.kt$NotFoundErrorResponseModel${ }</ID>
+    <ID>NoEmptyClassBody:OptimisticLockErrorResponseModel.kt$OptimisticLockErrorResponseModel${ }</ID>
     <ID>NoEmptyClassBody:UpdateAuthorRequestModel.kt$UpdateAuthorRequestModel${ }</ID>
     <ID>NoEmptyClassBody:UpdateBookRequestModel.kt$UpdateBookRequestModel${ }</ID>
     <ID>NoUnusedImports:AuthorResponseModel.kt$com.bookmanagementsystem.presentation.model.AuthorResponseModel.kt</ID>
@@ -47,6 +51,7 @@
     <ID>NoUnusedImports:CreateBookRequestModel.kt$com.bookmanagementsystem.presentation.model.CreateBookRequestModel.kt</ID>
     <ID>NoUnusedImports:ErrorModel.kt$com.bookmanagementsystem.presentation.model.ErrorModel.kt</ID>
     <ID>NoUnusedImports:NotFoundErrorResponseModel.kt$com.bookmanagementsystem.presentation.model.NotFoundErrorResponseModel.kt</ID>
+    <ID>NoUnusedImports:OptimisticLockErrorResponseModel.kt$com.bookmanagementsystem.presentation.model.OptimisticLockErrorResponseModel.kt</ID>
     <ID>NoUnusedImports:UpdateAuthorRequestModel.kt$com.bookmanagementsystem.presentation.model.UpdateAuthorRequestModel.kt</ID>
     <ID>NoUnusedImports:UpdateBookRequestModel.kt$com.bookmanagementsystem.presentation.model.UpdateBookRequestModel.kt</ID>
   </CurrentIssues>

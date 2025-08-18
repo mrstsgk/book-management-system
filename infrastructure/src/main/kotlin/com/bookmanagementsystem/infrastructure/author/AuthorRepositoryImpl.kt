@@ -21,6 +21,7 @@ class AuthorRepositoryImpl(private val dsl: DSLContext) : AuthorRepository {
         .insertInto(AUTHOR)
         .set(AUTHOR.NAME, author.name)
         .set(AUTHOR.BIRTH_DATE, author.birthDate?.value)
+        .set(AUTHOR.VERSION, 1)
         .returning()
         .fetchSingle()
         .let { convert(it) }
@@ -29,6 +30,7 @@ class AuthorRepositoryImpl(private val dsl: DSLContext) : AuthorRepository {
         .update(AUTHOR)
         .set(AUTHOR.NAME, author.name)
         .set(AUTHOR.BIRTH_DATE, author.birthDate?.value)
+        .set(AUTHOR.VERSION, author.version!!)
         .where(AUTHOR.ID.eq(author.id!!.value))
         .returning()
         .fetchSingle()
@@ -37,6 +39,7 @@ class AuthorRepositoryImpl(private val dsl: DSLContext) : AuthorRepository {
     private fun convert(record: AuthorRecord) = Author(
         id = ID(record.id!!),
         name = record.name!!,
-        birthDate = record.birthDate?.let { date -> AuthorBirthDate(date) }
+        birthDate = record.birthDate?.let { date -> AuthorBirthDate(date) },
+        version = record.version
     )
 }

@@ -22,7 +22,8 @@ class BookQueryServiceImpl(private val dsl: DSLContext) : BookQueryService {
             BOOK.PUBLISH_STATUS,
             AUTHOR.ID.`as`("author_id"),
             AUTHOR.NAME.`as`("author_name"),
-            AUTHOR.BIRTH_DATE.`as`("author_birth_date")
+            AUTHOR.BIRTH_DATE.`as`("author_birth_date"),
+            AUTHOR.VERSION.`as`("author_version")
         )
             .from(BOOK)
             .innerJoin(BOOK_AUTHOR).on(BOOK.ID.eq(BOOK_AUTHOR.BOOK_ID))

@@ -11,4 +11,4 @@ DELETE FROM author;
 ALTER SEQUENCE author_id_seq RESTART WITH 1;
 
 -- 著者更新テスト用のテストデータを挿入
-INSERT INTO author (id, name, birth_date) VALUES (1, '夏目漱石', '1867-02-09');
+INSERT INTO author (id, name, birth_date, version) VALUES (1, '夏目漱石', '1867-02-09', 1);

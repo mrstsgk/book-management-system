@@ -20,12 +20,14 @@ class UpdateAuthorUsecase(private val repository: AuthorRepository) {
     private fun toEntity(command: UpdateAuthorCommand) = Author(
         id = command.id,
         name = command.name,
-        birthDate = command.birthDate
+        birthDate = command.birthDate,
+        version = command.version
     )
 
     private fun toDto(author: Author) = AuthorDto(
         id = author.id!!,
         name = author.name,
-        birthDate = author.birthDate
+        birthDate = author.birthDate,
+        version = author.version!!
     )
 }

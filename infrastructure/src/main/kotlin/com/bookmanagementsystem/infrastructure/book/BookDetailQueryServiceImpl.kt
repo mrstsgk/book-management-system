@@ -22,7 +22,8 @@ class BookDetailQueryServiceImpl(private val dsl: DSLContext) : BookDetailQueryS
             BOOK.PUBLISH_STATUS,
             AUTHOR.ID.`as`("author_id"),
             AUTHOR.NAME.`as`("author_name"),
-            AUTHOR.BIRTH_DATE.`as`("author_birth_date")
+            AUTHOR.BIRTH_DATE.`as`("author_birth_date"),
+            AUTHOR.VERSION.`as`("author_version")
         )
             .from(BOOK)
             // NOTE: 書籍には必ず著者が存在するというビジネスルールが強制されるため innerJoin で実装する

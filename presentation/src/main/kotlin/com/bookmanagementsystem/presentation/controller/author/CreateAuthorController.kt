@@ -32,6 +32,7 @@ class CreateAuthorController(private val usecase: CreateAuthorUsecase) {
             id = dto.id.value,
             name = dto.name,
             birthDate = dto.birthDate?.value,
+            version = dto.version
         )
     }
 }

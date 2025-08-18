@@ -28,9 +28,10 @@ class ReadAuthorBookController(private val usecase: ReadAuthorBookUsecase) {
         price = dto.price.toLong(),
         authors = dto.authors.map {
             AuthorResponseModel(
-                id = it.id.value,
-                name = it.name,
-                birthDate = it.birthDate?.value
+                it.id.value,
+                it.name,
+                it.birthDate?.value,
+                it.version
             )
         },
         status = BookStatus.of(dto.status.value)

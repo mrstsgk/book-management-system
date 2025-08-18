@@ -27,12 +27,14 @@ class UpdateAuthorController(private val usecase: UpdateAuthorUsecase) {
     private fun toCommand(id: Int, request: UpdateAuthorRequestModel) = UpdateAuthorCommand(
         id = ID(id),
         name = request.name!!,
-        birthDate = request.birthDate?.let { AuthorBirthDate(it) }
+        birthDate = request.birthDate?.let { AuthorBirthDate(it) },
+        version = request.version!!,
     )
 
     private fun toResponse(dto: AuthorDto) = AuthorResponseModel(
         id = dto.id.value,
         name = dto.name,
         birthDate = dto.birthDate?.value,
+        version = dto.version
     )
 }

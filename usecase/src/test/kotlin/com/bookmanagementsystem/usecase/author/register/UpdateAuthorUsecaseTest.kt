@@ -21,17 +21,20 @@ class UpdateAuthorUsecaseTest : FunSpec({
         val command = UpdateAuthorCommand(
             id = authorId,
             name = "更新後の著者名",
-            birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15))
+            birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15)),
+            version = 1
         )
         val existingAuthor = Author(
             id = authorId,
             name = "元の著者名",
-            birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1))
+            birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1)),
+            version = 1
         )
         val updatedAuthor = Author(
             id = authorId,
             name = "更新後の著者名",
-            birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15))
+            birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15)),
+            version = 1
         )
 
         every { repository.findById(authorId) } returns existingAuthor
@@ -41,7 +44,8 @@ class UpdateAuthorUsecaseTest : FunSpec({
         result shouldBe AuthorDto(
             id = authorId,
             name = "更新後の著者名",
-            birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15))
+            birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15)),
+            version = 1
         )
         verify {
             repository.findById(authorId)
@@ -49,7 +53,8 @@ class UpdateAuthorUsecaseTest : FunSpec({
                 Author(
                     id = authorId,
                     name = "更新後の著者名",
-                    birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15))
+                    birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15)),
+                    version = 1
                 )
             )
         }
@@ -62,17 +67,20 @@ class UpdateAuthorUsecaseTest : FunSpec({
         val command = UpdateAuthorCommand(
             id = authorId,
             name = "更新後の著者名2",
-            birthDate = null
+            birthDate = null,
+            version = 1
         )
         val existingAuthor = Author(
             id = authorId,
             name = "元の著者名2",
-            birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1))
+            birthDate = AuthorBirthDate(LocalDate.of(1990, 1, 1)),
+            version = 1
         )
         val updatedAuthor = Author(
             id = authorId,
             name = "更新後の著者名2",
-            birthDate = null
+            birthDate = null,
+            version = 1
         )
 
         every { repository.findById(authorId) } returns existingAuthor
@@ -82,7 +90,8 @@ class UpdateAuthorUsecaseTest : FunSpec({
         result shouldBe AuthorDto(
             id = authorId,
             name = "更新後の著者名2",
-            birthDate = null
+            birthDate = null,
+            version = 1
         )
         verify {
             repository.findById(authorId)
@@ -90,7 +99,8 @@ class UpdateAuthorUsecaseTest : FunSpec({
                 Author(
                     id = authorId,
                     name = "更新後の著者名2",
-                    birthDate = null
+                    birthDate = null,
+                    version = 1
                 )
             )
         }
@@ -103,7 +113,8 @@ class UpdateAuthorUsecaseTest : FunSpec({
         val command = UpdateAuthorCommand(
             id = authorId,
             name = "更新後の著者名",
-            birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15))
+            birthDate = AuthorBirthDate(LocalDate.of(1985, 5, 15)),
+            version = 1
         )
 
         every { repository.findById(authorId) } returns null

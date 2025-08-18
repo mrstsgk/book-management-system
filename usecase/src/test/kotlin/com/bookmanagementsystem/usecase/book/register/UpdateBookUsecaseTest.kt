@@ -51,7 +51,8 @@ class UpdateBookUsecaseTest : FunSpec({
         val authorDto = AuthorDto(
             id = authorId,
             name = "著者名",
-            birthDate = null
+            birthDate = null,
+            version = 1
         )
 
         every { detailQueryService.findById(bookId) } returns BookDto(
@@ -107,9 +108,9 @@ class UpdateBookUsecaseTest : FunSpec({
             status = BookPublishStatus.PUBLISHED
         )
         val authorDtoList = listOf(
-            AuthorDto(ID(1), "著者1", null),
-            AuthorDto(ID(2), "著者2", null),
-            AuthorDto(ID(3), "著者3", null)
+            AuthorDto(ID(1), "著者1", null, 1),
+            AuthorDto(ID(2), "著者2", null, 1),
+            AuthorDto(ID(3), "著者3", null, 1)
         )
 
         every { detailQueryService.findById(bookId) } returns BookDto(

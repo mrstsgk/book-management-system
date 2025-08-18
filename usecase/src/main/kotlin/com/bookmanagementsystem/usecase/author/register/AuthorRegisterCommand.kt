@@ -20,5 +20,6 @@ data class CreateAuthorCommand(
 data class UpdateAuthorCommand(
     val id: ID<Author>,
     val name: String,
-    val birthDate: AuthorBirthDate?
+    val birthDate: AuthorBirthDate?,
+    val version: Int
 ) : AuthorRegisterCommand

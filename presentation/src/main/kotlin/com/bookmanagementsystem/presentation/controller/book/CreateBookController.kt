@@ -41,7 +41,8 @@ class CreateBookController(private val usecase: CreateBookUsecase) {
             AuthorResponseModel(
                 it.id.value,
                 it.name,
-                it.birthDate?.value
+                it.birthDate?.value,
+                it.version
             )
         },
         status = BookStatus.of(dto.status.value),

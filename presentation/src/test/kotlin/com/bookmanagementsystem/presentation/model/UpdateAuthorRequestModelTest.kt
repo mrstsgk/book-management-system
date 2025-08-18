@@ -15,6 +15,7 @@ class UpdateAuthorRequestModelTest : FunSpec({
 
         val requestModel = UpdateAuthorRequestModel(
             name = name,
+            version = 1,
             birthDate = birthDate
         )
 
@@ -27,6 +28,7 @@ class UpdateAuthorRequestModelTest : FunSpec({
 
         val requestModel = UpdateAuthorRequestModel(
             name = name,
+            version = 1,
             birthDate = null
         )
 
@@ -40,6 +42,7 @@ class UpdateAuthorRequestModelTest : FunSpec({
 
         val requestModel = UpdateAuthorRequestModel(
             name = name,
+            version = 1,
             birthDate = birthDate
         )
 
@@ -53,12 +56,28 @@ class UpdateAuthorRequestModelTest : FunSpec({
 
         val requestModel = UpdateAuthorRequestModel(
             name = null,
+            version = 1,
             birthDate = birthDate
         )
 
         val result = validator.validate(requestModel)
         result.size shouldBe 1
         // デフォルトのロケールに依存しないようにメッセージテンプレートで検証
+        result.first().messageTemplate shouldBe "{jakarta.validation.constraints.NotNull.message}"
+    }
+
+    test("バージョンがnullならエラー") {
+        val name = "太宰治"
+        val birthDate = LocalDate.of(1909, 6, 19)
+
+        val requestModel = UpdateAuthorRequestModel(
+            name = name,
+            version = null,
+            birthDate = birthDate
+        )
+
+        val result = validator.validate(requestModel)
+        result.size shouldBe 1
         result.first().messageTemplate shouldBe "{jakarta.validation.constraints.NotNull.message}"
     }
 })

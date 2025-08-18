@@ -56,6 +56,7 @@ class UpdateAuthorControllerTest : FunSpec() {
             test("有効なリクエストで著者が正常に更新される") {
                 val request = UpdateAuthorRequestModel(
                     name = "更新された夏目漱石",
+                    version = 1,
                     birthDate = LocalDate.of(1867, 2, 9)
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
@@ -75,6 +76,7 @@ class UpdateAuthorControllerTest : FunSpec() {
                 response.id shouldBe 1
                 response.name shouldBe "更新された夏目漱石"
                 response.birthDate shouldBe LocalDate.of(1867, 2, 9)
+                response.version shouldBe 1
             }
         }
 
@@ -82,6 +84,7 @@ class UpdateAuthorControllerTest : FunSpec() {
             test("生年月日が未来日付ならばバリデーションエラーが発生する（JSR-303）") {
                 val request = UpdateAuthorRequestModel(
                     name = "未来の著者",
+                    version = 1,
                     birthDate = LocalDate.now().plusDays(1) // 未来日付
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
@@ -109,6 +112,7 @@ class UpdateAuthorControllerTest : FunSpec() {
             test("存在しない著者IDを指定した場合NotFoundErrorResponseModelが返される") {
                 val request = UpdateAuthorRequestModel(
                     name = "存在しない著者",
+                    version = 1,
                     birthDate = LocalDate.of(1867, 2, 9)
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
