@@ -90,7 +90,6 @@ paths:
       description: |
         - 書籍価格は0以上
         - 著者は1人以上
-        - 出版ステータスは出版済みから未出版に変更できない
       requestBody:
         description: 登録する書籍の情報
         required: true
@@ -111,6 +110,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BadRequestErrorResponseModel'
+
+  /api/books/{id}:
+    put:
+      tags:
+        - Books
+      summary: 書籍を更新する
+      operationId: updateBook
+      description: |
+        - 書籍価格は0以上
+        - 著者は1人以上
+        - 出版ステータスは出版済みから未出版に変更できない
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 更新する書籍のID
+          schema:
+            type: integer
+            format: int32
+      requestBody:
+        description: 更新する書籍の情報
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequestModel'
+      responses:
+        '200':
+          description: 書籍の更新に成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookResponseModel'
+        '400':
+          description: リクエストのバリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestErrorResponseModel'
+        '404':
+          description: 書籍が見つからない場合
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponseModel'
 
 components:
   schemas:
@@ -151,6 +195,35 @@ components:
     CreateBookRequestModel:
       type: object
       description: 書籍登録APIのリクエスト情報
+      properties:
+        title:
+          type: string
+          description: 書籍タイトル
+          example: "人間失格"
+        price:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 書籍価格
+          example: 1500
+        authorIds:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int32
+          description: 著者IDのリスト
+        status:
+          $ref: '#/components/schemas/BookStatus'
+      required:
+        - title
+        - price
+        - authorIds
+        - status
+
+    UpdateBookRequestModel:
+      type: object
+      description: 書籍更新APIのリクエスト情報
       properties:
         title:
           type: string
