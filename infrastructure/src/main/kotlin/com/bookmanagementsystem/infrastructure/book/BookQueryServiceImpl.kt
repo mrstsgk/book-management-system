@@ -1,6 +1,6 @@
 package com.bookmanagementsystem.infrastructure.book
 
-import com.bookmanagementsystem.domain.book.Book
+import com.bookmanagementsystem.domain.author.Author
 import com.bookmanagementsystem.domain.core.ID
 import com.bookmanagementsystem.infrastructure.book.BookRecordConverter.convert
 import com.bookmanagementsystem.infrastructure.book.BookRecordConverter.convertAuthorDtoList
@@ -8,13 +8,13 @@ import com.bookmanagementsystem.jooq.tables.references.AUTHOR
 import com.bookmanagementsystem.jooq.tables.references.BOOK
 import com.bookmanagementsystem.jooq.tables.references.BOOK_AUTHOR
 import com.bookmanagementsystem.usecase.book.BookDto
-import com.bookmanagementsystem.usecase.book.read.BookDetailQueryService
+import com.bookmanagementsystem.usecase.book.read.BookQueryService
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 
 @Repository
-class BookDetailQueryServiceImpl(private val dsl: DSLContext) : BookDetailQueryService {
-    override fun findById(id: ID<Book>): BookDto? {
+class BookQueryServiceImpl(private val dsl: DSLContext) : BookQueryService {
+    override fun findByAuthorId(authorId: ID<Author>): List<BookDto> {
         val records = dsl.select(
             BOOK.ID,
             BOOK.TITLE,
@@ -25,18 +25,26 @@ class BookDetailQueryServiceImpl(private val dsl: DSLContext) : BookDetailQueryS
             AUTHOR.BIRTH_DATE.`as`("author_birth_date")
         )
             .from(BOOK)
-            // NOTE: 書籍には必ず著者が存在するというビジネスルールが強制されるため innerJoin で実装する
             .innerJoin(BOOK_AUTHOR).on(BOOK.ID.eq(BOOK_AUTHOR.BOOK_ID))
             .innerJoin(AUTHOR).on(BOOK_AUTHOR.AUTHOR_ID.eq(AUTHOR.ID))
-            .where(BOOK.ID.eq(id.value))
+            .where(
+                BOOK.ID.`in`(
+                    dsl.select(BOOK_AUTHOR.BOOK_ID)
+                        .from(BOOK_AUTHOR)
+                        .where(BOOK_AUTHOR.AUTHOR_ID.eq(authorId.value))
+                )
+            )
+            .orderBy(BOOK.ID)
             .fetch()
 
-        // NOTE: 書籍自体が存在しない場合は null を返す
-        if (records.isEmpty()) return null
+        // NOTE: 著者に紐づく書籍が存在しない場合は空のリストを返す
+        if (records.isEmpty()) return emptyList()
 
-        val bookRecord = records.first()
-        val authors = convertAuthorDtoList(records)
-
-        return convert(bookRecord, authors)
+        val bookGroups = records.groupBy { it[BOOK.ID] }
+        return bookGroups.map { (_, bookRecords) ->
+            val bookRecord = bookRecords.first()
+            val authors = convertAuthorDtoList(bookRecords)
+            convert(bookRecord, authors)
+        }
     }
 }
