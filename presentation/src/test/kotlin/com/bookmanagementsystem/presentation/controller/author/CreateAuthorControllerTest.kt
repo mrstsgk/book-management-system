@@ -72,6 +72,7 @@ class CreateAuthorControllerTest : FunSpec() {
                 response.id shouldBe 1
                 response.name shouldBe "夏目漱石"
                 response.birthDate shouldBe LocalDate.of(1867, 2, 9)
+                response.version shouldBe 1
             }
         }
 
