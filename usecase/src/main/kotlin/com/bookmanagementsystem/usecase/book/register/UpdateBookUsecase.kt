@@ -6,6 +6,8 @@ import com.bookmanagementsystem.usecase.author.AuthorDto
 import com.bookmanagementsystem.usecase.author.read.AuthorQueryService
 import com.bookmanagementsystem.usecase.book.BookDto
 import com.bookmanagementsystem.usecase.book.read.BookDetailQueryService
+import com.bookmanagementsystem.usecase.exception.UsecaseViolationException
+import com.bookmanagementsystem.usecase.validation.CommandValidator
 import org.springframework.stereotype.Service
 
 @Service
@@ -13,12 +15,16 @@ class UpdateBookUsecase(
     private val repository: BookRepository,
     private val detailQueryService: BookDetailQueryService,
     private val authorQueryService: AuthorQueryService,
+    private val validator: CommandValidator,
 ) {
     /**
      * 書籍を更新する
      */
     fun execute(command: UpdateBookCommand): BookDto {
         detailQueryService.findById(command.id) ?: throw NoSuchElementException("書籍が見つかりません: ${command.id}")
+
+        val validationErrors = validator.validate(command)
+        if (validationErrors.isNotEmpty()) throw UsecaseViolationException(validationErrors.joinToString(", "))
 
         val book = repository.update(toEntity(command))
         val authorDtoList = authorQueryService.findByBookId(book.id!!)
