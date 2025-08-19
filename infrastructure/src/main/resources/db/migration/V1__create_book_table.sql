@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS book (
     title          VARCHAR(255) NOT NULL,
     price          NUMERIC(10, 2) NOT NULL,
     publish_status INTEGER NOT NULL,
-    version        INTEGER
+    version        INTEGER NOT NULL
 );
 
 -- テーブルとカラムにコメントを追加
