@@ -5,6 +5,7 @@ import com.bookmanagementsystem.presentation.model.BadRequestErrorResponseModel
 import com.bookmanagementsystem.presentation.model.BookResponseModel
 import com.bookmanagementsystem.presentation.model.BookStatus
 import com.bookmanagementsystem.presentation.model.NotFoundErrorResponseModel
+import com.bookmanagementsystem.presentation.model.OptimisticLockErrorResponseModel
 import com.bookmanagementsystem.presentation.model.UpdateBookRequestModel
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.core.spec.style.FunSpec
@@ -182,6 +183,36 @@ class UpdateBookControllerTest : FunSpec() {
                 errorResponse.errors?.size shouldBe 1
                 errorResponse.errors?.first()?.code shouldBe "VALIDATION_ERROR"
                 errorResponse.errors?.first()?.message shouldBe ": 出版状況は「出版済み」から「未出版」に変更できません"
+            }
+        }
+
+        context("409") {
+            test("バージョンが古い場合楽観的ロック競合エラーが発生する") {
+                val request = UpdateBookRequestModel(
+                    title = "競合テスト用書籍",
+                    price = 1500L,
+                    authorIds = listOf(1),
+                    status = BookStatus.PUBLISHED,
+                    version = 0 // 古いバージョン（現在のデータはversion=1）
+                )
+                val requestJson = objectMapper.writeValueAsString(request)
+
+                val result = mockMvc.perform(
+                    put("/api/books/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson)
+                )
+                    .andExpect(status().isConflict)
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andReturn()
+
+                // OptimisticLockErrorResponseModel形式のレスポンス検証（OpenAPI準拠）
+                val responseJson = result.response.contentAsString
+                val errorResponse = objectMapper.readValue(responseJson, OptimisticLockErrorResponseModel::class.java)
+
+                errorResponse.errors?.size shouldBe 1
+                errorResponse.errors?.first()?.code shouldBe "OPTIMISTIC_LOCK_EXCEPTION"
+                errorResponse.errors?.first()?.message shouldBe "書籍の更新に失敗しました。"
             }
         }
 

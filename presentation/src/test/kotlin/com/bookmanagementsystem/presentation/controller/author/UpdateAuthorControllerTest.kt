@@ -1,10 +1,7 @@
 package com.bookmanagementsystem.presentation.controller.author
 
 import com.bookmanagementsystem.presentation.config.IntegrationTestWithSql
-import com.bookmanagementsystem.presentation.model.AuthorResponseModel
-import com.bookmanagementsystem.presentation.model.BadRequestErrorResponseModel
-import com.bookmanagementsystem.presentation.model.NotFoundErrorResponseModel
-import com.bookmanagementsystem.presentation.model.UpdateAuthorRequestModel
+import com.bookmanagementsystem.presentation.model.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -76,7 +73,7 @@ class UpdateAuthorControllerTest : FunSpec() {
                 response.id shouldBe 1
                 response.name shouldBe "更新された夏目漱石"
                 response.birthDate shouldBe LocalDate.of(1867, 2, 9)
-                response.version shouldBe 1
+                response.version shouldBe 2
             }
         }
 
@@ -133,6 +130,34 @@ class UpdateAuthorControllerTest : FunSpec() {
                 errorResponse.errors?.size shouldBe 1
                 errorResponse.errors?.first()?.code shouldBe "NOT_FOUND"
                 errorResponse.errors?.first()?.message shouldNotBe null
+            }
+        }
+
+        context("409") {
+            test("バージョンが古い場合楽観的ロック競合エラーが発生する") {
+                val request = UpdateAuthorRequestModel(
+                    name = "競合テスト用著者",
+                    version = 0, // 古いバージョン（現在のデータはversion=1）
+                    birthDate = LocalDate.of(1867, 2, 9)
+                )
+                val requestJson = objectMapper.writeValueAsString(request)
+
+                val result = mockMvc.perform(
+                    put("/api/authors/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson)
+                )
+                    .andExpect(status().isConflict)
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andReturn()
+
+                // OptimisticLockErrorResponseModel形式のレスポンス検証（OpenAPI準拠）
+                val responseJson = result.response.contentAsString
+                val errorResponse = objectMapper.readValue(responseJson, OptimisticLockErrorResponseModel::class.java)
+
+                errorResponse.errors?.size shouldBe 1
+                errorResponse.errors?.first()?.code shouldBe "OPTIMISTIC_LOCK_EXCEPTION"
+                errorResponse.errors?.first()?.message shouldBe "著者の更新に失敗しました。"
             }
         }
     }
