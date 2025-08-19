@@ -18,13 +18,13 @@ object BookRecordConverter {
             val authorId = record.get("author_id", Int::class.java)!!
             val authorName = record.get("author_name", String::class.java)!!
             val authorBirthDate = record.get("author_birth_date", java.time.LocalDate::class.java)
-            val authorVersion = record.get("author_version", Int::class.java)!!
+            val authorVersion = record.get("author_version", Int::class.java) ?: 1
 
             AuthorDto(
                 id = ID(authorId),
                 name = authorName,
                 birthDate = authorBirthDate?.let { AuthorBirthDate(it) },
-                version = authorVersion
+                version = authorVersion,
             )
         }
     }
@@ -39,6 +39,7 @@ object BookRecordConverter {
             price = BookPrice.of(bookRecord[BOOK.PRICE]!!),
             authors = authors,
             status = BookPublishStatus.of(bookRecord[BOOK.PUBLISH_STATUS]!!),
+            version = bookRecord[BOOK.VERSION]!!
         )
     }
 }
