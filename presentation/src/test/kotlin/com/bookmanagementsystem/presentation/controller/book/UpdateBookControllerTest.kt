@@ -59,7 +59,8 @@ class UpdateBookControllerTest : FunSpec() {
                     title = "更新された吾輩は猫である",
                     price = 2000L,
                     authorIds = listOf(1),
-                    status = BookStatus.PUBLISHED
+                    status = BookStatus.PUBLISHED,
+                    version = 1
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
                 val result = mockMvc.perform(
@@ -89,7 +90,8 @@ class UpdateBookControllerTest : FunSpec() {
                     title = "更新された日本文学選集",
                     price = 3500L,
                     authorIds = listOf(1, 2, 3),
-                    status = BookStatus.PUBLISHED
+                    status = BookStatus.PUBLISHED,
+                    version = 1
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
                 val result = mockMvc.perform(
@@ -112,12 +114,15 @@ class UpdateBookControllerTest : FunSpec() {
                 response.authors?.get(0)?.id shouldBe 1
                 response.authors?.get(0)?.name shouldBe "夏目漱石"
                 response.authors?.get(0)?.birthDate shouldBe LocalDate.of(1867, 2, 9)
+                response.authors?.get(0)?.version shouldBe 1
                 response.authors?.get(1)?.id shouldBe 2
                 response.authors?.get(1)?.name shouldBe "太宰治"
                 response.authors?.get(1)?.birthDate shouldBe LocalDate.of(1909, 6, 19)
+                response.authors?.get(1)?.version shouldBe 1
                 response.authors?.get(2)?.id shouldBe 3
                 response.authors?.get(2)?.name shouldBe "芥川龍之介"
                 response.authors?.get(2)?.birthDate shouldBe LocalDate.of(1892, 3, 1)
+                response.authors?.get(2)?.version shouldBe 1
                 response.status shouldBe BookStatus.PUBLISHED
             }
         }
@@ -128,7 +133,8 @@ class UpdateBookControllerTest : FunSpec() {
                     title = "負の価格の書籍",
                     price = -100L,
                     authorIds = listOf(1),
-                    status = BookStatus.UNPUBLISHED
+                    status = BookStatus.UNPUBLISHED,
+                    version = 1
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
 
@@ -155,7 +161,8 @@ class UpdateBookControllerTest : FunSpec() {
                     title = "出版状況変更テスト",
                     price = 1000L,
                     authorIds = listOf(1),
-                    status = BookStatus.UNPUBLISHED
+                    status = BookStatus.UNPUBLISHED,
+                    version = 1
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
 
@@ -184,7 +191,8 @@ class UpdateBookControllerTest : FunSpec() {
                     title = "存在しない書籍",
                     price = 1000L,
                     authorIds = listOf(1),
-                    status = BookStatus.PUBLISHED
+                    status = BookStatus.PUBLISHED,
+                    version = 1
                 )
                 val requestJson = objectMapper.writeValueAsString(request)
 
