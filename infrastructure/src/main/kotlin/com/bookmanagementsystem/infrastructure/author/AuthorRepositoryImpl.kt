@@ -4,6 +4,7 @@ import com.bookmanagementsystem.domain.author.Author
 import com.bookmanagementsystem.domain.author.AuthorBirthDate
 import com.bookmanagementsystem.domain.author.AuthorRepository
 import com.bookmanagementsystem.domain.core.ID
+import com.bookmanagementsystem.infrastructure.exception.OptimisticLockException
 import com.bookmanagementsystem.jooq.tables.Author.Companion.AUTHOR
 import com.bookmanagementsystem.jooq.tables.records.AuthorRecord
 import org.jooq.DSLContext
@@ -26,15 +27,20 @@ class AuthorRepositoryImpl(private val dsl: DSLContext) : AuthorRepository {
         .fetchSingle()
         .let { convert(it) }
 
-    override fun update(author: Author) = dsl
-        .update(AUTHOR)
-        .set(AUTHOR.NAME, author.name)
-        .set(AUTHOR.BIRTH_DATE, author.birthDate?.value)
-        .set(AUTHOR.VERSION, author.version!!)
-        .where(AUTHOR.ID.eq(author.id!!.value))
-        .returning()
-        .fetchSingle()
-        .let { convert(it) }
+    override fun update(author: Author): Author {
+        val record = dsl
+            .update(AUTHOR)
+            .set(AUTHOR.NAME, author.name)
+            .set(AUTHOR.BIRTH_DATE, author.birthDate?.value)
+            .set(AUTHOR.VERSION, author.version!! + 1)
+            .where(AUTHOR.ID.eq(author.id!!.value))
+            .and(AUTHOR.VERSION.eq(author.version))
+            .returning()
+            .fetchOne()
+            ?: throw OptimisticLockException("著者の更新に失敗しました。")
+
+        return convert(record)
+    }
 
     private fun convert(record: AuthorRecord) = Author(
         id = ID(record.id!!),
