@@ -36,6 +36,7 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
                 book?.title shouldBe "吾輩は猫である"
                 book?.price shouldBe BookPrice.of(BigDecimal("1500.00"))
                 book?.status shouldBe BookPublishStatus.PUBLISHED
+                book?.version shouldBe 1
                 book?.authors?.size shouldBe 1
                 book?.authors?.get(0)?.id?.value shouldBe 1
                 book?.authors?.get(0)?.name shouldBe "夏目漱石"
@@ -51,6 +52,7 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
                 book?.title shouldBe "日本文学選集"
                 book?.price shouldBe BookPrice.of(BigDecimal("3000.00"))
                 book?.status shouldBe BookPublishStatus.PUBLISHED
+                book?.version shouldBe 1
                 book?.authors?.size shouldBe 3
 
                 // 著者IDでソートされていることを前提に検証
@@ -76,6 +78,7 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
                 book?.title shouldBe "謎の小説"
                 book?.price shouldBe BookPrice.of(BigDecimal("2000.00"))
                 book?.status shouldBe BookPublishStatus.PUBLISHED
+                book?.version shouldBe 1
                 book?.authors?.size shouldBe 1
                 book?.authors?.get(0)?.id?.value shouldBe 4
                 book?.authors?.get(0)?.name shouldBe "匿名作家"

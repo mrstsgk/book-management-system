@@ -40,6 +40,7 @@ class BookQueryServiceImplTest(private val bookQueryService: BookQueryService) :
                 book1.title shouldBe "吾輩は猫である"
                 book1.price shouldBe BookPrice.of(BigDecimal("1500.00"))
                 book1.status shouldBe BookPublishStatus.PUBLISHED
+                book1.version shouldBe 1
                 book1.authors.size shouldBe 1
                 book1.authors[0].id.value shouldBe 1
                 book1.authors[0].name shouldBe "夏目漱石"
@@ -50,6 +51,7 @@ class BookQueryServiceImplTest(private val bookQueryService: BookQueryService) :
                 book2.title shouldBe "日本文学選集"
                 book2.price shouldBe BookPrice.of(BigDecimal("3000.00"))
                 book2.status shouldBe BookPublishStatus.PUBLISHED
+                book2.version shouldBe 1
                 book2.authors.size shouldBe 3
             }
 
@@ -66,6 +68,7 @@ class BookQueryServiceImplTest(private val bookQueryService: BookQueryService) :
                 book1.title shouldBe "日本文学選集"
                 book1.price shouldBe BookPrice.of(BigDecimal("3000.00"))
                 book1.status shouldBe BookPublishStatus.PUBLISHED
+                book1.version shouldBe 1
                 book1.authors.size shouldBe 3
 
                 val book2 = books[1]
@@ -73,6 +76,7 @@ class BookQueryServiceImplTest(private val bookQueryService: BookQueryService) :
                 book2.title shouldBe "文学論"
                 book2.price shouldBe BookPrice.of(BigDecimal("2500.00"))
                 book2.status shouldBe BookPublishStatus.PUBLISHED
+                book2.version shouldBe 1
                 book2.authors.size shouldBe 1
                 book2.authors[0].id.value shouldBe 2
                 book2.authors[0].name shouldBe "太宰治"
@@ -119,6 +123,7 @@ class BookQueryServiceImplTest(private val bookQueryService: BookQueryService) :
                 singleAuthorBook.title shouldBe "こころ"
                 singleAuthorBook.price shouldBe BookPrice.of(BigDecimal("1800.00"))
                 singleAuthorBook.status shouldBe BookPublishStatus.PUBLISHED
+                singleAuthorBook.version shouldBe 1
                 singleAuthorBook.authors.size shouldBe 1
                 singleAuthorBook.authors[0].id.value shouldBe 3
                 singleAuthorBook.authors[0].name shouldBe "芥川龍之介"
@@ -136,6 +141,7 @@ class BookQueryServiceImplTest(private val bookQueryService: BookQueryService) :
                 book.title shouldBe "謎の小説"
                 book.price shouldBe BookPrice.of(BigDecimal("2000.00"))
                 book.status shouldBe BookPublishStatus.PUBLISHED
+                book.version shouldBe 1
                 book.authors.size shouldBe 1
                 book.authors[0].id.value shouldBe 4
                 book.authors[0].name shouldBe "匿名作家"
