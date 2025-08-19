@@ -1,7 +1,7 @@
 package com.bookmanagementsystem.presentation.controller.author
 
 import com.bookmanagementsystem.presentation.config.IntegrationTestWithSql
-import com.bookmanagementsystem.presentation.model.BookResponseModel
+import com.bookmanagementsystem.presentation.model.AuthorBookResponseModel
 import com.bookmanagementsystem.presentation.model.BookStatus
 import com.bookmanagementsystem.presentation.model.NotFoundErrorResponseModel
 import com.fasterxml.jackson.core.type.TypeReference
@@ -17,7 +17,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
-import java.time.LocalDate
 
 /**
  * ReadAuthorBookController の統合テスト。
@@ -64,7 +63,7 @@ class ReadAuthorBookControllerTest : FunSpec() {
                 val responseJson = result.response.contentAsString
                 val response = objectMapper.readValue(
                     responseJson,
-                    object : TypeReference<List<BookResponseModel>>() {}
+                    object : TypeReference<List<AuthorBookResponseModel>>() {}
                 )
 
                 response.size shouldBe 2
@@ -75,12 +74,6 @@ class ReadAuthorBookControllerTest : FunSpec() {
                 book1.title shouldBe "吾輩は猫である"
                 book1.price shouldBe 1500L
                 book1.status shouldBe BookStatus.PUBLISHED
-                book1.version shouldBe 1
-                book1.authors?.size shouldBe 1
-                book1.authors?.get(0)?.id shouldBe 1
-                book1.authors?.get(0)?.name shouldBe "夏目漱石"
-                book1.authors?.get(0)?.birthDate shouldBe LocalDate.of(1867, 2, 9)
-                book1.authors?.get(0)?.version shouldBe 1
 
                 // 2冊目の書籍検証（共著）
                 val book2 = response[1]
@@ -88,8 +81,6 @@ class ReadAuthorBookControllerTest : FunSpec() {
                 book2.title shouldBe "日本文学選集"
                 book2.price shouldBe 3000L
                 book2.status shouldBe BookStatus.PUBLISHED
-                book2.version shouldBe 1
-                book2.authors?.size shouldBe 3
             }
 
             test("著者に紐づく書籍が存在しない場合、空の配列が返される") {
@@ -104,7 +95,7 @@ class ReadAuthorBookControllerTest : FunSpec() {
                 // レスポンスボディの検証
                 val responseJson = result.response.contentAsString
                 val response =
-                    objectMapper.readValue(responseJson, object : TypeReference<List<BookResponseModel>>() {})
+                    objectMapper.readValue(responseJson, object : TypeReference<List<AuthorBookResponseModel>>() {})
 
                 response.size shouldBe 0
             }
@@ -121,7 +112,7 @@ class ReadAuthorBookControllerTest : FunSpec() {
                 // レスポンスボディの検証
                 val responseJson = result.response.contentAsString
                 val response =
-                    objectMapper.readValue(responseJson, object : TypeReference<List<BookResponseModel>>() {})
+                    objectMapper.readValue(responseJson, object : TypeReference<List<AuthorBookResponseModel>>() {})
 
                 response.size shouldBe 2
 
@@ -129,11 +120,6 @@ class ReadAuthorBookControllerTest : FunSpec() {
                 val singleAuthorBook = response.find { it.id == 4 }
                 singleAuthorBook!!.title shouldBe "文学論"
                 singleAuthorBook.price shouldBe 2500L
-                singleAuthorBook.version shouldBe 1
-                singleAuthorBook.authors?.size shouldBe 1
-                singleAuthorBook.authors?.get(0)?.id shouldBe 2
-                singleAuthorBook.authors?.get(0)?.name shouldBe "太宰治"
-                singleAuthorBook.authors?.get(0)?.version shouldBe 1
             }
         }
 
