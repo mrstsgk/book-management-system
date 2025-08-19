@@ -1,4 +1,4 @@
-package com.bookmanagementsystem.usecase.author.read
+package com.bookmanagementsystem.usecase.author.book.read
 
 import com.bookmanagementsystem.domain.author.Author
 import com.bookmanagementsystem.domain.author.AuthorBirthDate
@@ -6,8 +6,7 @@ import com.bookmanagementsystem.domain.author.AuthorRepository
 import com.bookmanagementsystem.domain.book.BookPrice
 import com.bookmanagementsystem.domain.book.BookPublishStatus
 import com.bookmanagementsystem.domain.core.ID
-import com.bookmanagementsystem.usecase.author.AuthorDto
-import com.bookmanagementsystem.usecase.book.BookDto
+import com.bookmanagementsystem.usecase.book.BookSummaryDto
 import com.bookmanagementsystem.usecase.book.read.BookQueryService
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -30,35 +29,17 @@ class ReadAuthorBookUsecaseTest : FunSpec({
             birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9))
         )
         val expectedBooks = listOf(
-            BookDto(
+            BookSummaryDto(
                 id = ID(1),
                 title = "吾輩は猫である",
                 price = BookPrice.of(BigDecimal("1500.00")),
-                authors = listOf(
-                    AuthorDto(
-                        id = ID(1),
-                        name = "夏目漱石",
-                        birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9)),
-                        version = 1
-                    )
-                ),
-                status = BookPublishStatus.PUBLISHED,
-                version = 1
+                status = BookPublishStatus.PUBLISHED
             ),
-            BookDto(
+            BookSummaryDto(
                 id = ID(2),
                 title = "こころ",
                 price = BookPrice.of(BigDecimal("1800.00")),
-                authors = listOf(
-                    AuthorDto(
-                        id = ID(1),
-                        name = "夏目漱石",
-                        birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9)),
-                        version = 1
-                    )
-                ),
-                status = BookPublishStatus.PUBLISHED,
-                version = 1
+                status = BookPublishStatus.PUBLISHED
             )
         )
 
@@ -121,32 +102,11 @@ class ReadAuthorBookUsecaseTest : FunSpec({
             birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9))
         )
         val expectedBooks = listOf(
-            BookDto(
+            BookSummaryDto(
                 id = ID(1),
                 title = "日本文学選集",
                 price = BookPrice.of(BigDecimal("3000.00")),
-                authors = listOf(
-                    AuthorDto(
-                        id = ID(1),
-                        name = "夏目漱石",
-                        birthDate = AuthorBirthDate(LocalDate.of(1867, 2, 9)),
-                        version = 1
-                    ),
-                    AuthorDto(
-                        id = ID(2),
-                        name = "太宰治",
-                        birthDate = AuthorBirthDate(LocalDate.of(1909, 6, 19)),
-                        version = 1
-                    ),
-                    AuthorDto(
-                        id = ID(3),
-                        name = "芥川龍之介",
-                        birthDate = AuthorBirthDate(LocalDate.of(1892, 3, 1)),
-                        version = 1
-                    )
-                ),
-                status = BookPublishStatus.PUBLISHED,
-                version = 1
+                status = BookPublishStatus.PUBLISHED
             )
         )
 
@@ -156,7 +116,6 @@ class ReadAuthorBookUsecaseTest : FunSpec({
         val result = usecase.execute(authorId)
 
         result shouldBe expectedBooks
-        result[0].authors.size shouldBe 3
         verify { authorRepository.findById(authorId) }
         verify { bookQueryService.findByAuthorId(authorId) }
     }
