@@ -2,7 +2,7 @@
 CREATE TABLE book_author (
     book_id   INTEGER NOT NULL REFERENCES book(id),
     author_id INTEGER NOT NULL REFERENCES author (id),
-    version   INTEGER,
+    version   INTEGER NOT NULL,
     PRIMARY KEY (book_id, author_id)
 );
 

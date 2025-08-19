@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS author (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(100) NOT NULL,
     birth_date  DATE,
-    version     INTEGER
+    version     INTEGER NOT NULL
 );
 
 -- テーブルとカラムにコメントを追加
