@@ -21,7 +21,7 @@ class UpdateBookUsecase(
      * 書籍を更新する
      */
     fun execute(command: UpdateBookCommand): BookDto {
-        detailQueryService.findById(command.id) ?: throw NoSuchElementException("書籍が見つかりません: ${command.id}")
+        detailQueryService.findById(command.id)
 
         val validationErrors = validator.validate(command)
         if (validationErrors.isNotEmpty()) throw UsecaseViolationException(validationErrors.joinToString(", "))
@@ -37,7 +37,8 @@ class UpdateBookUsecase(
         title = command.title,
         price = command.price,
         authorIds = command.authorIds,
-        status = command.status
+        status = command.status,
+        version = command.version
     )
 
     private fun toDto(book: Book, authorDtoList: List<AuthorDto>) = BookDto(
@@ -45,6 +46,7 @@ class UpdateBookUsecase(
         title = book.title,
         price = book.price,
         authors = authorDtoList,
-        status = book.status
+        status = book.status,
+        version = book.version!!
     )
 }

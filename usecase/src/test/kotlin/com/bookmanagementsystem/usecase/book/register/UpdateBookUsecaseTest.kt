@@ -39,14 +39,16 @@ class UpdateBookUsecaseTest : FunSpec({
             title = "更新後のタイトル",
             price = BookPrice.of(2000L),
             authorIds = listOf(authorId),
-            status = BookPublishStatus.UNPUBLISHED
+            status = BookPublishStatus.UNPUBLISHED,
+            version = 1
         )
         val updatedBook = Book(
             id = bookId,
             title = "更新後のタイトル",
             price = BookPrice.of(2000L),
             authorIds = listOf(authorId),
-            status = BookPublishStatus.UNPUBLISHED
+            status = BookPublishStatus.UNPUBLISHED,
+            version = 2
         )
         val authorDto = AuthorDto(
             id = authorId,
@@ -60,7 +62,8 @@ class UpdateBookUsecaseTest : FunSpec({
             title = "元のタイトル",
             price = BookPrice.of(1500L),
             authors = listOf(authorDto),
-            status = BookPublishStatus.PUBLISHED
+            status = BookPublishStatus.PUBLISHED,
+            version = 1,
         )
         every { validator.validate(command) } returns emptyList()
         every { repository.update(any<Book>()) } returns updatedBook
@@ -72,7 +75,8 @@ class UpdateBookUsecaseTest : FunSpec({
             title = "更新後のタイトル",
             price = BookPrice.of(2000L),
             authors = listOf(authorDto),
-            status = BookPublishStatus.UNPUBLISHED
+            status = BookPublishStatus.UNPUBLISHED,
+            version = 2
         )
         verify {
             detailQueryService.findById(bookId)
@@ -83,7 +87,8 @@ class UpdateBookUsecaseTest : FunSpec({
                     title = "更新後のタイトル",
                     price = BookPrice.of(2000L),
                     authorIds = listOf(authorId),
-                    status = BookPublishStatus.UNPUBLISHED
+                    status = BookPublishStatus.UNPUBLISHED,
+                    version = 1
                 )
             )
             authorQueryService.findByBookId(bookId)
@@ -98,14 +103,16 @@ class UpdateBookUsecaseTest : FunSpec({
             title = "複数著者の書籍更新版",
             price = BookPrice.of(3000L),
             authorIds = authorIds,
-            status = BookPublishStatus.PUBLISHED
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
         )
         val updatedBook = Book(
             id = bookId,
             title = "複数著者の書籍更新版",
             price = BookPrice.of(3000L),
             authorIds = authorIds,
-            status = BookPublishStatus.PUBLISHED
+            status = BookPublishStatus.PUBLISHED,
+            version = 2
         )
         val authorDtoList = listOf(
             AuthorDto(ID(1), "著者1", null, 1),
@@ -118,7 +125,8 @@ class UpdateBookUsecaseTest : FunSpec({
             title = "複数著者の書籍",
             price = BookPrice.of(2500L),
             authors = authorDtoList,
-            status = BookPublishStatus.UNPUBLISHED
+            status = BookPublishStatus.UNPUBLISHED,
+            version = 1,
         )
         every { validator.validate(command) } returns emptyList()
         every { repository.update(any<Book>()) } returns updatedBook
@@ -130,7 +138,8 @@ class UpdateBookUsecaseTest : FunSpec({
             title = "複数著者の書籍更新版",
             price = BookPrice.of(3000L),
             authors = authorDtoList,
-            status = BookPublishStatus.PUBLISHED
+            status = BookPublishStatus.PUBLISHED,
+            version = 2
         )
         verify {
             detailQueryService.findById(bookId)
@@ -140,40 +149,15 @@ class UpdateBookUsecaseTest : FunSpec({
         }
     }
 
-    test("存在しない書籍を更新しようとするとNoSuchElementExceptionがスローされること") {
-        val bookId = ID<Book>(999)
-        val command = UpdateBookCommand(
-            id = bookId,
-            title = "存在しない書籍",
-            price = BookPrice.of(1000L),
-            authorIds = listOf(ID<Author>(1)),
-            status = BookPublishStatus.PUBLISHED
-        )
-
-        every { detailQueryService.findById(bookId) } returns null
-
-        val exception = shouldThrow<NoSuchElementException> {
-            usecase.execute(command)
-        }
-        exception.message shouldBe "書籍が見つかりません: ID(value=999)"
-        verify {
-            detailQueryService.findById(bookId)
-        }
-        verify(exactly = 0) {
-            validator.validate(any<UpdateBookCommand>())
-            repository.update(any<Book>())
-            authorQueryService.findByBookId(any<ID<Book>>())
-        }
-    }
-
     test("バリデーションエラーがある場合UsecaseViolationExceptionがスローされること") {
         val bookId = ID<Book>(1)
         val command = UpdateBookCommand(
             id = bookId,
             title = "テスト書籍",
             price = BookPrice.of(1000L),
-            authorIds = listOf(ID<Author>(1)),
-            status = BookPublishStatus.UNPUBLISHED
+            authorIds = listOf(ID(1)),
+            status = BookPublishStatus.UNPUBLISHED,
+            version = 1
         )
         val validationErrors = listOf("status: 出版状況は「出版済み」から「未出版」に変更できません")
 
@@ -182,7 +166,8 @@ class UpdateBookUsecaseTest : FunSpec({
             title = "既存書籍",
             price = BookPrice.of(1500L),
             authors = emptyList(),
-            status = BookPublishStatus.PUBLISHED
+            status = BookPublishStatus.PUBLISHED,
+            version = 1,
         )
         every { validator.validate(command) } returns validationErrors
 
