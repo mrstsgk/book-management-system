@@ -21,7 +21,7 @@ class UpdateBookUsecase(
      * 書籍を更新する
      */
     fun execute(command: UpdateBookCommand): BookDto {
-        detailQueryService.findById(command.id)
+        detailQueryService.findById(command.id) ?: throw NoSuchElementException("書籍が存在しません: ${command.id}")
 
         val validationErrors = validator.validate(command)
         if (validationErrors.isNotEmpty()) throw UsecaseViolationException(validationErrors.joinToString(", "))

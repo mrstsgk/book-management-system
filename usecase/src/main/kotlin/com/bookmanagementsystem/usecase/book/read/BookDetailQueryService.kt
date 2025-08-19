@@ -8,5 +8,5 @@ interface BookDetailQueryService {
     /**
      * IDに紐づく書籍の詳細情報を取得する
      */
-    fun findById(id: ID<Book>): BookDto
+    fun findById(id: ID<Book>): BookDto?
 }

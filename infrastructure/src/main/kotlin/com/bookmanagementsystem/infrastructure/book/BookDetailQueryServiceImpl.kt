@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository
 
 @Repository
 class BookDetailQueryServiceImpl(private val dsl: DSLContext) : BookDetailQueryService {
-    override fun findById(id: ID<Book>): BookDto {
+    override fun findById(id: ID<Book>): BookDto? {
         val records = dsl.select(
             BOOK.ID,
             BOOK.TITLE,
@@ -32,7 +32,7 @@ class BookDetailQueryServiceImpl(private val dsl: DSLContext) : BookDetailQueryS
             .fetch()
 
         if (records.isEmpty()) {
-            throw NoSuchElementException("Book with ID ${id.value} not found")
+            return null
         }
 
         val bookRecord = records.first()
