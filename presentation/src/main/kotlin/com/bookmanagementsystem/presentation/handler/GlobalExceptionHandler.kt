@@ -1,10 +1,10 @@
 package com.bookmanagementsystem.presentation.handler
 
+import com.bookmanagementsystem.infrastructure.exception.OptimisticLockException
 import com.bookmanagementsystem.presentation.model.BadRequestErrorResponseModel
 import com.bookmanagementsystem.presentation.model.ErrorModel
 import com.bookmanagementsystem.presentation.model.NotFoundErrorResponseModel
 import com.bookmanagementsystem.presentation.model.OptimisticLockErrorResponseModel
-import com.bookmanagementsystem.infrastructure.exception.OptimisticLockException
 import com.bookmanagementsystem.usecase.exception.UsecaseViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
