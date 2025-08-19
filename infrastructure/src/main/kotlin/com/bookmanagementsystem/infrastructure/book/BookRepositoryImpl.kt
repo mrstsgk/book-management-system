@@ -23,7 +23,7 @@ class BookRepositoryImpl(private val dsl: DSLContext) : BookRepository {
             .returning()
             .fetchSingle()
 
-        val authorIds = BookAuthorHelper.insertBookAuthor(dsl, ID(record.id!!), book.authorIds)
+        val authorIds = AuthorBookHelper.insertAuthorBook(dsl, ID(record.id!!), book.authorIds)
         return convert(record, authorIds)
     }
 
@@ -41,9 +41,9 @@ class BookRepositoryImpl(private val dsl: DSLContext) : BookRepository {
             ?: throw OptimisticLockException("書籍の更新に失敗しました。")
 
         // 既存の著者関連を削除して再挿入
-        BookAuthorHelper.deleteBookAuthorByBookId(dsl, book.id!!)
+        AuthorBookHelper.deleteAuthorBookByBookId(dsl, book.id!!)
 
-        val authorIds = BookAuthorHelper.insertBookAuthor(dsl, book.id!!, book.authorIds)
+        val authorIds = AuthorBookHelper.insertAuthorBook(dsl, book.id!!, book.authorIds)
         return convert(record, authorIds)
     }
 

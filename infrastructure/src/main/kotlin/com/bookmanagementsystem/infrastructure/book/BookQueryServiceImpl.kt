@@ -3,8 +3,8 @@ package com.bookmanagementsystem.infrastructure.book
 import com.bookmanagementsystem.domain.author.Author
 import com.bookmanagementsystem.domain.core.ID
 import com.bookmanagementsystem.jooq.tables.references.AUTHOR
+import com.bookmanagementsystem.jooq.tables.references.AUTHOR_BOOK
 import com.bookmanagementsystem.jooq.tables.references.BOOK
-import com.bookmanagementsystem.jooq.tables.references.BOOK_AUTHOR
 import com.bookmanagementsystem.usecase.book.BookDto
 import com.bookmanagementsystem.usecase.book.read.BookQueryService
 import org.jooq.DSLContext
@@ -25,13 +25,13 @@ class BookQueryServiceImpl(private val dsl: DSLContext) : BookQueryService {
             AUTHOR.VERSION.`as`("author_version")
         )
             .from(BOOK)
-            .innerJoin(BOOK_AUTHOR).on(BOOK.ID.eq(BOOK_AUTHOR.BOOK_ID))
-            .innerJoin(AUTHOR).on(BOOK_AUTHOR.AUTHOR_ID.eq(AUTHOR.ID))
+            .innerJoin(AUTHOR_BOOK).on(BOOK.ID.eq(AUTHOR_BOOK.BOOK_ID))
+            .innerJoin(AUTHOR).on(AUTHOR_BOOK.AUTHOR_ID.eq(AUTHOR.ID))
             .where(
                 BOOK.ID.`in`(
-                    dsl.select(BOOK_AUTHOR.BOOK_ID)
-                        .from(BOOK_AUTHOR)
-                        .where(BOOK_AUTHOR.AUTHOR_ID.eq(authorId.value))
+                    dsl.select(AUTHOR_BOOK.BOOK_ID)
+                        .from(AUTHOR_BOOK)
+                        .where(AUTHOR_BOOK.AUTHOR_ID.eq(authorId.value))
                 )
             )
             .orderBy(BOOK.ID)
