@@ -5,10 +5,10 @@ package com.bookmanagementsystem.jooq.tables
 
 
 import com.bookmanagementsystem.jooq.Public
-import com.bookmanagementsystem.jooq.keys.BOOK_AUTHOR__BOOK_AUTHOR_BOOK_ID_FKEY
+import com.bookmanagementsystem.jooq.keys.AUTHOR_BOOK__AUTHOR_BOOK_BOOK_ID_FKEY
 import com.bookmanagementsystem.jooq.keys.BOOK_PKEY
 import com.bookmanagementsystem.jooq.tables.Author.AuthorPath
-import com.bookmanagementsystem.jooq.tables.BookAuthor.BookAuthorPath
+import com.bookmanagementsystem.jooq.tables.AuthorBook.AuthorBookPath
 import com.bookmanagementsystem.jooq.tables.records.BookRecord
 
 import java.math.BigDecimal
@@ -136,28 +136,28 @@ open class Book(
     override fun getIdentity(): Identity<BookRecord, Int?> = super.getIdentity() as Identity<BookRecord, Int?>
     override fun getPrimaryKey(): UniqueKey<BookRecord> = BOOK_PKEY
 
-    private lateinit var _bookAuthor: BookAuthorPath
+    private lateinit var _authorBook: AuthorBookPath
 
     /**
-     * Get the implicit to-many join path to the <code>public.book_author</code>
+     * Get the implicit to-many join path to the <code>public.author_book</code>
      * table
      */
-    fun bookAuthor(): BookAuthorPath {
-        if (!this::_bookAuthor.isInitialized)
-            _bookAuthor = BookAuthorPath(this, null, BOOK_AUTHOR__BOOK_AUTHOR_BOOK_ID_FKEY.inverseKey)
+    fun authorBook(): AuthorBookPath {
+        if (!this::_authorBook.isInitialized)
+            _authorBook = AuthorBookPath(this, null, AUTHOR_BOOK__AUTHOR_BOOK_BOOK_ID_FKEY.inverseKey)
 
-        return _bookAuthor;
+        return _authorBook;
     }
 
-    val bookAuthor: BookAuthorPath
-        get(): BookAuthorPath = bookAuthor()
+    val authorBook: AuthorBookPath
+        get(): AuthorBookPath = authorBook()
 
     /**
      * Get the implicit many-to-many join path to the <code>public.author</code>
      * table
      */
     val author: AuthorPath
-        get(): AuthorPath = bookAuthor().author()
+        get(): AuthorPath = authorBook().author()
     override fun `as`(alias: String): Book = Book(DSL.name(alias), this)
     override fun `as`(alias: Name): Book = Book(alias, this)
     override fun `as`(alias: Table<*>): Book = Book(alias.qualifiedName, this)

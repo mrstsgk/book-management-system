@@ -8,12 +8,12 @@ import java.io.Serializable
 
 
 /**
- * 書籍と著者の中間テーブル（多対多対応）
+ * 著者と書籍の中間テーブル（多対多対応）
  */
 @Suppress("UNCHECKED_CAST")
-data class BookAuthor(
-    var bookId: Int? = null,
+data class AuthorBook(
     var authorId: Int? = null,
+    var bookId: Int? = null,
     var version: Int? = null
 ): Serializable {
 
@@ -25,18 +25,18 @@ data class BookAuthor(
             return false
         if (this::class != other::class)
             return false
-        val o: BookAuthor = other as BookAuthor
-        if (this.bookId == null) {
-            if (o.bookId != null)
-                return false
-        }
-        else if (this.bookId != o.bookId)
-            return false
+        val o: AuthorBook = other as AuthorBook
         if (this.authorId == null) {
             if (o.authorId != null)
                 return false
         }
         else if (this.authorId != o.authorId)
+            return false
+        if (this.bookId == null) {
+            if (o.bookId != null)
+                return false
+        }
+        else if (this.bookId != o.bookId)
             return false
         if (this.version == null) {
             if (o.version != null)
@@ -50,17 +50,17 @@ data class BookAuthor(
     override fun hashCode(): Int {
         val prime = 31
         var result = 1
-        result = prime * result + (if (this.bookId == null) 0 else this.bookId.hashCode())
         result = prime * result + (if (this.authorId == null) 0 else this.authorId.hashCode())
+        result = prime * result + (if (this.bookId == null) 0 else this.bookId.hashCode())
         result = prime * result + (if (this.version == null) 0 else this.version.hashCode())
         return result
     }
 
     override fun toString(): String {
-        val sb = StringBuilder("BookAuthor (")
+        val sb = StringBuilder("AuthorBook (")
 
-        sb.append(bookId)
-        sb.append(", ").append(authorId)
+        sb.append(authorId)
+        sb.append(", ").append(bookId)
         sb.append(", ").append(version)
 
         sb.append(")")
