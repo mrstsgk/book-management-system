@@ -112,7 +112,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/BookResponseModel'
+                  $ref: '#/components/schemas/AuthorBookResponseModel'
         '404':
           description: 著者が存在しない場合
           content:
@@ -334,6 +334,33 @@ components:
       required:
         - id
         - name
+
+    AuthorBookResponseModel:
+      type: object
+      description: 著者に紐づく書籍のAPIで汎用的に使用するレスポンス情報
+      properties:
+        id:
+          type: integer
+          format: int32
+          description: 書籍ID
+          example: 1
+        title:
+          type: string
+          description: 書籍タイトル
+          example: "人間失格"
+        price:
+          type: integer
+          format: int64
+          minimum: 0
+          description: 書籍価格
+          example: 1500
+        status:
+          $ref: '#/components/schemas/BookStatus'
+      required:
+        - id
+        - title
+        - price
+        - status
 
     BookResponseModel:
       type: object
