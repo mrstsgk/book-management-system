@@ -17,9 +17,10 @@ object BookAuthorHelper {
         .insertInto(
             BOOK_AUTHOR,
             BOOK_AUTHOR.BOOK_ID,
-            BOOK_AUTHOR.AUTHOR_ID
+            BOOK_AUTHOR.AUTHOR_ID,
+            BOOK_AUTHOR.VERSION
         )
-        .apply { authorIds.forEach { values(bookId.value, it.value) } }
+        .apply { authorIds.forEach { values(bookId.value, it.value, 1) } }
         .returning()
         .fetch()
         .map { ID(it[BOOK_AUTHOR.AUTHOR_ID]!!) }

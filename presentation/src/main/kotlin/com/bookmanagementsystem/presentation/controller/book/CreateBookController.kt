@@ -46,5 +46,6 @@ class CreateBookController(private val usecase: CreateBookUsecase) {
             )
         },
         status = BookStatus.of(dto.status.value),
+        version = dto.version
     )
 }

@@ -1,6 +1,6 @@
 package com.bookmanagementsystem.infrastructure.exception
 
-class OptimisticLockException(
-    message: String,
-    cause: Throwable? = null
-) : RuntimeException(message, cause)
+/**
+ * 楽観的ロック例外
+ */
+class OptimisticLockException(message: String) : RuntimeException(message)

@@ -34,6 +34,7 @@ class ReadAuthorBookController(private val usecase: ReadAuthorBookUsecase) {
                 it.version
             )
         },
-        status = BookStatus.of(dto.status.value)
+        status = BookStatus.of(dto.status.value),
+        version = dto.version
     )
 }

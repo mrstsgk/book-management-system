@@ -25,6 +25,7 @@ class BookDetailQueryServiceImpl(private val dsl: DSLContext) : BookDetailQueryS
             BOOK.VERSION,
         )
             .from(BOOK)
+            // NOTE: 書籍には必ず著者が存在するというビジネスルールが強制されるため innerJoin で実装する
             .innerJoin(BOOK_AUTHOR).on(BOOK.ID.eq(BOOK_AUTHOR.BOOK_ID))
             .innerJoin(AUTHOR).on(BOOK_AUTHOR.AUTHOR_ID.eq(AUTHOR.ID))
             .where(BOOK.ID.eq(id.value))
