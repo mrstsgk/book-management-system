@@ -23,7 +23,7 @@ import org.jooq.impl.Internal
 // -------------------------------------------------------------------------
 
 val AUTHOR_PKEY: UniqueKey<AuthorRecord> = Internal.createUniqueKey(Author.AUTHOR, DSL.name("author_pkey"), arrayOf(Author.AUTHOR.ID), true)
-val AUTHOR_BOOK_PKEY: UniqueKey<AuthorBookRecord> = Internal.createUniqueKey(AuthorBook.AUTHOR_BOOK, DSL.name("author_book_pkey"), arrayOf(AuthorBook.AUTHOR_BOOK.BOOK_ID, AuthorBook.AUTHOR_BOOK.AUTHOR_ID), true)
+val AUTHOR_BOOK_PKEY: UniqueKey<AuthorBookRecord> = Internal.createUniqueKey(AuthorBook.AUTHOR_BOOK, DSL.name("author_book_pkey"), arrayOf(AuthorBook.AUTHOR_BOOK.AUTHOR_ID, AuthorBook.AUTHOR_BOOK.BOOK_ID), true)
 val BOOK_PKEY: UniqueKey<BookRecord> = Internal.createUniqueKey(Book.BOOK, DSL.name("book_pkey"), arrayOf(Book.BOOK.ID), true)
 
 // -------------------------------------------------------------------------

@@ -3,7 +3,7 @@ CREATE TABLE author_book (
     author_id INTEGER NOT NULL REFERENCES author (id),
     book_id   INTEGER NOT NULL REFERENCES book(id),
     version   INTEGER NOT NULL,
-    PRIMARY KEY (book_id, author_id)
+    PRIMARY KEY (author_id, book_id)
 );
 
 -- テーブルとカラムにコメントを追加
