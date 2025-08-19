@@ -28,4 +28,5 @@ data class UpdateBookCommand(
     val price: BookPrice,
     val authorIds: List<ID<Author>>,
     val status: BookPublishStatus,
+    val version: Int,
 ) : BookRegisterCommand

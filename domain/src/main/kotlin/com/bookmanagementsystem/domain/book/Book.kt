@@ -12,6 +12,7 @@ data class Book(
     val price: BookPrice,
     val authorIds: List<ID<Author>>,
     val status: BookPublishStatus,
+    val version: Int? = null
 ) {
     init {
         require(authorIds.isNotEmpty())

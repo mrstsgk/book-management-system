@@ -6,7 +6,7 @@ import com.bookmanagementsystem.usecase.book.BookDto
 
 interface BookDetailQueryService {
     /**
-     * 書籍IDに紐づく書籍情報を取得する
+     * IDに紐づく書籍の詳細情報を取得する
      */
     fun findById(id: ID<Book>): BookDto?
 }

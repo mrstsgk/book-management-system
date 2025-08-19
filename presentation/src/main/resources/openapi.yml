@@ -194,6 +194,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NotFoundErrorResponseModel'
+        '409':
+          description: 楽観的ロックエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimisticLockErrorResponseModel'
 
 components:
   schemas:
@@ -289,11 +295,17 @@ components:
           description: 著者IDのリスト
         status:
           $ref: '#/components/schemas/BookStatus'
+        version:
+          type: integer
+          format: int32
+          description: バージョン番号(楽観的ロック用)
+          example: 1
       required:
         - title
         - price
         - authorIds
         - status
+        - version
 
     AuthorResponseModel:
       type: object
@@ -340,7 +352,6 @@ components:
           type: integer
           format: int64
           minimum: 0
-          maximum: 9999999999
           description: 書籍価格
           example: 1500
         authors:
@@ -351,12 +362,18 @@ components:
           description: 著者のリスト
         status:
           $ref: '#/components/schemas/BookStatus'
+        version:
+          type: integer
+          format: int32
+          description: バージョン番号(楽観的ロック用)
+          example: 1
       required:
         - id
         - title
         - price
         - authors
         - status
+        - version
 
     BookStatus:
       type: integer

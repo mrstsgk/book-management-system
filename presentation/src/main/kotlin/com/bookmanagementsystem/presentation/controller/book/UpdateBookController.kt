@@ -32,7 +32,8 @@ class UpdateBookController(private val usecase: UpdateBookUsecase) {
         title = request.title!!,
         price = BookPrice.of(request.price!!),
         authorIds = request.authorIds!!.map { ID(it) },
-        status = BookPublishStatus.of(request.status!!.value)
+        status = BookPublishStatus.of(request.status!!.value),
+        version = request.version!!
     )
 
     private fun toResponse(dto: BookDto) = BookResponseModel(
@@ -48,5 +49,6 @@ class UpdateBookController(private val usecase: UpdateBookUsecase) {
             )
         },
         status = BookStatus.of(dto.status.value),
+        version = dto.version
     )
 }

@@ -35,5 +35,6 @@ class CreateBookUsecase(
         price = book.price,
         authors = authorDtoList,
         status = book.status,
+        version = book.version!!,
     )
 }

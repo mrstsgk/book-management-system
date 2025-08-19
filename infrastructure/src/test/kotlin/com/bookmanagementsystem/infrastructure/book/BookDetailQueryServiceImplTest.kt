@@ -32,14 +32,14 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
 
                 val book = bookQueryService.findById(bookId)
 
-                book!!.id.value shouldBe 1
-                book.title shouldBe "吾輩は猫である"
-                book.price shouldBe BookPrice.of(BigDecimal("1500.00"))
-                book.status shouldBe BookPublishStatus.PUBLISHED
-                book.authors.size shouldBe 1
-                book.authors[0].id.value shouldBe 1
-                book.authors[0].name shouldBe "夏目漱石"
-                book.authors[0].birthDate shouldBe AuthorBirthDate(LocalDate.of(1867, 2, 9))
+                book?.id?.value shouldBe 1
+                book?.title shouldBe "吾輩は猫である"
+                book?.price shouldBe BookPrice.of(BigDecimal("1500.00"))
+                book?.status shouldBe BookPublishStatus.PUBLISHED
+                book?.authors?.size shouldBe 1
+                book?.authors?.get(0)?.id?.value shouldBe 1
+                book?.authors?.get(0)?.name shouldBe "夏目漱石"
+                book?.authors?.get(0)?.birthDate shouldBe AuthorBirthDate(LocalDate.of(1867, 2, 9))
             }
 
             test("複数の著者を持つ書籍が正常に取得される") {
@@ -47,24 +47,24 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
 
                 val book = bookQueryService.findById(bookId)
 
-                book!!.id.value shouldBe 2
-                book.title shouldBe "日本文学選集"
-                book.price shouldBe BookPrice.of(BigDecimal("3000.00"))
-                book.status shouldBe BookPublishStatus.PUBLISHED
-                book.authors.size shouldBe 3
+                book?.id?.value shouldBe 2
+                book?.title shouldBe "日本文学選集"
+                book?.price shouldBe BookPrice.of(BigDecimal("3000.00"))
+                book?.status shouldBe BookPublishStatus.PUBLISHED
+                book?.authors?.size shouldBe 3
 
                 // 著者IDでソートされていることを前提に検証
-                book.authors[0].id.value shouldBe 1
-                book.authors[0].name shouldBe "夏目漱石"
-                book.authors[0].birthDate shouldBe AuthorBirthDate(LocalDate.of(1867, 2, 9))
+                book?.authors?.get(0)?.id?.value shouldBe 1
+                book?.authors?.get(0)?.name shouldBe "夏目漱石"
+                book?.authors?.get(0)?.birthDate shouldBe AuthorBirthDate(LocalDate.of(1867, 2, 9))
 
-                book.authors[1].id.value shouldBe 2
-                book.authors[1].name shouldBe "太宰治"
-                book.authors[1].birthDate shouldBe AuthorBirthDate(LocalDate.of(1909, 6, 19))
+                book?.authors?.get(1)?.id?.value shouldBe 2
+                book?.authors?.get(1)?.name shouldBe "太宰治"
+                book?.authors?.get(1)?.birthDate shouldBe AuthorBirthDate(LocalDate.of(1909, 6, 19))
 
-                book.authors[2].id.value shouldBe 3
-                book.authors[2].name shouldBe "芥川龍之介"
-                book.authors[2].birthDate shouldBe AuthorBirthDate(LocalDate.of(1892, 3, 1))
+                book?.authors?.get(2)?.id?.value shouldBe 3
+                book?.authors?.get(2)?.name shouldBe "芥川龍之介"
+                book?.authors?.get(2)?.birthDate shouldBe AuthorBirthDate(LocalDate.of(1892, 3, 1))
             }
 
             test("生年月日がnullの著者を持つ書籍が正常に取得される") {
@@ -72,14 +72,14 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
 
                 val book = bookQueryService.findById(bookId)
 
-                book!!.id.value shouldBe 3
-                book.title shouldBe "謎の小説"
-                book.price shouldBe BookPrice.of(BigDecimal("2000.00"))
-                book.status shouldBe BookPublishStatus.PUBLISHED
-                book.authors.size shouldBe 1
-                book.authors[0].id.value shouldBe 4
-                book.authors[0].name shouldBe "匿名作家"
-                book.authors[0].birthDate shouldBe null
+                book?.id?.value shouldBe 3
+                book?.title shouldBe "謎の小説"
+                book?.price shouldBe BookPrice.of(BigDecimal("2000.00"))
+                book?.status shouldBe BookPublishStatus.PUBLISHED
+                book?.authors?.size shouldBe 1
+                book?.authors?.get(0)?.id?.value shouldBe 4
+                book?.authors?.get(0)?.name shouldBe "匿名作家"
+                book?.authors?.get(0)?.birthDate shouldBe null
             }
 
             test("存在しない書籍IDの場合はnullが返される") {

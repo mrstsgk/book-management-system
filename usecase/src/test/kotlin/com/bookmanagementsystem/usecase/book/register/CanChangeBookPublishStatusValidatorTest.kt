@@ -21,9 +21,10 @@ class CanChangeBookPublishStatusValidatorTest : FunSpec({
             val command = UpdateBookCommand(
                 id = ID(1),
                 title = "テスト書籍",
-                price = BookPrice.Companion.of(1000L),
+                price = BookPrice.of(1000L),
                 authorIds = listOf(ID(1)),
-                status = BookPublishStatus.UNPUBLISHED
+                status = BookPublishStatus.UNPUBLISHED,
+                version = 1
             )
             every { repository.getBookPublishStatusById(ID(1)) } returns BookPublishStatus.UNPUBLISHED
 
@@ -36,9 +37,10 @@ class CanChangeBookPublishStatusValidatorTest : FunSpec({
             val command = UpdateBookCommand(
                 id = ID(1),
                 title = "テスト書籍",
-                price = BookPrice.Companion.of(1000L),
+                price = BookPrice.of(1000L),
                 authorIds = listOf(ID(1)),
-                status = BookPublishStatus.PUBLISHED
+                status = BookPublishStatus.PUBLISHED,
+                version = 1
             )
             every { repository.getBookPublishStatusById(ID(1)) } returns BookPublishStatus.UNPUBLISHED
 
@@ -51,9 +53,10 @@ class CanChangeBookPublishStatusValidatorTest : FunSpec({
             val command = UpdateBookCommand(
                 id = ID(1),
                 title = "テスト書籍",
-                price = BookPrice.Companion.of(1000L),
+                price = BookPrice.of(1000L),
                 authorIds = listOf(ID(1)),
-                status = BookPublishStatus.PUBLISHED
+                status = BookPublishStatus.PUBLISHED,
+                version = 1
             )
             every { repository.getBookPublishStatusById(ID(1)) } returns BookPublishStatus.PUBLISHED
 
@@ -66,9 +69,10 @@ class CanChangeBookPublishStatusValidatorTest : FunSpec({
             val command = UpdateBookCommand(
                 id = ID(1),
                 title = "テスト書籍",
-                price = BookPrice.Companion.of(1000L),
+                price = BookPrice.of(1000L),
                 authorIds = listOf(ID(1)),
-                status = BookPublishStatus.UNPUBLISHED
+                status = BookPublishStatus.UNPUBLISHED,
+                version = 1
             )
             every { repository.getBookPublishStatusById(ID(1)) } returns BookPublishStatus.PUBLISHED
 

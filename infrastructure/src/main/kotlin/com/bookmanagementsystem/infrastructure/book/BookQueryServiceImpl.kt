@@ -2,8 +2,6 @@ package com.bookmanagementsystem.infrastructure.book
 
 import com.bookmanagementsystem.domain.author.Author
 import com.bookmanagementsystem.domain.core.ID
-import com.bookmanagementsystem.infrastructure.book.BookRecordConverter.convert
-import com.bookmanagementsystem.infrastructure.book.BookRecordConverter.convertAuthorDtoList
 import com.bookmanagementsystem.jooq.tables.references.AUTHOR
 import com.bookmanagementsystem.jooq.tables.references.BOOK
 import com.bookmanagementsystem.jooq.tables.references.BOOK_AUTHOR
@@ -20,6 +18,7 @@ class BookQueryServiceImpl(private val dsl: DSLContext) : BookQueryService {
             BOOK.TITLE,
             BOOK.PRICE,
             BOOK.PUBLISH_STATUS,
+            BOOK.VERSION,
             AUTHOR.ID.`as`("author_id"),
             AUTHOR.NAME.`as`("author_name"),
             AUTHOR.BIRTH_DATE.`as`("author_birth_date"),
@@ -44,8 +43,8 @@ class BookQueryServiceImpl(private val dsl: DSLContext) : BookQueryService {
         val bookGroups = records.groupBy { it[BOOK.ID] }
         return bookGroups.map { (_, bookRecords) ->
             val bookRecord = bookRecords.first()
-            val authors = convertAuthorDtoList(bookRecords)
-            convert(bookRecord, authors)
+            val authors = BookRecordConverter.convertAuthorDtoList(bookRecords)
+            BookRecordConverter.convert(bookRecord, authors)
         }
     }
 }

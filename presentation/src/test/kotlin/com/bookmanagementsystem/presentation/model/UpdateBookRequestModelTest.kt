@@ -33,7 +33,8 @@ class UpdateBookRequestModelTest : FunSpec({
             title = null,
             price = 1500L,
             authorIds = createDefaultAuthorIds(),
-            status = BookStatus.PUBLISHED
+            status = BookStatus.PUBLISHED,
+            version = 1
         )
 
         val violations = validator.validate(requestModel)
@@ -46,7 +47,8 @@ class UpdateBookRequestModelTest : FunSpec({
             title = "人間失格",
             price = null,
             authorIds = createDefaultAuthorIds(),
-            status = BookStatus.PUBLISHED
+            status = BookStatus.PUBLISHED,
+            version = 1
         )
 
         val violations = validator.validate(requestModel)
@@ -69,7 +71,8 @@ class UpdateBookRequestModelTest : FunSpec({
             title = "人間失格",
             price = 1500L,
             authorIds = null,
-            status = BookStatus.PUBLISHED
+            status = BookStatus.PUBLISHED,
+            version = 1
         )
 
         val violations = validator.validate(requestModel)
@@ -82,7 +85,8 @@ class UpdateBookRequestModelTest : FunSpec({
             title = "人間失格",
             price = 1500L,
             authorIds = emptyList(),
-            status = BookStatus.PUBLISHED
+            status = BookStatus.PUBLISHED,
+            version = 1
         )
 
         val violations = validator.validate(requestModel)
@@ -95,7 +99,8 @@ class UpdateBookRequestModelTest : FunSpec({
             title = "人間失格",
             price = 1500L,
             authorIds = createDefaultAuthorIds(),
-            status = null
+            status = null,
+            version = 1
         )
 
         val violations = validator.validate(requestModel)
@@ -164,10 +169,12 @@ fun createValidUpdateBookRequest(
     title: String = "人間失格",
     price: Long = 1500L,
     authorIds: List<Int> = createDefaultAuthorIds(),
-    status: BookStatus = BookStatus.PUBLISHED
+    status: BookStatus = BookStatus.PUBLISHED,
+    version: Int = 1
 ) = UpdateBookRequestModel(
     title = title,
     price = price,
     authorIds = authorIds,
-    status = status
+    status = status,
+    version = version
 )

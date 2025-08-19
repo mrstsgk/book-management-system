@@ -15,6 +15,7 @@ import com.bookmanagementsystem.usecase.author.register.PastOnly
  * @param price 書籍価格
  * @param authors 著者のリスト
  * @param status BookStatus
+ * @param version バージョン番号(楽観的ロック用)
  */
 data class BookResponseModel(
     /* 書籍ID */
@@ -27,7 +28,6 @@ data class BookResponseModel(
 
     /* 書籍価格 */
     @get:Min(0L)
-    @get:Max(9999999999L)
     @field:NotNull
     @get:JsonProperty("price") val price: kotlin.Long?,
 
@@ -39,7 +39,11 @@ data class BookResponseModel(
 
     @field:Valid
     @field:NotNull
-    @get:JsonProperty("status") val status: BookStatus?
+    @get:JsonProperty("status") val status: BookStatus?,
+
+    /* バージョン番号(楽観的ロック用) */
+    @field:NotNull
+    @get:JsonProperty("version") val version: kotlin.Int?
 ) {
 
 }

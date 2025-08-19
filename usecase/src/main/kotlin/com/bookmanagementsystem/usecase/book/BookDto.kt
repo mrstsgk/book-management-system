@@ -15,4 +15,5 @@ data class BookDto(
     val price: BookPrice,
     val authors: List<AuthorDto>,
     val status: BookPublishStatus,
+    val version: Int,
 )

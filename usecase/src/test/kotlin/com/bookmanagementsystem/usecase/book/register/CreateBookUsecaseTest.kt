@@ -34,7 +34,8 @@ class CreateBookUsecaseTest : FunSpec({
             title = "テスト書籍",
             price = BookPrice.of(1000L),
             authorIds = listOf(ID(1), ID(2)),
-            status = BookPublishStatus.PUBLISHED
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
         )
 
         val authorDtoList = listOf(
@@ -62,7 +63,8 @@ class CreateBookUsecaseTest : FunSpec({
             title = "テスト書籍",
             price = BookPrice.of(1000L),
             authors = authorDtoList,
-            status = BookPublishStatus.PUBLISHED
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
         )
 
         verify {
@@ -97,7 +99,8 @@ class CreateBookUsecaseTest : FunSpec({
             title = "未出版書籍",
             price = BookPrice.of(1500L),
             authorIds = listOf(ID(1)),
-            status = BookPublishStatus.UNPUBLISHED
+            status = BookPublishStatus.UNPUBLISHED,
+            version = 1
         )
 
         val authorDtoList = listOf(
@@ -119,7 +122,8 @@ class CreateBookUsecaseTest : FunSpec({
             title = "未出版書籍",
             price = BookPrice.of(1500L),
             authors = authorDtoList,
-            status = BookPublishStatus.UNPUBLISHED
+            status = BookPublishStatus.UNPUBLISHED,
+            version = 1
         )
 
         verify {
@@ -151,7 +155,8 @@ class CreateBookUsecaseTest : FunSpec({
             title = "共著書籍",
             price = BookPrice.of(2000L),
             authorIds = listOf(ID(1), ID(2), ID(3)),
-            status = BookPublishStatus.PUBLISHED
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
         )
 
         val authorDtoList = listOf(
@@ -185,7 +190,8 @@ class CreateBookUsecaseTest : FunSpec({
             title = "共著書籍",
             price = BookPrice.of(2000L),
             authors = authorDtoList,
-            status = BookPublishStatus.PUBLISHED
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
         )
 
         verify {
