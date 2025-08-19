@@ -7,6 +7,7 @@ import com.bookmanagementsystem.domain.book.BookPublishStatus
 import com.bookmanagementsystem.domain.core.ID
 import com.bookmanagementsystem.infrastructure.config.IntegrationTestWithSql
 import com.bookmanagementsystem.usecase.book.read.BookDetailQueryService
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
 import io.kotest.matchers.shouldBe
@@ -32,7 +33,7 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
 
                 val book = bookQueryService.findById(bookId)
 
-                book!!.id.value shouldBe 1
+                book.id.value shouldBe 1
                 book.title shouldBe "吾輩は猫である"
                 book.price shouldBe BookPrice.of(BigDecimal("1500.00"))
                 book.status shouldBe BookPublishStatus.PUBLISHED
@@ -47,7 +48,7 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
 
                 val book = bookQueryService.findById(bookId)
 
-                book!!.id.value shouldBe 2
+                book.id.value shouldBe 2
                 book.title shouldBe "日本文学選集"
                 book.price shouldBe BookPrice.of(BigDecimal("3000.00"))
                 book.status shouldBe BookPublishStatus.PUBLISHED
@@ -72,7 +73,7 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
 
                 val book = bookQueryService.findById(bookId)
 
-                book!!.id.value shouldBe 3
+                book.id.value shouldBe 3
                 book.title shouldBe "謎の小説"
                 book.price shouldBe BookPrice.of(BigDecimal("2000.00"))
                 book.status shouldBe BookPublishStatus.PUBLISHED
@@ -82,12 +83,12 @@ class BookDetailQueryServiceImplTest(private val bookQueryService: BookDetailQue
                 book.authors[0].birthDate shouldBe null
             }
 
-            test("存在しない書籍IDの場合はnullが返される") {
+            test("存在しない書籍IDの場合は例外が発生する") {
                 val bookId = ID<Book>(999)
 
-                val book = bookQueryService.findById(bookId)
-
-                book shouldBe null
+                shouldThrow<NoSuchElementException> {
+                    bookQueryService.findById(bookId)
+                }
             }
         }
     }
