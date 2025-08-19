@@ -1,7 +1,7 @@
 -- CreateBookControllerTest用のデータベーステストデータ管理
 
 -- 書籍と著者の関連テーブルをクリーンアップ
-TRUNCATE TABLE book_author CASCADE;
+TRUNCATE TABLE author_book CASCADE;
 
 -- 書籍テーブルのデータをクリーンアップ
 TRUNCATE TABLE book CASCADE;

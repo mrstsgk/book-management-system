@@ -80,9 +80,11 @@ class UpdateBookControllerTest : FunSpec() {
                 response.id shouldBe 1
                 response.title shouldBe "更新された吾輩は猫である"
                 response.price shouldBe 2000L
+                response.version shouldBe 2
                 response.authors?.size shouldBe 1
                 response.authors?.first()?.name shouldBe "夏目漱石"
                 response.authors?.first()?.birthDate shouldBe LocalDate.of(1867, 2, 9)
+                response.authors?.first()?.version shouldBe 1
                 response.status shouldBe BookStatus.PUBLISHED
             }
 
@@ -111,6 +113,7 @@ class UpdateBookControllerTest : FunSpec() {
                 response.id shouldBe 2
                 response.title shouldBe "更新された日本文学選集"
                 response.price shouldBe 3500L
+                response.version shouldBe 2
                 response.authors?.size shouldBe 3
                 response.authors?.get(0)?.id shouldBe 1
                 response.authors?.get(0)?.name shouldBe "夏目漱石"

@@ -4,7 +4,7 @@ import com.bookmanagementsystem.domain.author.AuthorBirthDate
 import com.bookmanagementsystem.domain.book.Book
 import com.bookmanagementsystem.domain.core.ID
 import com.bookmanagementsystem.jooq.tables.references.AUTHOR
-import com.bookmanagementsystem.jooq.tables.references.BOOK_AUTHOR
+import com.bookmanagementsystem.jooq.tables.references.AUTHOR_BOOK
 import com.bookmanagementsystem.usecase.author.AuthorDto
 import com.bookmanagementsystem.usecase.author.read.AuthorQueryService
 import org.jooq.DSLContext
@@ -20,9 +20,9 @@ class AuthorQueryServiceImpl(private val dsl: DSLContext) : AuthorQueryService {
             AUTHOR.VERSION,
         )
         .from(AUTHOR)
-        .join(BOOK_AUTHOR)
-        .on(AUTHOR.ID.eq(BOOK_AUTHOR.AUTHOR_ID))
-        .where(BOOK_AUTHOR.BOOK_ID.eq(bookId.value))
+        .join(AUTHOR_BOOK)
+        .on(AUTHOR.ID.eq(AUTHOR_BOOK.AUTHOR_ID))
+        .where(AUTHOR_BOOK.BOOK_ID.eq(bookId.value))
         .orderBy(AUTHOR.ID)
         .fetch()
         .map { record ->

@@ -3,8 +3,8 @@ package com.bookmanagementsystem.infrastructure.book
 import com.bookmanagementsystem.domain.book.Book
 import com.bookmanagementsystem.domain.core.ID
 import com.bookmanagementsystem.jooq.tables.references.AUTHOR
+import com.bookmanagementsystem.jooq.tables.references.AUTHOR_BOOK
 import com.bookmanagementsystem.jooq.tables.references.BOOK
-import com.bookmanagementsystem.jooq.tables.references.BOOK_AUTHOR
 import com.bookmanagementsystem.usecase.book.BookDto
 import com.bookmanagementsystem.usecase.book.read.BookDetailQueryService
 import org.jooq.DSLContext
@@ -26,8 +26,8 @@ class BookDetailQueryServiceImpl(private val dsl: DSLContext) : BookDetailQueryS
         )
             .from(BOOK)
             // NOTE: 書籍には必ず著者が存在するというビジネスルールが強制されるため innerJoin で実装する
-            .innerJoin(BOOK_AUTHOR).on(BOOK.ID.eq(BOOK_AUTHOR.BOOK_ID))
-            .innerJoin(AUTHOR).on(BOOK_AUTHOR.AUTHOR_ID.eq(AUTHOR.ID))
+            .innerJoin(AUTHOR_BOOK).on(BOOK.ID.eq(AUTHOR_BOOK.BOOK_ID))
+            .innerJoin(AUTHOR).on(AUTHOR_BOOK.AUTHOR_ID.eq(AUTHOR.ID))
             .where(BOOK.ID.eq(id.value))
             .fetch()
 

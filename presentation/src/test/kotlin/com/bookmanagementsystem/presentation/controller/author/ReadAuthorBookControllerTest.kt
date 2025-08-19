@@ -75,10 +75,12 @@ class ReadAuthorBookControllerTest : FunSpec() {
                 book1.title shouldBe "吾輩は猫である"
                 book1.price shouldBe 1500L
                 book1.status shouldBe BookStatus.PUBLISHED
+                book1.version shouldBe 1
                 book1.authors?.size shouldBe 1
                 book1.authors?.get(0)?.id shouldBe 1
                 book1.authors?.get(0)?.name shouldBe "夏目漱石"
                 book1.authors?.get(0)?.birthDate shouldBe LocalDate.of(1867, 2, 9)
+                book1.authors?.get(0)?.version shouldBe 1
 
                 // 2冊目の書籍検証（共著）
                 val book2 = response[1]
@@ -86,6 +88,7 @@ class ReadAuthorBookControllerTest : FunSpec() {
                 book2.title shouldBe "日本文学選集"
                 book2.price shouldBe 3000L
                 book2.status shouldBe BookStatus.PUBLISHED
+                book2.version shouldBe 1
                 book2.authors?.size shouldBe 3
             }
 
@@ -126,9 +129,11 @@ class ReadAuthorBookControllerTest : FunSpec() {
                 val singleAuthorBook = response.find { it.id == 4 }
                 singleAuthorBook!!.title shouldBe "文学論"
                 singleAuthorBook.price shouldBe 2500L
+                singleAuthorBook.version shouldBe 1
                 singleAuthorBook.authors?.size shouldBe 1
                 singleAuthorBook.authors?.get(0)?.id shouldBe 2
                 singleAuthorBook.authors?.get(0)?.name shouldBe "太宰治"
+                singleAuthorBook.authors?.get(0)?.version shouldBe 1
             }
         }
 

@@ -75,9 +75,11 @@ class CreateBookControllerTest : FunSpec() {
                 response.id shouldBe 1
                 response.title shouldBe "吾輩は猫である"
                 response.price shouldBe 1500L
+                response.version shouldBe 1
                 response.authors?.size shouldBe 1
                 response.authors?.first()?.name shouldBe "夏目漱石"
                 response.authors?.first()?.birthDate shouldBe LocalDate.of(1867, 2, 9)
+                response.authors?.first()?.version shouldBe 1
                 response.status shouldBe BookStatus.PUBLISHED
             }
 
@@ -104,6 +106,7 @@ class CreateBookControllerTest : FunSpec() {
 
                 response.title shouldBe "日本文学選集"
                 response.price shouldBe 3000L
+                response.version shouldBe 1
                 response.authors?.size shouldBe 3
 
                 // 著者が正しく取得されていることを確認
@@ -114,14 +117,17 @@ class CreateBookControllerTest : FunSpec() {
                 response.authors?.get(0)?.id shouldBe 1
                 response.authors?.get(0)?.name shouldBe "夏目漱石"
                 response.authors?.get(0)?.birthDate shouldBe LocalDate.of(1867, 2, 9)
+                response.authors?.get(0)?.version shouldBe 1
 
                 response.authors?.get(1)?.id shouldBe 2
                 response.authors?.get(1)?.name shouldBe "太宰治"
                 response.authors?.get(1)?.birthDate shouldBe LocalDate.of(1909, 6, 19)
+                response.authors?.get(1)?.version shouldBe 1
 
                 response.authors?.get(2)?.id shouldBe 3
                 response.authors?.get(2)?.name shouldBe "芥川龍之介"
                 response.authors?.get(2)?.birthDate shouldBe LocalDate.of(1892, 3, 1)
+                response.authors?.get(2)?.version shouldBe 1
 
                 response.status shouldBe BookStatus.PUBLISHED
             }

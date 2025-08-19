@@ -4,23 +4,23 @@
 package com.bookmanagementsystem.jooq.tables.records
 
 
-import com.bookmanagementsystem.jooq.tables.BookAuthor
+import com.bookmanagementsystem.jooq.tables.AuthorBook
 
 import org.jooq.Record2
 import org.jooq.impl.UpdatableRecordImpl
 
 
 /**
- * 書籍と著者の中間テーブル（多対多対応）
+ * 著者と書籍の中間テーブル（多対多対応）
  */
 @Suppress("UNCHECKED_CAST")
-open class BookAuthorRecord() : UpdatableRecordImpl<BookAuthorRecord>(BookAuthor.BOOK_AUTHOR) {
+open class AuthorBookRecord() : UpdatableRecordImpl<AuthorBookRecord>(AuthorBook.AUTHOR_BOOK) {
 
-    open var bookId: Int?
+    open var authorId: Int?
         set(value): Unit = set(0, value)
         get(): Int? = get(0) as Int?
 
-    open var authorId: Int?
+    open var bookId: Int?
         set(value): Unit = set(1, value)
         get(): Int? = get(1) as Int?
 
@@ -35,22 +35,22 @@ open class BookAuthorRecord() : UpdatableRecordImpl<BookAuthorRecord>(BookAuthor
     override fun key(): Record2<Int?, Int?> = super.key() as Record2<Int?, Int?>
 
     /**
-     * Create a detached, initialised BookAuthorRecord
+     * Create a detached, initialised AuthorBookRecord
      */
-    constructor(bookId: Int? = null, authorId: Int? = null, version: Int? = null): this() {
-        this.bookId = bookId
+    constructor(authorId: Int? = null, bookId: Int? = null, version: Int? = null): this() {
         this.authorId = authorId
+        this.bookId = bookId
         this.version = version
         resetChangedOnNotNull()
     }
 
     /**
-     * Create a detached, initialised BookAuthorRecord
+     * Create a detached, initialised AuthorBookRecord
      */
-    constructor(value: com.bookmanagementsystem.jooq.tables.pojos.BookAuthor?): this() {
+    constructor(value: com.bookmanagementsystem.jooq.tables.pojos.AuthorBook?): this() {
         if (value != null) {
-            this.bookId = value.bookId
             this.authorId = value.authorId
+            this.bookId = value.bookId
             this.version = value.version
             resetChangedOnNotNull()
         }

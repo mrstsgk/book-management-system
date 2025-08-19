@@ -2,7 +2,7 @@
 -- このファイルは @IntegrationTestWithSql アノテーションで実行され、テストの前後でデータをクリーンアップします
 
 -- 書籍と著者の関連テーブルをクリーンアップ
-TRUNCATE TABLE book_author CASCADE;
+TRUNCATE TABLE author_book CASCADE;
 
 -- 書籍テーブルのデータをクリーンアップ
 TRUNCATE TABLE book CASCADE;
@@ -23,10 +23,10 @@ INSERT INTO book (id, title, price, publish_status, version) VALUES
 
 -- 書籍と著者の関連データを挿入
 -- 書籍1: 夏目漱石のみ
-INSERT INTO book_author (book_id, author_id, version) VALUES (1, 1, 1);
+INSERT INTO author_book (book_id, author_id, version) VALUES (1, 1, 1);
 
 -- 書籍2: 夏目漱石、太宰治、芥川龍之介（複数著者）
-INSERT INTO book_author (book_id, author_id, version) VALUES 
+INSERT INTO author_book (book_id, author_id, version) VALUES 
 (2, 1, 1),
 (2, 2, 1),
 (2, 3, 1);
