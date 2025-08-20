@@ -225,7 +225,7 @@ class UpdateBookRequestModelTest : FunSpec({
 
     test("価格が上限を超える場合バリデーションエラー") {
         val requestModel = createValidUpdateBookRequest(
-            price = 100000000L // 99999999 + 1
+            price = 99999999L + 1 // 上限値+1
         )
 
         val violations = validator.validate(requestModel)
