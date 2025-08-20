@@ -70,15 +70,7 @@ docker compose up -d
 docker compose ps
 ```
 
-### 5. jOOQコード生成（初回のみ）
-
-データベーススキーマからjOOQのコードを生成：
-
-```bash
-./gradlew :infrastructure:jooqCodegen
-```
-
-### 6. アプリケーションのビルド
+### 4. アプリケーションのビルド
 
 依存関係のダウンロードとビルド：
 
@@ -86,7 +78,7 @@ docker compose ps
 ./gradlew build
 ```
 
-### 7. アプリケーションの起動
+### 5. アプリケーションの起動
 
 ```bash
 ./gradlew bootRun
@@ -132,3 +124,11 @@ docker compose ps
 
 ### マイグレーション
 Flywayによる自動マイグレーション対応。アプリケーション起動時に自動実行されます。
+
+### jOOQコード生成
+
+データベーススキーマからjOOQのコードを生成：
+
+```bash
+./gradlew :infrastructure:jooqCodegen
+```
