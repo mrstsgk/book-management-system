@@ -1,11 +1,7 @@
 package com.bookmanagementsystem.presentation.controller.author
 
 import com.bookmanagementsystem.presentation.config.IntegrationTestWithSql
-import com.bookmanagementsystem.presentation.model.AuthorResponseModel
-import com.bookmanagementsystem.presentation.model.BadRequestErrorResponseModel
-import com.bookmanagementsystem.presentation.model.NotFoundErrorResponseModel
-import com.bookmanagementsystem.presentation.model.OptimisticLockErrorResponseModel
-import com.bookmanagementsystem.presentation.model.UpdateAuthorRequestModel
+import com.bookmanagementsystem.presentation.model.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
@@ -31,6 +27,7 @@ import java.time.LocalDate
  *  context("200") - 正常系：
  *  context("400") - 異常系：
  *  context("404") - 存在しない著者：
+ *  context("409") - 楽観的ロックエラー：
  *
  * 本テストでは、最低限「1パス通ること」で動作確認済みとする。
  * 異常系・正常系ともに他のテストでカバレッジを確保しており、基本的な入力妥当性を保証する目的。
