@@ -212,6 +212,26 @@ class UpdateBookRequestModelTest : FunSpec({
         violations shouldHaveSize 1
         violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
     }
+
+    test("価格の境界値テスト - 最大値99999999") {
+        val requestModel = createValidUpdateBookRequest(
+            title = "高額本",
+            price = 99999999L
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 0
+    }
+
+    test("価格が上限を超える場合バリデーションエラー") {
+        val requestModel = createValidUpdateBookRequest(
+            price = 99999999L + 1 // 上限値+1
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Max.message}"
+    }
 })
 
 // テストフィクスチャ

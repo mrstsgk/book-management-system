@@ -261,7 +261,7 @@ components:
           type: integer
           format: int64
           minimum: 0
-          maximum: 9999999999
+          maximum: 99999999
           description: 書籍価格
           example: 1500
         authorIds:
@@ -293,7 +293,7 @@ components:
           type: integer
           format: int64
           minimum: 0
-          maximum: 9999999999
+          maximum: 99999999
           description: 書籍価格
           example: 1500
         authorIds:
@@ -366,7 +366,7 @@ components:
           type: integer
           format: int64
           minimum: 0
-          maximum: 9999999999
+          maximum: 99999999
           description: 書籍価格
           example: 1500
         status:
@@ -396,7 +396,7 @@ components:
           type: integer
           format: int64
           minimum: 0
-          maximum: 9999999999
+          maximum: 99999999
           description: 書籍価格
           example: 1500
         authors:
