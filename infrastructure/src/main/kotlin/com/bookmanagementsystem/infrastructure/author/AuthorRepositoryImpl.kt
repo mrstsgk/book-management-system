@@ -18,6 +18,12 @@ class AuthorRepositoryImpl(private val dsl: DSLContext) : AuthorRepository {
         .fetchOne()
         ?.let { convert(it) }
 
+    override fun findByIds(ids: List<ID<Author>>): List<Author> = dsl
+        .selectFrom(AUTHOR)
+        .where(AUTHOR.ID.`in`(ids.map { it.value }))
+        .fetch()
+        .map { convert(it) }
+
     override fun insert(author: Author) = dsl
         .insertInto(AUTHOR)
         .set(AUTHOR.NAME, author.name)

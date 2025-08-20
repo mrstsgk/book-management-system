@@ -7,6 +7,7 @@ import com.bookmanagementsystem.usecase.book.read.BookDetailQueryService
 import com.bookmanagementsystem.usecase.exception.UsecaseViolationException
 import com.bookmanagementsystem.usecase.validation.CommandValidator
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class UpdateBookUsecase(
@@ -22,8 +23,9 @@ class UpdateBookUsecase(
         val currentBook =
             repository.findById(command.id) ?: throw NoSuchElementException("書籍が存在しません: ${command.id}")
 
-        val validationErrors = validator.validate(command)
-        if (validationErrors.isNotEmpty()) throw UsecaseViolationException(validationErrors)
+        validator.validate(command).let {
+            if (it.isNotEmpty()) throw UsecaseViolationException(it)
+        }
 
         val book = repository.update(toEntity(currentBook, command))
 

@@ -5,6 +5,7 @@ import com.bookmanagementsystem.domain.book.Book
 import com.bookmanagementsystem.domain.book.BookPrice
 import com.bookmanagementsystem.domain.book.BookPublishStatus
 import com.bookmanagementsystem.domain.core.ID
+import com.bookmanagementsystem.usecase.author.AuthorExists
 import com.bookmanagementsystem.usecase.validation.core.UniqueId
 
 sealed interface BookRegisterCommand
@@ -16,6 +17,7 @@ data class CreateBookCommand(
     val title: String,
     val price: BookPrice,
     @UniqueId
+    @AuthorExists
     val authorIds: List<ID<Author>>,
     val status: BookPublishStatus,
 ) : BookRegisterCommand
@@ -29,6 +31,7 @@ data class UpdateBookCommand(
     val title: String,
     val price: BookPrice,
     @UniqueId
+    @AuthorExists
     val authorIds: List<ID<Author>>,
     val status: BookPublishStatus,
     val version: Int,
