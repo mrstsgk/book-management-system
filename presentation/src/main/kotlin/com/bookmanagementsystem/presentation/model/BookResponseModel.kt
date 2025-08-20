@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Size
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.Valid
 import com.bookmanagementsystem.usecase.author.register.PastOnly
 
@@ -23,11 +24,14 @@ data class BookResponseModel(
     @get:JsonProperty("id") val id: kotlin.Int?,
 
     /* 書籍タイトル */
+    @get:Pattern(regexp = "^[^\\s　]+$")
+    @get:Size(max = 255)
     @field:NotNull
     @get:JsonProperty("title") val title: kotlin.String?,
 
     /* 書籍価格 */
     @get:Min(0L)
+    @get:Max(9999999999L)
     @field:NotNull
     @get:JsonProperty("price") val price: kotlin.Long?,
 
