@@ -186,7 +186,85 @@ class UpdateBookUsecaseTest : FunSpec({
         val exception = shouldThrow<UsecaseViolationException> {
             usecase.execute(command)
         }
-        exception.message shouldBe "status: 出版状況は「出版済み」から「未出版」に変更できません"
+        exception.errors shouldBe listOf("status: 出版状況は「出版済み」から「未出版」に変更できません")
+        verify {
+            repository.findById(bookId)
+            validator.validate(command)
+        }
+        verify(exactly = 0) {
+            repository.update(any<Book>())
+            detailQueryService.findById(any<ID<Book>>())
+        }
+    }
+
+    test("重複した著者IDがある場合UsecaseViolationExceptionがスローされること") {
+        val bookId = ID<Book>(1)
+        val command = UpdateBookCommand(
+            id = bookId,
+            title = "重複著者テスト書籍",
+            price = BookPrice.of(1000L),
+            authorIds = listOf(ID(1), ID(2), ID(1)), // 著者ID 1が重複
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
+        )
+        val validationErrors = listOf("authorIds: リスト内に重複した要素があります")
+
+        every { repository.findById(bookId) } returns Book(
+            id = bookId,
+            title = "既存書籍",
+            price = BookPrice.of(1500L),
+            authorIds = listOf(ID(1)),
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
+        )
+        every { validator.validate(command) } returns validationErrors
+
+        val exception = shouldThrow<UsecaseViolationException> {
+            usecase.execute(command)
+        }
+        exception.errors shouldBe listOf("authorIds: リスト内に重複した要素があります")
+        verify {
+            repository.findById(bookId)
+            validator.validate(command)
+        }
+        verify(exactly = 0) {
+            repository.update(any<Book>())
+            detailQueryService.findById(any<ID<Book>>())
+        }
+    }
+
+    test("複数のバリデーションエラーがある場合UsecaseViolationExceptionがスローされること") {
+        val bookId = ID<Book>(1)
+        val command = UpdateBookCommand(
+            id = bookId,
+            title = "複数エラーテスト書籍",
+            price = BookPrice.of(1000L),
+            authorIds = listOf(ID(1), ID(2), ID(1)), // 著者ID 1が重複
+            status = BookPublishStatus.UNPUBLISHED, // 出版済みから未出版への変更
+            version = 1
+        )
+        val validationErrors = listOf(
+            "authorIds: リスト内に重複した要素があります",
+            "status: 出版状況は「出版済み」から「未出版」に変更できません"
+        )
+
+        every { repository.findById(bookId) } returns Book(
+            id = bookId,
+            title = "既存書籍",
+            price = BookPrice.of(1500L),
+            authorIds = listOf(ID(1)),
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
+        )
+        every { validator.validate(command) } returns validationErrors
+
+        val exception = shouldThrow<UsecaseViolationException> {
+            usecase.execute(command)
+        }
+        exception.errors shouldBe listOf(
+            "authorIds: リスト内に重複した要素があります",
+            "status: 出版状況は「出版済み」から「未出版」に変更できません"
+        )
         verify {
             repository.findById(bookId)
             validator.validate(command)
