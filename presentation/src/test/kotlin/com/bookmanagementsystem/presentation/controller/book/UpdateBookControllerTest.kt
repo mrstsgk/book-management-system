@@ -32,6 +32,7 @@ import java.time.LocalDate
  *  context("200") - 正常系：
  *  context("400") - 異常系：
  *  context("404") - 存在しない書籍：
+ *  context("409") - 楽観的ロックエラー：
  *
  * 本テストでは、最低限「1パス通ること」で動作確認済みとする。
  * 異常系・正常系ともに他のテストでカバレッジを確保しており、基本的な入力妥当性を保証する目的。
@@ -189,36 +190,6 @@ class UpdateBookControllerTest : FunSpec() {
             }
         }
 
-        context("409") {
-            test("バージョンが古い場合楽観的ロック競合エラーが発生する") {
-                val request = UpdateBookRequestModel(
-                    title = "競合テスト用書籍",
-                    price = 1500L,
-                    authorIds = listOf(1),
-                    status = BookStatus.PUBLISHED,
-                    version = 0 // 古いバージョン（現在のデータはversion=1）
-                )
-                val requestJson = objectMapper.writeValueAsString(request)
-
-                val result = mockMvc.perform(
-                    put("/api/books/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestJson)
-                )
-                    .andExpect(status().isConflict)
-                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                    .andReturn()
-
-                // OptimisticLockErrorResponseModel形式のレスポンス検証（OpenAPI準拠）
-                val responseJson = result.response.contentAsString
-                val errorResponse = objectMapper.readValue(responseJson, OptimisticLockErrorResponseModel::class.java)
-
-                errorResponse.errors?.size shouldBe 1
-                errorResponse.errors?.first()?.code shouldBe "OPTIMISTIC_LOCK_EXCEPTION"
-                errorResponse.errors?.first()?.message shouldBe "書籍の更新に失敗しました。"
-            }
-        }
-
         context("404") {
             test("存在しない書籍IDを指定した場合NotFoundErrorResponseModelが返される") {
                 val request = UpdateBookRequestModel(
@@ -246,6 +217,36 @@ class UpdateBookControllerTest : FunSpec() {
                 errorResponse.errors?.size shouldBe 1
                 errorResponse.errors?.first()?.code shouldBe "NOT_FOUND"
                 errorResponse.errors?.first()?.message shouldNotBe null
+            }
+        }
+
+        context("409") {
+            test("バージョンが古い場合楽観的ロック競合エラーが発生する") {
+                val request = UpdateBookRequestModel(
+                    title = "競合テスト用書籍",
+                    price = 1500L,
+                    authorIds = listOf(1),
+                    status = BookStatus.PUBLISHED,
+                    version = 0 // 古いバージョン（現在のデータはversion=1）
+                )
+                val requestJson = objectMapper.writeValueAsString(request)
+
+                val result = mockMvc.perform(
+                    put("/api/books/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson)
+                )
+                    .andExpect(status().isConflict)
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andReturn()
+
+                // OptimisticLockErrorResponseModel形式のレスポンス検証（OpenAPI準拠）
+                val responseJson = result.response.contentAsString
+                val errorResponse = objectMapper.readValue(responseJson, OptimisticLockErrorResponseModel::class.java)
+
+                errorResponse.errors?.size shouldBe 1
+                errorResponse.errors?.first()?.code shouldBe "OPTIMISTIC_LOCK_EXCEPTION"
+                errorResponse.errors?.first()?.message shouldBe "書籍の更新に失敗しました。"
             }
         }
     }

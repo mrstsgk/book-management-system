@@ -7,8 +7,8 @@ import com.bookmanagementsystem.domain.book.BookPublishStatus
 import com.bookmanagementsystem.domain.book.BookRepository
 import com.bookmanagementsystem.domain.core.ID
 import com.bookmanagementsystem.usecase.author.AuthorDto
-import com.bookmanagementsystem.usecase.author.read.AuthorQueryService
 import com.bookmanagementsystem.usecase.book.BookDto
+import com.bookmanagementsystem.usecase.book.read.BookDetailQueryService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -19,8 +19,8 @@ import java.time.LocalDate
 class CreateBookUsecaseTest : FunSpec({
     test("書籍登録が正常に実行されること") {
         val repository = mockk<BookRepository>()
-        val authorQueryService = mockk<AuthorQueryService>()
-        val usecase = CreateBookUsecase(repository, authorQueryService)
+        val detailQueryService = mockk<BookDetailQueryService>()
+        val usecase = CreateBookUsecase(repository, detailQueryService)
 
         val command = CreateBookCommand(
             title = "テスト書籍",
@@ -54,7 +54,14 @@ class CreateBookUsecaseTest : FunSpec({
         )
 
         every { repository.insert(any()) } returns savedBook
-        every { authorQueryService.findByBookId(ID(1)) } returns authorDtoList
+        every { detailQueryService.findById(ID(1)) } returns BookDto(
+            id = ID(1),
+            title = "テスト書籍",
+            price = BookPrice.of(1000L),
+            authors = authorDtoList,
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
+        )
 
         val result = usecase.execute(command)
 
@@ -78,14 +85,14 @@ class CreateBookUsecaseTest : FunSpec({
             )
         }
         verify {
-            authorQueryService.findByBookId(ID(1))
+            detailQueryService.findById(ID(1))
         }
     }
 
     test("未出版ステータスの書籍登録が正常に実行されること") {
         val repository = mockk<BookRepository>()
-        val authorQueryService = mockk<AuthorQueryService>()
-        val usecase = CreateBookUsecase(repository, authorQueryService)
+        val detailQueryService = mockk<BookDetailQueryService>()
+        val usecase = CreateBookUsecase(repository, detailQueryService)
 
         val command = CreateBookCommand(
             title = "未出版書籍",
@@ -113,7 +120,14 @@ class CreateBookUsecaseTest : FunSpec({
         )
 
         every { repository.insert(any()) } returns savedBook
-        every { authorQueryService.findByBookId(ID(2)) } returns authorDtoList
+        every { detailQueryService.findById(ID(2)) } returns BookDto(
+            id = ID(2),
+            title = "未出版書籍",
+            price = BookPrice.of(1500L),
+            authors = authorDtoList,
+            status = BookPublishStatus.UNPUBLISHED,
+            version = 1
+        )
 
         val result = usecase.execute(command)
 
@@ -140,8 +154,8 @@ class CreateBookUsecaseTest : FunSpec({
 
     test("複数著者の書籍登録が正常に実行されること") {
         val repository = mockk<BookRepository>()
-        val authorQueryService = mockk<AuthorQueryService>()
-        val usecase = CreateBookUsecase(repository, authorQueryService)
+        val detailQueryService = mockk<BookDetailQueryService>()
+        val usecase = CreateBookUsecase(repository, detailQueryService)
 
         val command = CreateBookCommand(
             title = "共著書籍",
@@ -181,7 +195,14 @@ class CreateBookUsecaseTest : FunSpec({
         )
 
         every { repository.insert(any()) } returns savedBook
-        every { authorQueryService.findByBookId(ID(3)) } returns authorDtoList
+        every { detailQueryService.findById(ID(3)) } returns BookDto(
+            id = ID(3),
+            title = "共著書籍",
+            price = BookPrice.of(2000L),
+            authors = authorDtoList,
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
+        )
 
         val result = usecase.execute(command)
 

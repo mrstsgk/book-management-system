@@ -7,6 +7,11 @@ import com.bookmanagementsystem.domain.core.ID
  */
 interface BookRepository {
     /**
+     * 書籍をIDで取得する
+     */
+    fun findById(id: ID<Book>): Book?
+
+    /**
      * 書籍を登録する
      */
     fun insert(book: Book): Book
