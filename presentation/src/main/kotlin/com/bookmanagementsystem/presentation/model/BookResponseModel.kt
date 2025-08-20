@@ -31,7 +31,7 @@ data class BookResponseModel(
 
     /* 書籍価格 */
     @get:Min(0L)
-    @get:Max(9999999999L)
+    @get:Max(99999999L)
     @field:NotNull
     @get:JsonProperty("price") val price: kotlin.Long?,
 
