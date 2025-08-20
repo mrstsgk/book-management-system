@@ -75,7 +75,7 @@ docker compose ps
 データベーススキーマからjOOQのコードを生成：
 
 ```bash
-./gradlew :infrastructure:jooqCodege
+./gradlew :infrastructure:jooqCodegen
 ```
 
 ### 6. アプリケーションのビルド
