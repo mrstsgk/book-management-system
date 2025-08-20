@@ -4,12 +4,14 @@ import com.bookmanagementsystem.domain.author.Author
 import com.bookmanagementsystem.domain.author.AuthorRepository
 import com.bookmanagementsystem.usecase.author.AuthorDto
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class UpdateAuthorUsecase(private val repository: AuthorRepository) {
     /**
      * 著者を更新する
      */
+    @Transactional
     fun execute(command: UpdateAuthorCommand): AuthorDto {
         repository.findById(command.id) ?: throw NoSuchElementException("著者が見つかりません: ${command.id}")
 

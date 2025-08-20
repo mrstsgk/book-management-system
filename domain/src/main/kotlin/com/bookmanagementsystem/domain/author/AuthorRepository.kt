@@ -9,6 +9,11 @@ interface AuthorRepository {
     fun findById(id: ID<Author>): Author?
 
     /**
+     * 著者のIDリストに合う著者を取得する
+     */
+    fun findByIds(ids: List<ID<Author>>): List<Author>
+
+    /**
      * 著者を登録する
      */
     fun insert(author: Author): Author
