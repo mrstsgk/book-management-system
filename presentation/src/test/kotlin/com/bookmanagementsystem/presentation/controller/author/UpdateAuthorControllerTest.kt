@@ -1,7 +1,11 @@
 package com.bookmanagementsystem.presentation.controller.author
 
 import com.bookmanagementsystem.presentation.config.IntegrationTestWithSql
-import com.bookmanagementsystem.presentation.model.*
+import com.bookmanagementsystem.presentation.model.AuthorResponseModel
+import com.bookmanagementsystem.presentation.model.BadRequestErrorResponseModel
+import com.bookmanagementsystem.presentation.model.NotFoundErrorResponseModel
+import com.bookmanagementsystem.presentation.model.OptimisticLockErrorResponseModel
+import com.bookmanagementsystem.presentation.model.UpdateAuthorRequestModel
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.extensions.spring.SpringExtension
