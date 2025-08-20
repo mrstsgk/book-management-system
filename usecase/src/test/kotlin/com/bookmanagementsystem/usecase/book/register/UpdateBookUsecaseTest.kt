@@ -274,4 +274,67 @@ class UpdateBookUsecaseTest : FunSpec({
             detailQueryService.findById(any<ID<Book>>())
         }
     }
+
+    test("存在しない著者IDが指定された場合UsecaseViolationExceptionがスローされること") {
+        val bookId = ID<Book>(1)
+        val command = UpdateBookCommand(
+            id = bookId,
+            title = "テスト書籍",
+            price = BookPrice.of(1000L),
+            authorIds = listOf(ID(1), ID(999)), // ID 999は存在しない
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
+        )
+        val validationErrors = listOf("authorIds: 存在しない著者が指定されています")
+
+        every { repository.findById(bookId) } returns Book(
+            id = bookId,
+            title = "既存書籍",
+            price = BookPrice.of(1500L),
+            authorIds = listOf(ID(1)),
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
+        )
+        every { validator.validate(command) } returns validationErrors
+
+        val exception = shouldThrow<UsecaseViolationException> {
+            usecase.execute(command)
+        }
+        exception.errors shouldBe listOf("authorIds: 存在しない著者が指定されています")
+        verify {
+            repository.findById(bookId)
+            validator.validate(command)
+        }
+        verify(exactly = 0) {
+            repository.update(any<Book>())
+            detailQueryService.findById(any<ID<Book>>())
+        }
+    }
+
+    test("存在しない書籍IDで更新しようとした場合NoSuchElementExceptionがスローされること") {
+        val bookId = ID<Book>(999)
+        val command = UpdateBookCommand(
+            id = bookId,
+            title = "テスト書籍",
+            price = BookPrice.of(1000L),
+            authorIds = listOf(ID(1)),
+            status = BookPublishStatus.PUBLISHED,
+            version = 1
+        )
+
+        every { repository.findById(bookId) } returns null
+
+        val exception = shouldThrow<NoSuchElementException> {
+            usecase.execute(command)
+        }
+        exception.message shouldBe "書籍が存在しません: $bookId"
+        verify {
+            repository.findById(bookId)
+        }
+        verify(exactly = 0) {
+            validator.validate(any<UpdateBookCommand>())
+            repository.update(any<Book>())
+            detailQueryService.findById(any<ID<Book>>())
+        }
+    }
 })

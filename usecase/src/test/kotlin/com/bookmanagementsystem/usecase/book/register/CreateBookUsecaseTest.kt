@@ -290,4 +290,58 @@ class CreateBookUsecaseTest : FunSpec({
             detailQueryService.findById(any<ID<Book>>())
         }
     }
+
+    test("存在しない著者IDが指定された場合UsecaseViolationExceptionがスローされること") {
+        val command = CreateBookCommand(
+            title = "テスト書籍",
+            price = BookPrice.of(1000L),
+            authorIds = listOf(ID(1), ID(999)), // ID 999は存在しない
+            status = BookPublishStatus.PUBLISHED
+        )
+        val validationErrors = listOf("authorIds: 存在しない著者が指定されています")
+
+        every { validator.validate(command) } returns validationErrors
+
+        val exception = shouldThrow<UsecaseViolationException> {
+            usecase.execute(command)
+        }
+        exception.errors shouldBe listOf("authorIds: 存在しない著者が指定されています")
+        verify {
+            validator.validate(command)
+        }
+        verify(exactly = 0) {
+            repository.insert(any<Book>())
+            detailQueryService.findById(any<ID<Book>>())
+        }
+    }
+
+    test("重複した著者IDと存在しない著者IDの両方のエラーが発生した場合UsecaseViolationExceptionがスローされること") {
+        val command = CreateBookCommand(
+            title = "テスト書籍",
+            price = BookPrice.of(1000L),
+            authorIds = listOf(ID(1), ID(1), ID(999)), // ID重複と存在しないID
+            status = BookPublishStatus.PUBLISHED
+        )
+        val validationErrors = listOf(
+            "authorIds: リスト内に重複した要素があります",
+            "authorIds: 存在しない著者が指定されています"
+        )
+
+        every { validator.validate(command) } returns validationErrors
+
+        val exception = shouldThrow<UsecaseViolationException> {
+            usecase.execute(command)
+        }
+        exception.errors shouldBe listOf(
+            "authorIds: リスト内に重複した要素があります",
+            "authorIds: 存在しない著者が指定されています"
+        )
+        verify {
+            validator.validate(command)
+        }
+        verify(exactly = 0) {
+            repository.insert(any<Book>())
+            detailQueryService.findById(any<ID<Book>>())
+        }
+    }
 })
