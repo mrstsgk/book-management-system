@@ -80,4 +80,74 @@ class UpdateAuthorRequestModelTest : FunSpec({
         result.size shouldBe 1
         result.first().messageTemplate shouldBe "{jakarta.validation.constraints.NotNull.message}"
     }
+
+    test("名前に半角スペースが含まれる場合エラー") {
+        val birthDate = LocalDate.of(1909, 6, 19)
+
+        val requestModel = UpdateAuthorRequestModel(
+            name = "太宰 治",
+            version = 1,
+            birthDate = birthDate
+        )
+
+        val result = validator.validate(requestModel)
+        result.size shouldBe 1
+        result.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("名前に全角スペースが含まれる場合エラー") {
+        val birthDate = LocalDate.of(1909, 6, 19)
+
+        val requestModel = UpdateAuthorRequestModel(
+            name = "太宰　治",
+            version = 1,
+            birthDate = birthDate
+        )
+
+        val result = validator.validate(requestModel)
+        result.size shouldBe 1
+        result.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("名前がタブ文字を含む場合エラー") {
+        val birthDate = LocalDate.of(1909, 6, 19)
+
+        val requestModel = UpdateAuthorRequestModel(
+            name = "太宰\t治",
+            version = 1,
+            birthDate = birthDate
+        )
+
+        val result = validator.validate(requestModel)
+        result.size shouldBe 1
+        result.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("名前が半角スペースのみの場合エラー") {
+        val birthDate = LocalDate.of(1909, 6, 19)
+
+        val requestModel = UpdateAuthorRequestModel(
+            name = " ",
+            version = 1,
+            birthDate = birthDate
+        )
+
+        val result = validator.validate(requestModel)
+        result.size shouldBe 1
+        result.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("名前が全角スペースのみの場合エラー") {
+        val birthDate = LocalDate.of(1909, 6, 19)
+
+        val requestModel = UpdateAuthorRequestModel(
+            name = "　",
+            version = 1,
+            birthDate = birthDate
+        )
+
+        val result = validator.validate(requestModel)
+        result.size shouldBe 1
+        result.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
 })

@@ -143,6 +143,88 @@ class CreateBookRequestModelTest : FunSpec({
         val violations = validator.validate(requestModel)
         violations shouldHaveSize 0
     }
+
+    test("タイトルが空文字列ならバリデーションエラー") {
+        val requestModel = createValidBookRequest(
+            title = ""
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        // 空文字列は@Patternでエラーになる（@Size(max=255)のみで、minLengthは設定されていないため）
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("タイトルが最大長を超えるならバリデーションエラー") {
+        val longTitle = "a".repeat(256) // 256文字
+        val requestModel = createValidBookRequest(
+            title = longTitle
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Size.message}"
+    }
+
+    test("タイトルが境界値（255文字）で有効") {
+        val maxLengthTitle = "a".repeat(255) // 255文字
+        val requestModel = createValidBookRequest(
+            title = maxLengthTitle
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 0
+    }
+
+    test("タイトルに半角スペースが含まれる場合バリデーションエラー") {
+        val requestModel = createValidBookRequest(
+            title = "人間 失格"
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("タイトルに全角スペースが含まれる場合バリデーションエラー") {
+        val requestModel = createValidBookRequest(
+            title = "人間　失格"
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("タイトルがタブ文字を含む場合バリデーションエラー") {
+        val requestModel = createValidBookRequest(
+            title = "人間\t失格"
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("タイトルが半角スペースのみの場合バリデーションエラー") {
+        val requestModel = createValidBookRequest(
+            title = " "
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("タイトルが全角スペースのみの場合バリデーションエラー") {
+        val requestModel = createValidBookRequest(
+            title = "　"
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
 })
 
 // テストフィクスチャ
