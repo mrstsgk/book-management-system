@@ -73,7 +73,7 @@ dependencies {
 }
 
 // Detekt設定でモデルファイルを除外
-// detekt.yml で設定がうまくいかなかったため、ここで除外設定を行う
+// （../presentation/model配下）が除外されなかったため、ここで除外設定を行う
 if (file("src").exists()) {
 	detekt {
 		config.setFrom(file("$rootProject.projectDir/detekt.yml"))
