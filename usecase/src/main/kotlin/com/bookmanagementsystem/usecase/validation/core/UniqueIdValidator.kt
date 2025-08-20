@@ -22,7 +22,7 @@ annotation class UniqueId(
 
 class UniqueIdValidator : ConstraintValidator<UniqueId, List<ID<*>>> {
     /**
-     * 配列内のIDが重複していないかを検証する
+     * リスト内のIDが重複していないかを検証する
      */
     override fun isValid(value: List<ID<*>>, context: ConstraintValidatorContext?): Boolean {
         // リストのサイズと重複を除いたSetのサイズが同じかチェック
