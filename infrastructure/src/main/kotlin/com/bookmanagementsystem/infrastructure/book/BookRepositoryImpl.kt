@@ -71,7 +71,7 @@ class BookRepositoryImpl(private val dsl: DSLContext) : BookRepository {
     /**
      * 指定された書籍IDに関連する著者IDのリストを取得する
      */
-    fun findAuthorIdsByBookId(bookId: ID<Book>): List<ID<Author>> = dsl
+    private fun findAuthorIdsByBookId(bookId: ID<Book>): List<ID<Author>> = dsl
         .select(AUTHOR_BOOK.AUTHOR_ID)
         .from(AUTHOR_BOOK)
         .where(AUTHOR_BOOK.BOOK_ID.eq(bookId.value))
@@ -81,7 +81,7 @@ class BookRepositoryImpl(private val dsl: DSLContext) : BookRepository {
     /**
      * 書籍と著者の関連を挿入する
      */
-    fun insertAuthorBook(bookId: ID<Book>, authorIds: List<ID<Author>>): List<ID<Author>> = dsl
+    private fun insertAuthorBook(bookId: ID<Book>, authorIds: List<ID<Author>>): List<ID<Author>> = dsl
         .insertInto(
             AUTHOR_BOOK,
             AUTHOR_BOOK.BOOK_ID,
@@ -96,7 +96,7 @@ class BookRepositoryImpl(private val dsl: DSLContext) : BookRepository {
     /**
      * 指定された書籍IDに関連する書籍-著者関連をすべて削除する
      */
-    fun deleteAuthorBookByBookId(bookId: ID<Book>): Int = dsl
+    private fun deleteAuthorBookByBookId(bookId: ID<Book>): Int = dsl
         .deleteFrom(AUTHOR_BOOK)
         .where(AUTHOR_BOOK.BOOK_ID.eq(bookId.value))
         .execute()
