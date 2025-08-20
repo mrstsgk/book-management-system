@@ -4,12 +4,14 @@ import com.bookmanagementsystem.domain.author.Author
 import com.bookmanagementsystem.domain.author.AuthorRepository
 import com.bookmanagementsystem.usecase.author.AuthorDto
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class CreateAuthorUsecase(private val repository: AuthorRepository) {
     /**
      * 著者を登録する
      */
+    @Transactional
     fun execute(command: CreateAuthorCommand): AuthorDto {
         val author = repository.insert(toEntity(command))
         return toDto(author)

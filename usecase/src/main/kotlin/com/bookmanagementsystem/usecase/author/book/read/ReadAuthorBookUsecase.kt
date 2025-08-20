@@ -6,6 +6,7 @@ import com.bookmanagementsystem.domain.core.ID
 import com.bookmanagementsystem.usecase.book.BookSummaryDto
 import com.bookmanagementsystem.usecase.book.read.BookQueryService
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class ReadAuthorBookUsecase(
@@ -15,6 +16,7 @@ class ReadAuthorBookUsecase(
     /**
      * 指定された著者IDに紐づく書籍一覧を取得する
      */
+    @Transactional
     fun execute(authorId: ID<Author>): List<BookSummaryDto> {
         authorRepository.findById(authorId)
             ?: throw NoSuchElementException("著者が見つかりません。ID: ${authorId.value}")

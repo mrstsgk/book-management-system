@@ -17,6 +17,7 @@ class CreateBookUsecase(
     /**
      * 書籍を登録する
      */
+    @Transactional
     fun execute(command: CreateBookCommand): BookDto {
         val validationErrors = validator.validate(command)
         if (validationErrors.isNotEmpty()) throw UsecaseViolationException(validationErrors)

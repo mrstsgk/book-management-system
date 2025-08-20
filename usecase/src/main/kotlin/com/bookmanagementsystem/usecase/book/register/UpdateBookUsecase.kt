@@ -17,6 +17,7 @@ class UpdateBookUsecase(
     /**
      * 書籍を更新する
      */
+    @Transactional
     fun execute(command: UpdateBookCommand): BookDto {
         val currentBook =
             repository.findById(command.id) ?: throw NoSuchElementException("書籍が存在しません: ${command.id}")
