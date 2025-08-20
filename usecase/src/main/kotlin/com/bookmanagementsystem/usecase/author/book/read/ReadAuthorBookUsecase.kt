@@ -16,7 +16,7 @@ class ReadAuthorBookUsecase(
     /**
      * 指定された著者IDに紐づく書籍一覧を取得する
      */
-    @Transactional
+    @Transactional(readOnly = true)
     fun execute(authorId: ID<Author>): List<BookSummaryDto> {
         authorRepository.findById(authorId)
             ?: throw NoSuchElementException("著者が見つかりません。ID: ${authorId.value}")
