@@ -16,17 +16,18 @@ book-management-system/
 
 ## 技術スタック
 
-- **言語**: Kotlin
+- **言語**: Kotlin 2.2.10
 - **Java バージョン**: Java 21（OpenJDK/Amazon Corretto）
-- **フレームワーク**: Spring Boot
-- **テスト**: Kotest, MockK
-- **データベース**: PostgreSQL
-- **ORM**: jOOQ
-- **マイグレーション**: Flyway
-- **ビルドツール**: Gradle - Groovy
-- **静的解析**: Detekt
+- **フレームワーク**: Spring Boot 3.4.2
+- **テスト**: Kotest 5.9.1, MockK 1.13.13
+- **データベース**: PostgreSQL 17.5
+- **ORM**: jOOQ 3.19.15
+- **マイグレーション**: Flyway Core
+- **ビルドツール**: Gradle 8.14.3 (Groovy)
+- **静的解析**: Detekt 1.23.8
 - **開発環境**: Docker Compose（PostgreSQL）
-- **利用ツール**: Spring initializr（ https://start.spring.io/ ）
+- **API仕様**: OpenAPI 3.0.3
+- **バリデーション**: Jakarta Bean Validation
 
 ## アプリケーション起動前の準備
 
@@ -69,17 +70,12 @@ docker compose up -d
 docker compose ps
 ```
 
-### 4. データベース設定の確認
-
-`src/main/resources/application.yml`でデータベース接続設定を確認：
-- ユーザー名/パスワードは`.env`ファイルの値を直接指定
-
 ### 5. jOOQコード生成（初回のみ）
 
 データベーススキーマからjOOQのコードを生成：
 
 ```bash
-./gradlew :infrastructure:generateJooq
+./gradlew :infrastructure:jooqCodege
 ```
 
 ### 6. アプリケーションのビルド
@@ -99,23 +95,40 @@ docker compose ps
 アプリケーションが起動すると、以下のURLでアクセス可能：
 - アプリケーション: http://localhost:8080
 
-## 開発コマンド
+## API仕様
 
-```bash
-# アプリケーション起動
-./gradlew bootRun
+### API一覧
 
-# テスト実行
-./gradlew test
+#### 著者API
 
-# ビルド
-./gradlew build
+| メソッド | エンドポイント | 説明 | 備考 |
+|---------|---------------|------|------|
+| POST | `/api/authors` | 著者を作成する | 生年月日は現在より過去日付 |
+| PUT | `/api/authors/{id}` | 著者を更新する | 楽観的ロック対応 |
+| GET | `/api/authors/{id}/books` | 著者に紐づく書籍一覧を取得する | 書籍が見つからない場合は空配列を返す |
 
-# jOOQコード生成
-./gradlew :infrastructure:generateJooq
-```
+#### 書籍API
 
-## データベース接続
+| メソッド | エンドポイント | 説明 | 備考 |
+|---------|---------------|------|------|
+| POST | `/api/books` | 書籍を作成する | 価格は0以上、著者は1人以上 |
+| PUT | `/api/books/{id}` | 書籍を更新する | 出版済みから未出版に変更不可、楽観的ロック対応 |
 
+### APIドキュメント
+
+詳細なAPI仕様は以下のファイルで確認できます：
+- OpenAPI仕様書: `presentation/src/main/resources/openapi.yml`
+
+## データベース
+
+### 接続情報
 - **URL**: `jdbc:postgresql://localhost:5433/book_management`
 - **ユーザー名/パスワード**: `.env`ファイルで設定
+
+### テーブル構成
+- **book**: 書籍情報（id, title, price, publish_status, version）
+- **author**: 著者情報（id, name, birth_date, version）
+- **author_book**: 著者と書籍の関連テーブル（author_id, book_id, version）
+
+### マイグレーション
+Flywayによる自動マイグレーション対応。アプリケーション起動時に自動実行されます。
