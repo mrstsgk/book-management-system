@@ -22,7 +22,7 @@ class UpdateBookUsecase(
             repository.findById(command.id) ?: throw NoSuchElementException("書籍が存在しません: ${command.id}")
 
         val validationErrors = validator.validate(command)
-        if (validationErrors.isNotEmpty()) throw UsecaseViolationException(validationErrors.joinToString(", "))
+        if (validationErrors.isNotEmpty()) throw UsecaseViolationException(validationErrors)
 
         val book = repository.update(toEntity(currentBook, command))
 
