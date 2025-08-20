@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Size
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.Valid
 import com.bookmanagementsystem.usecase.author.register.PastOnly
 
@@ -15,6 +16,8 @@ import com.bookmanagementsystem.usecase.author.register.PastOnly
  */
 data class CreateAuthorRequestModel(
     /* 著者名 */
+    @get:Pattern(regexp = "^[^\\s　]+$")
+    @get:Size(max = 100)
     @field:NotNull
     @get:JsonProperty("name") val name: kotlin.String?,
 

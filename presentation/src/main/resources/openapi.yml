@@ -209,6 +209,8 @@ components:
       properties:
         name:
           type: string
+          pattern: "^[^\\s　]+$"
+          maxLength: 100
           description: 著者名
           example: 太宰治
         birthDate:
@@ -226,6 +228,8 @@ components:
       properties:
         name:
           type: string
+          pattern: "^[^\\s　]+$"
+          maxLength: 100
           description: 著者名
           example: 太宰治
         birthDate:
@@ -249,12 +253,15 @@ components:
       properties:
         title:
           type: string
+          pattern: "^[^\\s　]+$"
+          maxLength: 255
           description: 書籍タイトル
           example: "人間失格"
         price:
           type: integer
           format: int64
           minimum: 0
+          maximum: 9999999999
           description: 書籍価格
           example: 1500
         authorIds:
@@ -278,12 +285,15 @@ components:
       properties:
         title:
           type: string
+          pattern: "^[^\\s　]+$"
+          maxLength: 255
           description: 書籍タイトル
           example: "人間失格"
         price:
           type: integer
           format: int64
           minimum: 0
+          maximum: 9999999999
           description: 書籍価格
           example: 1500
         authorIds:
@@ -318,6 +328,8 @@ components:
           example: 1
         name:
           type: string
+          pattern: "^[^\\s　]+$"
+          maxLength: 100
           description: 著者名
           example: 太宰治
         birthDate:
@@ -346,12 +358,15 @@ components:
           example: 1
         title:
           type: string
+          pattern: "^[^\\s　]+$"
+          maxLength: 255
           description: 書籍タイトル
           example: "人間失格"
         price:
           type: integer
           format: int64
           minimum: 0
+          maximum: 9999999999
           description: 書籍価格
           example: 1500
         status:
@@ -373,12 +388,15 @@ components:
           example: 1
         title:
           type: string
+          pattern: "^[^\\s　]+$"
+          maxLength: 255
           description: 書籍タイトル
           example: "人間失格"
         price:
           type: integer
           format: int64
           minimum: 0
+          maximum: 9999999999
           description: 書籍価格
           example: 1500
         authors:

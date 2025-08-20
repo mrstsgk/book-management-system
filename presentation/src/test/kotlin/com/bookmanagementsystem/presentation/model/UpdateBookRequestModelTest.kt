@@ -162,6 +162,56 @@ class UpdateBookRequestModelTest : FunSpec({
         requestModel.authorIds shouldBe listOf(1, 2, 3)
         requestModel.status shouldBe BookStatus.UNPUBLISHED
     }
+
+    test("タイトルに半角スペースが含まれる場合バリデーションエラー") {
+        val requestModel = createValidUpdateBookRequest(
+            title = "人間 失格"
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("タイトルに全角スペースが含まれる場合バリデーションエラー") {
+        val requestModel = createValidUpdateBookRequest(
+            title = "人間　失格"
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("タイトルがタブ文字を含む場合バリデーションエラー") {
+        val requestModel = createValidUpdateBookRequest(
+            title = "人間\t失格"
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("タイトルが半角スペースのみの場合バリデーションエラー") {
+        val requestModel = createValidUpdateBookRequest(
+            title = " "
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
+
+    test("タイトルが全角スペースのみの場合バリデーションエラー") {
+        val requestModel = createValidUpdateBookRequest(
+            title = "　"
+        )
+
+        val violations = validator.validate(requestModel)
+        violations shouldHaveSize 1
+        violations.first().messageTemplate shouldBe "{jakarta.validation.constraints.Pattern.message}"
+    }
 })
 
 // テストフィクスチャ

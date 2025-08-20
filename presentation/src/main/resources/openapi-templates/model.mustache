@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Size
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.Valid
 import com.bookmanagementsystem.usecase.author.register.PastOnly
 {{/isEnum}}
@@ -45,7 +46,10 @@ data class {{classname}}(
 {{/-first}}{{#description}}    /* {{{description}}} */
 {{/description}}{{#minimum}}    @get:Min({{minimum}}L)
 {{/minimum}}{{#maximum}}    @get:Max({{maximum}}L)
-{{/maximum}}{{#minItems}}    @get:Size(min = {{minItems}}{{#maxItems}}, max = {{maxItems}}{{/maxItems}})
+{{/maximum}}{{#pattern}}    @get:Pattern(regexp = "{{pattern}}")
+{{/pattern}}{{#minLength}}    @get:Size(min = {{minLength}}{{#maxLength}}, max = {{maxLength}}{{/maxLength}})
+{{/minLength}}{{^minLength}}{{#maxLength}}    @get:Size(max = {{maxLength}})
+{{/maxLength}}{{/minLength}}{{#minItems}}    @get:Size(min = {{minItems}}{{#maxItems}}, max = {{maxItems}}{{/maxItems}})
 {{/minItems}}{{^minItems}}{{#maxItems}}    @get:Size(max = {{maxItems}})
 {{/maxItems}}{{/minItems}}{{#complexType}}    @field:Valid
 {{/complexType}}{{#vendorExtensions.x-field-extra-annotation}}    {{vendorExtensions.x-field-extra-annotation}}
