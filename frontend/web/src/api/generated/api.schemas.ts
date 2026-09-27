@@ -42,8 +42,11 @@ export const BookResponseStatus = {
 } as const;
 
 export interface BookResponse {
+  amazonUrl?: string;
   authors?: BookAuthorResponse[];
   id?: number;
+  /** ImageURL is a presigned URL valid for 15 minutes; fetch the book again for a new one. */
+  imageUrl?: string;
   price?: number;
   status?: BookResponseStatus;
   title?: string;
@@ -65,6 +68,8 @@ export const CreateBookRequestStatus = {
 } as const;
 
 export interface CreateBookRequest {
+  /** @maxLength 2048 */
+  amazonUrl?: string;
   /** @minItems 1 */
   authorIds: number[];
   /**
@@ -104,6 +109,11 @@ export const UpdateBookRequestStatus = {
 } as const;
 
 export interface UpdateBookRequest {
+  /**
+     * Omitted or null clears the link (PUT replaces the whole book).
+     * @maxLength 2048
+     */
+  amazonUrl?: string;
   /** @minItems 1 */
   authorIds: number[];
   /**
@@ -116,4 +126,9 @@ export interface UpdateBookRequest {
   title: string;
   version: number;
 }
+
+export type PostApiBooksIdImageBody = {
+  /** 表紙画像 */
+  image: Blob | File;
+};
 

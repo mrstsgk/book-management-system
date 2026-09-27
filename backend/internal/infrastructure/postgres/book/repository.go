@@ -50,11 +50,13 @@ func (y yen) Value() (driver.Value, error) {
 }
 
 type bookModel struct {
-	ID            int64  `gorm:"column:id;primaryKey;autoIncrement"`
-	Title         string `gorm:"column:title;size:255;not null"`
-	Price         yen    `gorm:"column:price;type:numeric(10,2);not null"`
-	PublishStatus int    `gorm:"column:publish_status;not null"`
-	Version       int    `gorm:"column:version;not null"`
+	ID            int64   `gorm:"column:id;primaryKey;autoIncrement"`
+	Title         string  `gorm:"column:title;size:255;not null"`
+	Price         yen     `gorm:"column:price;type:numeric(10,2);not null"`
+	PublishStatus int     `gorm:"column:publish_status;not null"`
+	AmazonURL     *string `gorm:"column:amazon_url;size:2048"`
+	ImageKey      *string `gorm:"column:image_key;size:255"`
+	Version       int     `gorm:"column:version;not null"`
 }
 
 func (bookModel) TableName() string {
@@ -99,7 +101,10 @@ func (r *repository) FindByID(ctx context.Context, id domainbook.ID) (*domainboo
 
 // Create は書籍行を初期バージョン 1 で挿入し、著者との関連行とあわせて同一トランザクションで保存する。
 func (r *repository) Create(ctx context.Context, b *domainbook.Book) error {
-	row := bookModel{Title: b.Title.String(), Price: yen(b.Price.Int64()), PublishStatus: int(b.Status), Version: 1}
+	row := bookModel{
+		Title: b.Title.String(), Price: yen(b.Price.Int64()), PublishStatus: int(b.Status),
+		AmazonURL: amazonURLString(b.AmazonURL), ImageKey: imageKeyString(b.ImageKey), Version: 1,
+	}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
 			return err
@@ -120,7 +125,10 @@ func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&bookModel{}).
 			Where("id = ? AND version = ?", int64(b.ID), b.Version).
-			Updates(map[string]any{"title": b.Title.String(), "price": b.Price.Int64(), "publish_status": int(b.Status), "version": next})
+			Updates(map[string]any{
+				"title": b.Title.String(), "price": b.Price.Int64(), "publish_status": int(b.Status),
+				"amazon_url": amazonURLString(b.AmazonURL), "image_key": imageKeyString(b.ImageKey), "version": next,
+			})
 		if res.Error != nil {
 			return res.Error
 		}
@@ -169,7 +177,37 @@ func adapt(row bookModel, authorIDs []int64) (*domainbook.Book, error) {
 		// A book without authors breaks the invariant enforced on every write: data corruption.
 		return nil, fmt.Errorf("book %d is inconsistent: %w", row.ID, err)
 	}
+	if row.AmazonURL != nil {
+		u, err := domainbook.NewAmazonURL(*row.AmazonURL)
+		if err != nil {
+			return nil, err
+		}
+		b.ChangeAmazonURL(&u)
+	}
+	if row.ImageKey != nil {
+		k, err := domainbook.NewImageKey(*row.ImageKey)
+		if err != nil {
+			return nil, err
+		}
+		b.ReplaceImage(k)
+	}
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version
 	return b, nil
+}
+
+func amazonURLString(u *domainbook.AmazonURL) *string {
+	if u == nil {
+		return nil
+	}
+	s := u.String()
+	return &s
+}
+
+func imageKeyString(k *domainbook.ImageKey) *string {
+	if k == nil {
+		return nil
+	}
+	s := k.String()
+	return &s
 }

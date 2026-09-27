@@ -30,7 +30,7 @@ func TestRun_FailsWhenDBIsUnreachable(t *testing.T) {
 
 func TestRegisterRoutes_ExposesBookAndAuthorAPI(t *testing.T) {
 	e := echo.New()
-	registerRoutes(e, nil)
+	registerRoutes(e, nil, nil)
 
 	got := map[string]bool{}
 	for _, r := range e.Routes() {
@@ -41,7 +41,9 @@ func TestRegisterRoutes_ExposesBookAndAuthorAPI(t *testing.T) {
 		"PUT /api/authors/:id",
 		"GET /api/authors/:id/books",
 		"POST /api/books",
+		"GET /api/books/:id",
 		"PUT /api/books/:id",
+		"POST /api/books/:id/image",
 	} {
 		if !got[want] {
 			t.Errorf("route %q is not registered (got %v)", want, got)

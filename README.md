@@ -7,14 +7,14 @@
 ## 構成
 
 ```
-backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag）
+backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag、画像は S3・ローカルは LocalStack）
 frontend/   # React + Vite + TypeScript（pnpm workspace: web, packages/ui）
 docs/       # 方針・ルール・ADR
 ```
 
 ## セットアップ
 
-前提: [mise](https://mise.jdx.dev/)・Docker
+前提: [mise](https://mise.jdx.dev/)・Docker（**Engine 28.0.0 以上**。それ未満では `127.0.0.1` に限定した公開ポートでも同じネットワークの他ホストから到達できる場合があるため）
 
 ```bash
 mise install              # Go / Node / pnpm（版は .mise.toml）
@@ -22,7 +22,7 @@ mise install              # Go / Node / pnpm（版は .mise.toml）
 # バックエンド
 cd backend
 make tools
-make db-up
+make db-up                # PostgreSQL と LocalStack（S3）
 make migrate-up
 make run                  # http://localhost:8080/health
 
