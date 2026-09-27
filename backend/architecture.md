@@ -18,6 +18,7 @@
 | HTTP | **Echo** |
 | 設計 | **オニオン** + DDD 戦術 + **CQRS**（単一 DB。全体 Event Sourcing はしない） |
 | 永続化 | **PostgreSQL + GORM**（現在状態が正）。**GORM AutoMigrate は使わない** |
+| 画像ストレージ | **S3**（aws-sdk-go-v2）。ローカルは **LocalStack 4.9**。Domain の `book.ImageStorage`（ExternalGateway）を `infrastructure/gateway/book` が実装する。DB にはオブジェクトキーだけを保存し、取得時に署名付き URL を発行する（[ADR](../docs/adr/2026-09-28-book-image-storage-s3-localstack.md)） |
 | マイグレーション | **golang-migrate**（`backend/migrations/` が SQL の正。アプリ起動時 migrate しない） |
 | HTTP / OpenAPI | Echo + validator + swag。**Go の DTO／Handler が BE の正** |
 | FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
@@ -32,7 +33,7 @@
 | 対象 | どう動かすか |
 |---|---|
 | Go 本体 | `mise install`（`.mise.toml` の `go`）→ ホストで `go run` / `make run` |
-| PostgreSQL | `docker compose up -d`（`backend/docker-compose.yml`） |
+| PostgreSQL・S3（LocalStack） | `docker compose up -d`（`backend/docker-compose.yml`） |
 | migrate | ホストの `golang-migrate`（`make migrate-up`）。アプリ起動時には走らせない |
 
 Dev Container で IDE ごとコンテナに閉じ込める方式は採らない。
@@ -177,8 +178,10 @@ backend/
 | `POST` | `/api/authors` | 著者を作成する（生年月日は現在より過去日付） |
 | `PUT` | `/api/authors/{id}` | 著者を更新する（楽観的ロック） |
 | `GET` | `/api/authors/{id}/books` | 著者に紐づく書籍一覧を取得する |
-| `POST` | `/api/books` | 書籍を作成する（価格は0以上、著者は1人以上） |
-| `PUT` | `/api/books/{id}` | 書籍を更新する（出版済み→未出版は不可、楽観的ロック） |
+| `POST` | `/api/books` | 書籍を作成する（価格は0以上、著者は1人以上。`amazonUrl` は任意で https の Amazon のみ） |
+| `GET` | `/api/books/{id}` | 書籍を取得する（`imageUrl` は15分有効の署名付き URL） |
+| `PUT` | `/api/books/{id}` | 書籍を更新する（出版済み→未出版は不可、楽観的ロック。`amazonUrl` は省略で解除） |
+| `POST` | `/api/books/{id}/image` | 表紙画像をアップロードする（multipart `image`。JPEG / PNG / WebP・5MB以下。既存画像は差し替え） |
 
 ## 5. やらないこと（全体）
 
