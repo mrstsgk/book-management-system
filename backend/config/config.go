@@ -13,6 +13,7 @@ type Config struct {
 	LogLevel slog.Level
 	HTTPPort string
 	DB       DBConfig
+	S3       S3Config
 }
 
 type DBConfig struct {
@@ -24,9 +25,20 @@ type DBConfig struct {
 	SSLMode  string
 }
 
+// S3Config points at the object storage for cover images. Endpoint is set only for
+// S3-compatible services (LocalStack); empty means AWS S3. Empty keys fall back to
+// the AWS SDK's default credential chain (IAM role etc.).
+type S3Config struct {
+	Endpoint        string
+	Region          string
+	Bucket          string
+	AccessKeyID     string
+	SecretAccessKey string
+}
+
 // Load は環境変数から Config を読み込む。non-local では DB_HOST・DB_USER・
-// DB_PASSWORD・DB_NAME の明示指定が必須（DB_PORT は 5432、DB_SSLMODE は
-// disable を常にデフォルト値として使う）。
+// DB_PASSWORD・DB_NAME・S3_BUCKET の明示指定が必須（DB_PORT は 5432、DB_SSLMODE は
+// disable、S3_REGION は ap-northeast-1 を常にデフォルト値として使う）。
 func Load() (Config, error) {
 	stage := getenv("STAGE", stageLocal)
 	local := stage == stageLocal
@@ -38,22 +50,31 @@ func Load() (Config, error) {
 
 	// Defaults exist only for the local docker-compose DB; elsewhere a missing
 	// setting must stop startup instead of silently pointing at localhost.
-	dbDefault := func(v string) string {
+	localDefault := func(v string) string {
 		if local {
 			return v
 		}
 		return ""
 	}
 	db := DBConfig{
-		Host:     getenv("DB_HOST", dbDefault("localhost")),
+		Host:     getenv("DB_HOST", localDefault("localhost")),
 		Port:     getenv("DB_PORT", "5432"),
-		User:     getenv("DB_USER", dbDefault("postgres")),
-		Password: getenv("DB_PASSWORD", dbDefault("postgres")),
-		DBName:   getenv("DB_NAME", dbDefault("book_management")),
+		User:     getenv("DB_USER", localDefault("postgres")),
+		Password: getenv("DB_PASSWORD", localDefault("postgres")),
+		DBName:   getenv("DB_NAME", localDefault("book_management")),
 		SSLMode:  getenv("DB_SSLMODE", "disable"),
+	}
+	// Local defaults match backend/docker-compose.yml (LocalStack's fixed dummy keys).
+	s3 := S3Config{
+		Endpoint:        getenv("S3_ENDPOINT", localDefault("http://localhost:4566")),
+		Region:          getenv("S3_REGION", "ap-northeast-1"),
+		Bucket:          getenv("S3_BUCKET", localDefault("book-images")),
+		AccessKeyID:     getenv("S3_ACCESS_KEY_ID", localDefault("test")),
+		SecretAccessKey: getenv("S3_SECRET_ACCESS_KEY", localDefault("test")),
 	}
 	for k, v := range map[string]string{
 		"DB_HOST": db.Host, "DB_USER": db.User, "DB_PASSWORD": db.Password, "DB_NAME": db.DBName,
+		"S3_BUCKET": s3.Bucket,
 	} {
 		if v == "" {
 			return Config{}, fmt.Errorf("%s is required when STAGE=%s", k, stage)
@@ -65,6 +86,7 @@ func Load() (Config, error) {
 		LogLevel: level,
 		HTTPPort: getenv("HTTP_PORT", "8080"),
 		DB:       db,
+		S3:       s3,
 	}, nil
 }
 
