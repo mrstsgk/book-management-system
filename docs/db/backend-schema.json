@@ -1,0 +1,47 @@
+{
+  "database": "backend",
+  "tables": {
+    "book": {
+      "description": "書籍情報を管理するテーブル。著者は author_book 経由で1人以上紐づく（アプリ側で保証）。",
+      "source": "backend/migrations/000001_create_book.up.sql",
+      "columns": [
+        { "name": "id", "type": "SERIAL", "nullable": false, "pk": true, "description": "書籍ID（主キー）" },
+        { "name": "title", "type": "VARCHAR(255)", "nullable": false, "description": "書籍タイトル。空白を含まない1〜255文字（アプリ側で保証）" },
+        { "name": "price", "type": "NUMERIC(10, 2)", "nullable": false, "description": "価格（円）。0〜99,999,999 の整数のみ扱い、小数部は常に0（アプリ側で保証）" },
+        { "name": "publish_status", "type": "INTEGER", "nullable": false,
+          "description": "出版状況。DB制約はなくアプリ側の慣習による。出版済みから未出版には変更できない（アプリ側で保証）。",
+          "enum": [
+            { "value": 1, "description": "未出版" },
+            { "value": 2, "description": "出版済み" }
+          ]
+        },
+        { "name": "version", "type": "INTEGER", "nullable": false, "description": "バージョン（楽観的ロック用）。作成時1、更新ごとに+1" }
+      ],
+      "indexes": [],
+      "constraints": []
+    },
+    "author": {
+      "description": "著者情報を管理するテーブル。",
+      "source": "backend/migrations/000002_create_author.up.sql",
+      "columns": [
+        { "name": "id", "type": "SERIAL", "nullable": false, "pk": true, "description": "著者ID（主キー）" },
+        { "name": "name", "type": "VARCHAR(100)", "nullable": false, "description": "著者名。空白を含まない1〜100文字（アプリ側で保証）" },
+        { "name": "birth_date", "type": "DATE", "nullable": true, "description": "生年月日。登録・更新時点（日本時間）の当日より前の日付のみ（アプリ側で保証）。未入力はNULL" },
+        { "name": "version", "type": "INTEGER", "nullable": false, "description": "バージョン（楽観的ロック用）。作成時1、更新ごとに+1" }
+      ],
+      "indexes": [],
+      "constraints": []
+    },
+    "author_book": {
+      "description": "著者と書籍の中間テーブル（多対多対応）。書籍更新時は書籍単位で全削除して再挿入する。",
+      "source": "backend/migrations/000003_create_author_book.up.sql",
+      "columns": [
+        { "name": "author_id", "type": "INTEGER", "nullable": false, "pk": true, "description": "著者ID（author.id への外部キー）" },
+        { "name": "book_id", "type": "INTEGER", "nullable": false, "pk": true, "description": "書籍ID（book.id への外部キー）" },
+        { "name": "version", "type": "INTEGER", "nullable": false, "description": "バージョン。挿入時に常に1を設定し、現状は更新・参照されない" }
+      ],
+      "indexes": [],
+      "constraints": ["PRIMARY KEY (author_id, book_id)", "FOREIGN KEY (author_id) REFERENCES author (id)", "FOREIGN KEY (book_id) REFERENCES book (id)"]
+    }
+  }
+}

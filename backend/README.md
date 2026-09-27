@@ -20,6 +20,7 @@ make db-up
 make migrate-up
 make run
 # http://localhost:8080/health
+# http://localhost:8080/api/authors/1/books
 
 # OpenAPI 再排出（DTO/Handler 変更後）
 make swagger
@@ -27,8 +28,9 @@ make swagger
 
 ## 現状
 
-- Go 骨格のみ（Echo・BindValidate・HTTPErrorHandler・DB 接続・config）
-- 書籍・著者 API（旧 Kotlin 実装相当）は後続 PR で実装する（範囲は `architecture.md` §4）
+- 書籍・著者 API（旧 Kotlin 実装相当。一覧は `architecture.md` §4）
+- DB スキーマ: `migrations/`（資料は `docs/db/backend-schema.{json,md}`）
+- Repository／Query の契約テストはローカル DB（`make db-up migrate-up`）に対して実行し、DB が無ければ skip する
 - OpenAPI: `make swagger` → `backend/api/docs/`（手編集禁止。CI でドリフト検知）
 
 ## スタック（要約）

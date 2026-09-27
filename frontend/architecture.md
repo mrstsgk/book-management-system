@@ -157,7 +157,7 @@ pnpm gen:api
 
 - 生成物（`web/src/api/generated/`）は手編集しない。契約を更新して再生成する。ESLint / Prettier の対象外
 - 画面は生成フックを feature の hook から呼ぶ（Query フックを手書きしない）
-- テストの既定ハンドラは生成 MSW ハンドラ（paths が空の間は Orval が生成しないため空配列）。具体値を検証するテストは `server.use(get…MockHandler(fixture))` で上書きする
+- テストの既定ハンドラは生成 MSW ハンドラ。具体値を検証するテストは `server.use(get…MockHandler(fixture))` で上書きする
 - ローカル: Vite が `/api` と `/health` を `localhost:8080` にプロキシ。本番ビルドは `VITE_API_BASE_URL` を指定
 - CI: `pnpm gen:api:check`（再生成して `git diff --exit-code` と未追跡ファイルの有無を確認）
 

@@ -5,9 +5,19 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
+
 	"github.com/mrstsgk/book-management-system/backend/config"
+	pgauthor "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/author"
+	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
+	httpauthor "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/author"
+	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
 	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
+	authorcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/author/command"
+	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
+	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
 )
 
 // @title Book Management System API
@@ -46,6 +56,26 @@ func run() error {
 	}()
 
 	e := httpcommon.NewEcho()
+	registerRoutes(e, db)
 
 	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
+}
+
+// registerRoutes is the hand-written DI: infra → usecase → presentation.
+func registerRoutes(e *echo.Echo, db *gorm.DB) {
+	authorRepo := pgauthor.NewRepository(db)
+	authorQuery := pgauthor.NewQuery(db)
+	bookRepo := pgbook.NewRepository(db)
+	bookQuery := pgbook.NewQuery(db)
+
+	api := e.Group("/api")
+	(&httpauthor.Handler{
+		CreateUC: &authorcmd.CreateUsecaseImpl{Authors: authorRepo},
+		UpdateUC: &authorcmd.UpdateUsecaseImpl{Authors: authorRepo},
+		BooksUC:  &bookqry.ListByAuthorUsecaseImpl{Authors: authorQuery, Books: bookQuery},
+	}).Register(api.Group("/authors"))
+	(&httpbook.Handler{
+		CreateUC: &bookcmd.CreateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery},
+		UpdateUC: &bookcmd.UpdateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery},
+	}).Register(api.Group("/books"))
 }

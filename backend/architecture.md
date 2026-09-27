@@ -170,7 +170,7 @@ backend/
 
 ### プロダクト API 範囲
 
-旧 Kotlin 実装と同じ API を Go で再実装する（後続 PR）。
+旧 Kotlin 実装と同じ API を Go で再実装した。エラー応答は共通 `ErrorResponse`（§3）に統一している。
 
 | Method | Path | 用途 |
 |---|---|---|
