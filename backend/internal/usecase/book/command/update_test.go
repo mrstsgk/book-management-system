@@ -113,3 +113,64 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		}
 	})
 }
+
+func TestUpdateUsecase_AmazonURL(t *testing.T) {
+	t.Parallel()
+	withURL := func(t *testing.T) *book.Book {
+		t.Helper()
+		b := existingBook(t, book.Unpublished)
+		u, err := book.NewAmazonURL("https://www.amazon.co.jp/dp/old")
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.ChangeAmazonURL(&u)
+		return b
+	}
+	cmd := command.UpdateCommand{ID: 10, Title: "斜陽", Price: 800, AuthorIDs: []int64{2}, Status: 1, Version: 2}
+
+	t.Run("新しいURLに差し替える", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{findByID: withURL(t)}
+		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{detail: &book.BookDetail{}}}
+		c := cmd
+		u := "https://amzn.asia/d/new"
+		c.AmazonURL = &u
+
+		if _, err := uc.Execute(context.Background(), c); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if books.updated.AmazonURL == nil || books.updated.AmazonURL.String() != u {
+			t.Fatalf("AmazonURL = %v, want %s", books.updated.AmazonURL, u)
+		}
+	})
+
+	t.Run("URLを省略すると解除する", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{findByID: withURL(t)}
+		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{detail: &book.BookDetail{}}}
+
+		if _, err := uc.Execute(context.Background(), cmd); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if books.updated.AmazonURL != nil {
+			t.Fatalf("AmazonURL = %v, want nil", books.updated.AmazonURL)
+		}
+	})
+
+	t.Run("不正なURLはエラーで既存のURLも変わらない", func(t *testing.T) {
+		t.Parallel()
+		existing := withURL(t)
+		books := &fakeBooks{findByID: existing}
+		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{}}
+		c := cmd
+		u := "http://www.amazon.co.jp/dp/insecure"
+		c.AmazonURL = &u
+
+		if _, err := uc.Execute(context.Background(), c); !errors.Is(err, common.ErrInvalid) {
+			t.Fatalf("err = %v, want ErrInvalid", err)
+		}
+		if books.updated != nil || existing.AmazonURL.String() != "https://www.amazon.co.jp/dp/old" {
+			t.Fatalf("book changed on failure: %+v", existing)
+		}
+	})
+}

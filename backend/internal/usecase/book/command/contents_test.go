@@ -3,6 +3,7 @@ package command_test
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/author"
@@ -143,4 +144,32 @@ func TestCreateUsecase_AuthorLookupErrorPropagates(t *testing.T) {
 	if books.created != nil {
 		t.Fatal("Repository.Create must not be called when the author lookup fails")
 	}
+}
+
+// fakeImages is a hand-written Fake for book.ImageStorage.
+type fakeImages struct {
+	put     []book.ImageKey
+	putBody []byte
+	putErr  error
+	deleted []book.ImageKey
+	delErr  error
+	url     string
+}
+
+func (f *fakeImages) Put(_ context.Context, key book.ImageKey, _ book.Image, body io.Reader) error {
+	if f.putErr != nil {
+		return f.putErr
+	}
+	f.put = append(f.put, key)
+	f.putBody, _ = io.ReadAll(body)
+	return nil
+}
+
+func (f *fakeImages) Delete(_ context.Context, key book.ImageKey) error {
+	f.deleted = append(f.deleted, key)
+	return f.delErr
+}
+
+func (f *fakeImages) URL(_ context.Context, key book.ImageKey) (string, error) {
+	return f.url + key.String(), nil
 }
