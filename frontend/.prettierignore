@@ -1,0 +1,5 @@
+# Orval 生成物（手で直さない。pnpm gen:api で再生成）
+web/src/api/generated/
+pnpm-lock.yaml
+# 人が読む日本語ドキュメントの表を自動整形で崩さない
+*.md

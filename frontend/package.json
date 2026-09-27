@@ -1,0 +1,36 @@
+{
+  "name": "book-management-frontend",
+  "private": true,
+  "packageManager": "pnpm@10.11.0",
+  "engines": {
+    "node": "24.11.0",
+    "pnpm": "10.11.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "eslint .",
+    "typecheck": "pnpm --filter web typecheck",
+    "test": "pnpm --filter web test",
+    "build-storybook": "pnpm --filter web build-storybook",
+    "storybook": "pnpm --filter web storybook",
+    "gen:api": "pnpm --filter web gen:api",
+    "gen:api:check": "pnpm gen:api && git diff --exit-code -- web/src/api/generated && test -z \"$(git status --porcelain -- web/src/api/generated)\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@vitest/eslint-plugin": "^1.6.27",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "eslint-plugin-testing-library": "^7.16.2",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "typescript-eslint": "^8.70.1"
+  }
+}

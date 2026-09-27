@@ -1,0 +1,13 @@
+# Frontend
+
+node_modules
+dist
+dist-ssr
+storybook-static
+*.local
+*.log
+*storybook.log
+
+# local env files
+environments/.env.*
+!environments/.env.example
