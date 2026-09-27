@@ -1,0 +1,7 @@
+# Node / pnpm / Go のチーム共通ピン。ディレクトリに入ったら `mise install`。
+# 上げるときは本ファイル・frontend の packageManager / engines を同じ PR で更新する。
+
+[tools]
+node = "24.11.0"
+pnpm = "10.11.0"
+go = "1.25.14"

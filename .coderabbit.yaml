@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# book-management-system 用 CodeRabbit 設定。
+# レビューの運用は docs/rules/git-pull-request.md を正とする。
+
+language: "ja-JP"
+
+reviews:
+  profile: "chill"
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - develop
+      - main
+
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/storybook-static/**"
+    - "!**/pnpm-lock.yaml"
+    - "!**/go.sum"
+    - "!backend/api/docs/**"
+    - "!frontend/*/src/api/generated/**"
+    - "!frontend/*/src/types/api.ts"
+    - "!frontend/*/src/types/openapi.json"
+
+  path_instructions:
+    - path: "**"
+      instructions: |
+        # レビュー全般
+
+        本リポジトリのブランチ・コミット・PR運用は `docs/rules/git-branch.md` / `docs/rules/git-commit-message.md` / `docs/rules/git-pull-request.md` を正とする。レビューコメントは日本語で書くこと。
+
+        ## コミットメッセージ
+        - `<type>: <subject>`（type は feat/fix/chore/refactor/test/hotfix、subject は最大50文字・日本語・現在形・句点なし）
+        - type とブランチ prefix の対応: feat→`feat/`、fix→`fix/`、chore→`chore/`、refactor→`refactor/`、hotfix→`hotfix/`。
+          `test` はブランチ prefix を持たない例外（`test/` prefix は使わず、テスト追加は対象機能の `feat/`/`fix/` ブランチに同梱してコミットのみ `test:` にする）
+
+        ## ブランチ（Git Flow）
+        - 作業ブランチ（`feat/`・`fix/`・`refactor/`・`chore/`）は `develop` から分岐し `develop` へ PR すること
+        - `main` への PR は `develop` からのリリースか `hotfix/*` のみ。`hotfix/*` は `main` から分岐し、`main` と `develop` の両方へ反映する
+        - ブランチ名に Issue 番号を含めない（`feat/issue-83-xxx` のような命名は指摘対象）
+
+        ## セキュリティ
+        - 秘密情報（APIキー、パスワード、トークン、DB接続文字列、署名鍵等）をログ出力・エラーレスポンス・コミットに含めていないか
+        - SQLはプレースホルダ/ORM経由でバインドしているか。文字列結合でクエリを組み立てていないか（SQLインジェクション）
+        - 外部入力をエスケープせずHTML/シェルコマンドへ埋め込んでいないか（XSS、コマンドインジェクション）
+        - 新しいエンドポイントが認証・認可を意図せずバイパスしていないか
+        - ユーザー入力由来のIDをそのまま他ユーザーのリソースへのアクセスに使っていないか（IDOR、認可漏れ）。所有者チェックの有無を確認する
+        - CORS設定がワイルドカード（`*`）と資格情報付きリクエスト（cookie等）を同時に許可していないか
+        - 内部のエラーメッセージ・スタックトレースをそのままクライアントに返していないか（内部情報の露出）
+
+        ## パフォーマンス
+        - ループ内で個別にDBクエリを呼んでいないか（N+1）。一括取得（JOIN/IN句/バッチ）に置き換えられないか確認する
+        - 一覧取得APIに上限のないクエリ（LIMIT/ページサイズの上限なし）を許していないか
+        - 必要なフィールドだけを取得・返却しているか（不要に大きなペイロードの全件取得）
+        - リクエストのホットパスで重い同期処理（大きなファイルI/O、外部API同期呼び出し）を直列実行していないか。非同期化・キャッシュ・バッチ化の余地を確認する
+
+        ## 設計原則（SOLID / KISS / YAGNI / DRY）
+        - 単一責任: 1つの関数/クラスが複数の異なる理由で変更されるほど責務を抱えていないか
+        - 開放閉鎖: 既存コードへのif分岐の継ぎ足しではなく、拡張（新しい実装の追加）で新しい振る舞いを足せる設計になっているか
+        - リスコフの置換: interfaceの実装/サブタイプが契約（エラーの返し方、nullの扱い、事前条件を強めない/事後条件を弱めない）を破っていないか
+        - インターフェース分離: 呼び出し側が使わないメソッドまで実装を強制する、肥大化したinterfaceになっていないか
+        - 依存性逆転: 上位層が下位層の具体実装に直接依存せず、domain層の抽象（interface）に依存しているか（詳細は `backend/**` 節）
+        - KISS: 現時点で不要な抽象化・汎用化（使われていない拡張ポイント、過剰なデザインパターン適用）を追加していないか
+        - YAGNI: 今要求されていない将来のための実装（未使用のフラグ、どこからも呼ばれない汎用関数、中身の無いドメインパッケージ）を追加していないか
+        - DRY: 同じロジックが複数箇所にコピペされていないか。ただし共通化のしすぎで可読性・変更容易性を落としていないかも合わせて確認する
+
+        ## シェルスクリプトの落とし穴
+        - `set -e` の下で `((var++))` のような算術式インクリメントを使うと、結果が偶然0になった際に非ゼロ終了ステータスを返し、意図せずスクリプトが止まる。`var=$((var + 1))` を使うこと
+        - 環境変数から取得したパス・prefix を使って削除/一覧操作を行う処理は、空文字列やルートパスがそのまま渡された場合に全件を対象にしてしまわないよう、起動時に非空・非ルートであることを検証すること
+
+    - path: "backend/**"
+      instructions: |
+        Go / Echo モノリス。方針の正は `backend/architecture.md`。`go vet` 等の機械的チェックでカバーされる項目は重複指摘しない。
+
+        ## アーキテクチャ（オニオン + DDD 戦術 + CQRS）
+        `internal/{presentation/http,usecase,domain,infrastructure/postgres}/<domain>/`（+ 各層の `common`）構成。以下の越境を指摘する:
+        - **Handler は薄く保つ**: path パース → 共通 `BindValidate[T]` → UseCase → JSON のみ。ビジネスロジック・**認可**を Handler（presentation）に書いていないか（認可は UseCase の責務）
+        - **エラー→HTTP ステータス変換は共通 `common.HandleError` に集約**。各 Handler に `if errors.Is(...)` のステータス分岐を散らしていないか。新しい domain sentinel error を足したら `HandleError` のマッピングが伴っているか
+        - Bind / validate を各 Handler に手書きコピペしていないか（`BindValidate` を使う）
+        - `domain` は他層に依存しない。domain が infrastructure / presentation / GORM を import していないか
+        - UseCase は domain の **Repository IF（書き込み）/ Query IF（読み取り）** に依存し、`infrastructure/postgres` を直接 import していないか。書き込みは `usecase/<domain>/command`、読み取りは `usecase/<domain>/query` に置いているか
+        - 文字数などの業務制約が HTTP の `validate` タグだけに頼らず domain VO でも保証されているか
+        - **Repository / Query 実装にビジネスルールを書いていないか**。永続化の詳細を隠して domain object を出し入れするだけにする
+        - **ドメインモデルが貧血症になっていないか**。本来 Entity / VO が持つべき不変条件が UseCase に漏れ出していないか
+        - **トランザクション境界は Command（UseCase）が持つ**。書籍と著者の関連更新など厳密整合が必要な更新が同一トランザクションになっているか。個々の Repository 実装が勝手に commit していないか
+        - DI は `cmd/*/main.go` の手書き（config → infra → usecase → presentation）。新しい UseCase / Handler を追加したら配線が伴っているか
+        - 共通エラー形 `ErrorResponse` 以外のエラーレスポンス形を独自に作っていないか
+        - swag 注釈や DTO を変更したら `make swagger` の再生成（`api/docs/**` への差分）が伴っているか。`api/docs/**` は生成物なので手編集を指摘する
+        - HTTP ハンドラで body からの bind が path パラメータ由来の ID 等を上書きしていないか
+
+        ## 永続化・マイグレーション
+        - GORM AutoMigrate を使っていないか（スキーマの正は `backend/migrations/*.sql`、golang-migrate）。アプリ起動時に migrate を走らせていないか
+
+        ## テスト
+        - 挙動を変える変更には同じディレクトリの `*_test.go` を要求する。境界値（上限ちょうど+超過の両方）・失敗時に対象の状態が変化しないこと・下位層のエラーが伝播することを検証しているか確認する（`docs/rules/testing.md` 参照）
+
+    - path: "backend/migrations/**"
+      instructions: |
+        golang-migrate の SQL（PostgreSQL）。
+        - `.up.sql` と対になる `.down.sql` があり、down で up を正しく巻き戻せるか
+        - 既にマージ済みのマイグレーションファイルを書き換えていないか（変更は新しい番号のファイルで行う）
+        - NOT NULL 追加・型変更など既存データに影響する変更で、既存行の扱い（デフォルト値・バックフィル）が考慮されているか
+        - テーブル構成を変えたら `docs/db/backend-schema.json` / `.md` の更新が伴っているか（`docs/rules/db-documentation.md` 参照）
+
+    - path: "frontend/**"
+      instructions: |
+        React + Vite + TypeScript（pnpm workspace）。方針の正は `frontend/architecture.md`。ESLint / Prettier / `tsc` / Vitest でカバーされる項目は重複指摘しない。
+
+        ## アーキテクチャ
+        - Next.js / SSR / RSC 前提のコードを持ち込んでいないか（Vite の SPA）。`.js` / `.jsx` のアプリコードを置いていないか
+        - UI は **デジタル庁デザインシステム**（`packages/ui` + `@digital-go-jp/tailwind-theme-plugin`）。shadcn 等の別 UI ライブラリを導入していないか
+        - `packages/` に置いてよいのは DS のテーマ・取り込み部品、OpenAPI 生成型、純関数（金額・日付）だけ。ドメイン入りの複合コンポーネントをアプリ横断で共有していないか
+        - **feature 間の import 禁止**（依存は shared → features → app の一方向。合成は `app/` で行う）
+        - ロジック（取得・変換・画面状態）は `hooks/` に置き、コンポーネントは props を受けて描画に徹しているか。コンポーネント内にデータ取得や複雑な分岐を溜めていないか
+        - サーバ状態は TanStack Query を正とし、Zustand に二重保管していないか。Context にビジネスデータや頻繁に変わる値を載せていないか
+        - API 型・クライアントを手書きしていないか。`src/api/generated/**`（Orval）は `pnpm gen:api` の生成物なので手編集を指摘する（契約を変えて再生成する）
+        - PC を主としつつスマホでも破綻しないレスポンシブになっているか
+        - Storybook は props で完結する Presentational の状態カタログ。ページ丸ごと・本番 Provider / API 直結のストーリーを作っていないか
+
+        ## テスト
+        - 挙動を変える変更には同じディレクトリの `*.test.ts(x)` を要求する。ローディング・空・成功・エラーの主要状態、境界値、エラー伝播を検証しているか。自作の子コンポーネントを過剰にモックしていないか、巨大 Snapshot に頼っていないか（`frontend/architecture.md` §8、`docs/rules/testing.md` 参照）

@@ -1,0 +1,17 @@
+---
+description: When to read Digital Agency DS component usage docs
+alwaysApply: true
+---
+
+# DADS usage — when to read
+
+Official: https://design.digital.go.jp/dads/ (each component’s usage page)
+
+| When | Usage docs |
+|---|---|
+| **First** add of a component into `packages/ui` | **Read** (usage / a11y / don’ts). One usage URL line in the PR |
+| Layout/copy only with existing `packages/ui` | **Do not read** (Storybook / existing use is source of truth) |
+| Stuck on behavior / a11y, or review feedback | **Read** |
+| Reading every component’s usage every time | **Forbidden** (excessive) |
+
+Detail (Japanese, human-facing): `frontend/architecture.md` §2.1

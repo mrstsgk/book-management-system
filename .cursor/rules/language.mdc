@@ -1,0 +1,11 @@
+---
+description: Language — AI entrypoints English; human-facing policy Japanese
+alwaysApply: true
+---
+
+# Language
+
+- **AI entrypoints** (`CLAUDE.md`, `.cursor/rules/*.mdc`, agent-only prompts): write in **English**.
+- **Human-facing policy** (`docs/**`, `frontend/architecture.md`, `backend/architecture.md`, package READMEs people read, team Git docs): write in **Japanese**.
+- Do not paste long Japanese policy into AI entrypoints; point to / import the Japanese source of truth.
+- When editing rules: keep this split. Do not translate `docs/` or `frontend/architecture.md` or `backend/architecture.md` into English for agents.

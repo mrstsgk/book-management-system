@@ -23,7 +23,7 @@
 | FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
 | ツールチェーン | **mise で Go 版を固定**（リポジトリ直下 `.mise.toml`。`go.mod` と揃える） |
 | ローカル開発 | API は**ホストの Go**、DB は **Docker Compose**。Dev Container なし |
-| 旧スタック | Kotlin / Spring Boot / jOOQ / Flyway は**削除済み**（[ADR](../docs/adr/2026-09-28-migrate-kotlin-to-go-and-react.md)） |
+| 旧スタック | Kotlin / Spring Boot / jOOQ / Flyway は**削除済み** |
 
 マイクロサービス分割はしない。
 

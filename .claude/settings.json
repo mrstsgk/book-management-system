@@ -1,0 +1,87 @@
+{
+  "outputStyle": "Concise",
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/statusline-command.sh\"",
+    "refreshInterval": 60
+  },
+  "enabledPlugins": {
+    "security-guidance@claude-plugins-official": true,
+    "coderabbit@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "ponytail@ponytail": true,
+    "playwright@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(gh api repos/mrstsgk/book-management-system/pulls/*/comments/*/replies*)"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(rm -rf *)",
+      "Read(.env)",
+      "Read(./.env*)",
+      "Read(./secrets/**)",
+      "Read(./.aws/**)",
+      "Read(~/.ssh/**)",
+      "Edit(.env)",
+      "Edit(./.env*)",
+      "Edit(//etc/**)",
+      "Edit(//usr/**)"
+    ],
+    "ask": [
+      "Bash(rm *)",
+      "Bash(git reset *)",
+      "Bash(git merge *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(chmod *)"
+    ]
+  },
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-save-evidence.sh\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/postcompact-load-evidence.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/require-tests-on-change.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/require-adr-on-decision.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/require-db-docs-on-migration.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/adr-reminder.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

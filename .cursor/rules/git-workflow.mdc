@@ -1,0 +1,14 @@
+---
+description: Team Git branch/commit/PR conventions
+alwaysApply: true
+---
+
+# Git Workflow (Team)
+
+Production branch: `main`. Japanese human-facing sources of truth:
+
+- `docs/rules/git-branch.md`
+- `docs/rules/git-commit-message.md`
+- `docs/rules/git-pull-request.md`
+
+Commit message: `<type>: <subject>` (Japanese subject, present tense, max 50 chars). Types: feat / fix / chore / refactor / test / hotfix.

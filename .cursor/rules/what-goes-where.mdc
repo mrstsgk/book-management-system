@@ -1,0 +1,14 @@
+---
+description: What Goes Where — source/test/commit/comment roles (most important)
+alwaysApply: true
+---
+
+# Most Important Rule: What Goes Where
+
+- **Source code** writes **How** — the mechanism, the logic.
+- **Test code** writes **What** — the expected behavior/spec.
+- **Commit log** writes **Why** — the motivation for the change.
+- **Code comments** write **Why not** — rejected alternatives, non-obvious constraints.
+- Two exceptions write **What** instead, in **Japanese** (unlike other code comments): (1) a **Repository**'s type/class and every one of its methods always get a one-line What comment (the only class-level comment requirement — other classes follow Why-not); (2) any **complex method** anywhere (non-obvious control flow, several branches, a non-trivial algorithm) gets a one-line What comment.
+
+Do not put implementation narration in comments. Do not embed expected specs in source. Put change motivation in the commit message.

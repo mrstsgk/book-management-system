@@ -1,0 +1,26 @@
+---
+description: Monolith summary — Go/Echo API + React web app, OpenAPI via swag export, DADS
+alwaysApply: true
+---
+
+# Architecture
+
+Docs are MECE. Read the Japanese sources of truth (humans read these too):
+
+| Source of truth | Owns |
+|---|---|
+| `docs/architecture.md` | Repo-wide boundaries, top-level layout, OpenAPI/FE contract boundary |
+| `backend/architecture.md` | Backend stack, layers, HTTP/OpenAPI, directories |
+| `frontend/architecture.md` | Frontend stack, patterns, directories, sharing rules |
+
+Summary only (do not duplicate long policy here):
+
+- **Backend**: Go / Echo monolith. Layers: **Presentation → UseCase → Domain ← Infrastructure**. Each layer groups by **domain** (`common` / `book` / `author` …). CQRS: Repository vs Query; UseCase has `command`/`query` under each domain. All outward ports (Repository / Query / **ExternalGateway** for external API/SaaS) are IFs owned by **Domain**, implemented in Infrastructure — never in UseCase (see `backend/architecture.md` §2). Domain never references Web Framework/Controller/Request-Response/ORM/SQL/DB types/external SDKs directly. Write side crosses layers via a **Command DTO** owned by `usecase/<domain>/command` (never the Presentation Request struct, an ORM/DB entity, or a framework object) — Handler builds the Command DTO from its own Request, UseCase converts it to the domain model; the DTO itself carries no logic. Read side returns a **Read Model**, distinct from both the Domain Model and the Persistence Model (never reuse write DTO/domain model). Name by purpose, one class one purpose; prefer separating change-reasons over premature commonization. Runtime: a single API binary (`cmd/api`). Before changing backend Go code, run the checklist in `CLAUDE.md` §"Before Changing Backend Go Code". Detail: `backend/architecture.md`
+- **HTTP/OpenAPI**: Echo + validator + swag; thin Presentation handlers call UseCase. Export OpenAPI → **TS codegen required**. CI: gen → `git diff --exit-code`
+- **Frontend (Web)**: one app `frontend/web` (book/author management). React + Vite + TS required / mise+pnpm (one lockfile) / static build. No Docker / Dev Containers
+- **Viewport**: PC first, must not break on phones. See `frontend/architecture.md` §2.0
+- **UI**: Digital Agency DS (`packages/ui` + Tailwind theme). **No shadcn**. Usage timing: `dads-usage.mdc` / `frontend/architecture.md` §2.1
+- **CI (front)**: typecheck / lint / test / build / build-storybook (build only). No Playwright / visual regression / coverage gates for now
+- **Storybook**: Presentational state catalog only (no full pages)
+- **Frontend test**: Vitest + RTL + MSW. Colocate `*.test.ts`; `testing/` for shared/E2E. E2E: CI≈mock/MSW, stg≈smoke. Rules: `frontend/architecture.md` §8
+- **Legacy**: the Kotlin / Spring Boot implementation was removed

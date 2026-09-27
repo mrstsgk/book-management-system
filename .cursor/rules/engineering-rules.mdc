@@ -1,0 +1,12 @@
+---
+description: Decision records (ADR), testing, and DB schema docs rules
+alwaysApply: true
+---
+
+# Decision Records / Testing / DB Docs
+
+Japanese human-facing sources of truth:
+
+- `docs/rules/adr.md` — record non-trivial judgment calls (library/infra choice, dismissed review suggestion, root-cause decision) in `docs/adr/YYYY-MM-DD-<slug>.md`
+- `docs/rules/testing.md` — behavior-changing source changes ship with colocated tests (`*_test.go` / `*.test.ts(x)`); frontend test granularity per `frontend/architecture.md` §8
+- `docs/rules/db-documentation.md` — `backend/migrations/*.sql` changes ship with `docs/db/backend-schema.{json,md}` updates
