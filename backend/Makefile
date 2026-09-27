@@ -19,10 +19,10 @@ tidy: ## go mod tidy
 run: ## API を起動（:8080）
 	go run ./cmd/api
 
-db-up: ## PostgreSQL を起動（docker compose）
+db-up: ## PostgreSQL と S3（LocalStack）を起動（docker compose）
 	docker compose up -d
 
-db-down: ## PostgreSQL を停止
+db-down: ## PostgreSQL と S3（LocalStack）を停止
 	docker compose down
 
 migrate-up: ## マイグレーションを適用
