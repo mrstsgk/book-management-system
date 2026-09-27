@@ -4,4 +4,516 @@
  * Book Management System API
  * OpenAPI spec version: 0.1.0
  */
+import {
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
+import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
+  MutationFunction,
+  QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
+} from '@tanstack/react-query';
+
+import type {
+  AuthorBookResponse,
+  AuthorResponse,
+  BookResponse,
+  CreateAuthorRequest,
+  CreateBookRequest,
+  ErrorResponse,
+  UpdateAuthorRequest,
+  UpdateBookRequest
+} from './api.schemas';
+
+import { apiMutator } from '../mutator';
+import type { ErrorType } from '../mutator';
+
+
+type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
+};
+
+export const getPostApiAuthorsUrl = () => {
+
+
+
+
+  return `/api/authors`
+}
+
+/**
+ * 生年月日は現在より過去日付
+ * @summary 著者を作成する
+ */
+export const postApiAuthors = async (createAuthorRequest: CreateAuthorRequest, options?: Parameters<typeof apiMutator>[1]): Promise<AuthorResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiMutator<AuthorResponse>(getPostApiAuthorsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createAuthorRequest)
+  }
+);}
+
+
+
+
+
+export const getPostApiAuthorsMutationKey = () => ['postApiAuthors'] as const;
+
+export const getPostApiAuthorsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAuthors>>, TError,PostApiAuthorsMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof postApiAuthors>>, TError,PostApiAuthorsMutationVariables, TContext> => {
+
+const mutationKey = getPostApiAuthorsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiAuthors>>, PostApiAuthorsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  postApiAuthors(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostApiAuthorsMutationResult = NonNullable<Awaited<ReturnType<typeof postApiAuthors>>>
+    export type PostApiAuthorsMutationBody = CreateAuthorRequest
+    export type PostApiAuthorsMutationError = ErrorType<ErrorResponse>
+    export type PostApiAuthorsMutationVariables = {data: CreateAuthorRequest}
+
+    /**
+ * @summary 著者を作成する
+ */
+export const usePostApiAuthors = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAuthors>>, TError,PostApiAuthorsMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postApiAuthors>>,
+        TError,
+        PostApiAuthorsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostApiAuthorsMutationOptions(options), queryClient);
+    }
+
+export const getPutApiAuthorsIdUrl = (id: number,) => {
+
+
+
+
+  return `/api/authors/${id}`
+}
+
+/**
+ * 生年月日は現在より過去日付。version が一致しない場合は 409
+ * @summary 著者を更新する
+ */
+export const putApiAuthorsId = async (id: number,
+    updateAuthorRequest: UpdateAuthorRequest, options?: Parameters<typeof apiMutator>[1]): Promise<AuthorResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiMutator<AuthorResponse>(getPutApiAuthorsIdUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateAuthorRequest)
+  }
+);}
+
+
+
+
+
+export const getPutApiAuthorsIdMutationKey = () => ['putApiAuthorsId'] as const;
+
+export const getPutApiAuthorsIdMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiAuthorsId>>, TError,PutApiAuthorsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof putApiAuthorsId>>, TError,PutApiAuthorsIdMutationVariables, TContext> => {
+
+const mutationKey = getPutApiAuthorsIdMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putApiAuthorsId>>, PutApiAuthorsIdMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  putApiAuthorsId(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutApiAuthorsIdMutationResult = NonNullable<Awaited<ReturnType<typeof putApiAuthorsId>>>
+    export type PutApiAuthorsIdMutationBody = UpdateAuthorRequest
+    export type PutApiAuthorsIdMutationError = ErrorType<ErrorResponse>
+    export type PutApiAuthorsIdMutationVariables = {id: number;data: UpdateAuthorRequest}
+
+    /**
+ * @summary 著者を更新する
+ */
+export const usePutApiAuthorsId = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiAuthorsId>>, TError,PutApiAuthorsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putApiAuthorsId>>,
+        TError,
+        PutApiAuthorsIdMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPutApiAuthorsIdMutationOptions(options), queryClient);
+    }
+
+export const getGetApiAuthorsIdBooksUrl = (id: number,) => {
+
+
+
+
+  return `/api/authors/${id}/books`
+}
+
+/**
+ * 書籍が見つからない場合は空配列を返す
+ * @summary 著者に紐づく書籍一覧を取得する
+ */
+export const getApiAuthorsIdBooks = async (id: number, options?: Parameters<typeof apiMutator>[1]): Promise<AuthorBookResponse[]> => {
+
+  return apiMutator<AuthorBookResponse[]>(getGetApiAuthorsIdBooksUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetApiAuthorsIdBooksQueryKey = (id: number,) => {
+    return [
+    `/api/authors/${id}/books`
+    ] as const;
+    }
+
+
+export const getGetApiAuthorsIdBooksQueryOptions = <TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiAuthorsIdBooksQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>> = ({ signal }) => getApiAuthorsIdBooks(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiAuthorsIdBooksQueryResult = NonNullable<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>>
+export type GetApiAuthorsIdBooksQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetApiAuthorsIdBooks<TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiAuthorsIdBooks>>,
+          TError,
+          Awaited<ReturnType<typeof getApiAuthorsIdBooks>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiAuthorsIdBooks<TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiAuthorsIdBooks>>,
+          TError,
+          Awaited<ReturnType<typeof getApiAuthorsIdBooks>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiAuthorsIdBooks<TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 著者に紐づく書籍一覧を取得する
+ */
+
+export function useGetApiAuthorsIdBooks<TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(
+ id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiAuthorsIdBooksQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPostApiBooksUrl = () => {
+
+
+
+
+  return `/api/books`
+}
+
+/**
+ * 書籍価格は0以上、著者は1人以上（重複不可・存在する著者のみ）
+ * @summary 書籍を作成する
+ */
+export const postApiBooks = async (createBookRequest: CreateBookRequest, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiMutator<BookResponse>(getPostApiBooksUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createBookRequest)
+  }
+);}
+
+
+
+
+
+export const getPostApiBooksMutationKey = () => ['postApiBooks'] as const;
+
+export const getPostApiBooksMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiBooks>>, TError,PostApiBooksMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof postApiBooks>>, TError,PostApiBooksMutationVariables, TContext> => {
+
+const mutationKey = getPostApiBooksMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiBooks>>, PostApiBooksMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  postApiBooks(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostApiBooksMutationResult = NonNullable<Awaited<ReturnType<typeof postApiBooks>>>
+    export type PostApiBooksMutationBody = CreateBookRequest
+    export type PostApiBooksMutationError = ErrorType<ErrorResponse>
+    export type PostApiBooksMutationVariables = {data: CreateBookRequest}
+
+    /**
+ * @summary 書籍を作成する
+ */
+export const usePostApiBooks = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiBooks>>, TError,PostApiBooksMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postApiBooks>>,
+        TError,
+        PostApiBooksMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostApiBooksMutationOptions(options), queryClient);
+    }
+
+export const getPutApiBooksIdUrl = (id: number,) => {
+
+
+
+
+  return `/api/books/${id}`
+}
+
+/**
+ * 出版済みから未出版には変更できない。version が一致しない場合は 409
+ * @summary 書籍を更新する
+ */
+export const putApiBooksId = async (id: number,
+    updateBookRequest: UpdateBookRequest, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiMutator<BookResponse>(getPutApiBooksIdUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateBookRequest)
+  }
+);}
+
+
+
+
+
+export const getPutApiBooksIdMutationKey = () => ['putApiBooksId'] as const;
+
+export const getPutApiBooksIdMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiBooksId>>, TError,PutApiBooksIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof putApiBooksId>>, TError,PutApiBooksIdMutationVariables, TContext> => {
+
+const mutationKey = getPutApiBooksIdMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putApiBooksId>>, PutApiBooksIdMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  putApiBooksId(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutApiBooksIdMutationResult = NonNullable<Awaited<ReturnType<typeof putApiBooksId>>>
+    export type PutApiBooksIdMutationBody = UpdateBookRequest
+    export type PutApiBooksIdMutationError = ErrorType<ErrorResponse>
+    export type PutApiBooksIdMutationVariables = {id: number;data: UpdateBookRequest}
+
+    /**
+ * @summary 書籍を更新する
+ */
+export const usePutApiBooksId = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiBooksId>>, TError,PutApiBooksIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putApiBooksId>>,
+        TError,
+        PutApiBooksIdMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPutApiBooksIdMutationOptions(options), queryClient);
+    }
 

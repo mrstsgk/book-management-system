@@ -4,3 +4,116 @@
  * Book Management System API
  * OpenAPI spec version: 0.1.0
  */
+export type AuthorBookResponseStatus = typeof AuthorBookResponseStatus[keyof typeof AuthorBookResponseStatus];
+
+
+export const AuthorBookResponseStatus = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+} as const;
+
+export interface AuthorBookResponse {
+  id?: number;
+  price?: number;
+  status?: AuthorBookResponseStatus;
+  title?: string;
+}
+
+export interface AuthorResponse {
+  birthDate?: string;
+  id?: number;
+  name?: string;
+  version?: number;
+}
+
+export interface BookAuthorResponse {
+  birthDate?: string;
+  id?: number;
+  name?: string;
+  version?: number;
+}
+
+export type BookResponseStatus = typeof BookResponseStatus[keyof typeof BookResponseStatus];
+
+
+export const BookResponseStatus = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+} as const;
+
+export interface BookResponse {
+  authors?: BookAuthorResponse[];
+  id?: number;
+  price?: number;
+  status?: BookResponseStatus;
+  title?: string;
+  version?: number;
+}
+
+export interface CreateAuthorRequest {
+  birthDate?: string;
+  /** @maxLength 100 */
+  name: string;
+}
+
+export type CreateBookRequestStatus = typeof CreateBookRequestStatus[keyof typeof CreateBookRequestStatus];
+
+
+export const CreateBookRequestStatus = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+} as const;
+
+export interface CreateBookRequest {
+  /** @minItems 1 */
+  authorIds: number[];
+  /**
+     * @minimum 0
+     * @maximum 99999999
+     */
+  price: number;
+  status: CreateBookRequestStatus;
+  /** @maxLength 255 */
+  title: string;
+}
+
+export interface FieldError {
+  field?: string;
+  rule?: string;
+}
+
+export interface ErrorResponse {
+  /** Field-level details; only set for request validation errors. */
+  errors?: FieldError[];
+  message?: string;
+}
+
+export interface UpdateAuthorRequest {
+  birthDate?: string;
+  /** @maxLength 100 */
+  name: string;
+  version: number;
+}
+
+export type UpdateBookRequestStatus = typeof UpdateBookRequestStatus[keyof typeof UpdateBookRequestStatus];
+
+
+export const UpdateBookRequestStatus = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+} as const;
+
+export interface UpdateBookRequest {
+  /** @minItems 1 */
+  authorIds: number[];
+  /**
+     * @minimum 0
+     * @maximum 99999999
+     */
+  price: number;
+  status: UpdateBookRequestStatus;
+  /** @maxLength 255 */
+  title: string;
+  version: number;
+}
+
