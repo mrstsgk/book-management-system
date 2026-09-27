@@ -14,7 +14,7 @@ docs/       # 方針・ルール・ADR
 
 ## セットアップ
 
-前提: [mise](https://mise.jdx.dev/)・Docker
+前提: [mise](https://mise.jdx.dev/)・Docker（**Engine 28.0.0 以上**。それ未満では `127.0.0.1` に限定した公開ポートでも同じネットワークの他ホストから到達できる場合があるため）
 
 ```bash
 mise install              # Go / Node / pnpm（版は .mise.toml）

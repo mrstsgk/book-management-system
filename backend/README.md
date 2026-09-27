@@ -8,7 +8,7 @@ Go / Echo モノリス。方針の正は [`architecture.md`](./architecture.md)�
 |---|---|
 | Go | **ホスト**（版はリポジトリ直下 `.mise.toml` で固定） |
 | DB | **Docker Compose**（PostgreSQL） |
-| 画像ストレージ | **Docker Compose**（LocalStack の S3。バケット `book-images` は起動時に自動作成） |
+| 画像ストレージ | **Docker Compose**（LocalStack の S3。バケット `book-images` は起動時に自動作成。ポートは `127.0.0.1` のみに公開するため Docker Engine 28.0.0 以上が必要） |
 | Dev Container | 使わない |
 
 ```bash
