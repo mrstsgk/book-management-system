@@ -190,3 +190,47 @@ func TestRepository_Update(t *testing.T) {
 		}
 	})
 }
+
+func TestRepository_AmazonURLAndImageKey(t *testing.T) {
+	db := connectTestDB(t)
+	a := seedAuthor(t, db, "repo-test-media", nil)
+	repo := pgbook.NewRepository(db)
+	ctx := context.Background()
+	u, err := domainbook.NewAmazonURL("https://www.amazon.co.jp/dp/4101006059")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := domainbook.NewImageKey("books/test/cover.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b := newBook(t, "repo-test-media", 100, []domainauthor.ID{a}, domainbook.Unpublished)
+	b.ChangeAmazonURL(&u)
+	b.ReplaceImage(key)
+	createBook(t, db, b)
+
+	got, err := repo.FindByID(ctx, b.ID)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	if got.AmazonURL == nil || *got.AmazonURL != u || got.ImageKey == nil || *got.ImageKey != key {
+		t.Fatalf("got url=%v key=%v, want %v / %v", got.AmazonURL, got.ImageKey, u, key)
+	}
+
+	got.ChangeAmazonURL(nil)
+	if err := repo.Update(ctx, got); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	cleared, err := repo.FindByID(ctx, b.ID)
+	if err != nil {
+		t.Fatalf("FindByID after clearing: %v", err)
+	}
+	if cleared.AmazonURL != nil {
+		t.Fatalf("AmazonURL = %v, want NULL after clearing", cleared.AmazonURL)
+	}
+	if cleared.ImageKey == nil || *cleared.ImageKey != key {
+		t.Fatalf("ImageKey = %v, want it kept when only the URL is cleared", cleared.ImageKey)
+	}
+
+}

@@ -80,3 +80,29 @@ func TestQuery_FindSummariesByAuthorID(t *testing.T) {
 		}
 	})
 }
+
+func TestQuery_FindDetailByID_IncludesAmazonURLAndImageKey(t *testing.T) {
+	db := connectTestDB(t)
+	a := seedAuthor(t, db, "query-test-media", nil)
+	u, err := domainbook.NewAmazonURL("https://www.amazon.co.jp/dp/4101006059")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := domainbook.NewImageKey("books/test/cover.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := newBook(t, "query-test-media", 100, []domainauthor.ID{a}, domainbook.Unpublished)
+	b.ChangeAmazonURL(&u)
+	b.ReplaceImage(key)
+	createBook(t, db, b)
+
+	got, err := pgbook.NewQuery(db).FindDetailByID(context.Background(), b.ID)
+	if err != nil {
+		t.Fatalf("FindDetailByID: %v", err)
+	}
+	// The read model carries plain strings, and ImageURL stays empty: URLs are issued by the use case.
+	if got.AmazonURL == nil || *got.AmazonURL != u.String() || got.ImageKey == nil || *got.ImageKey != key.String() || got.ImageURL != nil {
+		t.Fatalf("url=%v key=%v imageURL=%v, want %s / %s / nil", got.AmazonURL, got.ImageKey, got.ImageURL, u, key)
+	}
+}
