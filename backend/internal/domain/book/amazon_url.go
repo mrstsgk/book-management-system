@@ -27,7 +27,9 @@ func NewAmazonURL(raw string) (AmazonURL, error) {
 	}
 	u, err := url.Parse(raw)
 	// Userinfo is rejected so "https://amazon.co.jp@evil.example/" can't pass as Amazon.
-	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || !isAmazonHost(u.Hostname()) {
+	// Port() is empty for "host:" too, so a trailing colon is checked separately.
+	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || strings.HasSuffix(u.Host, ":") ||
+		!isAmazonHost(u.Hostname()) {
 		return AmazonURL{}, fmt.Errorf("%w: AmazonのURL（https://www.amazon.co.jp/... など）を入力してください", common.ErrInvalid)
 	}
 	return AmazonURL{value: raw}, nil

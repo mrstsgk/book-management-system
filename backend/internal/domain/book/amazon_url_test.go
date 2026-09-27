@@ -31,6 +31,7 @@ func TestNewAmazonURL(t *testing.T) {
 		{name: "末尾一致だけの別ドメインはエラー", in: "https://notamazon.com/dp/1", wantErr: true},
 		{name: "ユーザー情報付きはエラー", in: "https://amazon.co.jp@evil.example/dp/1", wantErr: true},
 		{name: "ポート指定はエラー", in: "https://www.amazon.co.jp:8443/dp/1", wantErr: true},
+		{name: "空のポート指定はエラー", in: "https://www.amazon.co.jp:/dp/1", wantErr: true},
 		{name: "空文字はエラー", in: "", wantErr: true},
 		{name: "URLでない文字列はエラー", in: "amazon.co.jp/dp/1", wantErr: true},
 	}
