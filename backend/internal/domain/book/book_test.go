@@ -112,3 +112,52 @@ func TestBook_Change(t *testing.T) {
 		})
 	}
 }
+
+func TestBook_ChangeAmazonURL(t *testing.T) {
+	t.Parallel()
+	b, err := book.New(mustTitle(t, "人間失格"), mustPrice(t, 1500), []author.ID{1}, book.Unpublished)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := book.NewAmazonURL("https://www.amazon.co.jp/dp/4101006059")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b.ChangeAmazonURL(&u)
+	if b.AmazonURL == nil || *b.AmazonURL != u {
+		t.Fatalf("AmazonURL = %v, want %v", b.AmazonURL, u)
+	}
+
+	b.ChangeAmazonURL(nil)
+	if b.AmazonURL != nil {
+		t.Fatalf("AmazonURL = %v, want nil after clearing", b.AmazonURL)
+	}
+}
+
+func TestBook_ReplaceImage(t *testing.T) {
+	t.Parallel()
+	b, err := book.New(mustTitle(t, "人間失格"), mustPrice(t, 1500), []author.ID{1}, book.Unpublished)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := book.NewImageKey("books/1/first.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := book.NewImageKey("books/1/second.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if prev := b.ReplaceImage(first); prev != nil {
+		t.Fatalf("previous = %v, want nil for a book without an image", prev)
+	}
+	prev := b.ReplaceImage(second)
+	if prev == nil || *prev != first {
+		t.Fatalf("previous = %v, want %v", prev, first)
+	}
+	if b.ImageKey == nil || *b.ImageKey != second {
+		t.Fatalf("ImageKey = %v, want %v", b.ImageKey, second)
+	}
+}
