@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
+	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
+	gwbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/book"
 	pgauthor "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/author"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
@@ -55,14 +58,25 @@ func run() error {
 		}
 	}()
 
+	images, err := gwbook.NewImageStorage(context.Background(), gwbook.Config{
+		Endpoint:        cfg.S3.Endpoint,
+		Region:          cfg.S3.Region,
+		Bucket:          cfg.S3.Bucket,
+		AccessKeyID:     cfg.S3.AccessKeyID,
+		SecretAccessKey: cfg.S3.SecretAccessKey,
+	})
+	if err != nil {
+		return err
+	}
+
 	e := httpcommon.NewEcho()
-	registerRoutes(e, db)
+	registerRoutes(e, db, images)
 
 	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
 }
 
 // registerRoutes is the hand-written DI: infra → usecase → presentation.
-func registerRoutes(e *echo.Echo, db *gorm.DB) {
+func registerRoutes(e *echo.Echo, db *gorm.DB, images domainbook.ImageStorage) {
 	authorRepo := pgauthor.NewRepository(db)
 	authorQuery := pgauthor.NewQuery(db)
 	bookRepo := pgbook.NewRepository(db)
@@ -75,7 +89,9 @@ func registerRoutes(e *echo.Echo, db *gorm.DB) {
 		BooksUC:  &bookqry.ListByAuthorUsecaseImpl{Authors: authorQuery, Books: bookQuery},
 	}).Register(api.Group("/authors"))
 	(&httpbook.Handler{
-		CreateUC: &bookcmd.CreateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery},
-		UpdateUC: &bookcmd.UpdateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery},
+		CreateUC:      &bookcmd.CreateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Images: images},
+		UpdateUC:      &bookcmd.UpdateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Images: images},
+		UploadImageUC: &bookcmd.UploadImageUsecaseImpl{Books: bookRepo, Images: images, Details: bookQuery},
+		GetUC:         &bookqry.GetUsecaseImpl{Books: bookQuery, Images: images},
 	}).Register(api.Group("/books"))
 }
