@@ -1,0 +1,60 @@
+# golangci-lint v2 系の設定。CI の lint ジョブと `make lint` が同じ設定で走る。
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  # 既定セット（errcheck / govet / ineffassign / staticcheck / unused）に追加する
+  enable:
+    - bodyclose
+    - copyloopvar
+    - errorlint
+    - goconst
+    - misspell
+    - nilerr
+    - revive
+    - unconvert
+
+  # wrapcheck は入れない。層をまたぐたびに再ラップを強制され、domain の sentinel error を
+  # そのまま返して handleError の errors.Is で分岐する方針と噛み合わないため。
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+    revive:
+      enable-default-rules: true
+      rules:
+        # 公開要素へのコメント必須はテンプレート向けの規約。本リポジトリでは
+        # 命名で意図が伝わる UseCase/Handler が大半で、定型コメントが増えるだけなので外す
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+
+  exclusions:
+    paths:
+      # swag の生成物は対象外（手編集禁止）
+      - api/docs/
+    rules:
+      # テストは表明の書きやすさを優先する
+      - path: _test\.go$
+        linters:
+          - errcheck
+          - goconst
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/mrstsgk/book-management-system/backend
+  exclusions:
+    paths:
+      - api/docs/
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
