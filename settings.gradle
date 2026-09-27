@@ -1,0 +1,6 @@
+rootProject.name = 'bookmanagementsystem'
+
+include 'domain'
+include 'usecase'
+include 'infrastructure'
+include 'presentation'

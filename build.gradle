@@ -1,0 +1,120 @@
+plugins {
+	id 'org.jetbrains.kotlin.jvm' version '2.2.10'
+	id 'org.jetbrains.kotlin.plugin.spring' version '2.2.10'
+	id 'org.springframework.boot' version '3.4.2'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.jooq.jooq-codegen-gradle' version '3.19.15' apply false
+	id 'io.gitlab.arturbosch.detekt' version '1.23.8' apply false
+}
+
+group = 'com.bookmanagementsystem'
+version = '0.0.1-SNAPSHOT'
+
+repositories {
+	mavenCentral()
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+kotlin {
+	compilerOptions {
+		freeCompilerArgs.addAll '-Xjsr305=strict'
+	}
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation 'org.jetbrains.kotlin:kotlin-reflect'
+	implementation project(':presentation')
+	implementation project(':infrastructure')
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+bootJar {
+	mainClass = 'com.bookmanagementsystem.BookmanagementsystemApplicationKt'
+}
+
+// NOTE: .env.sample を参照して .env ファイルを作成してください
+def properties = new Properties()
+def envFile = rootProject.file(".env")
+if (envFile.exists()) {
+    properties.load(new FileInputStream(envFile))
+}
+
+def postgresUser = System.getenv("POSTGRES_USER") ?: properties.getProperty("POSTGRES_USER")
+def postgresPassword = System.getenv("POSTGRES_PASSWORD") ?: properties.getProperty("POSTGRES_PASSWORD")
+
+bootRun {
+	mainClass = 'com.bookmanagementsystem.BookmanagementsystemApplicationKt'
+	environment 'DB_URL', 'jdbc:postgresql://localhost:5433/book_management'
+	environment 'POSTGRES_USER', postgresUser
+	environment 'POSTGRES_PASSWORD', postgresPassword
+}
+
+subprojects {
+	apply plugin: 'org.jetbrains.kotlin.jvm'
+	apply plugin: 'io.spring.dependency-management'
+	
+	// Only apply Detekt to projects with source code
+	if (file("src").exists()) {
+		apply plugin: 'io.gitlab.arturbosch.detekt'
+	}
+
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(21)
+		}
+	}
+
+	repositories {
+		mavenCentral()
+	}
+
+	configurations {
+		// Create a separate configuration for detekt that uses Kotlin 2.0.21
+		detekt
+	}
+
+	dependencies {
+		testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
+		testImplementation 'io.kotest:kotest-runner-junit5:5.9.1'
+		testImplementation 'io.kotest:kotest-assertions-core:5.9.1'
+		testImplementation 'io.kotest:kotest-property:5.9.1'
+		testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+		
+		// Detekt dependencies with compatible Kotlin version
+		if (file("src").exists()) {
+			detekt 'io.gitlab.arturbosch.detekt:detekt-cli:1.23.8'
+			detekt 'org.jetbrains.kotlin:kotlin-compiler-embeddable:2.0.21'
+			detektPlugins 'io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8'
+		}
+	}
+
+	kotlin {
+		compilerOptions {
+			freeCompilerArgs.addAll '-Xjsr305=strict'
+		}
+	}
+
+	// Configure Detekt only if applied
+	if (file("src").exists()) {
+		detekt {
+			config.setFrom(file("$rootProject.projectDir/detekt.yml"))
+			buildUponDefaultConfig = true
+			parallel = true
+			
+			reports {
+				html.required = true
+				xml.required = true
+			}
+		}
+	}
+
+	test {
+		useJUnitPlatform()
+	}
+}
