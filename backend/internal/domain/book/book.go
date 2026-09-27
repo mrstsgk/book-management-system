@@ -45,9 +45,15 @@ func (b *Book) Change(title Title, price Price, authorIDs []author.ID, status Pu
 	return nil
 }
 
-// ChangeAmazonURL sets the Amazon link; nil clears it.
+// ChangeAmazonURL sets the Amazon link; nil clears it. It keeps a copy so later
+// changes to the caller's variable don't silently alter the book.
 func (b *Book) ChangeAmazonURL(u *AmazonURL) {
-	b.AmazonURL = u
+	if u == nil {
+		b.AmazonURL = nil
+		return
+	}
+	v := *u
+	b.AmazonURL = &v
 }
 
 // ReplaceImage points the book at a newly stored image and returns the key it

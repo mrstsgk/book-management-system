@@ -135,6 +135,29 @@ func TestBook_ChangeAmazonURL(t *testing.T) {
 	}
 }
 
+func TestBook_ChangeAmazonURL_IsNotAffectedByLaterChangesToTheArgument(t *testing.T) {
+	t.Parallel()
+	b, err := book.New(mustTitle(t, "人間失格"), mustPrice(t, 1500), []author.ID{1}, book.Unpublished)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := book.NewAmazonURL("https://www.amazon.co.jp/dp/first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := book.NewAmazonURL("https://www.amazon.co.jp/dp/other")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b.ChangeAmazonURL(&u)
+	u = other
+
+	if b.AmazonURL.String() != "https://www.amazon.co.jp/dp/first" {
+		t.Fatalf("AmazonURL = %s, want it unchanged by reassigning the caller's variable", b.AmazonURL)
+	}
+}
+
 func TestBook_ReplaceImage(t *testing.T) {
 	t.Parallel()
 	b, err := book.New(mustTitle(t, "人間失格"), mustPrice(t, 1500), []author.ID{1}, book.Unpublished)
