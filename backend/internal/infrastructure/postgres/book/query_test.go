@@ -159,23 +159,28 @@ func TestQuery_Tags(t *testing.T) {
 	db := connectTestDB(t)
 	q := pgbook.NewQuery(db)
 
-	var tagA, tagB int64
+	var tagA, tagB, tagC int64
 	db.Raw("INSERT INTO tag (name, version) VALUES ('query-test-タグA', 1) RETURNING id").Scan(&tagA)
 	db.Raw("INSERT INTO tag (name, version) VALUES ('query-test-タグB', 1) RETURNING id").Scan(&tagB)
+	db.Raw("INSERT INTO tag (name, version) VALUES ('query-test-タグC', 1) RETURNING id").Scan(&tagC)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'query-test-%'") })
 
 	tagged := newBook(t, "9780000002440", "タグ付きの本", nil, 4, domaintag.ID(tagA), domaintag.ID(tagB))
 	createBook(t, db, tagged)
 	untagged := newBook(t, "9780000002457", "タグ無しの本", nil, 4)
 	createBook(t, db, untagged)
+	// 別のタグが付いた本を後から登録する（一覧のページングをまたいでも他の本のタグと混ざらないことを確かめるため）。
+	taggedC := newBook(t, "9780000002471", "別のタグの本", nil, 4, domaintag.ID(tagC))
+	createBook(t, db, taggedC)
 
-	t.Run("詳細はタグ名を返す", func(t *testing.T) {
+	t.Run("詳細はタグ名を名前順で返す", func(t *testing.T) {
 		got, err := q.FindDetailByID(context.Background(), tagged.ID)
 		if err != nil {
 			t.Fatalf("FindDetailByID: %v", err)
 		}
-		if len(got.Tags) != 2 {
-			t.Fatalf("Tags = %v, want 2 names", got.Tags)
+		want := []string{"query-test-タグA", "query-test-タグB"}
+		if !reflect.DeepEqual(got.Tags, want) {
+			t.Fatalf("Tags = %v, want %v", got.Tags, want)
 		}
 	})
 
@@ -202,11 +207,32 @@ func TestQuery_Tags(t *testing.T) {
 		for _, it := range list.Items {
 			byID[it.ID] = it
 		}
-		if it := byID[tagged.ID]; it == nil || len(it.Tags) != 2 {
+		if it := byID[tagged.ID]; it == nil || !reflect.DeepEqual(it.Tags, []string{"query-test-タグA", "query-test-タグB"}) {
 			t.Fatalf("tagged item = %+v", it)
 		}
 		if it := byID[untagged.ID]; it == nil || len(it.Tags) != 0 {
 			t.Fatalf("untagged item = %+v", it)
+		}
+		if it := byID[taggedC.ID]; it == nil || !reflect.DeepEqual(it.Tags, []string{"query-test-タグC"}) {
+			t.Fatalf("taggedC item = %+v, want only query-test-タグC (must not pick up tagged's tags)", it)
+		}
+	})
+
+	t.Run("ページの境界をまたいでも他の本のタグは混ざらない", func(t *testing.T) {
+		// 新しく登録した順に並ぶため、1件目は taggedC のはず。
+		r, err := domaincommon.NewListRange(1, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		list, err := q.FindList(context.Background(), r)
+		if err != nil {
+			t.Fatalf("FindList: %v", err)
+		}
+		if len(list.Items) != 1 || list.Items[0].ID != taggedC.ID {
+			t.Fatalf("Items = %+v, want only taggedC (%d)", list.Items, taggedC.ID)
+		}
+		if got := list.Items[0].Tags; !reflect.DeepEqual(got, []string{"query-test-タグC"}) {
+			t.Fatalf("Tags = %v, want only query-test-タグC (tagged's タグA/タグB must not leak in)", got)
 		}
 	})
 }

@@ -156,4 +156,20 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 			t.Fatal("neither the catalog nor the repository may be called for invalid input")
 		}
 	})
+
+	t.Run("タグを11個指定するとカタログも保存も呼ばずにエラー", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{findByID: existingBook(t)}
+		catalog := &fakeCatalog{}
+		c := cmd
+		c.TagIDs = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
+
+		if _, err := uc.Execute(context.Background(), c); !errors.Is(err, common.ErrInvalid) {
+			t.Fatalf("err = %v, want ErrInvalid", err)
+		}
+		if catalog.called != 0 || books.updated != nil {
+			t.Fatal("neither the catalog nor the repository may be called for invalid input")
+		}
+	})
 }

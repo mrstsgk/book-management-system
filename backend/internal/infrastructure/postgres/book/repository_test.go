@@ -310,4 +310,26 @@ func TestRepository_Tags(t *testing.T) {
 			t.Fatalf("Tags = %v, want empty after the tag was deleted", got.Tags.IDs())
 		}
 	})
+
+	t.Run("タグを空にすると外れる", func(t *testing.T) {
+		b := newBook(t, "9780000002464", "カタログの書名", nil, 4, domaintag.ID(tagA), domaintag.ID(tagB))
+		createBook(t, db, b)
+
+		empty, err := domainbook.NewTagSelection(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.ChangeReview(b.Summary, b.Comment, b.Rating, empty, b.Version)
+		if err := repo.Update(context.Background(), b); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		if ids := got.Tags.IDs(); len(ids) != 0 {
+			t.Fatalf("Tags = %v, want empty after clearing", ids)
+		}
+	})
 }

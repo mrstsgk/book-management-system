@@ -338,6 +338,7 @@ func TestHandlerUpdate(t *testing.T) {
 	}{
 		{name: "トークンが無ければ401", path: "/api/books/5", body: body, withToken: false, want: http.StatusUnauthorized},
 		{name: "不正なIDは400", path: "/api/books/abc", body: body, withToken: true, want: http.StatusBadRequest},
+		{name: "タグを11個指定すると400", path: "/api/books/5", body: `{"summary":"読み返してのまとめ","tagIds":[1,2,3,4,5,6,7,8,9,10,11],"comment":"読み返した","rating":4,"version":2}`, withToken: true, want: http.StatusBadRequest},
 		{name: "バージョンなしは400", path: "/api/books/5", body: `{"comment":"x","rating":4}`, withToken: true, want: http.StatusBadRequest},
 		{name: "存在しない本は404", path: "/api/books/5", body: body, withToken: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
 		{name: "楽観的ロックの競合は409", path: "/api/books/5", body: body, withToken: true, err: domaincommon.ErrConflict, want: http.StatusConflict},
