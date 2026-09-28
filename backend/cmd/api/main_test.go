@@ -2,16 +2,22 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
+	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
 	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 )
@@ -54,6 +60,7 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 		"DELETE /api/books/:id",
 		"GET /api/catalog/:isbn",
 		"GET /api/tags",
+		"GET /api/tags/counts",
 		"POST /api/tags",
 		"PUT /api/tags/:id",
 		"DELETE /api/tags/:id",
@@ -186,6 +193,68 @@ func TestNewCatalog_WorksWithAndWithoutRakutenKeys(t *testing.T) {
 	} {
 		if newCatalog(cfg) == nil {
 			t.Fatalf("newCatalog(%+v) returned nil", cfg)
+		}
+	}
+}
+
+// migratedTempDB は共有の開発 DB を空にせずに「空の DB での起動」を試すため、一時的なデータベースを作って
+// backend/migrations の up を順に流す。ローカルの PostgreSQL に繋がらなければ skip する。
+func migratedTempDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	base := pgcommon.Config{Host: "localhost", Port: "5432", User: "postgres", Password: "postgres", DBName: "book_management", SSLMode: "disable"}
+	admin, err := pgcommon.Connect(base)
+	if err != nil {
+		t.Skipf("skipping: local Postgres not reachable (run `make db-up` first): %v", err)
+	}
+	t.Cleanup(func() { _ = pgcommon.Close(admin) })
+
+	name := fmt.Sprintf("book_management_seedtest_%d", time.Now().UnixNano())
+	if err := admin.Exec("CREATE DATABASE " + name).Error; err != nil {
+		t.Skipf("skipping: cannot create a temporary database: %v", err)
+	}
+	t.Cleanup(func() { admin.Exec("DROP DATABASE IF EXISTS " + name + " WITH (FORCE)") })
+
+	cfg := base
+	cfg.DBName = name
+	db, err := pgcommon.Connect(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = pgcommon.Close(db) })
+
+	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no migrations found: %v", err)
+	}
+	sort.Strings(files)
+	for _, f := range files {
+		sql, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec(string(sql)).Error; err != nil {
+			t.Fatalf("migrate %s: %v", filepath.Base(f), err)
+		}
+	}
+	return db
+}
+
+func TestSeedIfEmpty_OnAnEmptyDatabaseSeedsOnceAcrossRestarts(t *testing.T) {
+	db := migratedTempDB(t)
+	ctx := context.Background()
+	books, query := pgbook.NewRepository(db), pgbook.NewQuery(db, time.Now)
+	offline := &fakeSeedCatalog{err: fmt.Errorf("offline")}
+
+	for start := 1; start <= 2; start++ {
+		if err := seedIfEmpty(ctx, books, query, offline); err != nil {
+			t.Fatalf("start %d: %v", start, err)
+		}
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM book").Scan(&count).Error; err != nil {
+			t.Fatal(err)
+		}
+		if count != int64(len(sampleBooks)) {
+			t.Fatalf("start %d: %d books, want %d", start, count, len(sampleBooks))
 		}
 	}
 }

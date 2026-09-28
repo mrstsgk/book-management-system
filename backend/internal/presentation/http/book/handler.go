@@ -38,6 +38,10 @@ type UpdateRequest struct {
 type ListRequest struct {
 	Limit  *int `json:"limit" query:"limit" validate:"omitempty,min=1,max=100"`
 	Offset *int `json:"offset" query:"offset" validate:"omitempty,min=0"`
+	// Q は書名・著者の部分一致。前後の空白を除いて空なら検索しない。
+	// 文字数の上限は HTTP 層で見ない（トリム前の長さで弾くと、前後に空白の付いた100文字が400になるため）。VO が判定する。
+	Q     string `json:"q" query:"q"`
+	TagID *int64 `json:"tagId" query:"tagId" validate:"omitempty,min=1"`
 }
 
 type Response struct {
@@ -108,11 +112,13 @@ func (h *Handler) Register(g *echo.Group) {
 
 // List godoc
 // @Summary      読んだ本の一覧を取得する
-// @Description  新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す
+// @Description  新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は0件
 // @Tags         books
 // @Produce      json
-// @Param        limit  query int false "取得件数（1〜100、既定20）"
-// @Param        offset query int false "取得開始位置（0以上、既定0）"
+// @Param        limit  query int    false "取得件数（1〜100、既定20）"
+// @Param        offset query int    false "取得開始位置（0以上、既定0）"
+// @Param        q      query string false "書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）"
+// @Param        tagId  query int    false "この分野タグが付いた本だけにする（1以上）"
 // @Success      200 {object} ListResponse
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
@@ -129,7 +135,7 @@ func (h *Handler) List(c echo.Context) error {
 	if req.Offset != nil {
 		offset = *req.Offset
 	}
-	out, err := h.ListUC.Execute(c.Request().Context(), limit, offset)
+	out, err := h.ListUC.Execute(c.Request().Context(), bookqry.ListInput{Keyword: req.Q, TagID: req.TagID, Limit: limit, Offset: offset})
 	if err != nil {
 		return err
 	}

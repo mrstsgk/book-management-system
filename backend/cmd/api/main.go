@@ -69,6 +69,10 @@ func run() error {
 	}()
 
 	bookCatalog := newCatalog(cfg.Catalog)
+	if err := seedIfEmpty(context.Background(), pgbook.NewRepository(db), pgbook.NewQuery(db, time.Now), bookCatalog); err != nil {
+		return err
+	}
+
 	e := httpcommon.NewEcho()
 	registerRoutes(e, db, bookCatalog, cfg.AdminToken)
 
@@ -123,7 +127,7 @@ func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
 // registerRoutes は手書きの DI（infra → usecase → presentation）で各ハンドラを組み立てて登録する。
 func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalog, adminToken string) {
 	books := pgbook.NewRepository(db)
-	bookQuery := pgbook.NewQuery(db)
+	bookQuery := pgbook.NewQuery(db, time.Now)
 	tags := pgtag.NewRepository(db)
 	tagQuery := pgtag.NewQuery(db)
 	adminOnly := httpcommon.RequireAdminToken(adminToken)
@@ -143,10 +147,11 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 	}).Register(api.Group("/catalog"))
 
 	(&httptag.Handler{
-		RegisterUC: &tagcmd.RegisterUsecaseImpl{Tags: tags},
-		RenameUC:   &tagcmd.RenameUsecaseImpl{Tags: tags},
-		DeleteUC:   &tagcmd.DeleteUsecaseImpl{Tags: tags},
-		ListUC:     &tagqry.ListUsecaseImpl{Tags: tagQuery},
-		AdminOnly:  adminOnly,
+		RegisterUC:   &tagcmd.RegisterUsecaseImpl{Tags: tags},
+		RenameUC:     &tagcmd.RenameUsecaseImpl{Tags: tags},
+		DeleteUC:     &tagcmd.DeleteUsecaseImpl{Tags: tags},
+		ListUC:       &tagqry.ListUsecaseImpl{Tags: tagQuery},
+		CountBooksUC: &tagqry.CountBooksUsecaseImpl{Tags: tagQuery},
+		AdminOnly:    adminOnly,
 	}).Register(api.Group("/tags"))
 }

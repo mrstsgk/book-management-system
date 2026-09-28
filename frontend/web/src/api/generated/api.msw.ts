@@ -16,6 +16,7 @@ import {
   getGetApiBooksIdResponseMock,
   getGetApiBooksResponseMock,
   getGetApiCatalogIsbnResponseMock,
+  getGetApiTagsCountsResponseMock,
   getGetApiTagsResponseMock,
   getPostApiBooksResponseMock,
   getPostApiTagsResponseMock,
@@ -27,11 +28,12 @@ import type {
   BookListResponse,
   BookResponse,
   CatalogResponse,
+  TagBookCountListResponse,
   TagListResponse,
   TagResponse
 } from './api.schemas';
 
-export { getGetApiBooksResponseMock, getPostApiBooksResponseMock, getGetApiBooksIdResponseMock, getPutApiBooksIdResponseMock, getGetApiCatalogIsbnResponseMock, getGetApiTagsResponseMock, getPostApiTagsResponseMock, getPutApiTagsIdResponseMock } from './api.faker';
+export { getGetApiBooksResponseMock, getPostApiBooksResponseMock, getGetApiBooksIdResponseMock, getPutApiBooksIdResponseMock, getGetApiCatalogIsbnResponseMock, getGetApiTagsResponseMock, getPostApiTagsResponseMock, getPutApiTagsIdResponseMock, getGetApiTagsCountsResponseMock } from './api.faker';
 
 
 export const getGetApiBooksMockHandler = (overrideResponse?: BookListResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<BookListResponse> | BookListResponse), options?: RequestHandlerOptions) => {
@@ -149,6 +151,18 @@ export const getPutApiTagsIdMockHandler = (overrideResponse?: TagResponse | ((in
       })
   }, options)
 }
+
+export const getGetApiTagsCountsMockHandler = (overrideResponse?: TagBookCountListResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<TagBookCountListResponse> | TagBookCountListResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/tags/counts', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetApiTagsCountsResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBookManagementSystemAPIMock = () => [
   getGetApiBooksMockHandler(),
   getPostApiBooksMockHandler(),
@@ -159,5 +173,6 @@ export const getBookManagementSystemAPIMock = () => [
   getGetApiTagsMockHandler(),
   getPostApiTagsMockHandler(),
   getDeleteApiTagsIdMockHandler(),
-  getPutApiTagsIdMockHandler()
+  getPutApiTagsIdMockHandler(),
+  getGetApiTagsCountsMockHandler()
 ]

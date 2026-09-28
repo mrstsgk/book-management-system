@@ -29,18 +29,30 @@ type ListResponse struct {
 	Items []Response `json:"items"`
 } // @name TagListResponse
 
+type BookCountResponse struct {
+	ID        int64  `json:"id" example:"1"`
+	Name      string `json:"name" example:"データベース"`
+	BookCount int    `json:"bookCount" example:"3"`
+} // @name TagBookCountResponse
+
+type BookCountListResponse struct {
+	Items []BookCountResponse `json:"items"`
+} // @name TagBookCountListResponse
+
 // Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
 type Handler struct {
-	RegisterUC tagcmd.RegisterUsecase
-	RenameUC   tagcmd.RenameUsecase
-	DeleteUC   tagcmd.DeleteUsecase
-	ListUC     tagqry.ListUsecase
+	RegisterUC   tagcmd.RegisterUsecase
+	RenameUC     tagcmd.RenameUsecase
+	DeleteUC     tagcmd.DeleteUsecase
+	ListUC       tagqry.ListUsecase
+	CountBooksUC tagqry.CountBooksUsecase
 	// AdminOnly は追加・改名・削除に掛ける認証（閲覧は誰でもできる）。
 	AdminOnly echo.MiddlewareFunc
 }
 
 func (h *Handler) Register(g *echo.Group) {
 	g.GET("", h.List)
+	g.GET("/counts", h.CountBooks)
 	g.POST("", h.RegisterTag, h.AdminOnly)
 	g.PUT("/:id", h.Rename, h.AdminOnly)
 	g.DELETE("/:id", h.Delete, h.AdminOnly)
@@ -63,6 +75,26 @@ func (h *Handler) List(c echo.Context) error {
 		items = append(items, Response{ID: int64(it.ID), Name: it.Name, Version: it.Version})
 	}
 	return c.JSON(http.StatusOK, ListResponse{Items: items})
+}
+
+// CountBooks godoc
+// @Summary      分野タグごとの冊数を取得する
+// @Description  本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順
+// @Tags         tags
+// @Produce      json
+// @Success      200 {object} BookCountListResponse
+// @Failure      500 {object} common.ErrorResponse
+// @Router       /api/tags/counts [get]
+func (h *Handler) CountBooks(c echo.Context) error {
+	out, err := h.CountBooksUC.Execute(c.Request().Context())
+	if err != nil {
+		return err
+	}
+	items := make([]BookCountResponse, 0, len(out.Items))
+	for _, it := range out.Items {
+		items = append(items, BookCountResponse{ID: int64(it.ID), Name: it.Name, BookCount: it.BookCount})
+	}
+	return c.JSON(http.StatusOK, BookCountListResponse{Items: items})
 }
 
 // RegisterTag godoc
