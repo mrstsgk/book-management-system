@@ -27,6 +27,8 @@ erDiagram
 
 `tag`: 自分が定義した分野タグ。本には `book_tag` 経由で複数付けられる。タグ名は一意。
 
+`book_tag`: 本と分野タグの多対多の中間テーブル。本・タグどちらが消えても自動で外れる（`ON DELETE CASCADE`）。
+
 ```mermaid
 erDiagram
     tag {
@@ -36,4 +38,10 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
+    book_tag {
+        bigint book_id PK
+        bigint tag_id PK
+    }
+    book ||--o{ book_tag : "付く"
+    tag ||--o{ book_tag : "付く"
 ```

@@ -46,6 +46,20 @@
       ],
       "indexes": [],
       "constraints": ["uq_tag_name UNIQUE (name)"]
+    },
+    "book_tag": {
+      "description": "本と分野タグの多対多の中間テーブル。本・タグどちらが消えても自動で外れる。",
+      "source": "backend/migrations/000004_create_book_tag.up.sql",
+      "columns": [
+        { "name": "book_id", "type": "BIGINT", "nullable": false, "pk": true, "description": "読んだ本のID" },
+        { "name": "tag_id", "type": "BIGINT", "nullable": false, "pk": true, "description": "タグのID" }
+      ],
+      "indexes": [],
+      "constraints": [
+        "PRIMARY KEY (book_id, tag_id)",
+        "book_id REFERENCES book(id) ON DELETE CASCADE",
+        "tag_id REFERENCES tag(id) ON DELETE CASCADE"
+      ]
     }
   }
 }
