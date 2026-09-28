@@ -1,7 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
+	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
 
 // sampleBook は見本データ1冊分。書誌は外部カタログに頼らず自前で持つ（ネットに繋がらなくても起動できるように）。
@@ -85,4 +91,54 @@ func (s sampleBook) toBook() (*domainbook.Book, error) {
 		b.OverrideTitle(&title)
 	}
 	return b, nil
+}
+
+// seedIfEmpty は本が1冊も無いときだけ見本データを保存する。
+// 登録ユースケースは書誌を外部カタログから取る前提なので使わず、Repository に直接書く。
+func seedIfEmpty(ctx context.Context, books domainbook.Repository, query domainbook.Query, catalog domainbook.BookCatalog) error {
+	r, err := common.NewListRange(1, 0)
+	if err != nil {
+		return err
+	}
+	list, err := query.FindList(ctx, r)
+	if err != nil {
+		return err
+	}
+	if list.Total > 0 {
+		return nil
+	}
+	// 途中まで保存された状態を残さないよう、全冊を先に検証する
+	prepared := make([]*domainbook.Book, 0, len(sampleBooks))
+	for _, s := range sampleBooks {
+		b, err := s.toBook()
+		if err != nil {
+			return fmt.Errorf("sample book %s: %w", s.isbn, err)
+		}
+		prepared = append(prepared, b)
+	}
+	for _, b := range prepared {
+		b.Cover = lookupSampleCover(ctx, catalog, b.ISBN)
+		if err := books.Create(ctx, b); err != nil {
+			if errors.Is(err, common.ErrConflict) {
+				// 同時に起動した別のプロセスが先に入れた
+				slog.InfoContext(ctx, "sample book already exists; skipping", "isbn", b.ISBN.String())
+				continue
+			}
+			return err
+		}
+	}
+	slog.InfoContext(ctx, "seeded sample books", "count", len(prepared))
+	return nil
+}
+
+// lookupSampleCover は書影だけ外部カタログから取る。取れなければ書影なしにする（ネットが無くても起動できるように）。
+func lookupSampleCover(ctx context.Context, catalog domainbook.BookCatalog, isbn domainbook.ISBN) *domainbook.Cover {
+	entry, err := catalog.Lookup(ctx, isbn)
+	if err != nil {
+		if !errors.Is(err, common.ErrNotFound) {
+			slog.WarnContext(ctx, "sample book cover lookup failed; seeding without a cover", "isbn", isbn.String(), "error", err)
+		}
+		return nil
+	}
+	return entry.Cover
 }
