@@ -38,8 +38,14 @@ func (u *RefreshRakutenCoversUsecaseImpl) Execute(ctx context.Context) error {
 func (u *RefreshRakutenCoversUsecaseImpl) refresh(ctx context.Context, b *book.Book, now time.Time) {
 	entry, err := u.Catalog.Lookup(ctx, b.ISBN)
 	switch {
-	case err == nil:
+	case err == nil && entry.Cover != nil:
 		b.RefreshCatalog(entry.Bibliography, entry.Cover)
+	case err == nil:
+		// 該当はあったが書影が無い。書影を取り直せなかったのと同じ扱いにし、期限切れのときだけ外す
+		// （今の楽天の書影を無条件にnilへ差し替えると、期限前のものまで消してしまうため）。
+		if !b.DropExpiredCover(now) {
+			return
+		}
 	case b.DropExpiredCover(now):
 		slog.WarnContext(ctx, "rakuten cover expired before it could be refreshed; dropping it", "isbn", b.ISBN.String(), "error", err)
 	default:

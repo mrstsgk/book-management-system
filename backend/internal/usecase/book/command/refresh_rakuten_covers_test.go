@@ -149,6 +149,38 @@ func TestRefreshRakutenCoversUsecase_Execute(t *testing.T) {
 		}
 	})
 
+	t.Run("再取得できたが書影が無く期限前なら、今の楽天の書影を残し保存しない", func(t *testing.T) {
+		t.Parallel()
+		b := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-book.RakutenRetention+time.Second))
+		entry := catalogEntry(t, "取り直した書名", nil)
+		books := &fakeRefreshBooks{targets: []*book.Book{b}}
+		catalog := &fakeCatalogByISBN{entries: map[string]*book.CatalogEntry{"9780000003652": entry}}
+		uc := &command.RefreshRakutenCoversUsecaseImpl{Books: books, Catalog: catalog, Now: func() time.Time { return refreshNow }}
+
+		if err := uc.Execute(context.Background()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(books.updated) != 0 || b.Cover == nil {
+			t.Fatalf("updated %+v cover=%v, want the still-valid rakuten cover kept and nothing saved", books.updated, b.Cover)
+		}
+	})
+
+	t.Run("再取得できたが書影が無く期限切れなら、今の楽天の書影を外して保存する", func(t *testing.T) {
+		t.Parallel()
+		b := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-book.RakutenRetention))
+		entry := catalogEntry(t, "取り直した書名", nil)
+		books := &fakeRefreshBooks{targets: []*book.Book{b}}
+		catalog := &fakeCatalogByISBN{entries: map[string]*book.CatalogEntry{"9780000003652": entry}}
+		uc := &command.RefreshRakutenCoversUsecaseImpl{Books: books, Catalog: catalog, Now: func() time.Time { return refreshNow }}
+
+		if err := uc.Execute(context.Background()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(books.updated) != 1 || books.updated[0].Cover != nil {
+			t.Fatalf("updated %+v, want the expired rakuten cover dropped and saved", books.updated)
+		}
+	})
+
 	for _, tt := range []struct {
 		name string
 		err  error
