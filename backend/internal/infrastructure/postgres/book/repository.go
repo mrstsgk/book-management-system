@@ -48,6 +48,31 @@ func NewRepository(db *gorm.DB) domainbook.Repository {
 	return &repository{db: db}
 }
 
+// FindRakutenRefreshTargets は楽天の書影の取得日時が fetchedBefore 以前の行を ID 順に取得する。
+func (r *repository) FindRakutenRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*domainbook.Book, error) {
+	var rows []model
+	err := r.db.WithContext(ctx).
+		Where("cover_source = ? AND cover_fetched_at <= ?", string(domainbook.CoverSourceRakuten), fetchedBefore).
+		Order("id").Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	// ponytail: 1冊ずつタグを読む（N+1）。対象は取り直しの時期に入った数冊だけなので、まとめて読む仕組みは要らない
+	books := make([]*domainbook.Book, 0, len(rows))
+	for _, row := range rows {
+		tagIDs, err := findBookTagIDs(ctx, r.db, row.ID)
+		if err != nil {
+			return nil, err
+		}
+		b, err := adapt(row, tagIDs)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, b)
+	}
+	return books, nil
+}
+
 // FindByID は id の行を取得する。存在しなければ common.ErrNotFound を返す。
 func (r *repository) FindByID(ctx context.Context, id domainbook.ID) (*domainbook.Book, error) {
 	var row model

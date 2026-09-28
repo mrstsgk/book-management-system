@@ -397,3 +397,55 @@ func TestRepository_Tags(t *testing.T) {
 		}
 	})
 }
+
+func TestRepository_FindRakutenRefreshTargets(t *testing.T) {
+	db := connectTestDB(t)
+	repo := pgbook.NewRepository(db)
+	now := time.Now().Truncate(time.Microsecond)
+	day := 24 * time.Hour
+	fetchedBefore := now.Add(-domainbook.RakutenRefreshAfter)
+	rakuten := func(fetchedAt time.Time) *domainbook.Cover {
+		return mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/refresh.jpg", "https://books.rakuten.co.jp/rb/refresh/", fetchedAt)
+	}
+	tagID := mustCreateTag(t, db, "refresh-test-タグ")
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'refresh-test-%'") })
+
+	atBoundary := newBook(t, "9780000003607", "refresh-test-83日ちょうど", rakuten(fetchedBefore), 4, domaintag.ID(tagID))
+	createBook(t, db, atBoundary)
+	expired := newBook(t, "9780000003614", "refresh-test-期限切れ", rakuten(now.Add(-100*day)), 4)
+	createBook(t, db, expired)
+	fresh := newBook(t, "9780000003621", "refresh-test-82日", rakuten(now.Add(-82*day)), 4)
+	createBook(t, db, fresh)
+	oldOpenBD := newBook(t, "9780000003638", "refresh-test-openBD", mustCover(t, "https://cover.openbd.jp/refresh.jpg"), 4)
+	createBook(t, db, oldOpenBD)
+	noCover := newBook(t, "9780000003645", "refresh-test-書影なし", nil, 4)
+	createBook(t, db, noCover)
+
+	got, err := repo.FindRakutenRefreshTargets(context.Background(), fetchedBefore)
+	if err != nil {
+		t.Fatalf("FindRakutenRefreshTargets: %v", err)
+	}
+	// 共有DBに他のテストの行が残っていても判定できるよう、自分が作った本だけを見る
+	byID := map[domainbook.ID]*domainbook.Book{}
+	for _, b := range got {
+		byID[b.ID] = b
+	}
+	for _, want := range []*domainbook.Book{atBoundary, expired} {
+		if byID[want.ID] == nil {
+			t.Errorf("book %q is not returned, want it as a refresh target", want.Bibliography.Title())
+		}
+	}
+	for _, notWant := range []*domainbook.Book{fresh, oldOpenBD, noCover} {
+		if byID[notWant.ID] != nil {
+			t.Errorf("book %q is returned, want it excluded", notWant.Bibliography.Title())
+		}
+	}
+	if b := byID[atBoundary.ID]; b != nil {
+		if ids := b.Tags.IDs(); len(ids) != 1 || ids[0] != domaintag.ID(tagID) {
+			t.Errorf("Tags = %v, want the book's tag to be loaded", ids)
+		}
+		if b.Cover == nil || !b.Cover.FetchedAt().Equal(fetchedBefore) || b.Version != atBoundary.Version {
+			t.Errorf("got cover=%+v version=%d, want the stored Rakuten cover and version", b.Cover, b.Version)
+		}
+	}
+}
