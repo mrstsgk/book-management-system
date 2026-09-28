@@ -126,10 +126,13 @@ type Query interface {
 // assistance for registering a book, so it keeps the provider's raw text (e.g. an
 // authors string that mixes authors and translators) instead of domain VOs.
 type CatalogEntry struct {
-	ISBN      ISBN
-	Title     string
-	Authors   string
-	Publisher string
+	ISBN    ISBN
+	Title   string
+	Authors string
+	// AuthorCandidates は提供元の人名データを整えた名前（生没年や注記を除き、「姓, 名」を並べ替えたもの）。
+	// 提供元は著者と訳者を区別しないため、あくまで候補で、著者はユーザーが選ぶ。
+	AuthorCandidates []string
+	Publisher        string
 	// PublishedOn is as the provider gives it (e.g. "201907" or "20170807").
 	PublishedOn string
 	// Price is nil when the provider has no usable yen amount.

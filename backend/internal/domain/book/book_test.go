@@ -169,3 +169,16 @@ func TestBookListReadModel_UsesPlainFieldTypes(t *testing.T) {
 		}
 	}
 }
+
+// 候補には訳者など著者でない名前も含まれうるので、正しい著者であることを示す author.Name ではなく
+// ただの文字列のままにしておく。
+func TestCatalogEntry_AuthorCandidatesArePlainStrings(t *testing.T) {
+	t.Parallel()
+	f, ok := reflect.TypeOf(book.CatalogEntry{}).FieldByName("AuthorCandidates")
+	if !ok {
+		t.Fatal("CatalogEntry.AuthorCandidates is missing")
+	}
+	if want := reflect.TypeOf([]string(nil)); f.Type != want {
+		t.Fatalf("AuthorCandidates is %s, want %s", f.Type, want)
+	}
+}

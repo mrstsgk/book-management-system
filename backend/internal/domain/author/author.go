@@ -1,6 +1,10 @@
 package author
 
-import "context"
+import (
+	"context"
+
+	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+)
 
 type ID int64
 
@@ -30,4 +34,30 @@ type Repository interface {
 // Query is the read-side persistence port (Query).
 type Query interface {
 	Exists(ctx context.Context, id ID) (bool, error)
+}
+
+// AuthorListItem は著者一覧の1行分の Read Model。
+type AuthorListItem struct {
+	ID        ID
+	Name      string
+	BirthDate *string // YYYY-MM-DD
+}
+
+// AuthorList は著者一覧のうち取得範囲の分と、条件に一致した総件数。
+type AuthorList struct {
+	Items []*AuthorListItem
+	Total int
+}
+
+// ListQuery は著者一覧（書籍登録時に著者を選ぶ画面など）の参照系ポート。
+type ListQuery interface {
+	// FindList は名前に nameContains を含む著者（空なら全件）を ID 順に、取得範囲 r の分だけ返す。
+	FindList(ctx context.Context, nameContains string, r common.ListRange) (*AuthorList, error)
+}
+
+// NameQuery は名前（外部カタログの著者の候補など）を既存の著者に照合する参照系ポート。
+type NameQuery interface {
+	// FindIDsByNames は名前が完全一致する著者の ID を名前ごとに返す。一致しない名前はマップに含めない。
+	// 同名の著者が複数いる場合は最小の ID を使う。
+	FindIDsByNames(ctx context.Context, names []string) (map[string]ID, error)
 }
