@@ -148,14 +148,53 @@ func TestHandlerList(t *testing.T) {
 		}
 	})
 
-	t.Run("limit上限+1は400", func(t *testing.T) {
-		called := mustNotCall(t)
-		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) { called(); return nil, nil })}
-		rec := serve(t, h, http.MethodGet, "/api/books?limit=101", "", false)
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d, want 400", rec.Code)
+	t.Run("キーワードと分野タグをusecaseに渡す", func(t *testing.T) {
+		var got bookqry.ListInput
+		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+			got = in
+			return &domainbook.BookList{}, nil
+		})}
+		rec := serve(t, h, http.MethodGet, "/api/books?q=%E8%A8%AD%E8%A8%88&tagId=3", "", false)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		if got.Keyword != "設計" || got.TagID == nil || *got.TagID != 3 {
+			t.Fatalf("usecase received %+v, want Keyword=設計 TagID=3", got)
 		}
 	})
+
+	t.Run("キーワードと分野タグを省略すると絞り込まない", func(t *testing.T) {
+		var got bookqry.ListInput
+		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+			got = in
+			return &domainbook.BookList{}, nil
+		})}
+		if rec := serve(t, h, http.MethodGet, "/api/books", "", false); rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", rec.Code)
+		}
+		if got.Keyword != "" || got.TagID != nil {
+			t.Fatalf("usecase received %+v, want no keyword and no tag", got)
+		}
+	})
+
+	for _, tt := range []struct {
+		name  string
+		query string
+	}{
+		{name: "limit上限+1は400", query: "?limit=101"},
+		{name: "キーワード101文字は400", query: "?q=" + strings.Repeat("a", 101)},
+		{name: "分野タグID 0は400", query: "?tagId=0"},
+		{name: "分野タグIDが数値でなければ400", query: "?tagId=abc"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			called := mustNotCall(t)
+			h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) { called(); return nil, nil })}
+			rec := serve(t, h, http.MethodGet, "/api/books"+tt.query, "", false)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+		})
+	}
 }
 
 func TestHandlerGet(t *testing.T) {
