@@ -30,7 +30,7 @@ func NewCover(rawURL string, source CoverSource) (Cover, error) {
 		return Cover{}, fmt.Errorf("%w: 書影の提供元が不正です", common.ErrInvalid)
 	}
 	u, err := url.Parse(rawURL)
-	if err != nil || len(rawURL) > coverURLMaxLength || u.Scheme != "https" || u.Host == "" || u.User != nil {
+	if err != nil || len(rawURL) > coverURLMaxLength || u.Scheme != "https" || u.Hostname() == "" || u.User != nil {
 		return Cover{}, fmt.Errorf("%w: 書影のURLが不正です", common.ErrInvalid)
 	}
 	return Cover{url: rawURL, source: source}, nil

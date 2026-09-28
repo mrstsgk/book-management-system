@@ -24,6 +24,7 @@ func TestNewCover(t *testing.T) {
 		{name: "2049文字はエラー", url: prefix + strings.Repeat("a", 2049-len(prefix)), source: book.CoverSourceOpenBD, wantErr: true},
 		{name: "httpはエラー", url: "http://cover.openbd.jp/1.jpg", source: book.CoverSourceOpenBD, wantErr: true},
 		{name: "ホストが無いとエラー", url: "https:///1.jpg", source: book.CoverSourceOpenBD, wantErr: true},
+		{name: "ポートだけでホスト名が無いとエラー", url: "https://:443/1.jpg", source: book.CoverSourceOpenBD, wantErr: true},
 		{name: "ユーザー情報付きはエラー", url: "https://user@cover.openbd.jp/1.jpg", source: book.CoverSourceOpenBD, wantErr: true},
 		{name: "未知の提供元はエラー", url: "https://cover.openbd.jp/1.jpg", source: book.CoverSource("amazon"), wantErr: true},
 	}
