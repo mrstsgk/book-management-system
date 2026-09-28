@@ -24,7 +24,7 @@ func (q *query) FindList(ctx context.Context) (*domaintag.TagList, error) {
 	}
 	list := &domaintag.TagList{Items: make([]*domaintag.TagListItem, 0, len(rows))}
 	for _, row := range rows {
-		list.Items = append(list.Items, &domaintag.TagListItem{ID: domaintag.ID(row.ID), Name: row.Name})
+		list.Items = append(list.Items, &domaintag.TagListItem{ID: domaintag.ID(row.ID), Name: row.Name, Version: row.Version})
 	}
 	return list, nil
 }

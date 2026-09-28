@@ -21,12 +21,15 @@ func TestQuery_FindList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindList: %v", err)
 	}
-	names := map[domaintag.ID]string{}
+	items := map[domaintag.ID]*domaintag.TagListItem{}
 	for _, it := range list.Items {
-		names[it.ID] = it.Name
+		items[it.ID] = it
 	}
-	if names[a.ID] != "query-test-データベース" || names[b.ID] != "query-test-分散システム" {
-		t.Fatalf("got %+v", names)
+	if items[a.ID] == nil || items[a.ID].Name != "query-test-データベース" || items[a.ID].Version != 1 {
+		t.Fatalf("got %+v, want Name=query-test-データベース Version=1", items[a.ID])
+	}
+	if items[b.ID] == nil || items[b.ID].Name != "query-test-分散システム" || items[b.ID].Version != 1 {
+		t.Fatalf("got %+v, want Name=query-test-分散システム Version=1", items[b.ID])
 	}
 }
 

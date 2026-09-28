@@ -67,7 +67,7 @@ func mustNotCall(t *testing.T) func() {
 }
 
 func TestHandlerList(t *testing.T) {
-	list := &domaintag.TagList{Items: []*domaintag.TagListItem{{ID: 1, Name: "データベース"}}}
+	list := &domaintag.TagList{Items: []*domaintag.TagListItem{{ID: 1, Name: "データベース", Version: 1}}}
 	h := &httptag.Handler{ListUC: fakeList(func(context.Context) (*domaintag.TagList, error) { return list, nil })}
 
 	rec := serve(t, h, http.MethodGet, "/api/tags", "", false)
@@ -78,7 +78,7 @@ func TestHandlerList(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	want := httptag.ListResponse{Items: []httptag.Response{{ID: 1, Name: "データベース"}}}
+	want := httptag.ListResponse{Items: []httptag.Response{{ID: 1, Name: "データベース", Version: 1}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("body = %+v, want %+v", got, want)
 	}

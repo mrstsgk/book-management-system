@@ -60,7 +60,7 @@ func (h *Handler) List(c echo.Context) error {
 	}
 	items := make([]Response, 0, len(out.Items))
 	for _, it := range out.Items {
-		items = append(items, Response{ID: int64(it.ID), Name: it.Name})
+		items = append(items, Response{ID: int64(it.ID), Name: it.Name, Version: it.Version})
 	}
 	return c.JSON(http.StatusOK, ListResponse{Items: items})
 }
