@@ -180,6 +180,10 @@ backend/
 | `PUT` | `/api/books/{id}` | 一言まとめ・感想・評価・書名の上書きを更新する（楽観的ロック。書誌と書影を取り直す） | 必要 |
 | `DELETE` | `/api/books/{id}` | 読んだ本を削除する | 必要 |
 | `GET` | `/api/catalog/{isbn}` | 登録前に、ISBN で外部カタログの書誌と書影を確かめる | 必要 |
+| `GET` | `/api/tags` | 分野タグの一覧 | 不要 |
+| `POST` | `/api/tags` | 分野タグを追加する（同名は409） | 必要 |
+| `PUT` | `/api/tags/{id}` | 分野タグの名前を変更する（楽観的ロック） | 必要 |
+| `DELETE` | `/api/tags/{id}` | 分野タグを削除する（付いていた本からは自動で外れる） | 必要 |
 
 - 認証は `Authorization: Bearer <ADMIN_TOKEN>`。自分だけが書き込めればよいので、ユーザー管理は持たない
 - 書影は提供元の URL をそのまま返す。`coverSource` が `rakuten` なら画面に楽天ウェブサービスのクレジット表示が必要（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）

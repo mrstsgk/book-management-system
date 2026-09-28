@@ -24,3 +24,16 @@ erDiagram
         timestamptz updated_at
     }
 ```
+
+`tag`: 自分が定義した分野タグ。本には `book_tag` 経由で複数付けられる。タグ名は一意。
+
+```mermaid
+erDiagram
+    tag {
+        bigserial id PK
+        varchar_30 name "unique"
+        integer version
+        timestamptz created_at
+        timestamptz updated_at
+    }
+```

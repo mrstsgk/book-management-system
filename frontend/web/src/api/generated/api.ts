@@ -30,6 +30,10 @@ import type {
   ErrorResponse,
   GetApiBooksParams,
   RegisterBookRequest,
+  RegisterTagRequest,
+  RenameTagRequest,
+  TagListResponse,
+  TagResponse,
   UpdateBookRequest
 } from './api.schemas';
 
@@ -620,4 +624,359 @@ export function useGetApiCatalogIsbn<TData = Awaited<ReturnType<typeof getApiCat
 
 
 
+
+export const getGetApiTagsUrl = () => {
+
+
+
+
+  return `/api/tags`
+}
+
+/**
+ * @summary 分野タグの一覧を取得する
+ */
+export const getApiTags = async ( options?: Parameters<typeof apiMutator>[1]): Promise<TagListResponse> => {
+
+  return apiMutator<TagListResponse>(getGetApiTagsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetApiTagsQueryKey = () => {
+    return [
+    `/api/tags`
+    ] as const;
+    }
+
+
+export const getGetApiTagsQueryOptions = <TData = Awaited<ReturnType<typeof getApiTags>>, TError = ErrorType<ErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTags>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiTagsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiTags>>> = ({ signal }) => getApiTags({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiTags>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiTagsQueryResult = NonNullable<Awaited<ReturnType<typeof getApiTags>>>
+export type GetApiTagsQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetApiTags<TData = Awaited<ReturnType<typeof getApiTags>>, TError = ErrorType<ErrorResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTags>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiTags>>,
+          TError,
+          Awaited<ReturnType<typeof getApiTags>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiTags<TData = Awaited<ReturnType<typeof getApiTags>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTags>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiTags>>,
+          TError,
+          Awaited<ReturnType<typeof getApiTags>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiTags<TData = Awaited<ReturnType<typeof getApiTags>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTags>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 分野タグの一覧を取得する
+ */
+
+export function useGetApiTags<TData = Awaited<ReturnType<typeof getApiTags>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTags>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiTagsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPostApiTagsUrl = () => {
+
+
+
+
+  return `/api/tags`
+}
+
+/**
+ * 同じ名前のタグは登録できない（409）
+ * @summary 分野タグを追加する（自分だけ）
+ */
+export const postApiTags = async (registerTagRequest: RegisterTagRequest, options?: Parameters<typeof apiMutator>[1]): Promise<TagResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiMutator<TagResponse>(getPostApiTagsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(registerTagRequest)
+  }
+);}
+
+
+
+
+
+export const getPostApiTagsMutationKey = () => ['postApiTags'] as const;
+
+export const getPostApiTagsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiTags>>, TError,PostApiTagsMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof postApiTags>>, TError,PostApiTagsMutationVariables, TContext> => {
+
+const mutationKey = getPostApiTagsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiTags>>, PostApiTagsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  postApiTags(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostApiTagsMutationResult = NonNullable<Awaited<ReturnType<typeof postApiTags>>>
+    export type PostApiTagsMutationBody = RegisterTagRequest
+    export type PostApiTagsMutationError = ErrorType<ErrorResponse>
+    export type PostApiTagsMutationVariables = {data: RegisterTagRequest}
+
+    /**
+ * @summary 分野タグを追加する（自分だけ）
+ */
+export const usePostApiTags = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiTags>>, TError,PostApiTagsMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postApiTags>>,
+        TError,
+        PostApiTagsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPostApiTagsMutationOptions(options), queryClient);
+    }
+
+export const getDeleteApiTagsIdUrl = (id: number,) => {
+
+
+
+
+  return `/api/tags/${id}`
+}
+
+/**
+ * 付いていた本からは自動で外れる
+ * @summary 分野タグを削除する（自分だけ）
+ */
+export const deleteApiTagsId = async (id: number, options?: Parameters<typeof apiMutator>[1]): Promise<void> => {
+
+  return apiMutator<void>(getDeleteApiTagsIdUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteApiTagsIdMutationKey = () => ['deleteApiTagsId'] as const;
+
+export const getDeleteApiTagsIdMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApiTagsId>>, TError,DeleteApiTagsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteApiTagsId>>, TError,DeleteApiTagsIdMutationVariables, TContext> => {
+
+const mutationKey = getDeleteApiTagsIdMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteApiTagsId>>, DeleteApiTagsIdMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteApiTagsId(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteApiTagsIdMutationResult = NonNullable<Awaited<ReturnType<typeof deleteApiTagsId>>>
+
+    export type DeleteApiTagsIdMutationError = ErrorType<ErrorResponse>
+    export type DeleteApiTagsIdMutationVariables = {id: number}
+
+    /**
+ * @summary 分野タグを削除する（自分だけ）
+ */
+export const useDeleteApiTagsId = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApiTagsId>>, TError,DeleteApiTagsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteApiTagsId>>,
+        TError,
+        DeleteApiTagsIdMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteApiTagsIdMutationOptions(options), queryClient);
+    }
+
+export const getPutApiTagsIdUrl = (id: number,) => {
+
+
+
+
+  return `/api/tags/${id}`
+}
+
+/**
+ * version が一致しない場合は 409
+ * @summary 分野タグの名前を変更する（自分だけ）
+ */
+export const putApiTagsId = async (id: number,
+    renameTagRequest: RenameTagRequest, options?: Parameters<typeof apiMutator>[1]): Promise<TagResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiMutator<TagResponse>(getPutApiTagsIdUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(renameTagRequest)
+  }
+);}
+
+
+
+
+
+export const getPutApiTagsIdMutationKey = () => ['putApiTagsId'] as const;
+
+export const getPutApiTagsIdMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiTagsId>>, TError,PutApiTagsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof putApiTagsId>>, TError,PutApiTagsIdMutationVariables, TContext> => {
+
+const mutationKey = getPutApiTagsIdMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putApiTagsId>>, PutApiTagsIdMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  putApiTagsId(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutApiTagsIdMutationResult = NonNullable<Awaited<ReturnType<typeof putApiTagsId>>>
+    export type PutApiTagsIdMutationBody = RenameTagRequest
+    export type PutApiTagsIdMutationError = ErrorType<ErrorResponse>
+    export type PutApiTagsIdMutationVariables = {id: number;data: RenameTagRequest}
+
+    /**
+ * @summary 分野タグの名前を変更する（自分だけ）
+ */
+export const usePutApiTagsId = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiTagsId>>, TError,PutApiTagsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putApiTagsId>>,
+        TError,
+        PutApiTagsIdMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPutApiTagsIdMutationOptions(options), queryClient);
+    }
 

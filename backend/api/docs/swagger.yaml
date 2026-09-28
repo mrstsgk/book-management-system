@@ -183,6 +183,47 @@ definitions:
     - rating
     - summary
     type: object
+  RegisterTagRequest:
+    properties:
+      name:
+        example: データベース
+        maxLength: 30
+        type: string
+    required:
+    - name
+    type: object
+  RenameTagRequest:
+    properties:
+      name:
+        example: 分散システム
+        maxLength: 30
+        type: string
+      version:
+        example: 1
+        type: integer
+    required:
+    - name
+    - version
+    type: object
+  TagListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/TagResponse'
+        type: array
+    type: object
+  TagResponse:
+    properties:
+      id:
+        example: 1
+        type: integer
+      name:
+        example: データベース
+        type: string
+      version:
+        example: 1
+        type: integer
+    type: object
   UpdateBookRequest:
     properties:
       comment:
@@ -434,6 +475,142 @@ paths:
       summary: ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
       tags:
       - catalog
+  /api/tags:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TagListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: 分野タグの一覧を取得する
+      tags:
+      - tags
+    post:
+      consumes:
+      - application/json
+      description: 同じ名前のタグは登録できない（409）
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/RegisterTagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TagResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 分野タグを追加する（自分だけ）
+      tags:
+      - tags
+  /api/tags/{id}:
+    delete:
+      description: 付いていた本からは自動で外れる
+      parameters:
+      - description: タグのID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 分野タグを削除する（自分だけ）
+      tags:
+      - tags
+    put:
+      consumes:
+      - application/json
+      description: version が一致しない場合は 409
+      parameters:
+      - description: タグのID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/RenameTagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TagResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 分野タグの名前を変更する（自分だけ）
+      tags:
+      - tags
 securityDefinitions:
   AdminToken:
     description: 登録・更新・削除とカタログの確認に必要。「Bearer <ADMIN_TOKEN>」の形式で指定する

@@ -45,6 +45,10 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 		"PUT /api/books/:id",
 		"DELETE /api/books/:id",
 		"GET /api/catalog/:isbn",
+		"GET /api/tags",
+		"POST /api/tags",
+		"PUT /api/tags/:id",
+		"DELETE /api/tags/:id",
 	} {
 		if !got[want] {
 			t.Errorf("route %q is not registered (got %v)", want, got)

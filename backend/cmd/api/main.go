@@ -17,11 +17,15 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/rakuten"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
+	pgtag "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/tag"
 	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
 	httpcatalog "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/catalog"
 	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
+	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
 	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
+	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
+	tagqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/query"
 )
 
 // @title Book Management System API
@@ -104,4 +108,14 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 		LookupUC:  &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},
 		AdminOnly: adminOnly,
 	}).Register(api.Group("/catalog"))
+
+	tags := pgtag.NewRepository(db)
+	tagQuery := pgtag.NewQuery(db)
+	(&httptag.Handler{
+		RegisterUC: &tagcmd.RegisterUsecaseImpl{Tags: tags},
+		RenameUC:   &tagcmd.RenameUsecaseImpl{Tags: tags},
+		DeleteUC:   &tagcmd.DeleteUsecaseImpl{Tags: tags},
+		ListUC:     &tagqry.ListUsecaseImpl{Tags: tagQuery},
+		AdminOnly:  adminOnly,
+	}).Register(api.Group("/tags"))
 }
