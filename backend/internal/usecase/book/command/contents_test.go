@@ -104,7 +104,7 @@ func TestCreateUsecase_RejectsInvalidContentsBeforeSaving(t *testing.T) {
 		name   string
 		mutate func(*command.CreateCommand)
 	}{
-		{name: "空白を含むタイトル", mutate: func(c *command.CreateCommand) { c.Title = "人間 失格" }},
+		{name: "空白だけのタイトル", mutate: func(c *command.CreateCommand) { c.Title = "　 " }},
 		{name: "負の価格", mutate: func(c *command.CreateCommand) { c.Price = -1 }},
 		{name: "上限超過の価格", mutate: func(c *command.CreateCommand) { c.Price = 100_000_000 }},
 		{name: "不正な出版状況", mutate: func(c *command.CreateCommand) { c.Status = 3 }},

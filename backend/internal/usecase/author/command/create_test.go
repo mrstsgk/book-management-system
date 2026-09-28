@@ -94,7 +94,7 @@ func TestCreateUsecase_Execute(t *testing.T) {
 		name string
 		cmd  command.CreateCommand
 	}{
-		{name: "空白を含む名前は保存せずエラー", cmd: command.CreateCommand{Name: "太宰 治"}},
+		{name: "空白だけの名前は保存せずエラー", cmd: command.CreateCommand{Name: "　 "}},
 		{name: "今日の生年月日は保存せずエラー", cmd: command.CreateCommand{Name: "太宰治", BirthDate: date(2026, 9, 28)}},
 	}
 	for _, tt := range invalid {

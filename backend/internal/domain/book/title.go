@@ -11,20 +11,23 @@ import (
 
 const titleMaxLength = 255
 
-// Title is a value object for book titles (1..255 runes, no whitespace).
+// Title is a value object for book titles: 1..255 runes after trimming surrounding
+// whitespace. Inner spaces (including full-width ones, common in Japanese titles such
+// as "改訂新版　…") are kept; control characters (tabs, newlines) are rejected.
 type Title struct {
 	value string
 }
 
 func NewTitle(raw string) (Title, error) {
-	n := utf8.RuneCountInString(raw)
+	v := strings.TrimSpace(raw)
+	n := utf8.RuneCountInString(v)
 	if n < 1 || n > titleMaxLength {
 		return Title{}, fmt.Errorf("%w: 書籍タイトルは1〜%d文字で入力してください", common.ErrInvalid, titleMaxLength)
 	}
-	if strings.IndexFunc(raw, unicode.IsSpace) >= 0 {
-		return Title{}, fmt.Errorf("%w: 書籍タイトルに空白は使用できません", common.ErrInvalid)
+	if strings.IndexFunc(v, unicode.IsControl) >= 0 {
+		return Title{}, fmt.Errorf("%w: 書籍タイトルにタブや改行は使用できません", common.ErrInvalid)
 	}
-	return Title{value: raw}, nil
+	return Title{value: v}, nil
 }
 
 func (t Title) String() string {

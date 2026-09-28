@@ -14,15 +14,20 @@ func TestNewName(t *testing.T) {
 	tests := []struct {
 		name    string
 		in      string
+		want    string
 		wantErr bool
 	}{
-		{name: "通常の著者名は有効", in: "太宰治"},
-		{name: "100文字ちょうどは有効", in: strings.Repeat("あ", 100)},
+		{name: "通常の著者名は有効", in: "太宰治", want: "太宰治"},
+		{name: "途中の半角空白は残す", in: "Martin Kleppmann", want: "Martin Kleppmann"},
+		{name: "途中の全角空白は残す", in: "太宰　治", want: "太宰　治"},
+		{name: "前後の半角・全角空白は取り除く", in: " 　太宰治　 ", want: "太宰治"},
+		{name: "100文字ちょうどは有効", in: strings.Repeat("あ", 100), want: strings.Repeat("あ", 100)},
+		{name: "前後の空白を除いて100文字なら有効", in: " " + strings.Repeat("あ", 100) + " ", want: strings.Repeat("あ", 100)},
 		{name: "101文字はエラー", in: strings.Repeat("あ", 101), wantErr: true},
 		{name: "空文字はエラー", in: "", wantErr: true},
-		{name: "半角空白を含むとエラー", in: "太宰 治", wantErr: true},
-		{name: "全角空白を含むとエラー", in: "太宰　治", wantErr: true},
-		{name: "タブを含むとエラー", in: "太宰\t治", wantErr: true},
+		{name: "空白だけはエラー", in: " 　 ", wantErr: true},
+		{name: "途中のタブはエラー", in: "太宰\t治", wantErr: true},
+		{name: "途中の改行はエラー", in: "太宰\n治", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -37,8 +42,8 @@ func TestNewName(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got.String() != tt.in {
-				t.Fatalf("String() = %q, want %q", got.String(), tt.in)
+			if got.String() != tt.want {
+				t.Fatalf("String() = %q, want %q", got.String(), tt.want)
 			}
 		})
 	}
