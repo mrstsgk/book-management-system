@@ -447,6 +447,30 @@ func TestRepository_FindRakutenRefreshTargets(t *testing.T) {
 			t.Errorf("got cover=%+v version=%d, want the stored Rakuten cover and version", b.Cover, b.Version)
 		}
 	}
+
+	t.Run("1冊が壊れていても他の対象は返す", func(t *testing.T) {
+		ok := newBook(t, "9780000003652", "refresh-test-正常", rakuten(fetchedBefore), 4)
+		createBook(t, db, ok)
+		broken := newBook(t, "9780000003669", "refresh-test-壊れている", rakuten(fetchedBefore), 4)
+		createBook(t, db, broken)
+		// ISBNのチェックディジットを崩し、adaptで再検証に失敗する行を作る（書き込み後にDBが壊れた想定）
+		db.Exec("UPDATE book SET isbn = '9780000003668' WHERE id = ?", int64(broken.ID))
+
+		got, err := repo.FindRakutenRefreshTargets(context.Background(), fetchedBefore)
+		if err != nil {
+			t.Fatalf("FindRakutenRefreshTargets: %v", err)
+		}
+		byID := map[domainbook.ID]*domainbook.Book{}
+		for _, b := range got {
+			byID[b.ID] = b
+		}
+		if byID[ok.ID] == nil {
+			t.Error("the adaptable book is not returned, want the broken book skipped instead")
+		}
+		if byID[broken.ID] != nil {
+			t.Error("the broken book is returned, want it skipped")
+		}
+	})
 }
 
 func TestRepository_CreateAll(t *testing.T) {

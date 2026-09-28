@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -58,15 +59,19 @@ func (r *repository) FindRakutenRefreshTargets(ctx context.Context, fetchedBefor
 		return nil, err
 	}
 	// ponytail: 1冊ずつタグを読む（N+1）。対象は取り直しの時期に入った数冊だけなので、まとめて読む仕組みは要らない
+	// 1冊の読み込み・組み立てに失敗しても、他の対象の取り直しを止めない（呼び出し側の「1冊の失敗で残りを止めない」方針を、
+	// ここで取りこぼすと崩してしまうため）。失敗は warn ログに残し、その冊だけ結果から外す。
 	books := make([]*domainbook.Book, 0, len(rows))
 	for _, row := range rows {
 		tagIDs, err := findBookTagIDs(ctx, r.db, row.ID)
 		if err != nil {
-			return nil, err
+			slog.WarnContext(ctx, "failed to load tags for a rakuten refresh target; skipping this book", "book_id", row.ID, "error", err)
+			continue
 		}
 		b, err := adapt(row, tagIDs)
 		if err != nil {
-			return nil, err
+			slog.WarnContext(ctx, "failed to adapt a rakuten refresh target; skipping this book", "book_id", row.ID, "error", err)
+			continue
 		}
 		books = append(books, b)
 	}
