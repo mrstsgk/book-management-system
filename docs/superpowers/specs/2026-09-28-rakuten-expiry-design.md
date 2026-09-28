@@ -60,7 +60,8 @@ ALTER TABLE book ADD COLUMN rakuten_disabled BOOLEAN NOT NULL DEFAULT FALSE;
 UPDATE book SET cover_url = NULL, cover_source = NULL WHERE cover_source = 'rakuten';
 
 ALTER TABLE book ADD CONSTRAINT ck_book_rakuten_cover CHECK (
-    (cover_source = 'rakuten') = (cover_product_url IS NOT NULL AND cover_fetched_at IS NOT NULL)
+    (cover_source = 'rakuten' AND cover_product_url IS NOT NULL AND cover_fetched_at IS NOT NULL)
+    OR (cover_source IS DISTINCT FROM 'rakuten' AND cover_product_url IS NULL AND cover_fetched_at IS NULL)
 );
 ```
 

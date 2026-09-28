@@ -34,7 +34,7 @@
         "ck_book_rating CHECK (rating BETWEEN 1 AND 5)",
         "ck_book_cover_source CHECK (cover_source IN ('openbd', 'rakuten'))",
         "ck_book_cover_pair CHECK ((cover_url IS NULL) = (cover_source IS NULL))",
-        "ck_book_rakuten_cover CHECK ((cover_source IS NOT DISTINCT FROM 'rakuten') = (cover_product_url IS NOT NULL AND cover_fetched_at IS NOT NULL))"
+        "ck_book_rakuten_cover CHECK ((cover_source = 'rakuten' AND cover_product_url IS NOT NULL AND cover_fetched_at IS NOT NULL) OR (cover_source IS DISTINCT FROM 'rakuten' AND cover_product_url IS NULL AND cover_fetched_at IS NULL))"
       ]
     },
     "tag": {

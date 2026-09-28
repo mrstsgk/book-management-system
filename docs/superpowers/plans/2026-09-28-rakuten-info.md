@@ -86,7 +86,8 @@ ALTER TABLE book ADD COLUMN cover_fetched_at TIMESTAMPTZ;
 UPDATE book SET cover_url = NULL, cover_source = NULL WHERE cover_source = 'rakuten';
 
 ALTER TABLE book ADD CONSTRAINT ck_book_rakuten_cover CHECK (
-    (cover_source IS NOT DISTINCT FROM 'rakuten') = (cover_product_url IS NOT NULL AND cover_fetched_at IS NOT NULL)
+    (cover_source = 'rakuten' AND cover_product_url IS NOT NULL AND cover_fetched_at IS NOT NULL)
+    OR (cover_source IS DISTINCT FROM 'rakuten' AND cover_product_url IS NULL AND cover_fetched_at IS NULL)
 );
 
 COMMENT ON COLUMN book.cover_product_url IS '楽天の商品ページの URL（楽天の書影のときだけ。楽天の規約上、書影と一緒にリンクする）。それ以外は NULL';
