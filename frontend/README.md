@@ -26,5 +26,5 @@ pnpm build-storybook
 
 ## 構成
 
-- `web/` … 書籍・著者の管理画面
+- `web/` … 読んだ本の紹介画面と、自分用の登録・編集画面
 - `packages/ui/` … デジタル庁 DS（Tailwind テーマ + 取り込み部品。現状 Button）
