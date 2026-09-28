@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-28-rakuten-expiry-design.md`（この計画は PR 1 = §2〜§5 だけ）
 
+**マージの順序:** この PR は期限切れの楽天の書影を API が返さないようにするだけで、DB からは消さない。期限前の取り直しと期限切れの消去は同じ spec の PR 2（§6、ブランチ `feat/rakuten-refresh`。この PR の上に積む）が担う。PR 1 → PR 2 の順に続けてマージし、その間でリリースしない（このアプリはデプロイしないので、ローカルの develop で2本が揃うまでの間だけの状態）。
+
 ## Global Constraints
 
 - 保持期限は取得から89日、取り直しの開始は取得から82日（spec §1）。定数は `domain/book` に1か所だけ置く
