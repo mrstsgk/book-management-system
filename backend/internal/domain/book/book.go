@@ -14,22 +14,31 @@ type Book struct {
 	ISBN         ISBN
 	Bibliography Bibliography
 	// Cover は書影。提供元に書影が無い本は nil。
-	Cover   *Cover
-	Comment Comment
-	Rating  Rating
-	Version int
+	Cover *Cover
+	// TitleOverride は自分で上書きした書名。上書きしていなければ nil。外部カタログを取り直しても消さない。
+	TitleOverride *Title
+	Summary       Summary
+	Comment       Comment
+	Rating        Rating
+	Version       int
 }
 
 // New は登録前の読んだ本を作る（ID とバージョンは保存時に採番する）。
-func New(isbn ISBN, bibliography Bibliography, cover *Cover, comment Comment, rating Rating) *Book {
-	return &Book{ISBN: isbn, Bibliography: bibliography, Cover: copyOf(cover), Comment: comment, Rating: rating}
+func New(isbn ISBN, bibliography Bibliography, cover *Cover, summary Summary, comment Comment, rating Rating) *Book {
+	return &Book{ISBN: isbn, Bibliography: bibliography, Cover: copyOf(cover), Summary: summary, Comment: comment, Rating: rating}
 }
 
-// ChangeReview は感想と評価を差し替える。version は更新元が読んだバージョン（楽観的ロックに使う）。
-func (b *Book) ChangeReview(comment Comment, rating Rating, version int) {
+// ChangeReview は一言まとめ・感想・評価を差し替える。version は更新元が読んだバージョン（楽観的ロックに使う）。
+func (b *Book) ChangeReview(summary Summary, comment Comment, rating Rating, version int) {
+	b.Summary = summary
 	b.Comment = comment
 	b.Rating = rating
 	b.Version = version
+}
+
+// OverrideTitle は書名を自分で上書きする。nil なら上書きを外し、外部カタログの書名に戻す。
+func (b *Book) OverrideTitle(title *Title) {
+	b.TitleOverride = copyOf(title)
 }
 
 // RefreshCatalog は外部カタログから取り直した書誌と書影に差し替える（提供元の変更を反映するため）。
@@ -61,8 +70,9 @@ type Repository interface {
 
 // BookDetail は読んだ本1冊の Read Model。
 type BookDetail struct {
-	ID          ID
-	ISBN        string
+	ID   ID
+	ISBN string
+	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
 	Title       string
 	Authors     string
 	Publisher   string
@@ -71,16 +81,21 @@ type BookDetail struct {
 	AmazonURL   *string
 	CoverURL    *string
 	CoverSource *string
-	Comment     string
-	Rating      int
-	Version     int
+	// TitleOverride は自分で上書きした書名。上書きしていなければ nil（編集画面が今の上書きを送り直すのに使う）。
+	TitleOverride *string
+	Summary       string
+	Comment       string
+	Rating        int
+	Version       int
 }
 
 // BookListItem は読んだ本の一覧の1行分の Read Model。感想の本文は詳細でだけ返す。
 type BookListItem struct {
-	ID          ID
-	ISBN        string
+	ID   ID
+	ISBN string
+	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
 	Title       string
+	Summary     string
 	Authors     string
 	AmazonURL   *string
 	CoverURL    *string

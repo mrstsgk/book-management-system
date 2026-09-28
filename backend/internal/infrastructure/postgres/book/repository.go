@@ -14,19 +14,21 @@ import (
 )
 
 type model struct {
-	ID          int64     `gorm:"column:id;primaryKey;autoIncrement"`
-	ISBN        string    `gorm:"column:isbn;size:13;not null"`
-	Title       string    `gorm:"column:title;size:255;not null"`
-	Authors     string    `gorm:"column:authors;size:500;not null"`
-	Publisher   string    `gorm:"column:publisher;size:255;not null"`
-	PublishedOn string    `gorm:"column:published_on;size:32;not null"`
-	CoverURL    *string   `gorm:"column:cover_url;size:2048"`
-	CoverSource *string   `gorm:"column:cover_source;size:16"`
-	Comment     string    `gorm:"column:comment;not null"`
-	Rating      int       `gorm:"column:rating;not null"`
-	Version     int       `gorm:"column:version;not null"`
-	CreatedAt   time.Time `gorm:"column:created_at;not null"`
-	UpdatedAt   time.Time `gorm:"column:updated_at;not null"`
+	ID            int64     `gorm:"column:id;primaryKey;autoIncrement"`
+	ISBN          string    `gorm:"column:isbn;size:13;not null"`
+	Title         string    `gorm:"column:title;size:255;not null"`
+	TitleOverride *string   `gorm:"column:title_override;size:255"`
+	Authors       string    `gorm:"column:authors;size:500;not null"`
+	Publisher     string    `gorm:"column:publisher;size:255;not null"`
+	PublishedOn   string    `gorm:"column:published_on;size:32;not null"`
+	CoverURL      *string   `gorm:"column:cover_url;size:2048"`
+	CoverSource   *string   `gorm:"column:cover_source;size:16"`
+	Summary       string    `gorm:"column:summary;size:100;not null"`
+	Comment       string    `gorm:"column:comment;not null"`
+	Rating        int       `gorm:"column:rating;not null"`
+	Version       int       `gorm:"column:version;not null"`
+	CreatedAt     time.Time `gorm:"column:created_at;not null"`
+	UpdatedAt     time.Time `gorm:"column:updated_at;not null"`
 }
 
 func (model) TableName() string {
@@ -73,9 +75,11 @@ func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
 	res := r.db.WithContext(ctx).Model(&model{}).
 		Where("id = ? AND version = ?", int64(b.ID), b.Version).
 		Updates(map[string]any{
-			"title": row.Title, "authors": row.Authors, "publisher": row.Publisher, "published_on": row.PublishedOn,
+			"title": row.Title, "title_override": row.TitleOverride, "authors": row.Authors,
+			"publisher": row.Publisher, "published_on": row.PublishedOn,
 			"cover_url": row.CoverURL, "cover_source": row.CoverSource,
-			"comment": row.Comment, "rating": row.Rating, "version": next, "updated_at": gorm.Expr("NOW()"),
+			"summary": row.Summary, "comment": row.Comment, "rating": row.Rating,
+			"version": next, "updated_at": gorm.Expr("NOW()"),
 		})
 	if res.Error != nil {
 		return res.Error
@@ -119,6 +123,7 @@ func toModel(b *domainbook.Book) model {
 		Authors:     b.Bibliography.Authors(),
 		Publisher:   b.Bibliography.Publisher(),
 		PublishedOn: b.Bibliography.PublishedOn(),
+		Summary:     b.Summary.String(),
 		Comment:     b.Comment.String(),
 		Rating:      b.Rating.Int(),
 		Version:     b.Version,
@@ -126,6 +131,10 @@ func toModel(b *domainbook.Book) model {
 	if b.Cover != nil {
 		u, s := b.Cover.URL(), string(b.Cover.Source())
 		row.CoverURL, row.CoverSource = &u, &s
+	}
+	if b.TitleOverride != nil {
+		v := b.TitleOverride.String()
+		row.TitleOverride = &v
 	}
 	return row
 }
@@ -137,6 +146,10 @@ func adapt(row model) (*domainbook.Book, error) {
 		return nil, err
 	}
 	bib, err := domainbook.NewBibliography(row.Title, row.Authors, row.Publisher, row.PublishedOn)
+	if err != nil {
+		return nil, err
+	}
+	summary, err := domainbook.NewSummary(row.Summary)
 	if err != nil {
 		return nil, err
 	}
@@ -156,8 +169,25 @@ func adapt(row model) (*domainbook.Book, error) {
 		}
 		cover = &c
 	}
-	b := domainbook.New(isbn, bib, cover, comment, rating)
+	override, err := adaptTitleOverride(row.TitleOverride)
+	if err != nil {
+		return nil, err
+	}
+	b := domainbook.New(isbn, bib, cover, summary, comment, rating)
+	b.OverrideTitle(override)
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version
 	return b, nil
+}
+
+// adaptTitleOverride は保存済みの上書きを VO で検証し直す。NULL なら上書きなし。
+func adaptTitleOverride(v *string) (*domainbook.Title, error) {
+	if v == nil {
+		return nil, nil
+	}
+	t, err := domainbook.NewTitle(*v)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }

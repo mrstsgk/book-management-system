@@ -3,6 +3,7 @@ package command_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
@@ -100,7 +101,7 @@ func mustCover(t *testing.T, url string) *book.Cover {
 
 func TestRegisterUsecase_Execute(t *testing.T) {
 	t.Parallel()
-	valid := command.RegisterCommand{ISBN: "4873118700", Comment: "良書", Rating: 5}
+	valid := command.RegisterCommand{ISBN: "4873118700", Summary: "分散データの設計を学べる", Comment: "良書", Rating: 5}
 
 	t.Run("カタログの書誌・書影と感想・評価を組み合わせて登録し詳細を返す", func(t *testing.T) {
 		t.Parallel()
@@ -116,7 +117,8 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		}
 		c := books.created
 		if c == nil || c.ISBN.String() != "9784873118703" || c.Bibliography.Title() != "データ指向アプリケーションデザイン" ||
-			c.Cover == nil || *c.Cover != *cover || c.Comment.String() != "良書" || c.Rating.Int() != 5 {
+			c.Cover == nil || *c.Cover != *cover || c.Summary.String() != "分散データの設計を学べる" ||
+			c.Comment.String() != "良書" || c.Rating.Int() != 5 || c.TitleOverride != nil {
 			t.Fatalf("created %+v", c)
 		}
 		if got != want || details.gotID != 1 {
@@ -124,13 +126,46 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		}
 	})
 
+	t.Run("書名の上書きを指定すると付けて登録する", func(t *testing.T) {
+		t.Parallel()
+		cmd := valid
+		cmd.TitleOverride = "正しい書名"
+		books := &fakeBooks{}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "カタログの書名", nil)}, Details: &fakeDetails{detail: &book.BookDetail{}}}
+
+		if _, err := uc.Execute(context.Background(), cmd); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if books.created == nil || books.created.TitleOverride == nil || books.created.TitleOverride.String() != "正しい書名" {
+			t.Fatalf("created %+v, want TitleOverride = 正しい書名", books.created)
+		}
+	})
+
+	t.Run("空白だけの書名の上書きはエラーにせず上書きなしで登録する", func(t *testing.T) {
+		t.Parallel()
+		cmd := valid
+		cmd.TitleOverride = "　"
+		books := &fakeBooks{}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "カタログの書名", nil)}, Details: &fakeDetails{detail: &book.BookDetail{}}}
+
+		if _, err := uc.Execute(context.Background(), cmd); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if books.created == nil || books.created.TitleOverride != nil {
+			t.Fatalf("created %+v, want TitleOverride = nil", books.created)
+		}
+	})
+
 	invalid := []struct {
 		name string
 		cmd  command.RegisterCommand
 	}{
-		{name: "不正なISBN", cmd: command.RegisterCommand{ISBN: "123", Comment: "良書", Rating: 5}},
-		{name: "空の感想", cmd: command.RegisterCommand{ISBN: "4873118700", Comment: " ", Rating: 5}},
-		{name: "範囲外の評価", cmd: command.RegisterCommand{ISBN: "4873118700", Comment: "良書", Rating: 6}},
+		{name: "不正なISBN", cmd: command.RegisterCommand{ISBN: "123", Summary: "要約", Comment: "良書", Rating: 5}},
+		{name: "空の感想", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", Comment: " ", Rating: 5}},
+		{name: "範囲外の評価", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", Comment: "良書", Rating: 6}},
+		{name: "空の一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: " ", Comment: "良書", Rating: 5}},
+		{name: "改行を含む一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "a\nb", Comment: "良書", Rating: 5}},
+		{name: "256文字の書名の上書き", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TitleOverride: strings.Repeat("あ", 256), Comment: "良書", Rating: 5}},
 	}
 	for _, tt := range invalid {
 		t.Run(tt.name+"はカタログも保存も呼ばずにエラー", func(t *testing.T) {

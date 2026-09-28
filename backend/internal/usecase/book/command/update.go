@@ -12,9 +12,12 @@ import (
 // UpdateCommand は UpdateUsecase の入力（Presentation から渡る境界）。データだけを持ち、ロジックは持たない。
 type UpdateCommand struct {
 	ID      int64
-	Comment string
-	Rating  int
-	Version int
+	Summary string
+	// TitleOverride は自分で上書きする書名。全体の置き換えなので、前後の空白を除いて空なら上書きを外す。
+	TitleOverride string
+	Comment       string
+	Rating        int
+	Version       int
 }
 
 type UpdateUsecase interface {
@@ -33,6 +36,14 @@ func (u *UpdateUsecaseImpl) Execute(ctx context.Context, cmd UpdateCommand) (*bo
 	if err != nil {
 		return nil, err
 	}
+	summary, err := book.NewSummary(cmd.Summary)
+	if err != nil {
+		return nil, err
+	}
+	override, err := parseTitleOverride(cmd.TitleOverride)
+	if err != nil {
+		return nil, err
+	}
 	comment, err := book.NewComment(cmd.Comment)
 	if err != nil {
 		return nil, err
@@ -41,7 +52,8 @@ func (u *UpdateUsecaseImpl) Execute(ctx context.Context, cmd UpdateCommand) (*bo
 	if err != nil {
 		return nil, err
 	}
-	b.ChangeReview(comment, rating, cmd.Version)
+	b.ChangeReview(summary, comment, rating, cmd.Version)
+	b.OverrideTitle(override)
 	u.refreshCatalog(ctx, b)
 	if err := u.Books.Update(ctx, b); err != nil {
 		return nil, err

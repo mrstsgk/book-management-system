@@ -37,7 +37,7 @@ func TestQuery_FindDetailByID(t *testing.T) {
 			}
 			want := &domainbook.BookDetail{
 				ID: b.ID, ISBN: tt.isbn, Title: "query-test-書名", Authors: "Kleppmann,Martin", Publisher: "オーム社",
-				PublishedOn: "201907", AmazonURL: tt.wantAmazonURL, Comment: "感想\n2行目", Rating: 4, Version: 1,
+				PublishedOn: "201907", AmazonURL: tt.wantAmazonURL, Summary: "一言まとめ", Comment: "感想\n2行目", Rating: 4, Version: 1,
 			}
 			if tt.cover != nil {
 				want.CoverURL, want.CoverSource = strPtr(tt.cover.URL()), strPtr("openbd")
@@ -82,9 +82,9 @@ func TestQuery_FindList(t *testing.T) {
 			t.Fatalf("FindList: %v", err)
 		}
 		want := &domainbook.BookList{Total: all.Total, Items: []*domainbook.BookListItem{
-			{ID: newer.ID, ISBN: "9780000000071", Title: "list-test-newer", Authors: "Kleppmann,Martin",
+			{ID: newer.ID, ISBN: "9780000000071", Title: "list-test-newer", Summary: "一言まとめ", Authors: "Kleppmann,Martin",
 				AmazonURL: strPtr("https://www.amazon.co.jp/dp/0000000078"), CoverURL: strPtr("https://cover.openbd.jp/newer.jpg"), CoverSource: strPtr("openbd"), Rating: 5},
-			{ID: older.ID, ISBN: "9780000000064", Title: "list-test-older", Authors: "Kleppmann,Martin",
+			{ID: older.ID, ISBN: "9780000000064", Title: "list-test-older", Summary: "一言まとめ", Authors: "Kleppmann,Martin",
 				AmazonURL: strPtr("https://www.amazon.co.jp/dp/000000006X"), Rating: 3},
 		}}
 		if !reflect.DeepEqual(got, want) {
@@ -100,6 +100,56 @@ func TestQuery_FindList(t *testing.T) {
 		out, err := qry.FindList(ctx, listRange(t, 1, all.Total))
 		if err != nil || out.Items == nil || len(out.Items) != 0 || out.Total != all.Total {
 			t.Fatalf("got (%#v, %v), want an empty non-nil list with total %d", out, err, all.Total)
+		}
+	})
+}
+
+func TestQuery_DisplayTitle(t *testing.T) {
+	db := connectTestDB(t)
+	q := pgbook.NewQuery(db)
+
+	overridden := newBook(t, "9780000001016", "カタログの書名", nil, 4)
+	title, _ := domainbook.NewTitle("正しい書名")
+	overridden.OverrideTitle(&title)
+	createBook(t, db, overridden)
+	plain := newBook(t, "9780000001023", "上書きなしの書名", nil, 4)
+	createBook(t, db, plain)
+
+	t.Run("詳細は上書きを優先し、上書きも返す", func(t *testing.T) {
+		got, err := q.FindDetailByID(context.Background(), overridden.ID)
+		if err != nil {
+			t.Fatalf("FindDetailByID: %v", err)
+		}
+		if got.Title != "正しい書名" || got.TitleOverride == nil || *got.TitleOverride != "正しい書名" || got.Summary != "一言まとめ" {
+			t.Fatalf("got title=%q override=%v summary=%q", got.Title, got.TitleOverride, got.Summary)
+		}
+	})
+
+	t.Run("上書きが無ければカタログの書名を表示し、上書きはnil", func(t *testing.T) {
+		got, err := q.FindDetailByID(context.Background(), plain.ID)
+		if err != nil {
+			t.Fatalf("FindDetailByID: %v", err)
+		}
+		if got.Title != "上書きなしの書名" || got.TitleOverride != nil {
+			t.Fatalf("got title=%q override=%v", got.Title, got.TitleOverride)
+		}
+	})
+
+	t.Run("一覧も表示する書名と一言まとめを返す", func(t *testing.T) {
+		r, _ := domaincommon.NewListRange(100, 0)
+		list, err := q.FindList(context.Background(), r)
+		if err != nil {
+			t.Fatalf("FindList: %v", err)
+		}
+		titles := map[domainbook.ID]*domainbook.BookListItem{}
+		for _, it := range list.Items {
+			titles[it.ID] = it
+		}
+		if it := titles[overridden.ID]; it == nil || it.Title != "正しい書名" || it.Summary != "一言まとめ" {
+			t.Fatalf("overridden item = %+v", it)
+		}
+		if it := titles[plain.ID]; it == nil || it.Title != "上書きなしの書名" {
+			t.Fatalf("plain item = %+v", it)
 		}
 	})
 }
