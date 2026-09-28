@@ -15,24 +15,24 @@ import (
 )
 
 type model struct {
-	ID            int64     `gorm:"column:id;primaryKey;autoIncrement"`
-	ISBN          string    `gorm:"column:isbn;size:13;not null"`
-	Title         string    `gorm:"column:title;size:255;not null"`
-	TitleOverride *string   `gorm:"column:title_override;size:255"`
-	Authors       string    `gorm:"column:authors;size:500;not null"`
-	Publisher     string    `gorm:"column:publisher;size:255;not null"`
-	PublishedOn   string    `gorm:"column:published_on;size:32;not null"`
-	CoverURL      *string   `gorm:"column:cover_url;size:2048"`
-	CoverSource   *string   `gorm:"column:cover_source;size:16"`
+	ID            int64   `gorm:"column:id;primaryKey;autoIncrement"`
+	ISBN          string  `gorm:"column:isbn;size:13;not null"`
+	Title         string  `gorm:"column:title;size:255;not null"`
+	TitleOverride *string `gorm:"column:title_override;size:255"`
+	Authors       string  `gorm:"column:authors;size:500;not null"`
+	Publisher     string  `gorm:"column:publisher;size:255;not null"`
+	PublishedOn   string  `gorm:"column:published_on;size:32;not null"`
+	CoverURL      *string `gorm:"column:cover_url;size:2048"`
+	CoverSource   *string `gorm:"column:cover_source;size:16"`
 	// CoverProductURL・CoverFetchedAt は楽天の書影のときだけ入る（CHECK 制約 ck_book_rakuten_cover）。
 	CoverProductURL *string    `gorm:"column:cover_product_url;size:2048"`
 	CoverFetchedAt  *time.Time `gorm:"column:cover_fetched_at"`
-	Summary      string    `gorm:"column:summary;size:100;not null"`
-	Comment       string    `gorm:"column:comment;not null"`
-	Rating        int       `gorm:"column:rating;not null"`
-	Version       int       `gorm:"column:version;not null"`
-	CreatedAt     time.Time `gorm:"column:created_at;not null"`
-	UpdatedAt     time.Time `gorm:"column:updated_at;not null"`
+	Summary         string     `gorm:"column:summary;size:100;not null"`
+	Comment         string     `gorm:"column:comment;not null"`
+	Rating          int        `gorm:"column:rating;not null"`
+	Version         int        `gorm:"column:version;not null"`
+	CreatedAt       time.Time  `gorm:"column:created_at;not null"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at;not null"`
 }
 
 func (model) TableName() string {
