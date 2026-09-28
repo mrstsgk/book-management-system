@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -67,10 +68,40 @@ func run() error {
 		}
 	}()
 
+	bookCatalog := newCatalog(cfg.Catalog)
 	e := httpcommon.NewEcho()
-	registerRoutes(e, db, newCatalog(cfg.Catalog), cfg.AdminToken)
+	registerRoutes(e, db, bookCatalog, cfg.AdminToken)
+
+	// run はグレースフルシャットダウンの後に返るので、そこで取り直しも止める
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	startRakutenRefresh(ctx, &bookcmd.RefreshRakutenCoversUsecaseImpl{
+		Books: pgbook.NewRepository(db), Catalog: bookCatalog, Now: time.Now,
+	}, rakutenRefreshInterval)
 
 	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
+}
+
+// rakutenRefreshInterval は楽天の書影を取り直す間隔（要件定義 §1.2「稼働中は1日1回」）。
+const rakutenRefreshInterval = 24 * time.Hour
+
+// startRakutenRefresh は起動直後に1回、その後 interval ごとに楽天の書影を取り直す goroutine を起動してすぐ返す。
+// 外部カタログが遅くても起動を待たせないため、別の goroutine で回す。ctx が終われば止まる。
+func startRakutenRefresh(ctx context.Context, uc bookcmd.RefreshRakutenCoversUsecase, interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			if err := uc.Execute(ctx); err != nil {
+				slog.WarnContext(ctx, "rakuten cover refresh failed", "error", err)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
 }
 
 // catalogTimeout は外部カタログ1回の問い合わせの上限。遅い提供元にリクエストを長く占有させないため。

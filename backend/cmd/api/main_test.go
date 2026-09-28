@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -111,6 +113,70 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 	if updateRec.Code != http.StatusBadRequest {
 		t.Fatalf("PUT status = %d, want 400 (body=%s)", updateRec.Code, updateRec.Body.String())
 	}
+}
+
+// blockingRefresh は Execute のたびに呼ばれたことを知らせ、release が閉じられるまで返らない。
+type blockingRefresh struct {
+	calls   chan struct{}
+	release chan struct{}
+}
+
+func (f *blockingRefresh) Execute(ctx context.Context) error {
+	f.calls <- struct{}{}
+	select {
+	case <-f.release:
+	case <-ctx.Done():
+	}
+	return nil
+}
+
+func TestStartRakutenRefresh(t *testing.T) {
+	t.Run("取り直しが終わるのを待たずに返り、起動直後に1回呼ぶ", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		uc := &blockingRefresh{calls: make(chan struct{}, 10), release: make(chan struct{})}
+
+		returned := make(chan struct{})
+		go func() {
+			startRakutenRefresh(ctx, uc, time.Hour)
+			close(returned)
+		}()
+
+		select {
+		case <-returned:
+		case <-time.After(time.Second):
+			t.Fatal("startRakutenRefresh blocked; the server must not wait for the refresh")
+		}
+		select {
+		case <-uc.calls:
+		case <-time.After(time.Second):
+			t.Fatal("refresh was not run at startup")
+		}
+	})
+
+	t.Run("間隔ごとに呼び、止めたらそれ以上呼ばない", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		uc := &blockingRefresh{calls: make(chan struct{}, 100), release: make(chan struct{})}
+		close(uc.release)
+
+		startRakutenRefresh(ctx, uc, 10*time.Millisecond)
+		for range 2 {
+			select {
+			case <-uc.calls:
+			case <-time.After(time.Second):
+				t.Fatal("refresh was not repeated at the interval")
+			}
+		}
+		cancel()
+		time.Sleep(30 * time.Millisecond) // 止まる前に走っていた1回を捨てる
+		for len(uc.calls) > 0 {
+			<-uc.calls
+		}
+		time.Sleep(50 * time.Millisecond)
+		if n := len(uc.calls); n != 0 {
+			t.Fatalf("refresh ran %d times after cancel, want it stopped", n)
+		}
+	})
 }
 
 func TestNewCatalog_WorksWithAndWithoutRakutenKeys(t *testing.T) {
