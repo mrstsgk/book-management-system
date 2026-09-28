@@ -11,7 +11,9 @@ import {
 import type {
   BookListResponse,
   BookResponse,
-  CatalogResponse
+  CatalogResponse,
+  TagListResponse,
+  TagResponse
 } from './api.schemas';
 
 
@@ -24,4 +26,10 @@ export const getGetApiBooksIdResponseMock = (overrideResponse: Partial<Extract<B
 export const getPutApiBooksIdResponseMock = (overrideResponse: Partial<Extract<BookResponse, object>> = {}): BookResponse => ({amazonUrl: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), authors: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), comment: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), coverSource: faker.helpers.arrayElement([faker.helpers.arrayElement(['openbd','rakuten'] as const), undefined]), coverUrl: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), id: faker.helpers.arrayElement([faker.number.int(), undefined]), isbn: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), publishedOn: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), publisher: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), rating: faker.helpers.arrayElement([faker.number.int(), undefined]), summary: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), titleOverride: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), version: faker.helpers.arrayElement([faker.number.int(), undefined]), ...overrideResponse})
 
 export const getGetApiCatalogIsbnResponseMock = (overrideResponse: Partial<Extract<CatalogResponse, object>> = {}): CatalogResponse => ({amazonUrl: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), authors: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), coverSource: faker.helpers.arrayElement([faker.helpers.arrayElement(['openbd','rakuten'] as const), undefined]), coverUrl: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), isbn: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), publishedOn: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), publisher: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), ...overrideResponse})
+
+export const getGetApiTagsResponseMock = (overrideResponse: Partial<Extract<TagListResponse, object>> = {}): TagListResponse => ({items: faker.helpers.arrayElement([Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.helpers.arrayElement([faker.number.int(), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), version: faker.helpers.arrayElement([faker.number.int(), undefined])})), undefined]), ...overrideResponse})
+
+export const getPostApiTagsResponseMock = (overrideResponse: Partial<Extract<TagResponse, object>> = {}): TagResponse => ({id: faker.helpers.arrayElement([faker.number.int(), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), version: faker.helpers.arrayElement([faker.number.int(), undefined]), ...overrideResponse})
+
+export const getPutApiTagsIdResponseMock = (overrideResponse: Partial<Extract<TagResponse, object>> = {}): TagResponse => ({id: faker.helpers.arrayElement([faker.number.int(), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), version: faker.helpers.arrayElement([faker.number.int(), undefined]), ...overrideResponse})
 

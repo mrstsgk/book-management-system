@@ -16,17 +16,22 @@ import {
   getGetApiBooksIdResponseMock,
   getGetApiBooksResponseMock,
   getGetApiCatalogIsbnResponseMock,
+  getGetApiTagsResponseMock,
   getPostApiBooksResponseMock,
-  getPutApiBooksIdResponseMock
+  getPostApiTagsResponseMock,
+  getPutApiBooksIdResponseMock,
+  getPutApiTagsIdResponseMock
 } from './api.faker';
 
 import type {
   BookListResponse,
   BookResponse,
-  CatalogResponse
+  CatalogResponse,
+  TagListResponse,
+  TagResponse
 } from './api.schemas';
 
-export { getGetApiBooksResponseMock, getPostApiBooksResponseMock, getGetApiBooksIdResponseMock, getPutApiBooksIdResponseMock, getGetApiCatalogIsbnResponseMock } from './api.faker';
+export { getGetApiBooksResponseMock, getPostApiBooksResponseMock, getGetApiBooksIdResponseMock, getPutApiBooksIdResponseMock, getGetApiCatalogIsbnResponseMock, getGetApiTagsResponseMock, getPostApiTagsResponseMock, getPutApiTagsIdResponseMock } from './api.faker';
 
 
 export const getGetApiBooksMockHandler = (overrideResponse?: BookListResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<BookListResponse> | BookListResponse), options?: RequestHandlerOptions) => {
@@ -98,11 +103,61 @@ export const getGetApiCatalogIsbnMockHandler = (overrideResponse?: CatalogRespon
       })
   }, options)
 }
+
+export const getGetApiTagsMockHandler = (overrideResponse?: TagListResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<TagListResponse> | TagListResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/tags', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetApiTagsResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getPostApiTagsMockHandler = (overrideResponse?: TagResponse | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<TagResponse> | TagResponse), options?: RequestHandlerOptions) => {
+  return http.post('*/api/tags', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getPostApiTagsResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getDeleteApiTagsIdMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.delete('*/api/tags/:id', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
+      })
+  }, options)
+}
+
+export const getPutApiTagsIdMockHandler = (overrideResponse?: TagResponse | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<TagResponse> | TagResponse), options?: RequestHandlerOptions) => {
+  return http.put('*/api/tags/:id', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getPutApiTagsIdResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getBookManagementSystemAPIMock = () => [
   getGetApiBooksMockHandler(),
   getPostApiBooksMockHandler(),
   getDeleteApiBooksIdMockHandler(),
   getGetApiBooksIdMockHandler(),
   getPutApiBooksIdMockHandler(),
-  getGetApiCatalogIsbnMockHandler()
+  getGetApiCatalogIsbnMockHandler(),
+  getGetApiTagsMockHandler(),
+  getPostApiTagsMockHandler(),
+  getDeleteApiTagsIdMockHandler(),
+  getPutApiTagsIdMockHandler()
 ]

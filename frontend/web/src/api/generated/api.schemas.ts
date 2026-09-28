@@ -113,6 +113,27 @@ export interface RegisterBookRequest {
   titleOverride?: string;
 }
 
+export interface RegisterTagRequest {
+  /** @maxLength 30 */
+  name: string;
+}
+
+export interface RenameTagRequest {
+  /** @maxLength 30 */
+  name: string;
+  version: number;
+}
+
+export interface TagResponse {
+  id?: number;
+  name?: string;
+  version?: number;
+}
+
+export interface TagListResponse {
+  items?: TagResponse[];
+}
+
 export interface UpdateBookRequest {
   /** @maxLength 5000 */
   comment: string;
