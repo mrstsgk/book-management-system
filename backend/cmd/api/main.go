@@ -1,24 +1,25 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
-	gwbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/book"
-	pgauthor "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/author"
+	"github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/catalog"
+	"github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/openbd"
+	"github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/rakuten"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
-	httpauthor "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/author"
 	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
+	httpcatalog "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/catalog"
 	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
-	authorcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/author/command"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
 	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
 )
@@ -26,6 +27,10 @@ import (
 // @title Book Management System API
 // @version 0.1.0
 // @BasePath /
+// @securityDefinitions.apikey AdminToken
+// @in header
+// @name Authorization
+// @description 登録・更新・削除とカタログの確認に必要。「Bearer <ADMIN_TOKEN>」の形式で指定する
 func main() {
 	if err := run(); err != nil {
 		slog.Error("server exited with error", "error", err)
@@ -33,7 +38,7 @@ func main() {
 	}
 }
 
-// run keeps os.Exit out of the body so deferred cleanup (DB close) runs.
+// run は本体で os.Exit を呼ばないことで、defer の後始末（DB のクローズ）を必ず走らせる。
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -58,40 +63,45 @@ func run() error {
 		}
 	}()
 
-	images, err := gwbook.NewImageStorage(context.Background(), gwbook.Config{
-		Endpoint:        cfg.S3.Endpoint,
-		Region:          cfg.S3.Region,
-		Bucket:          cfg.S3.Bucket,
-		AccessKeyID:     cfg.S3.AccessKeyID,
-		SecretAccessKey: cfg.S3.SecretAccessKey,
-	})
-	if err != nil {
-		return err
-	}
-
 	e := httpcommon.NewEcho()
-	registerRoutes(e, db, images)
+	registerRoutes(e, db, newCatalog(cfg.Catalog), cfg.AdminToken)
 
 	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
 }
 
-// registerRoutes is the hand-written DI: infra → usecase → presentation.
-func registerRoutes(e *echo.Echo, db *gorm.DB, images domainbook.ImageStorage) {
-	authorRepo := pgauthor.NewRepository(db)
-	authorQuery := pgauthor.NewQuery(db)
-	bookRepo := pgbook.NewRepository(db)
+// catalogTimeout は外部カタログ1回の問い合わせの上限。遅い提供元にリクエストを長く占有させないため。
+const catalogTimeout = 5 * time.Second
+
+// newCatalog は openBD を使い、楽天のキーが設定されていれば書影の無い本を楽天ブックスで補う。
+func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
+	client := &http.Client{Timeout: catalogTimeout}
+	primary := openbd.NewCatalog(cfg.OpenBDBaseURL, client)
+	var fallback domainbook.BookCatalog
+	if cfg.RakutenEnabled() {
+		fallback = rakuten.NewCatalog(cfg.RakutenBaseURL, cfg.RakutenApplicationID, cfg.RakutenAccessKey, client)
+	} else {
+		slog.Info("RAKUTEN_APPLICATION_ID / RAKUTEN_ACCESS_KEY not set; covers come from openBD only")
+	}
+	return catalog.NewChain(primary, fallback)
+}
+
+// registerRoutes は手書きの DI（infra → usecase → presentation）で各ハンドラを組み立てて登録する。
+func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalog, adminToken string) {
+	books := pgbook.NewRepository(db)
 	bookQuery := pgbook.NewQuery(db)
+	adminOnly := httpcommon.RequireAdminToken(adminToken)
 
 	api := e.Group("/api")
-	(&httpauthor.Handler{
-		CreateUC: &authorcmd.CreateUsecaseImpl{Authors: authorRepo},
-		UpdateUC: &authorcmd.UpdateUsecaseImpl{Authors: authorRepo},
-		BooksUC:  &bookqry.ListByAuthorUsecaseImpl{Authors: authorQuery, Books: bookQuery},
-	}).Register(api.Group("/authors"))
 	(&httpbook.Handler{
-		CreateUC:      &bookcmd.CreateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Images: images},
-		UpdateUC:      &bookcmd.UpdateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Images: images},
-		UploadImageUC: &bookcmd.UploadImageUsecaseImpl{Books: bookRepo, Images: images, Details: bookQuery},
-		GetUC:         &bookqry.GetUsecaseImpl{Books: bookQuery, Images: images},
+		RegisterUC: &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery},
+		UpdateUC:   &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery},
+		DeleteUC:   &bookcmd.DeleteUsecaseImpl{Books: books},
+		GetUC:      &bookqry.GetUsecaseImpl{Books: bookQuery},
+		ListUC:     &bookqry.ListUsecaseImpl{Books: bookQuery},
+		AdminOnly:  adminOnly,
 	}).Register(api.Group("/books"))
+	(&httpcatalog.Handler{
+		LookupUC:  &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},
+		AdminOnly: adminOnly,
+	}).Register(api.Group("/catalog"))
 }

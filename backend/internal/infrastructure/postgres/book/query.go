@@ -2,12 +2,11 @@ package book
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"time"
 
 	"gorm.io/gorm"
 
-	domainauthor "github.com/mrstsgk/book-management-system/backend/internal/domain/author"
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
@@ -20,77 +19,58 @@ func NewQuery(db *gorm.DB) domainbook.Query {
 	return &query{db: db}
 }
 
-type detailRow struct {
-	ID              int64
-	Title           string
-	Price           yen
-	PublishStatus   int
-	AmazonURL       *string
-	ImageKey        *string
-	Version         int
-	AuthorID        int64
-	AuthorName      string
-	AuthorBirthDate *time.Time
-	AuthorVersion   int
-}
-
-// FindDetailByID は書籍と紐づく著者を1クエリで取得し、書籍1件＋著者一覧の Read Model に組み立てる。
 func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbook.BookDetail, error) {
-	var rows []detailRow
-	// Inner joins: every book has at least one author (enforced on every write).
-	err := q.db.WithContext(ctx).
-		Table("book AS b").
-		Select(`b.id, b.title, b.price, b.publish_status, b.amazon_url, b.image_key, b.version,
-			a.id AS author_id, a.name AS author_name, a.birth_date AS author_birth_date, a.version AS author_version`).
-		Joins("JOIN author_book ab ON ab.book_id = b.id").
-		Joins("JOIN author a ON a.id = ab.author_id").
-		Where("b.id = ?", int64(id)).
-		Order("a.id").
-		Scan(&rows).Error
-	if err != nil {
+	var row model
+	if err := q.db.WithContext(ctx).First(&row, int64(id)).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("%w: 読んだ本が見つかりません", common.ErrNotFound)
+		}
 		return nil, err
 	}
-	if len(rows) == 0 {
-		return nil, fmt.Errorf("%w: 書籍が見つかりません", common.ErrNotFound)
-	}
-	first := rows[0]
-	d := &domainbook.BookDetail{
-		ID:        domainbook.ID(first.ID),
-		Title:     first.Title,
-		Price:     int64(first.Price),
-		Status:    first.PublishStatus,
-		AmazonURL: first.AmazonURL,
-		ImageKey:  first.ImageKey,
-		Version:   first.Version,
-		Authors:   make([]domainbook.AuthorSummary, 0, len(rows)),
-	}
-	for _, r := range rows {
-		var birthDate *string
-		if r.AuthorBirthDate != nil {
-			s := r.AuthorBirthDate.Format(time.DateOnly)
-			birthDate = &s
-		}
-		d.Authors = append(d.Authors, domainbook.AuthorSummary{
-			ID: domainauthor.ID(r.AuthorID), Name: r.AuthorName, BirthDate: birthDate, Version: r.AuthorVersion,
-		})
-	}
-	return d, nil
+	return &domainbook.BookDetail{
+		ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: row.Title, Authors: row.Authors,
+		Publisher: row.Publisher, PublishedOn: row.PublishedOn, AmazonURL: amazonURLOf(row.ISBN),
+		CoverURL: row.CoverURL, CoverSource: row.CoverSource, Comment: row.Comment, Rating: row.Rating,
+		Version: row.Version,
+	}, nil
 }
 
-func (q *query) FindSummariesByAuthorID(ctx context.Context, authorID domainauthor.ID) ([]*domainbook.BookSummary, error) {
-	var rows []bookModel
-	err := q.db.WithContext(ctx).
-		Select("book.id, book.title, book.price, book.publish_status").
-		Joins("JOIN author_book ab ON ab.book_id = book.id").
-		Where("ab.author_id = ?", int64(authorID)).
-		Order("book.id").
+// FindList は新しく登録した順（同時刻は ID の大きい順）に、取得範囲の分だけ返す。総件数も返す。
+func (q *query) FindList(ctx context.Context, r common.ListRange) (*domainbook.BookList, error) {
+	db := q.db.WithContext(ctx)
+	// 総件数と取得範囲の取得は別の SQL なので、同時に登録されると1件ずれうる。
+	// 一覧画面では許容でき、スナップショットのトランザクションより軽い。
+	var total int64
+	if err := db.Model(&model{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
+	var rows []model
+	err := db.Select("id, isbn, title, authors, cover_url, cover_source, rating").
+		Order("created_at DESC, id DESC").Limit(r.Limit()).Offset(r.Offset()).
 		Find(&rows).Error
 	if err != nil {
 		return nil, err
 	}
-	out := make([]*domainbook.BookSummary, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, &domainbook.BookSummary{ID: domainbook.ID(r.ID), Title: r.Title, Price: int64(r.Price), Status: r.PublishStatus})
+	list := &domainbook.BookList{Items: make([]*domainbook.BookListItem, 0, len(rows)), Total: int(total)}
+	for _, row := range rows {
+		list.Items = append(list.Items, &domainbook.BookListItem{
+			ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: row.Title, Authors: row.Authors,
+			AmazonURL: amazonURLOf(row.ISBN), CoverURL: row.CoverURL, CoverSource: row.CoverSource, Rating: row.Rating,
+		})
 	}
-	return out, nil
+	return list, nil
+}
+
+// amazonURLOf は保存済みの ISBN から商品ページのリンクを導出する（domainbook.ISBN.AmazonURL）。
+// 保存済みの ISBN は書き込み時に検証済みなので、解釈できなければリンクなしとする。
+func amazonURLOf(isbn string) *string {
+	v, err := domainbook.NewISBN(isbn)
+	if err != nil {
+		return nil
+	}
+	u, ok := v.AmazonURL()
+	if !ok {
+		return nil
+	}
+	return &u
 }

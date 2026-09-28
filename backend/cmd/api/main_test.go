@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/mrstsgk/book-management-system/backend/config"
 )
 
-// run is unexported, so this test lives in package main.
+// run は非公開なので、このテストは package main に置く。
 
 func TestRun_FailsFastOnInvalidConfig(t *testing.T) {
 	t.Setenv("STAGE", "local")
@@ -28,25 +30,35 @@ func TestRun_FailsWhenDBIsUnreachable(t *testing.T) {
 	}
 }
 
-func TestRegisterRoutes_ExposesBookAndAuthorAPI(t *testing.T) {
+func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 	e := echo.New()
-	registerRoutes(e, nil, nil)
+	registerRoutes(e, nil, nil, "token")
 
 	got := map[string]bool{}
 	for _, r := range e.Routes() {
 		got[r.Method+" "+r.Path] = true
 	}
 	for _, want := range []string{
-		"POST /api/authors",
-		"PUT /api/authors/:id",
-		"GET /api/authors/:id/books",
-		"POST /api/books",
+		"GET /api/books",
 		"GET /api/books/:id",
+		"POST /api/books",
 		"PUT /api/books/:id",
-		"POST /api/books/:id/image",
+		"DELETE /api/books/:id",
+		"GET /api/catalog/:isbn",
 	} {
 		if !got[want] {
 			t.Errorf("route %q is not registered (got %v)", want, got)
+		}
+	}
+}
+
+func TestNewCatalog_WorksWithAndWithoutRakutenKeys(t *testing.T) {
+	for _, cfg := range []config.CatalogConfig{
+		{OpenBDBaseURL: "http://openbd.test"},
+		{OpenBDBaseURL: "http://openbd.test", RakutenBaseURL: "http://rakuten.test", RakutenApplicationID: "app", RakutenAccessKey: "key"},
+	} {
+		if newCatalog(cfg) == nil {
+			t.Fatalf("newCatalog(%+v) returned nil", cfg)
 		}
 	}
 }

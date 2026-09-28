@@ -2,135 +2,116 @@ package book
 
 import (
 	"context"
-	"fmt"
-	"io"
 
-	"github.com/mrstsgk/book-management-system/backend/internal/domain/author"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
 
 type ID int64
 
+// Book は自分が読んだ本1冊。外部カタログから取得した書誌・書影と、自分が書いた感想・評価を持つ。
 type Book struct {
-	ID        ID
-	Title     Title
-	Price     Price
-	AuthorIDs []author.ID
-	Status    PublishStatus
-	AmazonURL *AmazonURL
-	ImageKey  *ImageKey
-	Version   int
+	ID           ID
+	ISBN         ISBN
+	Bibliography Bibliography
+	// Cover は書影。提供元に書影が無い本は nil。
+	Cover   *Cover
+	Comment Comment
+	Rating  Rating
+	Version int
 }
 
-func New(title Title, price Price, authorIDs []author.ID, status PublishStatus) (*Book, error) {
-	if err := validateAuthorIDs(authorIDs); err != nil {
-		return nil, err
-	}
-	return &Book{Title: title, Price: price, AuthorIDs: authorIDs, Status: status}, nil
+// New は登録前の読んだ本を作る（ID とバージョンは保存時に採番する）。
+func New(isbn ISBN, bibliography Bibliography, cover *Cover, comment Comment, rating Rating) *Book {
+	return &Book{ISBN: isbn, Bibliography: bibliography, Cover: copyOf(cover), Comment: comment, Rating: rating}
 }
 
-// Change は書籍の内容を差し替える。出版済みから未出版への変更は拒否し、失敗時は b を変更しない。
-func (b *Book) Change(title Title, price Price, authorIDs []author.ID, status PublishStatus, version int) error {
-	if err := validateAuthorIDs(authorIDs); err != nil {
-		return err
-	}
-	if !b.Status.CanChangeTo(status) {
-		return fmt.Errorf("%w: 出版状況は「出版済み」から「未出版」に変更できません", common.ErrInvalid)
-	}
-	b.Title = title
-	b.Price = price
-	b.AuthorIDs = authorIDs
-	b.Status = status
+// ChangeReview は感想と評価を差し替える。version は更新元が読んだバージョン（楽観的ロックに使う）。
+func (b *Book) ChangeReview(comment Comment, rating Rating, version int) {
+	b.Comment = comment
+	b.Rating = rating
 	b.Version = version
-	return nil
 }
 
-// ChangeAmazonURL sets the Amazon link; nil clears it. It keeps a copy so later
-// changes to the caller's variable don't silently alter the book.
-func (b *Book) ChangeAmazonURL(u *AmazonURL) {
-	if u == nil {
-		b.AmazonURL = nil
-		return
+// RefreshCatalog は外部カタログから取り直した書誌と書影に差し替える（提供元の変更を反映するため）。
+func (b *Book) RefreshCatalog(bibliography Bibliography, cover *Cover) {
+	b.Bibliography = bibliography
+	b.Cover = copyOf(cover)
+}
+
+// copyOf は呼び出し側の変数を後から変えても本が変わらないよう、値をコピーして持つ。
+func copyOf[T any](v *T) *T {
+	if v == nil {
+		return nil
 	}
-	v := *u
-	b.AmazonURL = &v
+	c := *v
+	return &c
 }
 
-// ReplaceImage points the book at a newly stored image and returns the key it
-// replaced (nil if none) so the caller can remove the old object.
-func (b *Book) ReplaceImage(key ImageKey) *ImageKey {
-	previous := b.ImageKey
-	b.ImageKey = &key
-	return previous
-}
-
-func validateAuthorIDs(ids []author.ID) error {
-	if len(ids) == 0 {
-		return fmt.Errorf("%w: 著者は1人以上指定してください", common.ErrInvalid)
-	}
-	seen := make(map[author.ID]struct{}, len(ids))
-	for _, id := range ids {
-		if _, ok := seen[id]; ok {
-			return fmt.Errorf("%w: 著者IDが重複しています", common.ErrInvalid)
-		}
-		seen[id] = struct{}{}
-	}
-	return nil
-}
-
-// Repository は Book の書き込み系（Command）を永続化するポート。
-// Book と著者との関連（author_book）は1つの集約として、実装側で同一トランザクションに保存する。
+// Repository は読んだ本の書き込み系（Command）を永続化するポート。
 type Repository interface {
-	// FindByID は id の Book を著者ID込みで取得する。存在しなければ ErrNotFound を返す。
+	// FindByID は id の本を取得する。存在しなければ ErrNotFound を返す。
 	FindByID(ctx context.Context, id ID) (*Book, error)
-	// Create は b と著者との関連を新規作成し、採番された ID と初期バージョンを b に設定する。
+	// Create は b を新規作成し、採番した ID と初期バージョンを b に設定する。同じ ISBN の本があれば ErrConflict を返す。
 	Create(ctx context.Context, b *Book) error
-	// Update は b.Version が一致する行と著者との関連を更新し、b.Version を進める。不一致なら ErrConflict を返す。
+	// Update は b.Version が一致する行を更新し、b.Version を進める。不一致なら ErrConflict を返す。
 	Update(ctx context.Context, b *Book) error
+	// Delete は id の本を削除する。存在しなければ ErrNotFound を返す。
+	Delete(ctx context.Context, id ID) error
 }
 
-// AuthorSummary is the read model of an author embedded in BookDetail.
-type AuthorSummary struct {
-	ID        author.ID
-	Name      string
-	BirthDate *string // YYYY-MM-DD
-	Version   int
-}
-
-// BookDetail is the read model of a single book.
+// BookDetail は読んだ本1冊の Read Model。
 type BookDetail struct {
-	ID        ID
-	Title     string
-	Price     int64
-	Authors   []AuthorSummary
-	Status    int
-	AmazonURL *string
-	ImageKey  *string
-	// ImageURL is not stored; the use case fills it from ImageKey via ImageStorage.
-	ImageURL *string
-	Version  int
+	ID          ID
+	ISBN        string
+	Title       string
+	Authors     string
+	Publisher   string
+	PublishedOn string
+	// AmazonURL は ISBN から導出する（保存しない）。ISBN-10 の形式が無ければ nil。
+	AmazonURL   *string
+	CoverURL    *string
+	CoverSource *string
+	Comment     string
+	Rating      int
+	Version     int
 }
 
-// BookSummary is the read model for a book list; it omits authors and version.
-type BookSummary struct {
-	ID     ID
-	Title  string
-	Price  int64
-	Status int
+// BookListItem は読んだ本の一覧の1行分の Read Model。感想の本文は詳細でだけ返す。
+type BookListItem struct {
+	ID          ID
+	ISBN        string
+	Title       string
+	Authors     string
+	AmazonURL   *string
+	CoverURL    *string
+	CoverSource *string
+	Rating      int
 }
 
-// Query is the read-side persistence port (Query).
+// BookList は一覧のうち取得範囲の分と、全体の総件数。
+type BookList struct {
+	Items []*BookListItem
+	Total int
+}
+
+// Query は読んだ本の参照系ポート。
 type Query interface {
-	// FindDetailByID returns ErrNotFound when the book does not exist.
+	// FindDetailByID は存在しなければ ErrNotFound を返す。
 	FindDetailByID(ctx context.Context, id ID) (*BookDetail, error)
-	FindSummariesByAuthorID(ctx context.Context, authorID author.ID) ([]*BookSummary, error)
+	// FindList は新しく登録した順に、取得範囲 r の分だけ返す。
+	FindList(ctx context.Context, r common.ListRange) (*BookList, error)
 }
 
-// ImageStorage is the port to the object storage holding cover images (ExternalGateway).
-type ImageStorage interface {
-	// Put stores body under key; body must yield exactly image.Size() bytes.
-	Put(ctx context.Context, key ImageKey, image Image, body io.Reader) error
-	Delete(ctx context.Context, key ImageKey) error
-	// URL returns a time-limited URL a client can fetch the image from.
-	URL(ctx context.Context, key ImageKey) (string, error)
+// CatalogEntry は外部カタログが ISBN について持っている書誌と書影。
+type CatalogEntry struct {
+	ISBN         ISBN
+	Bibliography Bibliography
+	// Cover はどの提供元にも書影が無ければ nil。
+	Cover *Cover
+}
+
+// BookCatalog は外部の書籍カタログ（openBD・楽天ブックスなど）へのポート（ExternalGateway）。
+type BookCatalog interface {
+	// Lookup はどのカタログにも ISBN が無ければ ErrNotFound を返す。
+	Lookup(ctx context.Context, isbn ISBN) (*CatalogEntry, error)
 }

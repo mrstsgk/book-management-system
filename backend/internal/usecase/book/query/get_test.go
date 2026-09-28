@@ -3,71 +3,49 @@ package query_test
 import (
 	"context"
 	"errors"
-	"io"
 	"testing"
 
-	"github.com/mrstsgk/book-management-system/backend/internal/domain/author"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 	"github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
 )
 
-// fakeDetailQuery is a hand-written Fake for book.Query.
-type fakeDetailQuery struct {
-	detail *book.BookDetail
-	err    error
+// fakeQuery は book.Query の手書き Fake（docs/rules/testing.md）。
+type fakeQuery struct {
+	detail   *book.BookDetail
+	list     *book.BookList
+	err      error
+	gotID    book.ID
+	gotRange *common.ListRange
 }
 
-func (f *fakeDetailQuery) FindDetailByID(context.Context, book.ID) (*book.BookDetail, error) {
+func (f *fakeQuery) FindDetailByID(_ context.Context, id book.ID) (*book.BookDetail, error) {
+	f.gotID = id
 	return f.detail, f.err
 }
 
-func (f *fakeDetailQuery) FindSummariesByAuthorID(context.Context, author.ID) ([]*book.BookSummary, error) {
-	return nil, nil
-}
-
-// fakeImages is a hand-written Fake for book.ImageStorage.
-type fakeImages struct{ err error }
-
-func (f *fakeImages) Put(context.Context, book.ImageKey, book.Image, io.Reader) error { return nil }
-func (f *fakeImages) Delete(context.Context, book.ImageKey) error                     { return nil }
-func (f *fakeImages) URL(_ context.Context, key book.ImageKey) (string, error) {
-	return "https://storage.example/" + key.String(), f.err
+func (f *fakeQuery) FindList(_ context.Context, r common.ListRange) (*book.BookList, error) {
+	f.gotRange = &r
+	return f.list, f.err
 }
 
 func TestGetUsecase_Execute(t *testing.T) {
 	t.Parallel()
-	key := "books/1/a.png"
 
-	t.Run("書籍の詳細を画像URL付きで返す", func(t *testing.T) {
+	t.Run("指定したIDの詳細を返す", func(t *testing.T) {
 		t.Parallel()
-		uc := &query.GetUsecaseImpl{Books: &fakeDetailQuery{detail: &book.BookDetail{ID: 1, ImageKey: &key}}, Images: &fakeImages{}}
-
-		got, err := uc.Execute(context.Background(), 1)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got.ID != 1 || got.ImageURL == nil || *got.ImageURL != "https://storage.example/"+key {
-			t.Fatalf("got %+v", got)
+		want := &book.BookDetail{ID: 3}
+		q := &fakeQuery{detail: want}
+		got, err := (&query.GetUsecaseImpl{Books: q}).Execute(context.Background(), 3)
+		if err != nil || got != want || q.gotID != 3 {
+			t.Fatalf("got (%+v, %v) for id %d", got, err, q.gotID)
 		}
 	})
 
-	t.Run("存在しない書籍はNotFound", func(t *testing.T) {
+	t.Run("存在しない本はNotFound", func(t *testing.T) {
 		t.Parallel()
-		uc := &query.GetUsecaseImpl{Books: &fakeDetailQuery{err: common.ErrNotFound}, Images: &fakeImages{}}
-
-		if _, err := uc.Execute(context.Background(), 1); !errors.Is(err, common.ErrNotFound) {
+		if _, err := (&query.GetUsecaseImpl{Books: &fakeQuery{err: common.ErrNotFound}}).Execute(context.Background(), 3); !errors.Is(err, common.ErrNotFound) {
 			t.Fatalf("err = %v, want ErrNotFound", err)
-		}
-	})
-
-	t.Run("URLの発行に失敗したらエラーを返す", func(t *testing.T) {
-		t.Parallel()
-		wantErr := errors.New("storage down")
-		uc := &query.GetUsecaseImpl{Books: &fakeDetailQuery{detail: &book.BookDetail{ImageKey: &key}}, Images: &fakeImages{err: wantErr}}
-
-		if _, err := uc.Execute(context.Background(), 1); !errors.Is(err, wantErr) {
-			t.Fatalf("err = %v, want %v", err, wantErr)
 		}
 	})
 }

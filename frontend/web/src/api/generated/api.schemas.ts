@@ -4,82 +4,74 @@
  * Book Management System API
  * OpenAPI spec version: 0.1.0
  */
-export type AuthorBookResponseStatus = typeof AuthorBookResponseStatus[keyof typeof AuthorBookResponseStatus];
+export type BookListItemResponseCoverSource = typeof BookListItemResponseCoverSource[keyof typeof BookListItemResponseCoverSource];
 
 
-export const AuthorBookResponseStatus = {
-  NUMBER_1: 1,
-  NUMBER_2: 2,
+export const BookListItemResponseCoverSource = {
+  openbd: 'openbd',
+  rakuten: 'rakuten',
 } as const;
 
-export interface AuthorBookResponse {
+export interface BookListItemResponse {
+  amazonUrl?: string;
+  authors?: string;
+  coverSource?: BookListItemResponseCoverSource;
+  coverUrl?: string;
   id?: number;
-  price?: number;
-  status?: AuthorBookResponseStatus;
+  isbn?: string;
+  rating?: number;
   title?: string;
 }
 
-export interface AuthorResponse {
-  birthDate?: string;
-  id?: number;
-  name?: string;
-  version?: number;
+export interface BookListResponse {
+  items?: BookListItemResponse[];
+  limit?: number;
+  offset?: number;
+  total?: number;
 }
 
-export interface BookAuthorResponse {
-  birthDate?: string;
-  id?: number;
-  name?: string;
-  version?: number;
-}
-
-export type BookResponseStatus = typeof BookResponseStatus[keyof typeof BookResponseStatus];
+export type BookResponseCoverSource = typeof BookResponseCoverSource[keyof typeof BookResponseCoverSource];
 
 
-export const BookResponseStatus = {
-  NUMBER_1: 1,
-  NUMBER_2: 2,
+export const BookResponseCoverSource = {
+  openbd: 'openbd',
+  rakuten: 'rakuten',
 } as const;
 
 export interface BookResponse {
+  /** AmazonURL は ISBN から導出する。ISBN-10 の形式が無ければ null。 */
   amazonUrl?: string;
-  authors?: BookAuthorResponse[];
+  authors?: string;
+  comment?: string;
+  coverSource?: BookResponseCoverSource;
+  /** CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。 */
+  coverUrl?: string;
   id?: number;
-  /** ImageURL is a presigned URL valid for 15 minutes; fetch the book again for a new one. */
-  imageUrl?: string;
-  price?: number;
-  status?: BookResponseStatus;
+  isbn?: string;
+  publishedOn?: string;
+  publisher?: string;
+  rating?: number;
   title?: string;
   version?: number;
 }
 
-export interface CreateAuthorRequest {
-  birthDate?: string;
-  /** @maxLength 100 */
-  name: string;
-}
-
-export type CreateBookRequestStatus = typeof CreateBookRequestStatus[keyof typeof CreateBookRequestStatus];
+export type CatalogResponseCoverSource = typeof CatalogResponseCoverSource[keyof typeof CatalogResponseCoverSource];
 
 
-export const CreateBookRequestStatus = {
-  NUMBER_1: 1,
-  NUMBER_2: 2,
+export const CatalogResponseCoverSource = {
+  openbd: 'openbd',
+  rakuten: 'rakuten',
 } as const;
 
-export interface CreateBookRequest {
-  /** @maxLength 2048 */
+export interface CatalogResponse {
   amazonUrl?: string;
-  /** @minItems 1 */
-  authorIds: number[];
-  /**
-     * @minimum 0
-     * @maximum 99999999
-     */
-  price: number;
-  status: CreateBookRequestStatus;
-  /** @maxLength 255 */
-  title: string;
+  authors?: string;
+  coverSource?: CatalogResponseCoverSource;
+  coverUrl?: string;
+  isbn?: string;
+  publishedOn?: string;
+  publisher?: string;
+  title?: string;
 }
 
 export interface FieldError {
@@ -93,42 +85,40 @@ export interface ErrorResponse {
   message?: string;
 }
 
-export interface UpdateAuthorRequest {
-  birthDate?: string;
-  /** @maxLength 100 */
-  name: string;
-  version: number;
+export interface RegisterBookRequest {
+  /** @maxLength 5000 */
+  comment: string;
+  /**
+     * ISBN は13桁または10桁（ハイフン可）。書誌と書影はこれで外部カタログから取得する。
+     * @maxLength 17
+     */
+  isbn: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating: number;
 }
-
-export type UpdateBookRequestStatus = typeof UpdateBookRequestStatus[keyof typeof UpdateBookRequestStatus];
-
-
-export const UpdateBookRequestStatus = {
-  NUMBER_1: 1,
-  NUMBER_2: 2,
-} as const;
 
 export interface UpdateBookRequest {
+  /** @maxLength 5000 */
+  comment: string;
   /**
-     * Omitted or null clears the link (PUT replaces the whole book).
-     * @maxLength 2048
+     * @minimum 1
+     * @maximum 5
      */
-  amazonUrl?: string;
-  /** @minItems 1 */
-  authorIds: number[];
-  /**
-     * @minimum 0
-     * @maximum 99999999
-     */
-  price: number;
-  status: UpdateBookRequestStatus;
-  /** @maxLength 255 */
-  title: string;
+  rating: number;
   version: number;
 }
 
-export type PostApiBooksIdImageBody = {
-  /** 表紙画像 */
-  image: Blob | File;
+export type GetApiBooksParams = {
+/**
+ * 取得件数（1〜100、既定20）
+ */
+limit?: number;
+/**
+ * 取得開始位置（0以上、既定0）
+ */
+offset?: number;
 };
 

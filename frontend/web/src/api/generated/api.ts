@@ -24,14 +24,12 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  AuthorBookResponse,
-  AuthorResponse,
+  BookListResponse,
   BookResponse,
-  CreateAuthorRequest,
-  CreateBookRequest,
+  CatalogResponse,
   ErrorResponse,
-  PostApiBooksIdImageBody,
-  UpdateAuthorRequest,
+  GetApiBooksParams,
+  RegisterBookRequest,
   UpdateBookRequest
 } from './api.schemas';
 
@@ -58,200 +56,28 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export const getPostApiAuthorsUrl = () => {
+export const getGetApiBooksUrl = (params?: GetApiBooksParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/authors`
+  return stringifiedParams.length > 0 ? `/api/books?${stringifiedParams}` : `/api/books`
 }
 
 /**
- * 生年月日は現在より過去日付
- * @summary 著者を作成する
+ * 新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す
+ * @summary 読んだ本の一覧を取得する
  */
-export const postApiAuthors = async (createAuthorRequest: CreateAuthorRequest, options?: Parameters<typeof apiMutator>[1]): Promise<AuthorResponse> => {
+export const getApiBooks = async (params?: GetApiBooksParams, options?: Parameters<typeof apiMutator>[1]): Promise<BookListResponse> => {
 
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return apiMutator<AuthorResponse>(getPostApiAuthorsUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(createAuthorRequest)
-  }
-);}
-
-
-
-
-
-export const getPostApiAuthorsMutationKey = () => ['postApiAuthors'] as const;
-
-export const getPostApiAuthorsMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAuthors>>, TError,PostApiAuthorsMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
-): UseMutationOptions<Awaited<ReturnType<typeof postApiAuthors>>, TError,PostApiAuthorsMutationVariables, TContext> => {
-
-const mutationKey = getPostApiAuthorsMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiAuthors>>, PostApiAuthorsMutationVariables> = (props) => {
-          const {data} = props ?? {};
-
-          return  postApiAuthors(data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostApiAuthorsMutationResult = NonNullable<Awaited<ReturnType<typeof postApiAuthors>>>
-    export type PostApiAuthorsMutationBody = CreateAuthorRequest
-    export type PostApiAuthorsMutationError = ErrorType<ErrorResponse>
-    export type PostApiAuthorsMutationVariables = {data: CreateAuthorRequest}
-
-    /**
- * @summary 著者を作成する
- */
-export const usePostApiAuthors = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAuthors>>, TError,PostApiAuthorsMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postApiAuthors>>,
-        TError,
-        PostApiAuthorsMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostApiAuthorsMutationOptions(options), queryClient);
-    }
-
-export const getPutApiAuthorsIdUrl = (id: number,) => {
-
-
-
-
-  return `/api/authors/${id}`
-}
-
-/**
- * 生年月日は現在より過去日付。version が一致しない場合は 409
- * @summary 著者を更新する
- */
-export const putApiAuthorsId = async (id: number,
-    updateAuthorRequest: UpdateAuthorRequest, options?: Parameters<typeof apiMutator>[1]): Promise<AuthorResponse> => {
-
-    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
-    if (!h) return {};
-    if (h instanceof Headers) return Object.fromEntries(h.entries());
-    if (Symbol.iterator in h) {
-      return Object.fromEntries(
-        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
-      );
-    }
-    const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
-      if (value !== undefined) headers[name] = value;
-    }
-    return headers;
-  };
-return apiMutator<AuthorResponse>(getPutApiAuthorsIdUrl(id),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(updateAuthorRequest)
-  }
-);}
-
-
-
-
-
-export const getPutApiAuthorsIdMutationKey = () => ['putApiAuthorsId'] as const;
-
-export const getPutApiAuthorsIdMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiAuthorsId>>, TError,PutApiAuthorsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
-): UseMutationOptions<Awaited<ReturnType<typeof putApiAuthorsId>>, TError,PutApiAuthorsIdMutationVariables, TContext> => {
-
-const mutationKey = getPutApiAuthorsIdMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putApiAuthorsId>>, PutApiAuthorsIdMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  putApiAuthorsId(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PutApiAuthorsIdMutationResult = NonNullable<Awaited<ReturnType<typeof putApiAuthorsId>>>
-    export type PutApiAuthorsIdMutationBody = UpdateAuthorRequest
-    export type PutApiAuthorsIdMutationError = ErrorType<ErrorResponse>
-    export type PutApiAuthorsIdMutationVariables = {id: number;data: UpdateAuthorRequest}
-
-    /**
- * @summary 著者を更新する
- */
-export const usePutApiAuthorsId = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiAuthorsId>>, TError,PutApiAuthorsIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof putApiAuthorsId>>,
-        TError,
-        PutApiAuthorsIdMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPutApiAuthorsIdMutationOptions(options), queryClient);
-    }
-
-export const getGetApiAuthorsIdBooksUrl = (id: number,) => {
-
-
-
-
-  return `/api/authors/${id}/books`
-}
-
-/**
- * 書籍が見つからない場合は空配列を返す
- * @summary 著者に紐づく書籍一覧を取得する
- */
-export const getApiAuthorsIdBooks = async (id: number, options?: Parameters<typeof apiMutator>[1]): Promise<AuthorBookResponse[]> => {
-
-  return apiMutator<AuthorBookResponse[]>(getGetApiAuthorsIdBooksUrl(id),
+  return apiMutator<BookListResponse>(getGetApiBooksUrl(params),
   {
     ...options,
     method: 'GET'
@@ -264,69 +90,69 @@ export const getApiAuthorsIdBooks = async (id: number, options?: Parameters<type
 
 
 
-export const getGetApiAuthorsIdBooksQueryKey = (id: number,) => {
+export const getGetApiBooksQueryKey = (params?: GetApiBooksParams,) => {
     return [
-    `/api/authors/${id}/books`
+    `/api/books`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetApiAuthorsIdBooksQueryOptions = <TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+export const getGetApiBooksQueryOptions = <TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetApiAuthorsIdBooksQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetApiBooksQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>> = ({ signal }) => getApiAuthorsIdBooks(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiBooks>>> = ({ signal }) => getApiBooks(params, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetApiAuthorsIdBooksQueryResult = NonNullable<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>>
-export type GetApiAuthorsIdBooksQueryError = ErrorType<ErrorResponse>
+export type GetApiBooksQueryResult = NonNullable<Awaited<ReturnType<typeof getApiBooks>>>
+export type GetApiBooksQueryError = ErrorType<ErrorResponse>
 
 
-export function useGetApiAuthorsIdBooks<TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(
- id: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>> & Pick<
+export function useGetApiBooks<TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(
+ params: undefined |  GetApiBooksParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getApiAuthorsIdBooks>>,
+          Awaited<ReturnType<typeof getApiBooks>>,
           TError,
-          Awaited<ReturnType<typeof getApiAuthorsIdBooks>>
+          Awaited<ReturnType<typeof getApiBooks>>
         > , 'initialData'
       >, request?: SecondParameter<typeof apiMutator>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetApiAuthorsIdBooks<TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(
- id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>> & Pick<
+export function useGetApiBooks<TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getApiAuthorsIdBooks>>,
+          Awaited<ReturnType<typeof getApiBooks>>,
           TError,
-          Awaited<ReturnType<typeof getApiAuthorsIdBooks>>
+          Awaited<ReturnType<typeof getApiBooks>>
         > , 'initialData'
       >, request?: SecondParameter<typeof apiMutator>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetApiAuthorsIdBooks<TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(
- id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+export function useGetApiBooks<TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary 著者に紐づく書籍一覧を取得する
+ * @summary 読んだ本の一覧を取得する
  */
 
-export function useGetApiAuthorsIdBooks<TData = Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError = ErrorType<ErrorResponse>>(
- id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAuthorsIdBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+export function useGetApiBooks<TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetApiAuthorsIdBooksQueryOptions(id,options)
+  const queryOptions = getGetApiBooksQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -348,10 +174,10 @@ export const getPostApiBooksUrl = () => {
 }
 
 /**
- * 書籍価格は0以上、著者は1人以上（重複不可・存在する著者のみ）
- * @summary 書籍を作成する
+ * 書誌と書影は ISBN で外部カタログ（openBD・楽天ブックス）から取得する。カタログに無い ISBN は 400、同じ ISBN の登録済みは 409
+ * @summary 読んだ本を登録する（自分だけ）
  */
-export const postApiBooks = async (createBookRequest: CreateBookRequest, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
+export const postApiBooks = async (registerBookRequest: RegisterBookRequest, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -372,7 +198,7 @@ return apiMutator<BookResponse>(getPostApiBooksUrl(),
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(createBookRequest)
+    body: JSON.stringify(registerBookRequest)
   }
 );}
 
@@ -410,12 +236,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PostApiBooksMutationResult = NonNullable<Awaited<ReturnType<typeof postApiBooks>>>
-    export type PostApiBooksMutationBody = CreateBookRequest
+    export type PostApiBooksMutationBody = RegisterBookRequest
     export type PostApiBooksMutationError = ErrorType<ErrorResponse>
-    export type PostApiBooksMutationVariables = {data: CreateBookRequest}
+    export type PostApiBooksMutationVariables = {data: RegisterBookRequest}
 
     /**
- * @summary 書籍を作成する
+ * @summary 読んだ本を登録する（自分だけ）
  */
 export const usePostApiBooks = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiBooks>>, TError,PostApiBooksMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
@@ -428,6 +254,80 @@ export const usePostApiBooks = <TError = ErrorType<ErrorResponse>,
       return useMutation(getPostApiBooksMutationOptions(options), queryClient);
     }
 
+export const getDeleteApiBooksIdUrl = (id: number,) => {
+
+
+
+
+  return `/api/books/${id}`
+}
+
+/**
+ * @summary 読んだ本を削除する（自分だけ）
+ */
+export const deleteApiBooksId = async (id: number, options?: Parameters<typeof apiMutator>[1]): Promise<void> => {
+
+  return apiMutator<void>(getDeleteApiBooksIdUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteApiBooksIdMutationKey = () => ['deleteApiBooksId'] as const;
+
+export const getDeleteApiBooksIdMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApiBooksId>>, TError,DeleteApiBooksIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteApiBooksId>>, TError,DeleteApiBooksIdMutationVariables, TContext> => {
+
+const mutationKey = getDeleteApiBooksIdMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteApiBooksId>>, DeleteApiBooksIdMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteApiBooksId(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteApiBooksIdMutationResult = NonNullable<Awaited<ReturnType<typeof deleteApiBooksId>>>
+
+    export type DeleteApiBooksIdMutationError = ErrorType<ErrorResponse>
+    export type DeleteApiBooksIdMutationVariables = {id: number}
+
+    /**
+ * @summary 読んだ本を削除する（自分だけ）
+ */
+export const useDeleteApiBooksId = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApiBooksId>>, TError,DeleteApiBooksIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteApiBooksId>>,
+        TError,
+        DeleteApiBooksIdMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteApiBooksIdMutationOptions(options), queryClient);
+    }
+
 export const getGetApiBooksIdUrl = (id: number,) => {
 
 
@@ -437,8 +337,7 @@ export const getGetApiBooksIdUrl = (id: number,) => {
 }
 
 /**
- * imageUrl は15分間有効な署名付きURL
- * @summary 書籍を取得する
+ * @summary 読んだ本を取得する
  */
 export const getApiBooksId = async (id: number, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
 
@@ -509,7 +408,7 @@ export function useGetApiBooksId<TData = Awaited<ReturnType<typeof getApiBooksId
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary 書籍を取得する
+ * @summary 読んだ本を取得する
  */
 
 export function useGetApiBooksId<TData = Awaited<ReturnType<typeof getApiBooksId>>, TError = ErrorType<ErrorResponse>>(
@@ -539,8 +438,8 @@ export const getPutApiBooksIdUrl = (id: number,) => {
 }
 
 /**
- * 出版済みから未出版には変更できない。version が一致しない場合は 409
- * @summary 書籍を更新する
+ * あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。version が一致しない場合は 409
+ * @summary 感想と評価を更新する（自分だけ）
  */
 export const putApiBooksId = async (id: number,
     updateBookRequest: UpdateBookRequest, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
@@ -607,7 +506,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type PutApiBooksIdMutationVariables = {id: number;data: UpdateBookRequest}
 
     /**
- * @summary 書籍を更新する
+ * @summary 感想と評価を更新する（自分だけ）
  */
 export const usePutApiBooksId = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiBooksId>>, TError,PutApiBooksIdMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
@@ -620,31 +519,26 @@ export const usePutApiBooksId = <TError = ErrorType<ErrorResponse>,
       return useMutation(getPutApiBooksIdMutationOptions(options), queryClient);
     }
 
-export const getPostApiBooksIdImageUrl = (id: number,) => {
+export const getGetApiCatalogIsbnUrl = (isbn: string,) => {
 
 
 
 
-  return `/api/books/${id}/image`
+  return `/api/catalog/${isbn}`
 }
 
 /**
- * JPEG / PNG / WebP、5MB以下。既存の画像は差し替える。種別はファイルの中身から判定する
- * @summary 書籍の表紙画像をアップロードする
+ * 登録前の確認用。openBD を優先し、書影が無ければ楽天ブックスで補う
+ * @summary ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
  */
-export const postApiBooksIdImage = async (id: number,
-    postApiBooksIdImageBody?: PostApiBooksIdImageBody, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
-    const formData = new FormData();
-if(postApiBooksIdImageBody?.image !== undefined) {
- formData.append(`image`, postApiBooksIdImageBody.image);
- }
+export const getApiCatalogIsbn = async (isbn: string, options?: Parameters<typeof apiMutator>[1]): Promise<CatalogResponse> => {
 
-  return apiMutator<BookResponse>(getPostApiBooksIdImageUrl(id),
+  return apiMutator<CatalogResponse>(getGetApiCatalogIsbnUrl(isbn),
   {
     ...options,
-    method: 'POST'
-    ,
-    body: formData
+    method: 'GET'
+
+
   }
 );}
 
@@ -652,51 +546,78 @@ if(postApiBooksIdImageBody?.image !== undefined) {
 
 
 
-export const getPostApiBooksIdImageMutationKey = () => ['postApiBooksIdImage'] as const;
-
-export const getPostApiBooksIdImageMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiBooksIdImage>>, TError,PostApiBooksIdImageMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
-): UseMutationOptions<Awaited<ReturnType<typeof postApiBooksIdImage>>, TError,PostApiBooksIdImageMutationVariables, TContext> => {
-
-const mutationKey = getPostApiBooksIdImageMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiBooksIdImage>>, PostApiBooksIdImageMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  postApiBooksIdImage(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostApiBooksIdImageMutationResult = NonNullable<Awaited<ReturnType<typeof postApiBooksIdImage>>>
-    export type PostApiBooksIdImageMutationBody = PostApiBooksIdImageBody | undefined
-    export type PostApiBooksIdImageMutationError = ErrorType<ErrorResponse>
-    export type PostApiBooksIdImageMutationVariables = {id: number;data?: PostApiBooksIdImageBody}
-
-    /**
- * @summary 書籍の表紙画像をアップロードする
- */
-export const usePostApiBooksIdImage = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiBooksIdImage>>, TError,PostApiBooksIdImageMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postApiBooksIdImage>>,
-        TError,
-        PostApiBooksIdImageMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostApiBooksIdImageMutationOptions(options), queryClient);
+export const getGetApiCatalogIsbnQueryKey = (isbn: string,) => {
+    return [
+    `/api/catalog/${isbn}`
+    ] as const;
     }
+
+
+export const getGetApiCatalogIsbnQueryOptions = <TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(isbn: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiCatalogIsbnQueryKey(isbn);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiCatalogIsbn>>> = ({ signal }) => getApiCatalogIsbn(isbn, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: isbn !== null && isbn !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiCatalogIsbnQueryResult = NonNullable<Awaited<ReturnType<typeof getApiCatalogIsbn>>>
+export type GetApiCatalogIsbnQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetApiCatalogIsbn<TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(
+ isbn: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiCatalogIsbn>>,
+          TError,
+          Awaited<ReturnType<typeof getApiCatalogIsbn>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiCatalogIsbn<TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(
+ isbn: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiCatalogIsbn>>,
+          TError,
+          Awaited<ReturnType<typeof getApiCatalogIsbn>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiCatalogIsbn<TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(
+ isbn: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
+ */
+
+export function useGetApiCatalogIsbn<TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(
+ isbn: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiCatalogIsbnQueryOptions(isbn,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

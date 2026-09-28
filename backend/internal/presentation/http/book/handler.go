@@ -1,81 +1,131 @@
 package book
 
 import (
-	"errors"
-	"io"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
+	domaincommon "github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
 	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
 )
 
-// uploadBodyLimit rejects oversized uploads (413) before they are read; it leaves
-// room above the 5 MiB image limit for the multipart envelope.
-const uploadBodyLimit = "6M"
-
-type CreateRequest struct {
-	Title     string  `json:"title" validate:"required,max=255" example:"人間失格"`
-	Price     *int64  `json:"price" validate:"required,min=0,max=99999999" example:"1500"`
-	AuthorIDs []int64 `json:"authorIds" validate:"required,min=1,dive,gt=0"`
-	Status    *int    `json:"status" validate:"required,oneof=1 2" enums:"1,2" example:"1"`
-	AmazonURL *string `json:"amazonUrl" validate:"omitempty,max=2048" example:"https://www.amazon.co.jp/dp/4101006059"`
-} // @name CreateBookRequest
+type RegisterRequest struct {
+	// ISBN は13桁または10桁（ハイフン可）。書誌と書影はこれで外部カタログから取得する。
+	ISBN    string `json:"isbn" validate:"required,max=17" example:"9784873118703"`
+	Comment string `json:"comment" validate:"required,max=5000" example:"分散システムの設計を体系的に学べた"`
+	Rating  *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
+} // @name RegisterBookRequest
 
 type UpdateRequest struct {
-	Title     string  `json:"title" validate:"required,max=255" example:"人間失格"`
-	Price     *int64  `json:"price" validate:"required,min=0,max=99999999" example:"1500"`
-	AuthorIDs []int64 `json:"authorIds" validate:"required,min=1,dive,gt=0"`
-	Status    *int    `json:"status" validate:"required,oneof=1 2" enums:"1,2" example:"1"`
-	// Omitted or null clears the link (PUT replaces the whole book).
-	AmazonURL *string `json:"amazonUrl" validate:"omitempty,max=2048" example:"https://www.amazon.co.jp/dp/4101006059"`
-	Version   *int    `json:"version" validate:"required" example:"1"`
+	Comment string `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
+	Rating  *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
+	Version *int   `json:"version" validate:"required" example:"1"`
 } // @name UpdateBookRequest
 
-type AuthorResponse struct {
-	ID        int64   `json:"id" example:"1"`
-	Name      string  `json:"name" example:"太宰治"`
-	BirthDate *string `json:"birthDate" example:"1909-06-19"`
-	Version   int     `json:"version" example:"1"`
-} // @name BookAuthorResponse
+type ListRequest struct {
+	Limit  *int `json:"limit" query:"limit" validate:"omitempty,min=1,max=100"`
+	Offset *int `json:"offset" query:"offset" validate:"omitempty,min=0"`
+}
 
 type Response struct {
-	ID        int64            `json:"id" example:"1"`
-	Title     string           `json:"title" example:"人間失格"`
-	Price     int64            `json:"price" example:"1500"`
-	Authors   []AuthorResponse `json:"authors"`
-	Status    int              `json:"status" enums:"1,2" example:"1"`
-	AmazonURL *string          `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4101006059"`
-	// ImageURL is a presigned URL valid for 15 minutes; fetch the book again for a new one.
-	ImageURL *string `json:"imageUrl" example:"http://localhost:4566/book-images/books/1/abc.png?X-Amz-Expires=900"`
-	Version  int     `json:"version" example:"1"`
+	ID          int64  `json:"id" example:"1"`
+	ISBN        string `json:"isbn" example:"9784873118703"`
+	Title       string `json:"title" example:"データ指向アプリケーションデザイン"`
+	Authors     string `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
+	Publisher   string `json:"publisher" example:"オーム社"`
+	PublishedOn string `json:"publishedOn" example:"201907"`
+	// AmazonURL は ISBN から導出する。ISBN-10 の形式が無ければ null。
+	AmazonURL *string `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
+	// CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。
+	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
+	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
+	Comment     string  `json:"comment" example:"分散システムの設計を体系的に学べた"`
+	Rating      int     `json:"rating" example:"5"`
+	Version     int     `json:"version" example:"1"`
 } // @name BookResponse
 
-// Handler converts HTTP ↔ UseCase only (no business logic).
+type ListItemResponse struct {
+	ID          int64   `json:"id" example:"1"`
+	ISBN        string  `json:"isbn" example:"9784873118703"`
+	Title       string  `json:"title" example:"データ指向アプリケーションデザイン"`
+	Authors     string  `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
+	AmazonURL   *string `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
+	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
+	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
+	Rating      int     `json:"rating" example:"5"`
+} // @name BookListItemResponse
+
+type ListResponse struct {
+	Items  []ListItemResponse `json:"items"`
+	Total  int                `json:"total" example:"1"`
+	Limit  int                `json:"limit" example:"20"`
+	Offset int                `json:"offset" example:"0"`
+} // @name BookListResponse
+
+// Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
 type Handler struct {
-	CreateUC      bookcmd.CreateUsecase
-	UpdateUC      bookcmd.UpdateUsecase
-	UploadImageUC bookcmd.UploadImageUsecase
-	GetUC         bookqry.GetUsecase
+	RegisterUC bookcmd.RegisterUsecase
+	UpdateUC   bookcmd.UpdateUsecase
+	DeleteUC   bookcmd.DeleteUsecase
+	GetUC      bookqry.GetUsecase
+	ListUC     bookqry.ListUsecase
+	// AdminOnly は登録・更新・削除に掛ける認証（閲覧は誰でもできる）。
+	AdminOnly echo.MiddlewareFunc
 }
 
 func (h *Handler) Register(g *echo.Group) {
-	g.POST("", h.Create)
+	g.GET("", h.List)
 	g.GET("/:id", h.Get)
-	g.PUT("/:id", h.Update)
-	g.POST("/:id/image", h.UploadImage, middleware.BodyLimit(uploadBodyLimit))
+	g.POST("", h.RegisterBook, h.AdminOnly)
+	g.PUT("/:id", h.Update, h.AdminOnly)
+	g.DELETE("/:id", h.Delete, h.AdminOnly)
+}
+
+// List godoc
+// @Summary      読んだ本の一覧を取得する
+// @Description  新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す
+// @Tags         books
+// @Produce      json
+// @Param        limit  query int false "取得件数（1〜100、既定20）"
+// @Param        offset query int false "取得開始位置（0以上、既定0）"
+// @Success      200 {object} ListResponse
+// @Failure      400 {object} common.ErrorResponse
+// @Failure      500 {object} common.ErrorResponse
+// @Router       /api/books [get]
+func (h *Handler) List(c echo.Context) error {
+	req, err := common.BindValidate[ListRequest](c)
+	if err != nil {
+		return err
+	}
+	limit, offset := domaincommon.DefaultListLimit, 0
+	if req.Limit != nil {
+		limit = *req.Limit
+	}
+	if req.Offset != nil {
+		offset = *req.Offset
+	}
+	out, err := h.ListUC.Execute(c.Request().Context(), limit, offset)
+	if err != nil {
+		return err
+	}
+	items := make([]ListItemResponse, 0, len(out.Items))
+	for _, it := range out.Items {
+		items = append(items, ListItemResponse{
+			ID: int64(it.ID), ISBN: it.ISBN, Title: it.Title, Authors: it.Authors,
+			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: it.CoverSource, Rating: it.Rating,
+		})
+	}
+	return c.JSON(http.StatusOK, ListResponse{Items: items, Total: out.Total, Limit: limit, Offset: offset})
 }
 
 // Get godoc
-// @Summary      書籍を取得する
-// @Description  imageUrl は15分間有効な署名付きURL
+// @Summary      読んだ本を取得する
 // @Tags         books
 // @Produce      json
-// @Param        id path int true "書籍ID"
+// @Param        id path int true "読んだ本のID"
 // @Success      200 {object} Response
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      404 {object} common.ErrorResponse
@@ -93,81 +143,27 @@ func (h *Handler) Get(c echo.Context) error {
 	return c.JSON(http.StatusOK, toResponse(out))
 }
 
-// UploadImage godoc
-// @Summary      書籍の表紙画像をアップロードする
-// @Description  JPEG / PNG / WebP、5MB以下。既存の画像は差し替える。種別はファイルの中身から判定する
-// @Tags         books
-// @Accept       multipart/form-data
-// @Produce      json
-// @Param        id    path     int  true "書籍ID"
-// @Param        image formData file true "表紙画像"
-// @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse
-// @Failure      404 {object} common.ErrorResponse
-// @Failure      409 {object} common.ErrorResponse
-// @Failure      413 {object} common.ErrorResponse
-// @Failure      500 {object} common.ErrorResponse
-// @Router       /api/books/{id}/image [post]
-func (h *Handler) UploadImage(c echo.Context) error {
-	id, err := common.ParseID(c, "id")
-	if err != nil {
-		return err
-	}
-	fh, err := c.FormFile("image")
-	if err != nil {
-		return &common.ValidationError{Fields: []common.FieldError{{Field: "image", Rule: "required"}}}
-	}
-	f, err := fh.Open()
-	if err != nil {
-		return err
-	}
-	defer func() { _ = f.Close() }()
-
-	contentType, err := sniffContentType(f)
-	if err != nil {
-		return err
-	}
-	out, err := h.UploadImageUC.Execute(c.Request().Context(), bookcmd.UploadImageCommand{
-		BookID: id, ContentType: contentType, Size: fh.Size, Body: f,
-	})
-	if err != nil {
-		return err
-	}
-	return c.JSON(http.StatusOK, toResponse(out))
-}
-
-// sniffContentType decides the type from the bytes, not the client's Content-Type
-// header, which is trivially spoofed; it rewinds f for the upload afterwards.
-func sniffContentType(f io.ReadSeeker) (string, error) {
-	head := make([]byte, 512)
-	n, err := io.ReadFull(f, head)
-	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
-		return "", err
-	}
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return "", err
-	}
-	return http.DetectContentType(head[:n]), nil
-}
-
-// Create godoc
-// @Summary      書籍を作成する
-// @Description  書籍価格は0以上、著者は1人以上（重複不可・存在する著者のみ）
+// RegisterBook godoc
+// @Summary      読んだ本を登録する（自分だけ）
+// @Description  書誌と書影は ISBN で外部カタログ（openBD・楽天ブックス）から取得する。カタログに無い ISBN は 400、同じ ISBN の登録済みは 409
 // @Tags         books
 // @Accept       json
 // @Produce      json
-// @Param        body body CreateRequest true "body"
+// @Security     AdminToken
+// @Param        body body RegisterRequest true "body"
 // @Success      200 {object} Response
 // @Failure      400 {object} common.ErrorResponse
+// @Failure      401 {object} common.ErrorResponse
+// @Failure      409 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
 // @Router       /api/books [post]
-func (h *Handler) Create(c echo.Context) error {
-	req, err := common.BindValidate[CreateRequest](c)
+func (h *Handler) RegisterBook(c echo.Context) error {
+	req, err := common.BindValidate[RegisterRequest](c)
 	if err != nil {
 		return err
 	}
-	out, err := h.CreateUC.Execute(c.Request().Context(), bookcmd.CreateCommand{
-		Title: req.Title, Price: *req.Price, AuthorIDs: req.AuthorIDs, Status: *req.Status, AmazonURL: req.AmazonURL,
+	out, err := h.RegisterUC.Execute(c.Request().Context(), bookcmd.RegisterCommand{
+		ISBN: req.ISBN, Comment: req.Comment, Rating: *req.Rating,
 	})
 	if err != nil {
 		return err
@@ -176,15 +172,17 @@ func (h *Handler) Create(c echo.Context) error {
 }
 
 // Update godoc
-// @Summary      書籍を更新する
-// @Description  出版済みから未出版には変更できない。version が一致しない場合は 409
+// @Summary      感想と評価を更新する（自分だけ）
+// @Description  あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。version が一致しない場合は 409
 // @Tags         books
 // @Accept       json
 // @Produce      json
-// @Param        id path int true "書籍ID"
+// @Security     AdminToken
+// @Param        id   path int           true "読んだ本のID"
 // @Param        body body UpdateRequest true "body"
 // @Success      200 {object} Response
 // @Failure      400 {object} common.ErrorResponse
+// @Failure      401 {object} common.ErrorResponse
 // @Failure      404 {object} common.ErrorResponse
 // @Failure      409 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
@@ -199,8 +197,7 @@ func (h *Handler) Update(c echo.Context) error {
 		return err
 	}
 	out, err := h.UpdateUC.Execute(c.Request().Context(), bookcmd.UpdateCommand{
-		ID: id, Title: req.Title, Price: *req.Price, AuthorIDs: req.AuthorIDs, Status: *req.Status,
-		AmazonURL: req.AmazonURL, Version: *req.Version,
+		ID: id, Comment: req.Comment, Rating: *req.Rating, Version: *req.Version,
 	})
 	if err != nil {
 		return err
@@ -208,13 +205,32 @@ func (h *Handler) Update(c echo.Context) error {
 	return c.JSON(http.StatusOK, toResponse(out))
 }
 
-func toResponse(d *domainbook.BookDetail) Response {
-	authors := make([]AuthorResponse, 0, len(d.Authors))
-	for _, a := range d.Authors {
-		authors = append(authors, AuthorResponse{ID: int64(a.ID), Name: a.Name, BirthDate: a.BirthDate, Version: a.Version})
+// Delete godoc
+// @Summary      読んだ本を削除する（自分だけ）
+// @Tags         books
+// @Security     AdminToken
+// @Param        id path int true "読んだ本のID"
+// @Success      204
+// @Failure      400 {object} common.ErrorResponse
+// @Failure      401 {object} common.ErrorResponse
+// @Failure      404 {object} common.ErrorResponse
+// @Failure      500 {object} common.ErrorResponse
+// @Router       /api/books/{id} [delete]
+func (h *Handler) Delete(c echo.Context) error {
+	id, err := common.ParseID(c, "id")
+	if err != nil {
+		return err
 	}
+	if err := h.DeleteUC.Execute(c.Request().Context(), id); err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func toResponse(d *domainbook.BookDetail) Response {
 	return Response{
-		ID: int64(d.ID), Title: d.Title, Price: d.Price, Authors: authors, Status: d.Status,
-		AmazonURL: d.AmazonURL, ImageURL: d.ImageURL, Version: d.Version,
+		ID: int64(d.ID), ISBN: d.ISBN, Title: d.Title, Authors: d.Authors, Publisher: d.Publisher,
+		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource,
+		Comment: d.Comment, Rating: d.Rating, Version: d.Version,
 	}
 }

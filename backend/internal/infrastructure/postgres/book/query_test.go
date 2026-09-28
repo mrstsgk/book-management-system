@@ -5,37 +5,47 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
-	domainauthor "github.com/mrstsgk/book-management-system/backend/internal/domain/author"
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	domaincommon "github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 )
 
+func strPtr(s string) *string { return &s }
+
 func TestQuery_FindDetailByID(t *testing.T) {
 	db := connectTestDB(t)
-	birth := time.Date(1909, 6, 19, 0, 0, 0, 0, time.UTC)
-	a1 := seedAuthor(t, db, "query-test-太宰治", &birth)
-	a2 := seedAuthor(t, db, "query-test-芥川龍之介", nil)
-	b := newBook(t, "query-test-人間失格", 1500, []domainauthor.ID{a2, a1}, domainbook.Published)
-	createBook(t, db, b)
 	qry := pgbook.NewQuery(db)
 
-	got, err := qry.FindDetailByID(context.Background(), b.ID)
-	if err != nil {
-		t.Fatalf("FindDetailByID: %v", err)
+	tests := []struct {
+		name          string
+		isbn          string
+		cover         *domainbook.Cover
+		wantAmazonURL *string
+	}{
+		{name: "978のISBNからAmazonのリンクを導出し書影も返す", isbn: "9780000000057", cover: mustCover(t, "https://cover.openbd.jp/q.jpg"), wantAmazonURL: strPtr("https://www.amazon.co.jp/dp/0000000051")},
+		{name: "979のISBNはAmazonのリンクなし、書影なしはnull", isbn: "9791032305690", cover: nil, wantAmazonURL: nil},
 	}
-	birthStr := "1909-06-19"
-	want := &domainbook.BookDetail{
-		ID: b.ID, Title: "query-test-人間失格", Price: 1500, Status: 2, Version: 1,
-		Authors: []domainbook.AuthorSummary{
-			{ID: a1, Name: "query-test-太宰治", BirthDate: &birthStr, Version: 1},
-			{ID: a2, Name: "query-test-芥川龍之介", BirthDate: nil, Version: 1},
-		},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("got %+v\nwant %+v", got, want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := newBook(t, tt.isbn, "query-test-書名", tt.cover, 4)
+			createBook(t, db, b)
+
+			got, err := qry.FindDetailByID(context.Background(), b.ID)
+			if err != nil {
+				t.Fatalf("FindDetailByID: %v", err)
+			}
+			want := &domainbook.BookDetail{
+				ID: b.ID, ISBN: tt.isbn, Title: "query-test-書名", Authors: "Kleppmann,Martin", Publisher: "オーム社",
+				PublishedOn: "201907", AmazonURL: tt.wantAmazonURL, Comment: "感想\n2行目", Rating: 4, Version: 1,
+			}
+			if tt.cover != nil {
+				want.CoverURL, want.CoverSource = strPtr(tt.cover.URL()), strPtr("openbd")
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("got %+v\nwant %+v", got, want)
+			}
+		})
 	}
 
 	if _, err := qry.FindDetailByID(context.Background(), domainbook.ID(-1)); !errors.Is(err, domaincommon.ErrNotFound) {
@@ -43,66 +53,53 @@ func TestQuery_FindDetailByID(t *testing.T) {
 	}
 }
 
-func TestQuery_FindSummariesByAuthorID(t *testing.T) {
+func TestQuery_FindList(t *testing.T) {
 	db := connectTestDB(t)
-	a1 := seedAuthor(t, db, "query-test-s1", nil)
-	a2 := seedAuthor(t, db, "query-test-s2", nil)
-	lonely := seedAuthor(t, db, "query-test-lonely", nil)
-	first := newBook(t, "query-test-first", 100, []domainauthor.ID{a1, a2}, domainbook.Unpublished)
-	createBook(t, db, first)
-	second := newBook(t, "query-test-second", 0, []domainauthor.ID{a1}, domainbook.Published)
-	createBook(t, db, second)
-	other := newBook(t, "query-test-other", 300, []domainauthor.ID{a2}, domainbook.Unpublished)
-	createBook(t, db, other)
 	qry := pgbook.NewQuery(db)
-
-	t.Run("著者に紐づく書籍だけをID順に返す", func(t *testing.T) {
-		got, err := qry.FindSummariesByAuthorID(context.Background(), a1)
+	ctx := context.Background()
+	listRange := func(t *testing.T, limit, offset int) domaincommon.ListRange {
+		t.Helper()
+		r, err := domaincommon.NewListRange(limit, offset)
 		if err != nil {
-			t.Fatalf("FindSummariesByAuthorID: %v", err)
+			t.Fatal(err)
 		}
-		want := []*domainbook.BookSummary{
-			{ID: first.ID, Title: "query-test-first", Price: 100, Status: 1},
-			{ID: second.ID, Title: "query-test-second", Price: 0, Status: 2},
+		return r
+	}
+
+	// 開発用 DB に既存の行があっても、ここで登録した本は新しい順の先頭に並ぶ
+	older := newBook(t, "9780000000064", "list-test-older", nil, 3)
+	createBook(t, db, older)
+	newer := newBook(t, "9780000000071", "list-test-newer", mustCover(t, "https://cover.openbd.jp/newer.jpg"), 5)
+	createBook(t, db, newer)
+	all, err := qry.FindList(ctx, listRange(t, 1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("新しく登録した順に取得範囲の分を返し、感想の本文は含めない", func(t *testing.T) {
+		got, err := qry.FindList(ctx, listRange(t, 2, 0))
+		if err != nil {
+			t.Fatalf("FindList: %v", err)
 		}
+		want := &domainbook.BookList{Total: all.Total, Items: []*domainbook.BookListItem{
+			{ID: newer.ID, ISBN: "9780000000071", Title: "list-test-newer", Authors: "Kleppmann,Martin",
+				AmazonURL: strPtr("https://www.amazon.co.jp/dp/0000000078"), CoverURL: strPtr("https://cover.openbd.jp/newer.jpg"), CoverSource: strPtr("openbd"), Rating: 5},
+			{ID: older.ID, ISBN: "9780000000064", Title: "list-test-older", Authors: "Kleppmann,Martin",
+				AmazonURL: strPtr("https://www.amazon.co.jp/dp/000000006X"), Rating: 3},
+		}}
 		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("got %+v, want %+v", got, want)
+			t.Fatalf("got %+v\nwant %+v", got, want)
 		}
 	})
 
-	t.Run("書籍が無い著者は空配列", func(t *testing.T) {
-		got, err := qry.FindSummariesByAuthorID(context.Background(), lonely)
-		if err != nil {
-			t.Fatalf("FindSummariesByAuthorID: %v", err)
+	t.Run("続きの範囲と範囲外", func(t *testing.T) {
+		got, err := qry.FindList(ctx, listRange(t, 1, 1))
+		if err != nil || len(got.Items) != 1 || got.Items[0].ID != older.ID {
+			t.Fatalf("got (%+v, %v), want only the older book", got, err)
 		}
-		if got == nil || len(got) != 0 {
-			t.Fatalf("got %#v, want an empty non-nil slice", got)
+		out, err := qry.FindList(ctx, listRange(t, 1, all.Total))
+		if err != nil || out.Items == nil || len(out.Items) != 0 || out.Total != all.Total {
+			t.Fatalf("got (%#v, %v), want an empty non-nil list with total %d", out, err, all.Total)
 		}
 	})
-}
-
-func TestQuery_FindDetailByID_IncludesAmazonURLAndImageKey(t *testing.T) {
-	db := connectTestDB(t)
-	a := seedAuthor(t, db, "query-test-media", nil)
-	u, err := domainbook.NewAmazonURL("https://www.amazon.co.jp/dp/4101006059")
-	if err != nil {
-		t.Fatal(err)
-	}
-	key, err := domainbook.NewImageKey("books/test/cover.png")
-	if err != nil {
-		t.Fatal(err)
-	}
-	b := newBook(t, "query-test-media", 100, []domainauthor.ID{a}, domainbook.Unpublished)
-	b.ChangeAmazonURL(&u)
-	b.ReplaceImage(key)
-	createBook(t, db, b)
-
-	got, err := pgbook.NewQuery(db).FindDetailByID(context.Background(), b.ID)
-	if err != nil {
-		t.Fatalf("FindDetailByID: %v", err)
-	}
-	// The read model carries plain strings, and ImageURL stays empty: URLs are issued by the use case.
-	if got.AmazonURL == nil || *got.AmazonURL != u.String() || got.ImageKey == nil || *got.ImageKey != key.String() || got.ImageURL != nil {
-		t.Fatalf("url=%v key=%v imageURL=%v, want %s / %s / nil", got.AmazonURL, got.ImageKey, got.ImageURL, u, key)
-	}
 }

@@ -2,78 +2,38 @@ package book
 
 import (
 	"context"
-	"database/sql/driver"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
-	domainauthor "github.com/mrstsgk/book-management-system/backend/internal/domain/author"
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
 
-// yen maps the NUMERIC(10,2) price column to whole yen. The pgx driver returns NUMERIC
-// as a decimal string ("1500.00"), which database/sql cannot scan into int64 directly.
-type yen int64
-
-// Scan は NUMERIC の文字列表現を整数の円に変換する。小数部が 0 以外なら端数を黙って捨てずにエラーにする。
-func (y *yen) Scan(src any) error {
-	var s string
-	switch v := src.(type) {
-	case int64:
-		*y = yen(v)
-		return nil
-	case string:
-		s = v
-	case []byte:
-		s = string(v)
-	default:
-		return fmt.Errorf("unsupported price type %T", src)
-	}
-	whole, frac, _ := strings.Cut(s, ".")
-	if strings.Trim(frac, "0") != "" {
-		return fmt.Errorf("price %q has a fractional part", s)
-	}
-	n, err := strconv.ParseInt(whole, 10, 64)
-	if err != nil {
-		return fmt.Errorf("price %q: %w", s, err)
-	}
-	*y = yen(n)
-	return nil
+type model struct {
+	ID          int64     `gorm:"column:id;primaryKey;autoIncrement"`
+	ISBN        string    `gorm:"column:isbn;size:13;not null"`
+	Title       string    `gorm:"column:title;size:255;not null"`
+	Authors     string    `gorm:"column:authors;size:500;not null"`
+	Publisher   string    `gorm:"column:publisher;size:255;not null"`
+	PublishedOn string    `gorm:"column:published_on;size:32;not null"`
+	CoverURL    *string   `gorm:"column:cover_url;size:2048"`
+	CoverSource *string   `gorm:"column:cover_source;size:16"`
+	Comment     string    `gorm:"column:comment;not null"`
+	Rating      int       `gorm:"column:rating;not null"`
+	Version     int       `gorm:"column:version;not null"`
+	CreatedAt   time.Time `gorm:"column:created_at;not null"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;not null"`
 }
 
-func (y yen) Value() (driver.Value, error) {
-	return int64(y), nil
-}
-
-type bookModel struct {
-	ID            int64   `gorm:"column:id;primaryKey;autoIncrement"`
-	Title         string  `gorm:"column:title;size:255;not null"`
-	Price         yen     `gorm:"column:price;type:numeric(10,2);not null"`
-	PublishStatus int     `gorm:"column:publish_status;not null"`
-	AmazonURL     *string `gorm:"column:amazon_url;size:2048"`
-	ImageKey      *string `gorm:"column:image_key;size:255"`
-	Version       int     `gorm:"column:version;not null"`
-}
-
-func (bookModel) TableName() string {
+func (model) TableName() string {
 	return "book"
 }
 
-type authorBookModel struct {
-	AuthorID int64 `gorm:"column:author_id;primaryKey"`
-	BookID   int64 `gorm:"column:book_id;primaryKey"`
-	Version  int   `gorm:"column:version;not null"`
-}
-
-func (authorBookModel) TableName() string {
-	return "author_book"
-}
-
-// repository は book / author_book テーブルに対して domainbook.Repository を実装する。
+// repository は book テーブルに対して domainbook.Repository を実装する。
 type repository struct {
 	db *gorm.DB
 }
@@ -82,132 +42,122 @@ func NewRepository(db *gorm.DB) domainbook.Repository {
 	return &repository{db: db}
 }
 
-// FindByID は id の書籍行と紐づく著者IDを取得する。存在しなければ common.ErrNotFound を返す。
+// FindByID は id の行を取得する。存在しなければ common.ErrNotFound を返す。
 func (r *repository) FindByID(ctx context.Context, id domainbook.ID) (*domainbook.Book, error) {
-	db := r.db.WithContext(ctx)
-	var row bookModel
-	if err := db.First(&row, int64(id)).Error; err != nil {
+	var row model
+	if err := r.db.WithContext(ctx).First(&row, int64(id)).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("%w: 書籍が見つかりません", common.ErrNotFound)
+			return nil, fmt.Errorf("%w: 読んだ本が見つかりません", common.ErrNotFound)
 		}
 		return nil, err
 	}
-	var authorIDs []int64
-	if err := db.Model(&authorBookModel{}).Where("book_id = ?", row.ID).Order("author_id").Pluck("author_id", &authorIDs).Error; err != nil {
-		return nil, err
-	}
-	return adapt(row, authorIDs)
+	return adapt(row)
 }
 
-// Create は書籍行を初期バージョン 1 で挿入し、著者との関連行とあわせて同一トランザクションで保存する。
+// Create は行を初期バージョン 1 で挿入し、採番した ID とバージョンを b に設定する。同じ ISBN があれば common.ErrConflict を返す。
 func (r *repository) Create(ctx context.Context, b *domainbook.Book) error {
-	row := bookModel{
-		Title: b.Title.String(), Price: yen(b.Price.Int64()), PublishStatus: int(b.Status),
-		AmazonURL: amazonURLString(b.AmazonURL), ImageKey: imageKeyString(b.ImageKey), Version: 1,
-	}
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&row).Error; err != nil {
-			return err
-		}
-		return insertAuthorBooks(tx, row.ID, b.AuthorIDs)
-	})
-	if err != nil {
-		return err
+	row := toModel(b)
+	row.Version = 1
+	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
+		return translateDuplicateISBN(err)
 	}
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version
 	return nil
 }
 
-// Update は ID とバージョンが一致する書籍行を更新し、著者との関連行を入れ替える。一致しなければ common.ErrConflict を返す。
+// Update は ID とバージョンが一致する行を更新してバージョンを進める。一致しなければ common.ErrConflict を返す。
 func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
+	row := toModel(b)
 	next := b.Version + 1
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&bookModel{}).
-			Where("id = ? AND version = ?", int64(b.ID), b.Version).
-			Updates(map[string]any{
-				"title": b.Title.String(), "price": b.Price.Int64(), "publish_status": int(b.Status),
-				"amazon_url": amazonURLString(b.AmazonURL), "image_key": imageKeyString(b.ImageKey), "version": next,
-			})
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected == 0 {
-			return fmt.Errorf("%w: 書籍の更新に失敗しました（他の更新と競合しました）", common.ErrConflict)
-		}
-		if err := tx.Where("book_id = ?", int64(b.ID)).Delete(&authorBookModel{}).Error; err != nil {
-			return err
-		}
-		return insertAuthorBooks(tx, int64(b.ID), b.AuthorIDs)
-	})
-	if err != nil {
-		return err
+	res := r.db.WithContext(ctx).Model(&model{}).
+		Where("id = ? AND version = ?", int64(b.ID), b.Version).
+		Updates(map[string]any{
+			"title": row.Title, "authors": row.Authors, "publisher": row.Publisher, "published_on": row.PublishedOn,
+			"cover_url": row.CoverURL, "cover_source": row.CoverSource,
+			"comment": row.Comment, "rating": row.Rating, "version": next, "updated_at": gorm.Expr("NOW()"),
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("%w: 読んだ本の更新に失敗しました（他の更新と競合しました）", common.ErrConflict)
 	}
 	b.Version = next
 	return nil
 }
 
-func insertAuthorBooks(tx *gorm.DB, bookID int64, authorIDs []domainauthor.ID) error {
-	rows := make([]authorBookModel, 0, len(authorIDs))
-	for _, id := range authorIDs {
-		rows = append(rows, authorBookModel{AuthorID: int64(id), BookID: bookID, Version: 1})
+// Delete は id の行を削除する。存在しなければ common.ErrNotFound を返す。
+func (r *repository) Delete(ctx context.Context, id domainbook.ID) error {
+	res := r.db.WithContext(ctx).Delete(&model{}, int64(id))
+	if res.Error != nil {
+		return res.Error
 	}
-	return tx.Create(&rows).Error
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("%w: 読んだ本が見つかりません", common.ErrNotFound)
+	}
+	return nil
 }
 
-func adapt(row bookModel, authorIDs []int64) (*domainbook.Book, error) {
-	title, err := domainbook.NewTitle(row.Title)
+// uniqueViolation は PostgreSQL の一意制約違反の SQLSTATE。
+const uniqueViolation = "23505"
+
+// translateDuplicateISBN は ISBN の一意制約違反を ErrConflict にする（同じ本の二重登録を 500 ではなく 409 にするため）。
+func translateDuplicateISBN(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == "uq_book_isbn" {
+		return fmt.Errorf("%w: 同じISBNの本が既に登録されています", common.ErrConflict)
+	}
+	return err
+}
+
+func toModel(b *domainbook.Book) model {
+	row := model{
+		ID:          int64(b.ID),
+		ISBN:        b.ISBN.String(),
+		Title:       b.Bibliography.Title(),
+		Authors:     b.Bibliography.Authors(),
+		Publisher:   b.Bibliography.Publisher(),
+		PublishedOn: b.Bibliography.PublishedOn(),
+		Comment:     b.Comment.String(),
+		Rating:      b.Rating.Int(),
+		Version:     b.Version,
+	}
+	if b.Cover != nil {
+		u, s := b.Cover.URL(), string(b.Cover.Source())
+		row.CoverURL, row.CoverSource = &u, &s
+	}
+	return row
+}
+
+// adapt は行を VO で検証し直して Book に戻す。書き込み時に検証済みの値なので、失敗はデータの破損を意味する。
+func adapt(row model) (*domainbook.Book, error) {
+	isbn, err := domainbook.NewISBN(row.ISBN)
 	if err != nil {
 		return nil, err
 	}
-	price, err := domainbook.NewPrice(int64(row.Price))
+	bib, err := domainbook.NewBibliography(row.Title, row.Authors, row.Publisher, row.PublishedOn)
 	if err != nil {
 		return nil, err
 	}
-	status, err := domainbook.NewPublishStatus(row.PublishStatus)
+	comment, err := domainbook.NewComment(row.Comment)
 	if err != nil {
 		return nil, err
 	}
-	ids := make([]domainauthor.ID, 0, len(authorIDs))
-	for _, id := range authorIDs {
-		ids = append(ids, domainauthor.ID(id))
-	}
-	b, err := domainbook.New(title, price, ids, status)
+	rating, err := domainbook.NewRating(row.Rating)
 	if err != nil {
-		// A book without authors breaks the invariant enforced on every write: data corruption.
-		return nil, fmt.Errorf("book %d is inconsistent: %w", row.ID, err)
+		return nil, err
 	}
-	if row.AmazonURL != nil {
-		u, err := domainbook.NewAmazonURL(*row.AmazonURL)
+	var cover *domainbook.Cover
+	if row.CoverURL != nil && row.CoverSource != nil {
+		c, err := domainbook.NewCover(*row.CoverURL, domainbook.CoverSource(*row.CoverSource))
 		if err != nil {
 			return nil, err
 		}
-		b.ChangeAmazonURL(&u)
+		cover = &c
 	}
-	if row.ImageKey != nil {
-		k, err := domainbook.NewImageKey(*row.ImageKey)
-		if err != nil {
-			return nil, err
-		}
-		b.ReplaceImage(k)
-	}
+	b := domainbook.New(isbn, bib, cover, comment, rating)
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version
 	return b, nil
-}
-
-func amazonURLString(u *domainbook.AmazonURL) *string {
-	if u == nil {
-		return nil
-	}
-	s := u.String()
-	return &s
-}
-
-func imageKeyString(k *domainbook.ImageKey) *string {
-	if k == nil {
-		return nil
-	}
-	s := k.String()
-	return &s
 }

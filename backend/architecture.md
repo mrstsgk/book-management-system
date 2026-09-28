@@ -18,13 +18,14 @@
 | HTTP | **Echo** |
 | 設計 | **オニオン** + DDD 戦術 + **CQRS**（単一 DB。全体 Event Sourcing はしない） |
 | 永続化 | **PostgreSQL + GORM**（現在状態が正）。**GORM AutoMigrate は使わない** |
-| 画像ストレージ | **S3**（aws-sdk-go-v2）。ローカルは **LocalStack 4.9**。Domain の `book.ImageStorage`（ExternalGateway）を `infrastructure/gateway/book` が実装する。DB にはオブジェクトキーだけを保存し、取得時に署名付き URL を発行する（[ADR](../docs/adr/2026-09-28-book-image-storage-s3-localstack.md)） |
 | マイグレーション | **golang-migrate**（`backend/migrations/` が SQL の正。アプリ起動時 migrate しない） |
 | HTTP / OpenAPI | Echo + validator + swag。**Go の DTO／Handler が BE の正** |
 | FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
+| 書誌・書影 | 外部カタログ。Domain の `book.BookCatalog`（ExternalGateway）を `infrastructure/gateway/openbd`・`rakuten` が実装し、`gateway/catalog` が「openBD を優先し、書影が無ければ楽天で補う」形に組み合わせる。画像は保存しない |
+| 認証 | 書き込み系だけ管理者トークン（`presentation/http/common.RequireAdminToken`）。閲覧は認証なし |
 | ツールチェーン | **mise で Go 版を固定**（リポジトリ直下 `.mise.toml`。`go.mod` と揃える） |
 | ローカル開発 | API は**ホストの Go**、DB は **Docker Compose**。Dev Container なし |
-| 旧スタック | Kotlin / Spring Boot / jOOQ / Flyway は**削除済み** |
+| 旧スタック | Kotlin / Spring Boot / jOOQ / Flyway と、旧仕様（書籍・著者の管理 API）の Go 版は**削除済み**（[ADR](../docs/adr/2026-09-28-rebuild-as-reading-portfolio.md)） |
 
 マイクロサービス分割はしない。
 
@@ -33,7 +34,7 @@
 | 対象 | どう動かすか |
 |---|---|
 | Go 本体 | `mise install`（`.mise.toml` の `go`）→ ホストで `go run` / `make run` |
-| PostgreSQL・S3（LocalStack） | `docker compose up -d`（`backend/docker-compose.yml`） |
+| PostgreSQL | `docker compose up -d`（`backend/docker-compose.yml`） |
 | migrate | ホストの `golang-migrate`（`make migrate-up`）。アプリ起動時には走らせない |
 
 Dev Container で IDE ごとコンテナに閉じ込める方式は採らない。
@@ -88,7 +89,7 @@ infrastructure/postgres/{common,<domain>}, infrastructure/gateway/{<domain>}
 - 同一テーブルを両方から触ってよい（実装を1 struct にまとめて両方の IF を満たしてもよい）
 - DB は1つ（アプリでの Writer/Reader 必須分離はしない）
 - イベント／投影は必要なドメインだけ。分散イベントバス・全体 ES はしない
-- 書籍と著者の関連更新など厳密整合は同一トランザクションの Command
+- 複数テーブルにまたがる更新など厳密整合は同一トランザクションの Command
 - **更新系**: 境界は **Command DTO**（`usecase/<domain>/command` が定義。例: `CreateCommand` / `UpdateCommand`）で受け渡す。UseCase 内で DTO → ドメインモデル（Entity/Aggregate）へ変換してから Repository に渡す
   - Presentation の Request 構造体・ORM Entity・DB Entity・Framework 依存オブジェクト（`echo.Context` 等）を UseCase／Domain へ直接渡さない。Handler は Request から値を取り出して Command DTO を組み立てる
   - Command DTO 自身に業務ロジック（バリデーション・状態遷移・DB／外部 API アクセス）を書かない。責務はデータの受け渡しのみで、判定は Domain（VO のコンストラクタ等）に置く
@@ -171,17 +172,17 @@ backend/
 
 ### プロダクト API 範囲
 
-旧 Kotlin 実装と同じ API を Go で再実装した。エラー応答は共通 `ErrorResponse`（§3）に統一している。
+| Method | Path | 用途 | 認証 |
+|---|---|---|---|
+| `GET` | `/api/books` | 読んだ本の一覧（新しく登録した順。`limit` 1〜100・既定20、`offset`。総件数付き。感想の本文は含めない） | 不要 |
+| `GET` | `/api/books/{id}` | 読んだ本の詳細（書誌・書影・Amazon リンク・感想・評価） | 不要 |
+| `POST` | `/api/books` | 読んだ本を登録する（`isbn`・`comment`・`rating`。書誌と書影は ISBN で外部カタログから取得。カタログに無ければ 400、同じ ISBN は 409） | 必要 |
+| `PUT` | `/api/books/{id}` | 感想と評価を更新する（楽観的ロック。書誌と書影を取り直す） | 必要 |
+| `DELETE` | `/api/books/{id}` | 読んだ本を削除する | 必要 |
+| `GET` | `/api/catalog/{isbn}` | 登録前に、ISBN で外部カタログの書誌と書影を確かめる | 必要 |
 
-| Method | Path | 用途 |
-|---|---|---|
-| `POST` | `/api/authors` | 著者を作成する（生年月日は現在より過去日付） |
-| `PUT` | `/api/authors/{id}` | 著者を更新する（楽観的ロック） |
-| `GET` | `/api/authors/{id}/books` | 著者に紐づく書籍一覧を取得する |
-| `POST` | `/api/books` | 書籍を作成する（価格は0以上、著者は1人以上。`amazonUrl` は任意で https の Amazon のみ） |
-| `GET` | `/api/books/{id}` | 書籍を取得する（`imageUrl` は15分有効の署名付き URL） |
-| `PUT` | `/api/books/{id}` | 書籍を更新する（出版済み→未出版は不可、楽観的ロック。`amazonUrl` は省略で解除） |
-| `POST` | `/api/books/{id}/image` | 表紙画像をアップロードする（multipart `image`。JPEG / PNG / WebP・5MB以下。既存画像は差し替え） |
+- 認証は `Authorization: Bearer <ADMIN_TOKEN>`。自分だけが書き込めればよいので、ユーザー管理は持たない
+- 書影は提供元の URL をそのまま返す。`coverSource` が `rakuten` なら画面に楽天ウェブサービスのクレジット表示が必要（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）
 
 ## 5. やらないこと（全体）
 
