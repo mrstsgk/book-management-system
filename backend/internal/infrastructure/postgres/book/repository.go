@@ -28,6 +28,7 @@ type model struct {
 	// CoverProductURL・CoverFetchedAt は楽天の書影のときだけ入る（CHECK 制約 ck_book_rakuten_cover）。
 	CoverProductURL *string    `gorm:"column:cover_product_url;size:2048"`
 	CoverFetchedAt  *time.Time `gorm:"column:cover_fetched_at"`
+	RakutenDisabled bool       `gorm:"column:rakuten_disabled;not null"`
 	Summary         string     `gorm:"column:summary;size:100;not null"`
 	Comment         string     `gorm:"column:comment;not null"`
 	Rating          int        `gorm:"column:rating;not null"`
@@ -150,7 +151,8 @@ func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
 				"publisher": row.Publisher, "published_on": row.PublishedOn,
 				"cover_url": row.CoverURL, "cover_source": row.CoverSource,
 				"cover_product_url": row.CoverProductURL, "cover_fetched_at": row.CoverFetchedAt,
-				"summary": row.Summary, "comment": row.Comment, "rating": row.Rating,
+				"rakuten_disabled": row.RakutenDisabled,
+				"summary":          row.Summary, "comment": row.Comment, "rating": row.Rating,
 				"version": next, "updated_at": gorm.Expr("NOW()"),
 			})
 		if res.Error != nil {
@@ -241,6 +243,8 @@ func toModel(b *domainbook.Book) model {
 		Comment:     b.Comment.String(),
 		Rating:      b.Rating.Int(),
 		Version:     b.Version,
+		// 楽天から削除の指示を受けたことは取り直しでも消さないため、書影とは別に持つ
+		RakutenDisabled: b.RakutenDisabled,
 	}
 	if b.Cover != nil {
 		u, s := b.Cover.URL(), string(b.Cover.Source())
@@ -293,6 +297,7 @@ func adapt(row model, tagIDs []domaintag.ID) (*domainbook.Book, error) {
 	}
 	b := domainbook.New(isbn, bib, cover, summary, comment, rating, tags)
 	b.OverrideTitle(override)
+	b.RakutenDisabled = row.RakutenDisabled
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version
 	return b, nil
