@@ -28,14 +28,14 @@ type sampleBook struct {
 // placeholderText は本人が一言まとめ・感想を書くまでの仮の文言。
 const placeholderText = "（準備中）"
 
-// sampleBooks は実際に読んだ5冊。書誌は openBD の値を写したもの（データ指向アプリケーションデザイン第2版は
-// openBD に無く、出版社・発売日を確認できなかったため空）。
+// sampleBooks は実際に読んだ5冊。書誌は openBD の値を写し、openBD が誤っている著者・出版社は出版社の書誌ページで直した
+// （データ指向アプリケーションデザイン第2版は openBD にも出版社のページにも無く、出版社・発売日を確認できなかったため空）。
 // 一言まとめ・感想・評価は仮の値で、本人が書いた文章に差し替えるまで要件定義 §4.3「架空の感想は入れない」を満たさない。
 var sampleBooks = []sampleBook{
 	{
 		isbn: "9784295016090", title: "AWS認定ソリューションアーキテクト-アソシエイト教科書 : 試験番号SAA-C03",
-		publisher: "インプレス", publishedOn: "202303",
-		titleOverride: "徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版",
+		authors: "鳥谷部昭寛, 宮口光平, 半田大樹, 株式会社ソキウス・ジャパン", publisher: "インプレス", publishedOn: "202303",
+		titleOverride: "徹底攻略 AWS認定 ソリューションアーキテクト − アソシエイト教科書 第3版［SAA-C03］対応",
 		summary:       placeholderText, comment: placeholderText, rating: 3,
 	},
 	{
@@ -55,7 +55,7 @@ var sampleBooks = []sampleBook{
 	},
 	{
 		isbn: "9784822283117", title: "ネットワークはなぜつながるのか : 知っておきたいTCP/IP、LAN、光ファイバの基礎知識",
-		authors: "戸根,勤 日経BP", publisher: "日経BP出版センター", publishedOn: "200704",
+		authors: "戸根勤, 日経NETWORK（監修）", publisher: "日経BP", publishedOn: "200704",
 		summary: placeholderText, comment: placeholderText, rating: 3,
 	},
 }
