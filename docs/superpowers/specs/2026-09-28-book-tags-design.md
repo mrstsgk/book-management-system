@@ -17,7 +17,9 @@
 
 ## 1. テーブル
 
-マイグレーション `000003` で2つのテーブルを足す。
+PR の分け方（§8）に合わせ、マイグレーションを2つに分ける。
+
+**`000003`（PR 2 で足す）:**
 
 ```sql
 CREATE TABLE tag (
@@ -28,7 +30,11 @@ CREATE TABLE tag (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_tag_name UNIQUE (name)
 );
+```
 
+**`000004`（PR 3 で足す）:**
+
+```sql
 CREATE TABLE book_tag (
     book_id BIGINT NOT NULL REFERENCES book(id) ON DELETE CASCADE,
     tag_id  BIGINT NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
@@ -37,7 +43,7 @@ CREATE TABLE book_tag (
 ```
 
 - `book_tag` は本・タグどちらが消えても自動で外れる（`ON DELETE CASCADE`）。アプリ側で明示的な削除処理を書かない
-- `docs/db/backend-schema.{json,md}` に2テーブル分を追加する
+- `docs/db/backend-schema.{json,md}` に、それぞれのマイグレーションと同じ PR でテーブルを追加する
 
 ## 2. ドメイン
 
