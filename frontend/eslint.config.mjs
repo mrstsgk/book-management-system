@@ -31,6 +31,8 @@ export default tseslint.config(
     rules: {
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      // 分岐の多すぎる関数を読みにくさとして弾く（バックエンドの gocyclo と同じ上限 10）
+      complexity: ['error', 10],
       // Orval の ErrorType<_Body> のように、_ 始まりは意図的な未使用
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -73,6 +75,11 @@ export default tseslint.config(
   {
     files: ['**/*.test.{ts,tsx}'],
     ...vitest.configs.recommended,
+  },
+  {
+    // 表形式のテストはケースを並べるほど数値が上がるだけで、読みにくさとは関係しない
+    files: ['**/*.test.{ts,tsx}'],
+    rules: { complexity: 'off' },
   },
   {
     files: ['**/*.test.{ts,tsx}'],

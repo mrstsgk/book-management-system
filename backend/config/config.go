@@ -6,13 +6,13 @@ import (
 	"os"
 )
 
-const stageLocal = "local"
-
 type Config struct {
-	Stage    string
 	LogLevel slog.Level
 	HTTPPort string
 	DB       DBConfig
+	Catalog  CatalogConfig
+	// AdminToken は書き込み系 API（登録・更新・削除）に必要なトークン。
+	AdminToken string
 }
 
 type DBConfig struct {
@@ -24,57 +24,51 @@ type DBConfig struct {
 	SSLMode  string
 }
 
-// Load は環境変数から Config を読み込む。non-local では DB_HOST・DB_USER・
-// DB_PASSWORD・DB_NAME の明示指定が必須（DB_PORT は 5432、DB_SSLMODE は
-// disable を常にデフォルト値として使う）。
-func Load() (Config, error) {
-	stage := getenv("STAGE", stageLocal)
-	local := stage == stageLocal
+// CatalogConfig は外部の書籍カタログの接続先。楽天のキーは任意で、無ければ openBD だけを使う
+// （openBD に書影が無い本は書影なしになる）。
+type CatalogConfig struct {
+	OpenBDBaseURL        string
+	RakutenBaseURL       string
+	RakutenApplicationID string
+	RakutenAccessKey     string
+}
 
+// RakutenEnabled は楽天のアプリ ID とアクセスキーが両方設定されているかを返す。
+func (c CatalogConfig) RakutenEnabled() bool {
+	return c.RakutenApplicationID != "" && c.RakutenAccessKey != ""
+}
+
+// Load は環境変数から Config を読み込む。既定値はローカルの docker compose の DB と開発用の管理者トークン
+// （デプロイしないので、環境ごとに必須の値を変える仕組みは持たない）。
+func Load() (Config, error) {
 	var level slog.Level
 	if err := level.UnmarshalText([]byte(getenv("LOG_LEVEL", "info"))); err != nil {
 		return Config{}, fmt.Errorf("LOG_LEVEL: %w", err)
 	}
-
-	// Defaults exist only for the local docker-compose DB; elsewhere a missing
-	// setting must stop startup instead of silently pointing at localhost.
-	dbDefault := func(v string) string {
-		if local {
-			return v
-		}
-		return ""
-	}
-	db := DBConfig{
-		Host:     getenv("DB_HOST", dbDefault("localhost")),
-		Port:     getenv("DB_PORT", "5432"),
-		User:     getenv("DB_USER", dbDefault("postgres")),
-		Password: getenv("DB_PASSWORD", dbDefault("postgres")),
-		DBName:   getenv("DB_NAME", dbDefault("book_management")),
-		SSLMode:  getenv("DB_SSLMODE", "disable"),
-	}
-	for k, v := range map[string]string{
-		"DB_HOST": db.Host, "DB_USER": db.User, "DB_PASSWORD": db.Password, "DB_NAME": db.DBName,
-	} {
-		if v == "" {
-			return Config{}, fmt.Errorf("%s is required when STAGE=%s", k, stage)
-		}
-	}
-
 	return Config{
-		Stage:    stage,
 		LogLevel: level,
 		HTTPPort: getenv("HTTP_PORT", "8080"),
-		DB:       db,
+		DB: DBConfig{
+			Host:     getenv("DB_HOST", "localhost"),
+			Port:     getenv("DB_PORT", "5432"),
+			User:     getenv("DB_USER", "postgres"),
+			Password: getenv("DB_PASSWORD", "postgres"),
+			DBName:   getenv("DB_NAME", "book_management"),
+			SSLMode:  getenv("DB_SSLMODE", "disable"),
+		},
+		Catalog: CatalogConfig{
+			OpenBDBaseURL:        getenv("OPENBD_BASE_URL", "https://api.openbd.jp"),
+			RakutenBaseURL:       getenv("RAKUTEN_BASE_URL", "https://openapi.rakuten.co.jp"),
+			RakutenApplicationID: getenv("RAKUTEN_APPLICATION_ID", ""),
+			RakutenAccessKey:     getenv("RAKUTEN_ACCESS_KEY", ""),
+		},
+		AdminToken: getenv("ADMIN_TOKEN", "local-admin-token"),
 	}, nil
 }
 
-// NewLogger returns text logs for local reading and JSON elsewhere (log aggregation).
+// NewLogger はテキスト形式でログを出す。
 func (c Config) NewLogger() *slog.Logger {
-	opts := &slog.HandlerOptions{Level: c.LogLevel}
-	if c.Stage == stageLocal {
-		return slog.New(slog.NewTextHandler(os.Stdout, opts))
-	}
-	return slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: c.LogLevel}))
 }
 
 func getenv(key, fallback string) string {

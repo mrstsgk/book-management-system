@@ -1,6 +1,6 @@
 # アーキテクチャ方針
 
-書籍・著者を管理する書籍管理システム。バックエンド API（Go）と管理画面（React）を同一リポジトリで扱う。
+自分が読んだ本を紹介するポートフォリオ。バックエンド API（Go）と Web 画面（React）を同一リポジトリで扱う。読んだ本は ISBN で登録し、書誌は openBD から、書影は openBD に無ければ楽天ブックスから取得して、自分の感想と評価を添える。閲覧は誰でも、登録・更新・削除は自分だけができる。
 
 ## 文書の言語
 
@@ -11,6 +11,8 @@
 
 | 文書 | 管轄（重複しない） |
 |---|---|
+| [`requirements.md`](./requirements.md) | 要求定義（誰に何を伝えるために作るか） |
+| [`specifications.md`](./specifications.md) | 要件定義（システムと開発の進め方が満たすこと） |
 | **本書** | リポジトリ全体・トップレベル構成・契約の**境界** |
 | [`backend/architecture.md`](../backend/architecture.md) | バックエンドのスタック・層・HTTP/OpenAPI・ディレクトリ・永続化 |
 | [`frontend/architecture.md`](../frontend/architecture.md) | フロントのスタック・設計パターン・アプリ内ディレクトリ・共有ルール |
@@ -25,20 +27,20 @@
 | フロントエンド | **React + Vite + TypeScript** の管理画面 `frontend/web`。**mise + pnpm**。正は [`frontend/architecture.md`](../frontend/architecture.md) |
 | API 契約（境界） | **BE は Go 先行**（DTO + validator + swag）。**排出 OpenAPI → FE の TypeScript 生成は必須**。生成物は手編集しない。CI でドリフト検知（gen → diff）。詳細は backend 文書 |
 | モジュラモノリス / マイクロサービス | **採用しない**（境界が必要になったら後からパッケージを育てる） |
-| 旧実装 | Kotlin / Spring Boot 版は削除済み |
+| 旧実装 | Kotlin / Spring Boot 版、および旧仕様（書籍・著者の管理 API）の Go 版は削除済み（[ADR](./adr/2026-09-28-rebuild-as-reading-portfolio.md)） |
 
 ## 2. バックエンド（境界のみ）
 
 正は [`backend/architecture.md`](../backend/architecture.md)。
 
-- API の path は `/api/...`（例: `/api/books`, `/api/authors`）
+- API の path は `/api/...`（例: `/api/books`）。閲覧は認証なし、書き込みは管理者トークン
 - ローカル開発: **ホスト Go（mise で版固定）+ Docker は DB**。API の日常起動はコンテナにしない（詳細は backend 文書）
 
 ## 3. フロントエンド（境界のみ）
 
 正は [`frontend/architecture.md`](../frontend/architecture.md)。
 
-- アプリ: `frontend/web`（書籍・著者の管理画面）
+- アプリ: `frontend/web`（読んだ本の紹介画面と、自分用の登録・編集画面）
 - アプリ横断コード: `frontend/packages/`（中身の規約は frontend 文書）
 
 ## 4. OpenAPI / 型契約（境界）

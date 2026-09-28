@@ -1,5 +1,5 @@
-import type { RequestHandler } from 'msw'
+import { getBookManagementSystemAPIMock } from '@/api/generated/api.msw'
 
-// Orval は paths が空の OpenAPI からは api.msw.ts を生成しない。エンドポイント追加後は
-// getBookManagementSystemAPIMock()（生成 MSW ハンドラ）をここで既定として返す
-export const handlers: RequestHandler[] = []
+// 既定は Orval 生成（faker のランダム値）。具体値を検証するテストは
+// server.use(get...MockHandler(fixture)) で上書きする
+export const handlers = getBookManagementSystemAPIMock()

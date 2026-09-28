@@ -1,7 +1,443 @@
 basePath: /
+definitions:
+  BookListItemResponse:
+    properties:
+      amazonUrl:
+        example: https://www.amazon.co.jp/dp/4873118700
+        type: string
+      authors:
+        example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        type: string
+      coverSource:
+        enum:
+        - openbd
+        - rakuten
+        example: openbd
+        type: string
+      coverUrl:
+        example: https://cover.openbd.jp/9784873118703.jpg
+        type: string
+      id:
+        example: 1
+        type: integer
+      isbn:
+        example: "9784873118703"
+        type: string
+      rating:
+        example: 5
+        type: integer
+      summary:
+        example: 分散データの設計を体系的に学べる
+        type: string
+      title:
+        description: Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
+        example: データ指向アプリケーションデザイン
+        type: string
+    type: object
+  BookListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/BookListItemResponse'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 1
+        type: integer
+    type: object
+  BookResponse:
+    properties:
+      amazonUrl:
+        description: AmazonURL は ISBN から導出する。ISBN-10 の形式が無ければ null。
+        example: https://www.amazon.co.jp/dp/4873118700
+        type: string
+      authors:
+        example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        type: string
+      comment:
+        example: 分散システムの設計を体系的に学べた
+        type: string
+      coverSource:
+        enum:
+        - openbd
+        - rakuten
+        example: openbd
+        type: string
+      coverUrl:
+        description: CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。
+        example: https://cover.openbd.jp/9784873118703.jpg
+        type: string
+      id:
+        example: 1
+        type: integer
+      isbn:
+        example: "9784873118703"
+        type: string
+      publishedOn:
+        example: "201907"
+        type: string
+      publisher:
+        example: オーム社
+        type: string
+      rating:
+        example: 5
+        type: integer
+      summary:
+        example: 分散データの設計を体系的に学べる
+        type: string
+      title:
+        description: Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
+        example: データ指向アプリケーションデザイン
+        type: string
+      titleOverride:
+        description: TitleOverride は自分で上書きした書名。上書きしていなければ null。
+        example: 徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版
+        type: string
+      version:
+        example: 1
+        type: integer
+    type: object
+  CatalogResponse:
+    properties:
+      amazonUrl:
+        example: https://www.amazon.co.jp/dp/4873118700
+        type: string
+      authors:
+        example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        type: string
+      coverSource:
+        enum:
+        - openbd
+        - rakuten
+        example: openbd
+        type: string
+      coverUrl:
+        example: https://cover.openbd.jp/9784873118703.jpg
+        type: string
+      isbn:
+        example: "9784873118703"
+        type: string
+      publishedOn:
+        example: "201907"
+        type: string
+      publisher:
+        example: オーム社
+        type: string
+      title:
+        example: データ指向アプリケーションデザイン
+        type: string
+    type: object
+  ErrorResponse:
+    properties:
+      errors:
+        description: Field-level details; only set for request validation errors.
+        items:
+          $ref: '#/definitions/FieldError'
+        type: array
+      message:
+        example: invalid
+        type: string
+    type: object
+  FieldError:
+    properties:
+      field:
+        example: title
+        type: string
+      rule:
+        example: required
+        type: string
+    type: object
+  RegisterBookRequest:
+    properties:
+      comment:
+        example: 分散システムの設計を体系的に学べた
+        maxLength: 5000
+        type: string
+      isbn:
+        description: ISBN は13桁または10桁（ハイフン可）。書誌と書影はこれで外部カタログから取得する。
+        example: "9784873118703"
+        maxLength: 17
+        type: string
+      rating:
+        example: 5
+        maximum: 5
+        minimum: 1
+        type: integer
+      summary:
+        example: 分散データの設計を体系的に学べる
+        maxLength: 100
+        type: string
+      titleOverride:
+        description: TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
+        example: ""
+        maxLength: 255
+        type: string
+    required:
+    - comment
+    - isbn
+    - rating
+    - summary
+    type: object
+  UpdateBookRequest:
+    properties:
+      comment:
+        example: 読み返して理解が深まった
+        maxLength: 5000
+        type: string
+      rating:
+        example: 5
+        maximum: 5
+        minimum: 1
+        type: integer
+      summary:
+        example: 読み返して理解が深まった
+        maxLength: 100
+        type: string
+      titleOverride:
+        description: TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
+        example: ""
+        maxLength: 255
+        type: string
+      version:
+        example: 1
+        type: integer
+    required:
+    - comment
+    - rating
+    - summary
+    - version
+    type: object
 info:
   contact: {}
   title: Book Management System API
   version: 0.1.0
-paths: {}
+paths:
+  /api/books:
+    get:
+      description: 新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す
+      parameters:
+      - description: 取得件数（1〜100、既定20）
+        in: query
+        name: limit
+        type: integer
+      - description: 取得開始位置（0以上、既定0）
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/BookListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: 読んだ本の一覧を取得する
+      tags:
+      - books
+    post:
+      consumes:
+      - application/json
+      description: 書誌は ISBN で openBD から取得し、書影が無ければ楽天ブックスで補う。openBD に無い ISBN は 400、同じ
+        ISBN の登録済みは 409
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/RegisterBookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/BookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 読んだ本を登録する（自分だけ）
+      tags:
+      - books
+  /api/books/{id}:
+    delete:
+      parameters:
+      - description: 読んだ本のID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 読んだ本を削除する（自分だけ）
+      tags:
+      - books
+    get:
+      parameters:
+      - description: 読んだ本のID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/BookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: 読んだ本を取得する
+      tags:
+      - books
+    put:
+      consumes:
+      - application/json
+      description: あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。version
+        が一致しない場合は 409
+      parameters:
+      - description: 読んだ本のID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateBookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/BookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 感想と評価を更新する（自分だけ）
+      tags:
+      - books
+  /api/catalog/{isbn}:
+    get:
+      description: 登録前の確認用。書誌は openBD から取得し、書影が無ければ楽天ブックスで補う
+      parameters:
+      - description: ISBN（13桁または10桁。ハイフン可）
+        in: path
+        name: isbn
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CatalogResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
+      tags:
+      - catalog
+securityDefinitions:
+  AdminToken:
+    description: 登録・更新・削除とカタログの確認に必要。「Bearer <ADMIN_TOKEN>」の形式で指定する
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

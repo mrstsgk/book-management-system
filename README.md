@@ -1,20 +1,20 @@
 # Book Management System
 
-書籍・著者を管理するシステム。バックエンド API（Go / Echo）と管理画面（React / Vite）のモノレポ。
+自分が読んだ本を紹介するポートフォリオ。バックエンド API（Go / Echo）と Web 画面（React / Vite）のモノレポ。
 
 方針の正は [`docs/architecture.md`](./docs/architecture.md)（バックエンド詳細は [`backend/architecture.md`](./backend/architecture.md)、フロントエンド詳細は [`frontend/architecture.md`](./frontend/architecture.md)）。
 
 ## 構成
 
 ```
-backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag）
+backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag。書誌・書影は openBD / 楽天ブックス API）
 frontend/   # React + Vite + TypeScript（pnpm workspace: web, packages/ui）
 docs/       # 方針・ルール・ADR
 ```
 
 ## セットアップ
 
-前提: [mise](https://mise.jdx.dev/)・Docker
+前提: [mise](https://mise.jdx.dev/)・Docker（**Engine 28.0.0 以上**。それ未満では `127.0.0.1` に限定した公開ポートでも同じネットワークの他ホストから到達できる場合があるため）
 
 ```bash
 mise install              # Go / Node / pnpm（版は .mise.toml）
@@ -22,9 +22,10 @@ mise install              # Go / Node / pnpm（版は .mise.toml）
 # バックエンド
 cd backend
 make tools
-make db-up
+make db-up                # PostgreSQL
 make migrate-up
 make run                  # http://localhost:8080/health
+# 書き込み系 API は Authorization: Bearer local-admin-token（ローカルの既定値）。書影を楽天で補う場合は RAKUTEN_APPLICATION_ID / RAKUTEN_ACCESS_KEY を設定（backend/README.md）
 
 # フロントエンド（別ターミナル）
 cd frontend
