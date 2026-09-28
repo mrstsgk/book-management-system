@@ -10,6 +10,7 @@ erDiagram
         bigserial id PK
         varchar_13 isbn "unique"
         varchar_255 title
+        varchar_255 title_override "nullable"
         varchar_500 authors
         varchar_255 publisher
         varchar_32 published_on
@@ -17,6 +18,7 @@ erDiagram
         varchar_16 cover_source "nullable"
         text comment
         smallint rating
+        varchar_100 summary
         integer version
         timestamptz created_at
         timestamptz updated_at
