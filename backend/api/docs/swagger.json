@@ -6,5 +6,595 @@
         "version": "0.1.0"
     },
     "basePath": "/",
-    "paths": {}
+    "paths": {
+        "/api/books": {
+            "get": {
+                "description": "新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "読んだ本の一覧を取得する",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "取得件数（1〜100、既定20）",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "取得開始位置（0以上、既定0）",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/BookListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "書誌と書影は ISBN で外部カタログ（openBD・楽天ブックス）から取得する。カタログに無い ISBN は 400、同じ ISBN の登録済みは 409",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "読んだ本を登録する（自分だけ）",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RegisterBookRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/BookResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/books/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "読んだ本を取得する",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "読んだ本のID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/BookResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。version が一致しない場合は 409",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "感想と評価を更新する（自分だけ）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "読んだ本のID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateBookRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/BookResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "読んだ本を削除する（自分だけ）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "読んだ本のID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/catalog/{isbn}": {
+            "get": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "登録前の確認用。openBD を優先し、書影が無ければ楽天ブックスで補う",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "ISBNで外部カタログの書誌と書影を確かめる（自分だけ）",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ISBN（13桁または10桁。ハイフン可）",
+                        "name": "isbn",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/CatalogResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "BookListItemResponse": {
+            "type": "object",
+            "properties": {
+                "amazonUrl": {
+                    "type": "string",
+                    "example": "https://www.amazon.co.jp/dp/4873118700"
+                },
+                "authors": {
+                    "type": "string",
+                    "example": "Kleppmann,Martin 斉藤,太郎 玉川,竜司"
+                },
+                "coverSource": {
+                    "type": "string",
+                    "enum": [
+                        "openbd",
+                        "rakuten"
+                    ],
+                    "example": "openbd"
+                },
+                "coverUrl": {
+                    "type": "string",
+                    "example": "https://cover.openbd.jp/9784873118703.jpg"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "isbn": {
+                    "type": "string",
+                    "example": "9784873118703"
+                },
+                "rating": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "title": {
+                    "type": "string",
+                    "example": "データ指向アプリケーションデザイン"
+                }
+            }
+        },
+        "BookListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/BookListItemResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "BookResponse": {
+            "type": "object",
+            "properties": {
+                "amazonUrl": {
+                    "description": "AmazonURL は ISBN から導出する。ISBN-10 の形式が無ければ null。",
+                    "type": "string",
+                    "example": "https://www.amazon.co.jp/dp/4873118700"
+                },
+                "authors": {
+                    "type": "string",
+                    "example": "Kleppmann,Martin 斉藤,太郎 玉川,竜司"
+                },
+                "comment": {
+                    "type": "string",
+                    "example": "分散システムの設計を体系的に学べた"
+                },
+                "coverSource": {
+                    "type": "string",
+                    "enum": [
+                        "openbd",
+                        "rakuten"
+                    ],
+                    "example": "openbd"
+                },
+                "coverUrl": {
+                    "description": "CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。",
+                    "type": "string",
+                    "example": "https://cover.openbd.jp/9784873118703.jpg"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "isbn": {
+                    "type": "string",
+                    "example": "9784873118703"
+                },
+                "publishedOn": {
+                    "type": "string",
+                    "example": "201907"
+                },
+                "publisher": {
+                    "type": "string",
+                    "example": "オーム社"
+                },
+                "rating": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "title": {
+                    "type": "string",
+                    "example": "データ指向アプリケーションデザイン"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "CatalogResponse": {
+            "type": "object",
+            "properties": {
+                "amazonUrl": {
+                    "type": "string",
+                    "example": "https://www.amazon.co.jp/dp/4873118700"
+                },
+                "authors": {
+                    "type": "string",
+                    "example": "Kleppmann,Martin 斉藤,太郎 玉川,竜司"
+                },
+                "coverSource": {
+                    "type": "string",
+                    "enum": [
+                        "openbd",
+                        "rakuten"
+                    ],
+                    "example": "openbd"
+                },
+                "coverUrl": {
+                    "type": "string",
+                    "example": "https://cover.openbd.jp/9784873118703.jpg"
+                },
+                "isbn": {
+                    "type": "string",
+                    "example": "9784873118703"
+                },
+                "publishedOn": {
+                    "type": "string",
+                    "example": "201907"
+                },
+                "publisher": {
+                    "type": "string",
+                    "example": "オーム社"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "データ指向アプリケーションデザイン"
+                }
+            }
+        },
+        "ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "description": "Field-level details; only set for request validation errors.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/FieldError"
+                    }
+                },
+                "message": {
+                    "type": "string",
+                    "example": "invalid"
+                }
+            }
+        },
+        "FieldError": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string",
+                    "example": "title"
+                },
+                "rule": {
+                    "type": "string",
+                    "example": "required"
+                }
+            }
+        },
+        "RegisterBookRequest": {
+            "type": "object",
+            "required": [
+                "comment",
+                "isbn",
+                "rating"
+            ],
+            "properties": {
+                "comment": {
+                    "type": "string",
+                    "maxLength": 5000,
+                    "example": "分散システムの設計を体系的に学べた"
+                },
+                "isbn": {
+                    "description": "ISBN は13桁または10桁（ハイフン可）。書誌と書影はこれで外部カタログから取得する。",
+                    "type": "string",
+                    "maxLength": 17,
+                    "example": "9784873118703"
+                },
+                "rating": {
+                    "type": "integer",
+                    "maximum": 5,
+                    "minimum": 1,
+                    "example": 5
+                }
+            }
+        },
+        "UpdateBookRequest": {
+            "type": "object",
+            "required": [
+                "comment",
+                "rating",
+                "version"
+            ],
+            "properties": {
+                "comment": {
+                    "type": "string",
+                    "maxLength": 5000,
+                    "example": "読み返して理解が深まった"
+                },
+                "rating": {
+                    "type": "integer",
+                    "maximum": 5,
+                    "minimum": 1,
+                    "example": 5
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "AdminToken": {
+            "description": "登録・更新・削除とカタログの確認に必要。「Bearer \u003cADMIN_TOKEN\u003e」の形式で指定する",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
 }

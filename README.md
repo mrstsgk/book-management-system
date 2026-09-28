@@ -7,7 +7,7 @@
 ## 構成
 
 ```
-backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag）
+backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag。書誌・書影は openBD / 楽天ブックス API）
 frontend/   # React + Vite + TypeScript（pnpm workspace: web, packages/ui）
 docs/       # 方針・ルール・ADR
 ```
@@ -25,6 +25,7 @@ make tools
 make db-up                # PostgreSQL
 make migrate-up
 make run                  # http://localhost:8080/health
+# 書き込み系 API は Authorization: Bearer local-admin-token（ローカルの既定値）。書影を楽天で補う場合は RAKUTEN_APPLICATION_ID / RAKUTEN_ACCESS_KEY を設定（backend/README.md）
 
 # フロントエンド（別ターミナル）
 cd frontend

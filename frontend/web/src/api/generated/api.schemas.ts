@@ -4,3 +4,121 @@
  * Book Management System API
  * OpenAPI spec version: 0.1.0
  */
+export type BookListItemResponseCoverSource = typeof BookListItemResponseCoverSource[keyof typeof BookListItemResponseCoverSource];
+
+
+export const BookListItemResponseCoverSource = {
+  openbd: 'openbd',
+  rakuten: 'rakuten',
+} as const;
+
+export interface BookListItemResponse {
+  amazonUrl?: string;
+  authors?: string;
+  coverSource?: BookListItemResponseCoverSource;
+  coverUrl?: string;
+  id?: number;
+  isbn?: string;
+  rating?: number;
+  title?: string;
+}
+
+export interface BookListResponse {
+  items?: BookListItemResponse[];
+  limit?: number;
+  offset?: number;
+  total?: number;
+}
+
+export type BookResponseCoverSource = typeof BookResponseCoverSource[keyof typeof BookResponseCoverSource];
+
+
+export const BookResponseCoverSource = {
+  openbd: 'openbd',
+  rakuten: 'rakuten',
+} as const;
+
+export interface BookResponse {
+  /** AmazonURL は ISBN から導出する。ISBN-10 の形式が無ければ null。 */
+  amazonUrl?: string;
+  authors?: string;
+  comment?: string;
+  coverSource?: BookResponseCoverSource;
+  /** CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。 */
+  coverUrl?: string;
+  id?: number;
+  isbn?: string;
+  publishedOn?: string;
+  publisher?: string;
+  rating?: number;
+  title?: string;
+  version?: number;
+}
+
+export type CatalogResponseCoverSource = typeof CatalogResponseCoverSource[keyof typeof CatalogResponseCoverSource];
+
+
+export const CatalogResponseCoverSource = {
+  openbd: 'openbd',
+  rakuten: 'rakuten',
+} as const;
+
+export interface CatalogResponse {
+  amazonUrl?: string;
+  authors?: string;
+  coverSource?: CatalogResponseCoverSource;
+  coverUrl?: string;
+  isbn?: string;
+  publishedOn?: string;
+  publisher?: string;
+  title?: string;
+}
+
+export interface FieldError {
+  field?: string;
+  rule?: string;
+}
+
+export interface ErrorResponse {
+  /** Field-level details; only set for request validation errors. */
+  errors?: FieldError[];
+  message?: string;
+}
+
+export interface RegisterBookRequest {
+  /** @maxLength 5000 */
+  comment: string;
+  /**
+     * ISBN は13桁または10桁（ハイフン可）。書誌と書影はこれで外部カタログから取得する。
+     * @maxLength 17
+     */
+  isbn: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating: number;
+}
+
+export interface UpdateBookRequest {
+  /** @maxLength 5000 */
+  comment: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating: number;
+  version: number;
+}
+
+export type GetApiBooksParams = {
+/**
+ * 取得件数（1〜100、既定20）
+ */
+limit?: number;
+/**
+ * 取得開始位置（0以上、既定0）
+ */
+offset?: number;
+};
+
