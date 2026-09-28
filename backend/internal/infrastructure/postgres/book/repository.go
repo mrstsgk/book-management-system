@@ -136,7 +136,7 @@ func insertBookTags(tx *gorm.DB, bookID int64, tagIDs []domaintag.ID) error {
 // findBookTagIDs は bookID に付いているタグIDを返す。
 func findBookTagIDs(ctx context.Context, db *gorm.DB, bookID int64) ([]domaintag.ID, error) {
 	var rows []bookTagModel
-	if err := db.WithContext(ctx).Where("book_id = ?", bookID).Find(&rows).Error; err != nil {
+	if err := db.WithContext(ctx).Where("book_id = ?", bookID).Order("tag_id").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	ids := make([]domaintag.ID, len(rows))

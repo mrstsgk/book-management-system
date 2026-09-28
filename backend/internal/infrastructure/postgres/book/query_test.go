@@ -159,10 +159,9 @@ func TestQuery_Tags(t *testing.T) {
 	db := connectTestDB(t)
 	q := pgbook.NewQuery(db)
 
-	var tagA, tagB, tagC int64
-	db.Raw("INSERT INTO tag (name, version) VALUES ('query-test-タグA', 1) RETURNING id").Scan(&tagA)
-	db.Raw("INSERT INTO tag (name, version) VALUES ('query-test-タグB', 1) RETURNING id").Scan(&tagB)
-	db.Raw("INSERT INTO tag (name, version) VALUES ('query-test-タグC', 1) RETURNING id").Scan(&tagC)
+	tagA := mustCreateTag(t, db, "query-test-タグA")
+	tagB := mustCreateTag(t, db, "query-test-タグB")
+	tagC := mustCreateTag(t, db, "query-test-タグC")
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'query-test-%'") })
 
 	tagged := newBook(t, "9780000002440", "タグ付きの本", nil, 4, domaintag.ID(tagA), domaintag.ID(tagB))

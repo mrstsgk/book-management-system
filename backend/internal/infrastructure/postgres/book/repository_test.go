@@ -252,9 +252,8 @@ func TestRepository_Tags(t *testing.T) {
 	repo := pgbook.NewRepository(db)
 
 	// テスト用のタグを2つ作る
-	var tagA, tagB int64
-	db.Raw("INSERT INTO tag (name, version) VALUES ('repo-test-タグA', 1) RETURNING id").Scan(&tagA)
-	db.Raw("INSERT INTO tag (name, version) VALUES ('repo-test-タグB', 1) RETURNING id").Scan(&tagB)
+	tagA := mustCreateTag(t, db, "repo-test-タグA")
+	tagB := mustCreateTag(t, db, "repo-test-タグB")
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'repo-test-%'") })
 
 	t.Run("タグ付きで作成して読み込める", func(t *testing.T) {
@@ -295,8 +294,7 @@ func TestRepository_Tags(t *testing.T) {
 	})
 
 	t.Run("タグを削除すると本から自動で外れる", func(t *testing.T) {
-		var soloTag int64
-		db.Raw("INSERT INTO tag (name, version) VALUES ('repo-test-単独', 1) RETURNING id").Scan(&soloTag)
+		soloTag := mustCreateTag(t, db, "repo-test-単独")
 		b := newBook(t, "9780000002433", "カタログの書名", nil, 4, domaintag.ID(soloTag))
 		createBook(t, db, b)
 
@@ -330,6 +328,21 @@ func TestRepository_Tags(t *testing.T) {
 		}
 		if ids := got.Tags.IDs(); len(ids) != 0 {
 			t.Fatalf("Tags = %v, want empty after clearing", ids)
+		}
+	})
+
+	t.Run("タグの並び順はIDの昇順で安定している", func(t *testing.T) {
+		// 付ける順を逆（tagB, tagA）にしても、読み込みはID昇順で返す。
+		b := newBook(t, "9780000002488", "カタログの書名", nil, 4, domaintag.ID(tagB), domaintag.ID(tagA))
+		createBook(t, db, b)
+
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		want := []domaintag.ID{domaintag.ID(tagA), domaintag.ID(tagB)}
+		if ids := got.Tags.IDs(); len(ids) != 2 || ids[0] != want[0] || ids[1] != want[1] {
+			t.Fatalf("Tags = %v, want %v (ID昇順)", ids, want)
 		}
 	})
 }
