@@ -125,7 +125,7 @@ func (h *Handler) List(c echo.Context) error {
 	if req.Offset != nil {
 		offset = *req.Offset
 	}
-	out, err := h.ListUC.Execute(c.Request().Context(), limit, offset)
+	out, err := h.ListUC.Execute(c.Request().Context(), bookqry.ListInput{Limit: limit, Offset: offset})
 	if err != nil {
 		return err
 	}

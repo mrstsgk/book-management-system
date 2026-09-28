@@ -18,6 +18,7 @@ import (
 	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
+	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
 )
 
 const adminToken = "test-admin-token"
@@ -44,10 +45,10 @@ func (f fakeGet) Execute(ctx context.Context, id int64) (*domainbook.BookDetail,
 	return f(ctx, id)
 }
 
-type fakeList func(context.Context, int, int) (*domainbook.BookList, error)
+type fakeList func(context.Context, bookqry.ListInput) (*domainbook.BookList, error)
 
-func (f fakeList) Execute(ctx context.Context, limit, offset int) (*domainbook.BookList, error) {
-	return f(ctx, limit, offset)
+func (f fakeList) Execute(ctx context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+	return f(ctx, in)
 }
 
 // serve は cmd/api/main.go と同じ形（NewEcho + Register）でハンドラを組み立ててリクエストを流す。
@@ -115,8 +116,8 @@ func TestHandlerList(t *testing.T) {
 	} {
 		t.Run(tt.name+"で誰でも取得できる", func(t *testing.T) {
 			var gotLimit, gotOffset int
-			h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, limit, offset int) (*domainbook.BookList, error) {
-				gotLimit, gotOffset = limit, offset
+			h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+				gotLimit, gotOffset = in.Limit, in.Offset
 				return list, nil
 			})}
 			rec := serve(t, h, http.MethodGet, "/api/books"+tt.query, "", false)
@@ -138,7 +139,7 @@ func TestHandlerList(t *testing.T) {
 	}
 
 	t.Run("0件は空配列", func(t *testing.T) {
-		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, int, int) (*domainbook.BookList, error) {
+		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) {
 			return &domainbook.BookList{}, nil
 		})}
 		rec := serve(t, h, http.MethodGet, "/api/books", "", false)
@@ -149,7 +150,7 @@ func TestHandlerList(t *testing.T) {
 
 	t.Run("limit上限+1は400", func(t *testing.T) {
 		called := mustNotCall(t)
-		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, int, int) (*domainbook.BookList, error) { called(); return nil, nil })}
+		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) { called(); return nil, nil })}
 		rec := serve(t, h, http.MethodGet, "/api/books?limit=101", "", false)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want 400", rec.Code)
