@@ -11,6 +11,9 @@ import (
 // fakeTagQuery は tag.Query の手書き Fake。
 type fakeTagQuery struct {
 	list *tag.TagList
+
+	counts    *tag.TagBookCounts
+	countsErr error
 }
 
 func (f *fakeTagQuery) FindList(context.Context) (*tag.TagList, error) {
@@ -19,6 +22,10 @@ func (f *fakeTagQuery) FindList(context.Context) (*tag.TagList, error) {
 
 func (f *fakeTagQuery) ExistsAll(context.Context, []tag.ID) (bool, error) {
 	return true, nil
+}
+
+func (f *fakeTagQuery) CountBooks(context.Context) (*tag.TagBookCounts, error) {
+	return f.counts, f.countsErr
 }
 
 func TestListUsecase_Execute(t *testing.T) {

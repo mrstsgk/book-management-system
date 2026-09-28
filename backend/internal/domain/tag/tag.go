@@ -47,10 +47,24 @@ type TagList struct {
 	Items []*TagListItem
 }
 
+// TagBookCount は分野別の集計の1行分の Read Model（公開画面向け。管理画面の TagListItem とは目的が違うため分ける）。
+type TagBookCount struct {
+	ID        ID
+	Name      string
+	BookCount int
+}
+
+// TagBookCounts は分野別の集計全体。本が付いていないタグは含めない。
+type TagBookCounts struct {
+	Items []*TagBookCount
+}
+
 // Query はタグの参照系ポート。
 type Query interface {
 	// FindList は全件を返す。
 	FindList(ctx context.Context) (*TagList, error)
 	// ExistsAll は ids がすべて実在するかを返す（本の登録・更新時の入力検証に使う）。
 	ExistsAll(ctx context.Context, ids []ID) (bool, error)
+	// CountBooks はタグごとの冊数を、冊数の多い順（同数ならタグ名順）に返す。
+	CountBooks(ctx context.Context) (*TagBookCounts, error)
 }

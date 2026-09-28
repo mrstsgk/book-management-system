@@ -52,6 +52,7 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 		"DELETE /api/books/:id",
 		"GET /api/catalog/:isbn",
 		"GET /api/tags",
+		"GET /api/tags/counts",
 		"POST /api/tags",
 		"PUT /api/tags/:id",
 		"DELETE /api/tags/:id",

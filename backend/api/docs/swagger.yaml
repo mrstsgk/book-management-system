@@ -228,6 +228,25 @@ definitions:
     - name
     - version
     type: object
+  TagBookCountListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/TagBookCountResponse'
+        type: array
+    type: object
+  TagBookCountResponse:
+    properties:
+      bookCount:
+        example: 3
+        type: integer
+      id:
+        example: 1
+        type: integer
+      name:
+        example: データベース
+        type: string
+    type: object
   TagListResponse:
     properties:
       items:
@@ -641,6 +660,23 @@ paths:
       security:
       - AdminToken: []
       summary: 分野タグの名前を変更する（自分だけ）
+      tags:
+      - tags
+  /api/tags/counts:
+    get:
+      description: 本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TagBookCountListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: 分野タグごとの冊数を取得する
       tags:
       - tags
 securityDefinitions:

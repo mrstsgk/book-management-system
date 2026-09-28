@@ -131,6 +131,16 @@ export interface RenameTagRequest {
   version: number;
 }
 
+export interface TagBookCountResponse {
+  bookCount?: number;
+  id?: number;
+  name?: string;
+}
+
+export interface TagBookCountListResponse {
+  items?: TagBookCountResponse[];
+}
+
 export interface TagResponse {
   id?: number;
   name?: string;
