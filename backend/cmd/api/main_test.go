@@ -122,18 +122,16 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 	}
 }
 
-// blockingRefresh は Execute のたびに呼ばれたことを知らせ、release が閉じられるまで返らない。
+// blockingRefresh は Execute のたびに呼ばれたことを知らせ、release が閉じられるまで返らない
+// （ctx がキャンセルされても、外部カタログの応答待ちのように実行中の1回はすぐには終わらないことを模す）。
 type blockingRefresh struct {
 	calls   chan struct{}
 	release chan struct{}
 }
 
-func (f *blockingRefresh) Execute(ctx context.Context) error {
+func (f *blockingRefresh) Execute(_ context.Context) error {
 	f.calls <- struct{}{}
-	select {
-	case <-f.release:
-	case <-ctx.Done():
-	}
+	<-f.release
 	return nil
 }
 
@@ -142,6 +140,7 @@ func TestStartRakutenRefresh(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		uc := &blockingRefresh{calls: make(chan struct{}, 10), release: make(chan struct{})}
+		defer close(uc.release) // 実行中のままリークさせない
 
 		returned := make(chan struct{})
 		go func() {
@@ -182,6 +181,33 @@ func TestStartRakutenRefresh(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 		if n := len(uc.calls); n != 0 {
 			t.Fatalf("refresh ran %d times after cancel, want it stopped", n)
+		}
+	})
+
+	t.Run("実行中にキャンセルしても、その回が終わるまで完了を知らせない", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		uc := &blockingRefresh{calls: make(chan struct{}, 10), release: make(chan struct{})}
+
+		done := startRakutenRefresh(ctx, uc, time.Hour)
+		select {
+		case <-uc.calls:
+		case <-time.After(time.Second):
+			t.Fatal("refresh was not run at startup")
+		}
+		cancel()
+
+		select {
+		case <-done:
+			t.Fatal("done closed before the in-flight refresh returned; DB close could race with it")
+		case <-time.After(50 * time.Millisecond):
+		}
+
+		close(uc.release) // 実行中の1回を終わらせる
+
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("done was not closed after the in-flight refresh returned")
 		}
 	})
 }
