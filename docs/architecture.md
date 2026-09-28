@@ -11,6 +11,8 @@
 
 | 文書 | 管轄（重複しない） |
 |---|---|
+| [`requirements.md`](./requirements.md) | 要求定義（誰に何を伝えるために作るか） |
+| [`specifications.md`](./specifications.md) | 要件定義（システムと開発の進め方が満たすこと） |
 | **本書** | リポジトリ全体・トップレベル構成・契約の**境界** |
 | [`backend/architecture.md`](../backend/architecture.md) | バックエンドのスタック・層・HTTP/OpenAPI・ディレクトリ・永続化 |
 | [`frontend/architecture.md`](../frontend/architecture.md) | フロントのスタック・設計パターン・アプリ内ディレクトリ・共有ルール |
