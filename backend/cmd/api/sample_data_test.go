@@ -66,7 +66,7 @@ func (f *fakeSeedQuery) FindDetailByID(context.Context, domainbook.ID) (*domainb
 	return nil, common.ErrNotFound
 }
 
-func (f *fakeSeedQuery) FindList(context.Context, common.ListRange) (*domainbook.BookList, error) {
+func (f *fakeSeedQuery) FindList(context.Context, domainbook.ListCondition, common.ListRange) (*domainbook.BookList, error) {
 	if f.err != nil {
 		return nil, f.err
 	}

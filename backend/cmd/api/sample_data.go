@@ -100,7 +100,7 @@ func seedIfEmpty(ctx context.Context, books domainbook.Repository, query domainb
 	if err != nil {
 		return err
 	}
-	list, err := query.FindList(ctx, r)
+	list, err := query.FindList(ctx, domainbook.ListCondition{}, r)
 	if err != nil {
 		return err
 	}
