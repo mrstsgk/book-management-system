@@ -20,7 +20,7 @@
           ]
         },
         { "name": "cover_product_url", "type": "VARCHAR(2048)", "nullable": true, "description": "楽天の商品ページの URL（楽天の書影のときだけ。楽天の規約上、書影と一緒にリンクする）。それ以外は NULL（CHECK制約あり）" },
-        { "name": "cover_fetched_at", "type": "TIMESTAMPTZ", "nullable": true, "description": "楽天の書影・商品ページを取得した日時（保持期限90日の起点。期限を過ぎた楽天の書影は API が返さない）。楽天の書影のときだけ。それ以外は NULL（CHECK制約あり）" },
+        { "name": "cover_fetched_at", "type": "TIMESTAMPTZ", "nullable": true, "description": "楽天の書影・商品ページを取得した日時（保持期限89日の起点。期限を過ぎた楽天の書影は API が返さない）。楽天の書影のときだけ。それ以外は NULL（CHECK制約あり）" },
         { "name": "rakuten_disabled", "type": "BOOLEAN", "nullable": false, "default": "FALSE", "description": "楽天から削除の指示を受けた本なら TRUE。以後この本には楽天の書影を付けない（取り直しでも付かない）" },
         { "name": "comment", "type": "TEXT", "nullable": false, "description": "自分が書いた感想。前後の空白を除いた1〜5000文字。改行・タブは可（アプリ側で保証）" },
         { "name": "rating", "type": "SMALLINT", "nullable": false, "description": "自分が付けた評価（1〜5、CHECK制約あり）" },
@@ -35,7 +35,7 @@
         "ck_book_rating CHECK (rating BETWEEN 1 AND 5)",
         "ck_book_cover_source CHECK (cover_source IN ('openbd', 'rakuten'))",
         "ck_book_cover_pair CHECK ((cover_url IS NULL) = (cover_source IS NULL))",
-        "ck_book_rakuten_cover CHECK ((cover_source IS NOT DISTINCT FROM 'rakuten') = (cover_product_url IS NOT NULL AND cover_fetched_at IS NOT NULL))"
+        "ck_book_rakuten_cover CHECK ((cover_source = 'rakuten' AND cover_product_url IS NOT NULL AND cover_fetched_at IS NOT NULL) OR (cover_source IS DISTINCT FROM 'rakuten' AND cover_product_url IS NULL AND cover_fetched_at IS NULL))"
       ]
     },
     "tag": {

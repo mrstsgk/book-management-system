@@ -104,10 +104,10 @@ func TestCover_ExpiryAndRefresh(t *testing.T) {
 		wantExpired      bool
 		wantNeedsRefresh bool
 	}{
-		{name: "楽天で取得から83日の直前は取り直さない", cover: rakuten, now: fetched.Add(83*day - time.Nanosecond)},
-		{name: "楽天で取得から83日ちょうどは取り直す", cover: rakuten, now: fetched.Add(83 * day), wantNeedsRefresh: true},
-		{name: "楽天で取得から90日の直前はまだ期限内", cover: rakuten, now: fetched.Add(90*day - time.Nanosecond), wantNeedsRefresh: true},
-		{name: "楽天で取得から90日ちょうどは期限切れ", cover: rakuten, now: fetched.Add(90 * day), wantExpired: true, wantNeedsRefresh: true},
+		{name: "楽天で取得から82日の直前は取り直さない", cover: rakuten, now: fetched.Add(82*day - time.Nanosecond)},
+		{name: "楽天で取得から82日ちょうどは取り直す", cover: rakuten, now: fetched.Add(82 * day), wantNeedsRefresh: true},
+		{name: "楽天で取得から89日の直前はまだ期限内", cover: rakuten, now: fetched.Add(89*day - time.Nanosecond), wantNeedsRefresh: true},
+		{name: "楽天で取得から89日ちょうどは期限切れ", cover: rakuten, now: fetched.Add(89 * day), wantExpired: true, wantNeedsRefresh: true},
 		{name: "openBDは10年たっても期限切れにも取り直しにもならない", cover: openbd, now: fetched.Add(3650 * day)},
 	}
 	for _, tt := range tests {
