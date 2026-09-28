@@ -38,7 +38,7 @@ make swagger
 
 ## 環境変数（DB 以外）
 
-| 環境変数 | 既定値（local） | 内容 |
+| 環境変数 | 既定値 | 内容 |
 |---|---|---|
 | `ADMIN_TOKEN` | `local-admin-token` | 書き込み系 API のトークン（既定値は開発用） |
 | `OPENBD_BASE_URL` | `https://api.openbd.jp` | openBD（登録・キー不要） |
