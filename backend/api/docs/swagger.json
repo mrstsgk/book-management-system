@@ -439,6 +439,32 @@
                 }
             }
         },
+        "/api/tags/counts": {
+            "get": {
+                "description": "本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tags"
+                ],
+                "summary": "分野タグごとの冊数を取得する",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TagBookCountListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/tags/{id}": {
             "put": {
                 "security": [
@@ -874,6 +900,34 @@
                 "version": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "TagBookCountListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/TagBookCountResponse"
+                    }
+                }
+            }
+        },
+        "TagBookCountResponse": {
+            "type": "object",
+            "properties": {
+                "bookCount": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "データベース"
                 }
             }
         },

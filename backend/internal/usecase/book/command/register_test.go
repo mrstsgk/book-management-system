@@ -100,6 +100,8 @@ type fakeTagQuery struct {
 
 func (f *fakeTagQuery) FindList(context.Context) (*tag.TagList, error) { return nil, nil }
 
+func (f *fakeTagQuery) CountBooks(context.Context) (*tag.TagBookCounts, error) { return nil, nil }
+
 func (f *fakeTagQuery) ExistsAll(_ context.Context, ids []tag.ID) (bool, error) {
 	f.gotIDs = ids
 	return f.exists, f.existsErr

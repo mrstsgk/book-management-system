@@ -12,6 +12,7 @@ import type {
   BookListResponse,
   BookResponse,
   CatalogResponse,
+  TagBookCountListResponse,
   TagListResponse,
   TagResponse
 } from './api.schemas';
@@ -32,4 +33,6 @@ export const getGetApiTagsResponseMock = (overrideResponse: Partial<Extract<TagL
 export const getPostApiTagsResponseMock = (overrideResponse: Partial<Extract<TagResponse, object>> = {}): TagResponse => ({id: faker.helpers.arrayElement([faker.number.int(), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), version: faker.helpers.arrayElement([faker.number.int(), undefined]), ...overrideResponse})
 
 export const getPutApiTagsIdResponseMock = (overrideResponse: Partial<Extract<TagResponse, object>> = {}): TagResponse => ({id: faker.helpers.arrayElement([faker.number.int(), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), version: faker.helpers.arrayElement([faker.number.int(), undefined]), ...overrideResponse})
+
+export const getGetApiTagsCountsResponseMock = (overrideResponse: Partial<Extract<TagBookCountListResponse, object>> = {}): TagBookCountListResponse => ({items: faker.helpers.arrayElement([Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({bookCount: faker.helpers.arrayElement([faker.number.int(), undefined]), id: faker.helpers.arrayElement([faker.number.int(), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined])})), undefined]), ...overrideResponse})
 
