@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 書名の上書き: 1〜255 文字、前後の空白を除く、タブ・改行などの制御文字は不可（トリム前に検査）。空文字の入力は「上書きなし」
+- 書名の上書き: 1〜255 文字、前後の空白を除く、タブ・改行などの制御文字は不可（トリム前に検査）。前後の空白を除いて空なら「上書きなし」（エラーにしない）
 - 一言まとめ: 1〜100 文字、前後の空白を除く、改行を含む制御文字は不可、必須
 - 外部カタログを取り直しても書名の上書きは消さない
 - PUT は全体の置き換え。`titleOverride` を省略・空にすると上書きを外す
@@ -25,11 +25,10 @@
 
 ## Review Focus
 
-1. 書名の上書きに空白だけ（`"　 "`）を送る → 上書きなしではなく 400（空文字 `""` だけが「上書きなし」）。Task 4 の Handler テストと Task 1 の `NewTitle` のテストで固定する
-2. 更新で `titleOverride` を送らない → 既存の上書きが外れる（PUT の置き換え）。Task 4 のユースケースのテストで固定する
-3. 更新で外部カタログが別の書名を返す → 上書きがあれば表示する書名は上書きのまま。Task 4 のユースケースと Query のテストで固定する
-4. 一言まとめに改行を含める → 400（感想は改行可なので取り違えやすい）。Task 2 のテストで固定する
-5. 既存の行の `summary` が空文字 → 読み込みでエラーになる（壊れたデータを Domain に入れない）。Task 3 の Repository 契約テストで固定する
+1. 更新で `titleOverride` を送らない → 既存の上書きが外れる（PUT の置き換え）。サイクル 5 のテストで固定する
+2. 更新で外部カタログが別の書名を返す → 上書きがあれば表示する書名は上書きのまま。サイクル 1・5 のテストで固定する
+3. 一言まとめに改行を含める → 400（感想は改行可なので取り違えやすい）。Task 2 のテストで固定する
+4. 書名の上書きに空白だけを送る → エラーにせず上書きなし。サイクル 4 のテストで固定する
 
 ## PR の分け方（設計書 §8 からの変更）
 
@@ -42,15 +41,14 @@
 
 ---
 
-### Task 1: `Title` VO を足し、`Bibliography` の書名を `Title` で持つ（PR 1）
+### Task 1: `Title` VO を足す（PR 1）
 
 **Files:**
 - Create: `backend/internal/domain/book/title.go`
 - Create: `backend/internal/domain/book/title_test.go`
-- Modify: `backend/internal/domain/book/bibliography.go`
 
 **Interfaces:**
-- Produces: `func NewTitle(raw string) (Title, error)`、`func (t Title) String() string`。`Bibliography.Title()` は今どおり `string` を返す
+- Produces: `func NewTitle(raw string) (Title, error)`、`func (t Title) String() string`（検証は `bibliography.go` の `text` と `titleMaxLength` を使う。`Bibliography` は変えない）
 
 - [ ] **Step 1: 失敗するテストを書く**（`title_test.go`）
 
@@ -115,7 +113,7 @@ Expected: FAIL（`undefined: book.NewTitle`）
 ```go
 package book
 
-// Title は書名の VO。外部カタログの書名と、自分で上書きした書名の両方に使う（同じ規則なので1か所にする）。
+// Title は自分で上書きする書名の VO。規則は外部カタログの書名（Bibliography）と同じなので、同じ検証を使う。
 type Title struct {
 	value string
 }
@@ -134,38 +132,16 @@ func (t Title) String() string {
 }
 ```
 
-`bibliography.go` を次のように変える（`text` と `titleMaxLength` はこのファイルに残す）。
-
-```go
-type Bibliography struct {
-	title       Title
-	authors     string
-	publisher   string
-	publishedOn string
-}
-
-func NewBibliography(title, authors, publisher, publishedOn string) (Bibliography, error) {
-	t, err := NewTitle(title)
-	if err != nil {
-		return Bibliography{}, err
-	}
-	// （著者・出版社・発売日は今のまま）
-	return Bibliography{title: t, authors: a, publisher: p, publishedOn: d}, nil
-}
-
-func (b Bibliography) Title() string { return b.title.String() }
-```
-
 - [ ] **Step 4: 通ることを確かめる**
 
 Run: `cd backend && go test ./internal/domain/book/ && go build ./...`
-Expected: PASS（`TestNewBibliography` も今のまま通る）
+Expected: PASS
 
 - [ ] **Step 5: コミット**
 
 ```bash
-git add backend/internal/domain/book/title.go backend/internal/domain/book/title_test.go backend/internal/domain/book/bibliography.go
-git commit -m "feat: 書名のVOを追加し、書誌の書名も同じ規則で持つ"
+git add backend/internal/domain/book/title.go backend/internal/domain/book/title_test.go
+git commit -m "feat: 書名の上書きに使う書名のVOを追加"
 ```
 
 ### Task 2: `Summary` VO を足す（PR 1）
@@ -343,7 +319,7 @@ git commit -m "feat: 読んだ本に書名の上書きと一言まとめの列�
 | 1 | Domain: 一言まとめを持ち、書名を上書き・外せ、取り直しても上書きが残る |
 | 足場 | 呼び出し側をビルドが通る形にする（新しい振る舞いは足さない） |
 | 2 | Repository: 一言まとめと上書きを保存して読める。上書きを外すと NULL |
-| 3 | Query: 表示する書名は上書き優先。詳細はカタログの書名と上書きも返す |
+| 3 | Query: 表示する書名は上書き優先。詳細は上書きも返す |
 | 4 | 登録: 一言まとめと上書きを付けて登録し、不正ならカタログも保存も呼ばない |
 | 5 | 更新: 一言まとめと上書きを差し替え、空なら上書きを外し、取り直しても上書きは残る |
 | 6 | Handler: 入力を Command に渡し、欠落・上限超えを 400 にし、応答に新しい項目を載せる |
@@ -361,10 +337,10 @@ git commit -m "feat: 読んだ本に書名の上書きと一言まとめの列�
   - `func (b *Book) ChangeReview(summary Summary, comment Comment, rating Rating, version int)`
   - `func (b *Book) OverrideTitle(title *Title)`
   - `Book.TitleOverride *Title`、`Book.Summary Summary`
-  - `BookDetail` に `CatalogTitle string`・`TitleOverride *string`・`Summary string`、`BookListItem` に `Summary string`（`Title` はどちらも表示する書名）
+  - `BookDetail` に `TitleOverride *string`・`Summary string`、`BookListItem` に `Summary string`（`Title` はどちらも表示する書名）
   - `RegisterCommand`・`UpdateCommand` に `Summary string`・`TitleOverride string`
   - `RegisterRequest`・`UpdateRequest` に `Summary string`（`required,max=100`）・`TitleOverride string`（`max=255`）
-  - `Response` に `Summary`・`CatalogTitle`・`TitleOverride *string`、`ListItemResponse` に `Summary`
+  - `Response` に `Summary`・`TitleOverride *string`、`ListItemResponse` に `Summary`
 
 #### サイクル 1: Domain
 
@@ -479,9 +455,7 @@ type BookDetail struct {
 	ISBN string
 	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
 	Title string
-	// CatalogTitle は外部カタログの書名。管理画面の編集で上書きと並べて見せるために返す。
-	CatalogTitle string
-	// TitleOverride は自分で上書きした書名。上書きしていなければ nil。
+	// TitleOverride は自分で上書きした書名。上書きしていなければ nil（編集画面が今の上書きを送り直すのに使う）。
 	TitleOverride *string
 	Summary       string
 	// （Authors 以降は今のまま）
@@ -560,23 +534,13 @@ func TestRepository_TitleOverrideAndSummary(t *testing.T) {
 			t.Fatalf("title_override = %q, want NULL", *override)
 		}
 	})
-
-	t.Run("一言まとめが空の行は読み込みでエラーになる", func(t *testing.T) {
-		b := newBook(t, "9780000000103", "カタログの書名", nil, 4)
-		createBook(t, db, b)
-		db.Exec("UPDATE book SET summary = '' WHERE id = ?", int64(b.ID))
-
-		if _, err := repo.FindByID(context.Background(), b.ID); !errors.Is(err, domaincommon.ErrInvalid) {
-			t.Fatalf("err = %v, want ErrInvalid for a corrupted row", err)
-		}
-	})
 }
 ```
 
 - [ ] **Step 8: 失敗を見る**
 
 Run: `cd backend && make migrate-up && go test ./internal/infrastructure/postgres/book/ -run TestRepository_TitleOverrideAndSummary -v`
-Expected: 「保存して読み込める」が FAIL（`toModel` が一言まとめを書かないので空文字が入り、読み込みが ErrInvalid になる）。「上書きを外すと NULL」と「空の行はエラー」はこの時点で PASS してよい（前者は上書きをまだ書かないため、後者は足場の `adapt` が検証するため。どちらも以後の変更で壊れないことを守るテスト）。SKIP になっていないこと
+Expected: 「保存して読み込める」が FAIL（`toModel` が一言まとめを書かないので空文字が入り、読み込みが ErrInvalid になる）。「上書きを外すと NULL」はこの時点で PASS してよい（上書きをまだ書かないため。実装後に Update が NULL を書くことを守るテスト）。SKIP になっていないこと
 
 - [ ] **Step 9: 最小の実装**
 
@@ -632,13 +596,13 @@ func TestQuery_DisplayTitle(t *testing.T) {
 	plain := newBook(t, "9780000000202", "上書きなしの書名", nil, 4)
 	createBook(t, db, plain)
 
-	t.Run("詳細は上書きを優先し、カタログの書名と上書きも別に返す", func(t *testing.T) {
+	t.Run("詳細は上書きを優先し、上書きも返す", func(t *testing.T) {
 		got, err := q.FindDetailByID(context.Background(), overridden.ID)
 		if err != nil {
 			t.Fatalf("FindDetailByID: %v", err)
 		}
-		if got.Title != "正しい書名" || got.CatalogTitle != "カタログの書名" || got.TitleOverride == nil || *got.TitleOverride != "正しい書名" || got.Summary != "一言まとめ" {
-			t.Fatalf("got title=%q catalog=%q override=%v summary=%q", got.Title, got.CatalogTitle, got.TitleOverride, got.Summary)
+		if got.Title != "正しい書名" || got.TitleOverride == nil || *got.TitleOverride != "正しい書名" || got.Summary != "一言まとめ" {
+			t.Fatalf("got title=%q override=%v summary=%q", got.Title, got.TitleOverride, got.Summary)
 		}
 	})
 
@@ -647,8 +611,8 @@ func TestQuery_DisplayTitle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("FindDetailByID: %v", err)
 		}
-		if got.Title != "上書きなしの書名" || got.CatalogTitle != "上書きなしの書名" || got.TitleOverride != nil {
-			t.Fatalf("got title=%q catalog=%q override=%v", got.Title, got.CatalogTitle, got.TitleOverride)
+		if got.Title != "上書きなしの書名" || got.TitleOverride != nil {
+			t.Fatalf("got title=%q override=%v", got.Title, got.TitleOverride)
 		}
 	})
 
@@ -672,7 +636,7 @@ func TestQuery_DisplayTitle(t *testing.T) {
 }
 ```
 
-既存の Query テストの Read Model の型検査（`Title` が `string` であること）に `Summary`・`CatalogTitle`・`TitleOverride` の型も足す。
+既存の Query テストの Read Model の型検査（`Title` が `string` であること）に `Summary`・`TitleOverride` の型も足す。
 
 - [ ] **Step 12: 失敗を見る**
 
@@ -693,9 +657,8 @@ func displayTitle(override *string, catalogTitle string) string {
 }
 ```
 
-詳細は `Title: displayTitle(row.TitleOverride, row.Title), CatalogTitle: row.Title, TitleOverride: row.TitleOverride, Summary: row.Summary` を足す。一覧は `Select` に `title_override, summary` を足し、`Title: displayTitle(row.TitleOverride, row.Title), Summary: row.Summary` にする。
+詳細は `Title: displayTitle(row.TitleOverride, row.Title), TitleOverride: row.TitleOverride, Summary: row.Summary` を足す。一覧は `Select` に `title_override, summary` を足し、`Title: displayTitle(row.TitleOverride, row.Title), Summary: row.Summary` にする。
 
-設計書 §3 の「SQL の `COALESCE` で決める」を「Query の `displayTitle` で決める（詳細では上書きとカタログの書名を別にも返すため、Go で1か所にまとめる）」に直す。
 
 - [ ] **Step 14: 通ることを見る**
 
@@ -708,8 +671,9 @@ Expected: PASS
 
 - `valid := command.RegisterCommand{ISBN: "4873118700", Summary: "分散データの設計を学べる", Comment: "良書", Rating: 5}`
 - 正常系の検査に `c.Summary.String() != "分散データの設計を学べる"` と `c.TitleOverride != nil` を足す
-- `invalid` に足す: `{name: "空の一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: " ", Comment: "良書", Rating: 5}}`、`{name: "改行を含む一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "a\nb", Comment: "良書", Rating: 5}}`、`{name: "256文字の書名の上書き", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TitleOverride: strings.Repeat("あ", 256), Comment: "良書", Rating: 5}}`、`{name: "空白だけの書名の上書き", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TitleOverride: "　", Comment: "良書", Rating: 5}}`。既存の3件にも `Summary: "要約"` を足す
+- `invalid` に足す: `{name: "空の一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: " ", Comment: "良書", Rating: 5}}`、`{name: "改行を含む一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "a\nb", Comment: "良書", Rating: 5}}`、`{name: "256文字の書名の上書き", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TitleOverride: strings.Repeat("あ", 256), Comment: "良書", Rating: 5}}`。既存の3件にも `Summary: "要約"` を足す
 - 追加: 「書名の上書きを指定すると付けて登録する」（`TitleOverride: "正しい書名"` → `books.created.TitleOverride.String() == "正しい書名"`）
+- 追加: 「空白だけの書名の上書きはエラーにせず上書きなしで登録する」（`TitleOverride: "　"` → エラーなし、`books.created.TitleOverride == nil`）
 
 - [ ] **Step 16: 失敗を見る**
 
@@ -722,7 +686,7 @@ Expected: FAIL（`unknown field Summary in struct literal` の後、フィール
 
 ```go
 	Summary string
-	// TitleOverride は自分で上書きする書名。空文字なら上書きしない（更新では上書きを外す）。
+	// TitleOverride は自分で上書きする書名。前後の空白を除いて空なら上書きしない（更新では上書きを外す）。
 	TitleOverride string
 ```
 
@@ -731,12 +695,15 @@ Expected: FAIL（`unknown field Summary in struct literal` の後、フィール
 ```go
 package command
 
-import "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
+import (
+	"strings"
 
-// parseTitleOverride は書名の上書きの入力を解釈する。空文字は「上書きしない」、それ以外は書名の規則で検証する
-// （空白だけは空文字と区別して不正な入力にする）。
+	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
+)
+
+// parseTitleOverride は書名の上書きの入力を解釈する。前後の空白を除いて空なら「上書きしない」、それ以外は書名の規則で検証する。
 func parseTitleOverride(raw string) (*book.Title, error) {
-	if raw == "" {
+	if strings.TrimSpace(raw) == "" {
 		return nil, nil
 	}
 	t, err := book.NewTitle(raw)
@@ -782,7 +749,7 @@ Expected: PASS
 
 - [ ] **Step 23: 失敗するテストを書く**
 
-`detail`・`detailResponse` に `CatalogTitle: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる"` を足す。一覧の項目にも `Summary` を足す。登録・更新のリクエストの JSON に `"summary":"分散データの設計を学べる"` を足し、Command に `Summary` と `TitleOverride` が渡ることを確かめる。次のケースを足す（既存の 400 のテーブルに入れる）。
+`detail`・`detailResponse` に `Summary: "分散データの設計を学べる"` を足す。一覧の項目にも `Summary` を足す。登録・更新のリクエストの JSON に `"summary":"分散データの設計を学べる"` を足し、Command に `Summary` と `TitleOverride` が渡ることを確かめる。次のケースを足す（既存の 400 のテーブルに入れる）。
 
 | ケース | リクエスト | 期待 |
 |---|---|---|
@@ -802,7 +769,7 @@ Expected: FAIL（`summary` が無くても 400 にならない、Command に `Su
 type RegisterRequest struct {
 	ISBN    string `json:"isbn" validate:"required,max=17" example:"9784873118703"`
 	Summary string `json:"summary" validate:"required,max=100" example:"分散データの設計を体系的に学べる"`
-	// TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空なら上書きしない。
+	// TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
 	TitleOverride string `json:"titleOverride" validate:"max=255" example:""`
 	Comment       string `json:"comment" validate:"required,max=5000" example:"分散システムの設計を体系的に学べた"`
 	Rating        *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
@@ -810,7 +777,7 @@ type RegisterRequest struct {
 
 type UpdateRequest struct {
 	Summary string `json:"summary" validate:"required,max=100" example:"読み返して理解が深まった"`
-	// TitleOverride は全体の置き換えなので、省略・空なら上書きを外す。
+	// TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
 	TitleOverride string `json:"titleOverride" validate:"max=255" example:""`
 	Comment       string `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
 	Rating        *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
@@ -823,8 +790,6 @@ type UpdateRequest struct {
 ```go
 	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
 	Title string `json:"title" example:"データ指向アプリケーションデザイン"`
-	// CatalogTitle は外部カタログの書名。
-	CatalogTitle string `json:"catalogTitle" example:"データ指向アプリケーションデザイン"`
 	// TitleOverride は自分で上書きした書名。上書きしていなければ null。
 	TitleOverride *string `json:"titleOverride" example:"徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版"`
 	Summary       string  `json:"summary" example:"分散データの設計を体系的に学べる"`
@@ -856,12 +821,12 @@ git commit -m "feat: 書名の上書きと一言まとめを登録・更新で�
 **Files:**
 - Modify: `backend/api/docs/swagger.json`、`swagger.yaml`（生成）
 - Modify: `frontend/web/src/api/generated/*`（生成）
-- Modify: `backend/architecture.md`（プロダクト API 範囲の表）、`backend/README.md`（curl の例）、`docs/superpowers/specs/2026-09-28-reading-api-design.md`（§1.1 の `Book` の項目と操作に一言まとめ・書名の上書きを足す）
+- Modify: `backend/architecture.md`（プロダクト API 範囲の表）、`backend/README.md`（curl の例）
 
 - [ ] **Step 1: 再生成する**
 
 Run: `cd backend && make swagger && cd ../frontend && pnpm gen:api`
-Expected: `swagger.yaml` に `summary`・`titleOverride`・`catalogTitle` が出る
+Expected: `swagger.yaml` に `summary`・`titleOverride` が出る
 
 - [ ] **Step 2: フロントの検査を通す**
 
@@ -872,7 +837,6 @@ Expected: PASS
 
 - `backend/architecture.md` の `POST /api/books` の用途を「読んだ本を登録する（`isbn`・`summary`・`comment`・`rating`、任意で `titleOverride`。…）」に、`PUT /api/books/{id}` を「一言まとめ・感想・評価・書名の上書きを更新する（楽観的ロック。書誌と書影を取り直す）」にする
 - `backend/README.md` の curl の例の JSON に `"summary":"要約"` を足す
-- 既存機能の設計書の §1.1 に `Title`・`Summary` の行と `TitleOverride` を足し、`ChangeReview` の引数と `OverrideTitle` を足す
 
 - [ ] **Step 4: ずれが無いことを確かめる**
 
@@ -884,7 +848,7 @@ Expected: 差分なし
 ```bash
 git add backend/api/docs frontend/web/src/api/generated
 git commit -m "chore: 書名の上書きと一言まとめに合わせてAPIの型を再生成"
-git add backend/architecture.md backend/README.md docs/superpowers/specs/2026-09-28-reading-api-design.md
+git add backend/architecture.md backend/README.md
 git commit -m "chore: 書名の上書きと一言まとめをドキュメントに反映"
 ```
 
