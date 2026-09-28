@@ -336,6 +336,18 @@ git commit -m "feat: 読んだ本に書名の上書きと一言まとめの列�
 
 `Book.New`・`ChangeReview` の引数が変わるため、Domain・Repository・Query・ユースケース・Handler を同じコミットで直す（どれか1層だけではビルドが通らない）。
 
+進め方は TDD（superpowers:test-driven-development）のサイクルを、振る舞いごとに下の層から回す。各サイクルは「失敗するテストを書く → **失敗を実際に見る** → 最小の実装 → 通ることを見る」。コミットはビルドが通る最後の1回だけにする（サイクルは細かく、コミットはまとめる）。
+
+| サイクル | 振る舞い |
+|---|---|
+| 1 | Domain: 一言まとめを持ち、書名を上書き・外せ、取り直しても上書きが残る |
+| 足場 | 呼び出し側をビルドが通る形にする（新しい振る舞いは足さない） |
+| 2 | Repository: 一言まとめと上書きを保存して読める。上書きを外すと NULL |
+| 3 | Query: 表示する書名は上書き優先。詳細はカタログの書名と上書きも返す |
+| 4 | 登録: 一言まとめと上書きを付けて登録し、不正ならカタログも保存も呼ばない |
+| 5 | 更新: 一言まとめと上書きを差し替え、空なら上書きを外し、取り直しても上書きは残る |
+| 6 | Handler: 入力を Command に渡し、欠落・上限超えを 400 にし、応答に新しい項目を載せる |
+
 **Files:**
 - Modify: `backend/internal/domain/book/book.go`、`book_test.go`
 - Modify: `backend/internal/infrastructure/postgres/book/repository.go`、`query.go`、`repository_test.go`、`query_test.go`
@@ -354,7 +366,9 @@ git commit -m "feat: 読んだ本に書名の上書きと一言まとめの列�
   - `RegisterRequest`・`UpdateRequest` に `Summary string`（`required,max=100`）・`TitleOverride string`（`max=255`）
   - `Response` に `Summary`・`CatalogTitle`・`TitleOverride *string`、`ListItemResponse` に `Summary`
 
-- [ ] **Step 1: Domain のテストを先に直す**（`book_test.go`）
+#### サイクル 1: Domain
+
+- [ ] **Step 1: 失敗するテストを書く**（`book_test.go`）
 
 `mustBook` に `summary, _ := book.NewSummary("分散データの設計を体系的に学べる")` を足し、`book.New(isbn, bib, &cover, summary, comment, rating)` にする。次のテストを足す・直す。
 
@@ -417,12 +431,12 @@ func TestBook_OverrideTitle(t *testing.T) {
 
 `TestNew_SetsFields...` に `b.Summary.String() != "分散データの設計を体系的に学べる"` と `b.TitleOverride != nil` の検査を足す（新規作成時は上書きなし）。
 
-- [ ] **Step 2: 失敗を確かめる**
+- [ ] **Step 2: 失敗を見る**
 
 Run: `cd backend && go test ./internal/domain/book/`
-Expected: FAIL（`too many arguments in call to book.New` など）
+Expected: FAIL（`too many arguments in call to book.New`、`b.OverrideTitle undefined` など）
 
-- [ ] **Step 3: Domain を実装する**（`book.go`）
+- [ ] **Step 3: 最小の実装**（`book.go`）
 
 ```go
 type Book struct {
@@ -483,9 +497,32 @@ type BookListItem struct {
 }
 ```
 
-- [ ] **Step 4: Repository・Query の契約テストを直す**
+- [ ] **Step 4: 通ることを見る**
 
-`repository_test.go` の `newBook` に `s, _ := domainbook.NewSummary("一言まとめ")` を足して `domainbook.New(i, bib, cover, s, c, r)` にする。`ChangeReview(comment, rating, 1)` の呼び出しは `ChangeReview(got.Summary, comment, rating, 1)` にする。次を足す。
+Run: `cd backend && go test ./internal/domain/book/`
+Expected: PASS（この時点で他のパッケージはビルドが通らない。次の足場で直す）
+
+#### 足場: 呼び出し側をビルドが通る形にする
+
+新しい振る舞いは足さない。この後のサイクルで「失敗を見る」ために、値の受け渡しはまだ繋がない。
+
+- [ ] **Step 5: 型と引数だけを合わせる**
+
+- `repository.go` の `model` に `TitleOverride *string \`gorm:"column:title_override;size:255"\`` と `Summary string \`gorm:"column:summary;size:100;not null"\`` を足す。`adapt` は `summary, err := domainbook.NewSummary(row.Summary)` を作って `domainbook.New(isbn, bib, cover, summary, comment, rating)` に渡す（`toModel` と `Update` にはまだ足さない）
+- `register.go` は `book.New(isbn, entry.Bibliography, entry.Cover, book.Summary{}, comment, rating)`、`update.go` は `b.ChangeReview(b.Summary, comment, rating, cmd.Version)` にする（サイクル 4・5 で置き換える仮の値）
+- テストの呼び出し（`repository_test.go` の `newBook`、`update_test.go` の `existingBook`）に `NewSummary` の値を渡し、`ChangeReview` に第1引数を足す
+
+- [ ] **Step 6: 既存のテストが通ることを見る**
+
+Run: `cd backend && go build ./... && go test ./...`
+Expected: PASS（新しいテストはまだ無い）
+
+#### サイクル 2: Repository
+
+- [ ] **Step 7: 失敗するテストを書く**（`repository_test.go`）
+
+
+足場で `newBook` に渡した一言まとめは `"一言まとめ"` にしておく。次を足す。
 
 ```go
 func TestRepository_TitleOverrideAndSummary(t *testing.T) {
@@ -535,6 +572,51 @@ func TestRepository_TitleOverrideAndSummary(t *testing.T) {
 	})
 }
 ```
+
+- [ ] **Step 8: 失敗を見る**
+
+Run: `cd backend && make migrate-up && go test ./internal/infrastructure/postgres/book/ -run TestRepository_TitleOverrideAndSummary -v`
+Expected: 「保存して読み込める」が FAIL（`toModel` が一言まとめを書かないので空文字が入り、読み込みが ErrInvalid になる）。「上書きを外すと NULL」と「空の行はエラー」はこの時点で PASS してよい（前者は上書きをまだ書かないため、後者は足場の `adapt` が検証するため。どちらも以後の変更で壊れないことを守るテスト）。SKIP になっていないこと
+
+- [ ] **Step 9: 最小の実装**
+
+`Update` の `Updates(map[string]any{...})` に `"title_override": row.TitleOverride, "summary": row.Summary` を足す。`toModel` に足す。
+
+```go
+		Summary:     b.Summary.String(),
+	}
+	if b.TitleOverride != nil {
+		v := b.TitleOverride.String()
+		row.TitleOverride = &v
+	}
+```
+
+`adapt` の複雑度が 10 を超えないよう、書名の上書きの復元を関数に分ける。
+
+```go
+// adaptTitleOverride は保存済みの上書きを VO で検証し直す。NULL なら上書きなし。
+func adaptTitleOverride(v *string) (*domainbook.Title, error) {
+	if v == nil {
+		return nil, nil
+	}
+	t, err := domainbook.NewTitle(*v)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+```
+
+`adapt` に `override, err := adaptTitleOverride(row.TitleOverride)` を足し（一言まとめは足場で済んでいる）、`domainbook.New(...)` の後に `b.OverrideTitle(override)` を呼ぶ。
+
+- [ ] **Step 10: 通ることを見る**
+
+Run: `cd backend && go test ./internal/infrastructure/postgres/book/ -run TestRepository -v`
+Expected: PASS
+
+#### サイクル 3: Query
+
+- [ ] **Step 11: 失敗するテストを書く**（`query_test.go`）
 
 `query_test.go` に次を足す（既存テストの ISBN と重ならない値を使う）。
 
@@ -592,43 +674,12 @@ func TestQuery_DisplayTitle(t *testing.T) {
 
 既存の Query テストの Read Model の型検査（`Title` が `string` であること）に `Summary`・`CatalogTitle`・`TitleOverride` の型も足す。
 
-- [ ] **Step 5: Repository・Query を実装する**
+- [ ] **Step 12: 失敗を見る**
 
-`repository.go` の `model` に足す。
+Run: `cd backend && go test ./internal/infrastructure/postgres/book/ -run TestQuery_DisplayTitle -v`
+Expected: FAIL（`Title` がカタログの書名のまま、`Summary` が空）
 
-```go
-	TitleOverride *string   `gorm:"column:title_override;size:255"`
-	Summary       string    `gorm:"column:summary;size:100;not null"`
-```
-
-`Update` の `Updates(map[string]any{...})` に `"title_override": row.TitleOverride, "summary": row.Summary` を足す。`toModel` に足す。
-
-```go
-		Summary:     b.Summary.String(),
-	}
-	if b.TitleOverride != nil {
-		v := b.TitleOverride.String()
-		row.TitleOverride = &v
-	}
-```
-
-`adapt` の複雑度が 10 を超えないよう、書名の上書きの復元を関数に分ける。
-
-```go
-// adaptTitleOverride は保存済みの上書きを VO で検証し直す。NULL なら上書きなし。
-func adaptTitleOverride(v *string) (*domainbook.Title, error) {
-	if v == nil {
-		return nil, nil
-	}
-	t, err := domainbook.NewTitle(*v)
-	if err != nil {
-		return nil, err
-	}
-	return &t, nil
-}
-```
-
-`adapt` では `summary, err := domainbook.NewSummary(row.Summary)` と `override, err := adaptTitleOverride(row.TitleOverride)` を足し、`domainbook.New(isbn, bib, cover, summary, comment, rating)` の後に `b.OverrideTitle(override)` を呼ぶ。
+- [ ] **Step 13: 最小の実装**
 
 `query.go` に表示する書名の決め方を1か所に置き、詳細と一覧の両方で使う。
 
@@ -646,22 +697,26 @@ func displayTitle(override *string, catalogTitle string) string {
 
 設計書 §3 の「SQL の `COALESCE` で決める」を「Query の `displayTitle` で決める（詳細では上書きとカタログの書名を別にも返すため、Go で1か所にまとめる）」に直す。
 
-- [ ] **Step 6: ユースケースのテストを直す**
+- [ ] **Step 14: 通ることを見る**
 
-`register_test.go`:
+Run: `cd backend && go test ./internal/infrastructure/postgres/book/ -v`
+Expected: PASS
+
+#### サイクル 4: 登録のユースケース
+
+- [ ] **Step 15: 失敗するテストを書く**（`register_test.go`）
+
 - `valid := command.RegisterCommand{ISBN: "4873118700", Summary: "分散データの設計を学べる", Comment: "良書", Rating: 5}`
 - 正常系の検査に `c.Summary.String() != "分散データの設計を学べる"` と `c.TitleOverride != nil` を足す
 - `invalid` に足す: `{name: "空の一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: " ", Comment: "良書", Rating: 5}}`、`{name: "改行を含む一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "a\nb", Comment: "良書", Rating: 5}}`、`{name: "256文字の書名の上書き", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TitleOverride: strings.Repeat("あ", 256), Comment: "良書", Rating: 5}}`、`{name: "空白だけの書名の上書き", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TitleOverride: "　", Comment: "良書", Rating: 5}}`。既存の3件にも `Summary: "要約"` を足す
 - 追加: 「書名の上書きを指定すると付けて登録する」（`TitleOverride: "正しい書名"` → `books.created.TitleOverride.String() == "正しい書名"`）
 
-`update_test.go`:
-- `existingBook` で `summary, _ := book.NewSummary("最初のまとめ")` を使い、`title, _ := book.NewTitle("前の上書き"); b.OverrideTitle(&title)` で上書き付きにする
-- `cmd := command.UpdateCommand{ID: 10, Summary: "読み返したまとめ", TitleOverride: "新しい上書き", Comment: "読み返した", Rating: 5, Version: 2}`
-- 正常系の検査に `u.Summary.String() != "読み返したまとめ"`、`u.TitleOverride.String() != "新しい上書き"` を足し、カタログが「新しい書名」を返しても `u.TitleOverride` は「新しい上書き」のままであることを確かめる
-- 追加: 「書名の上書きを空で送ると上書きを外す」（`TitleOverride: ""` → `books.updated.TitleOverride == nil`）
-- 追加: 「空の一言まとめはカタログも保存も呼ばずにエラー」（`Summary: ""` → `ErrInvalid`、`catalog.called == 0`、`books.updated == nil`）
+- [ ] **Step 16: 失敗を見る**
 
-- [ ] **Step 7: ユースケースを実装する**
+Run: `cd backend && go test ./internal/usecase/book/command/ -run TestRegisterUsecase -v`
+Expected: FAIL（`unknown field Summary in struct literal` の後、フィールドを足すと一言まとめが空・上書きが付かない・不正な入力でカタログが呼ばれる）
+
+- [ ] **Step 17: 最小の実装**
 
 両方の Command に足す。
 
@@ -694,9 +749,38 @@ func parseTitleOverride(raw string) (*book.Title, error) {
 
 `register.go`: ISBN の検証の後に `summary, err := book.NewSummary(cmd.Summary)` と `override, err := parseTitleOverride(cmd.TitleOverride)` を足し（どちらもカタログの前）、`b := book.New(isbn, entry.Bibliography, entry.Cover, summary, comment, rating)` の後に `b.OverrideTitle(override)`。複雑度が 10 を超える場合は、入力の検証を `validateRegister(cmd RegisterCommand) (registerInput, error)` のような非公開関数に分ける。
 
+- [ ] **Step 18: 通ることを見る**
+
+Run: `cd backend && go test ./internal/usecase/book/command/ -run TestRegisterUsecase -v`
+Expected: PASS
+
+#### サイクル 5: 更新のユースケース
+
+- [ ] **Step 19: 失敗するテストを書く**（`update_test.go`）
+
+- `existingBook` で `summary, _ := book.NewSummary("最初のまとめ")` を使い、`title, _ := book.NewTitle("前の上書き"); b.OverrideTitle(&title)` で上書き付きにする
+- `cmd := command.UpdateCommand{ID: 10, Summary: "読み返したまとめ", TitleOverride: "新しい上書き", Comment: "読み返した", Rating: 5, Version: 2}`
+- 正常系の検査に `u.Summary.String() != "読み返したまとめ"`、`u.TitleOverride.String() != "新しい上書き"` を足し、カタログが「新しい書名」を返しても `u.TitleOverride` は「新しい上書き」のままであることを確かめる
+- 追加: 「書名の上書きを空で送ると上書きを外す」（`TitleOverride: ""` → `books.updated.TitleOverride == nil`）
+- 追加: 「空の一言まとめはカタログも保存も呼ばずにエラー」（`Summary: ""` → `ErrInvalid`、`catalog.called == 0`、`books.updated == nil`）
+
+- [ ] **Step 20: 失敗を見る**
+
+Run: `cd backend && go test ./internal/usecase/book/command/ -run TestUpdateUsecase -v`
+Expected: FAIL（一言まとめが差し替わらない、上書きが変わらない、空の一言まとめでカタログが呼ばれる）
+
+- [ ] **Step 21: 最小の実装**
+
 `update.go`: `FindByID` の後に同様に検証し、`b.ChangeReview(summary, comment, rating, cmd.Version)` と `b.OverrideTitle(override)` を呼ぶ（`refreshCatalog` の前後どちらでもよいが、上書きには触れないこと）。
 
-- [ ] **Step 8: Handler のテストを直す**
+- [ ] **Step 22: 通ることを見る**
+
+Run: `cd backend && go test ./internal/usecase/book/command/ -v`
+Expected: PASS
+
+#### サイクル 6: Handler
+
+- [ ] **Step 23: 失敗するテストを書く**
 
 `detail`・`detailResponse` に `CatalogTitle: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる"` を足す。一覧の項目にも `Summary` を足す。登録・更新のリクエストの JSON に `"summary":"分散データの設計を学べる"` を足し、Command に `Summary` と `TitleOverride` が渡ることを確かめる。次のケースを足す（既存の 400 のテーブルに入れる）。
 
@@ -707,7 +791,12 @@ func parseTitleOverride(raw string) (*book.Title, error) {
 | 書名の上書きが256文字 | `titleOverride` に256文字 | 400、`{"field":"titleOverride","rule":"max"}` |
 | 書名の上書きを省略 | `titleOverride` なし | 200、Command の `TitleOverride` が `""` |
 
-- [ ] **Step 9: Handler を実装する**
+- [ ] **Step 24: 失敗を見る**
+
+Run: `cd backend && go test ./internal/presentation/http/book/ -v`
+Expected: FAIL（`summary` が無くても 400 にならない、Command に `Summary` が渡らない、応答に `summary` が無い）
+
+- [ ] **Step 25: 最小の実装**
 
 ```go
 type RegisterRequest struct {
@@ -743,12 +832,19 @@ type UpdateRequest struct {
 
 `ListItemResponse` に `Summary string \`json:"summary" example:"分散データの設計を体系的に学べる"\`` を足す。`RegisterBook`・`Update` で Command に `Summary: req.Summary, TitleOverride: req.TitleOverride` を渡し、`toResponse`・一覧の変換に新しい項目を足す。swag の `@Description` に「`titleOverride` を省略・空にすると上書きを外す」（更新）を足す。
 
-- [ ] **Step 10: すべて通ることを確かめる**
+- [ ] **Step 26: 通ることを見る**
+
+Run: `cd backend && go test ./internal/presentation/http/book/ -v`
+Expected: PASS
+
+#### 仕上げ
+
+- [ ] **Step 27: すべて通ることを見る**
 
 Run: `cd backend && make migrate-up && go build ./... && go test ./... && golangci-lint run ./...`
 Expected: PASS、`0 issues.`（契約テストが skip されていないこと: `go test -v ./internal/infrastructure/postgres/... | grep -c SKIP` が 0）
 
-- [ ] **Step 11: コミット**
+- [ ] **Step 28: コミット**
 
 ```bash
 git add backend/internal
