@@ -77,7 +77,7 @@ export const getGetApiBooksUrl = (params?: GetApiBooksParams,) => {
 }
 
 /**
- * 新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す
+ * 新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は0件
  * @summary 読んだ本の一覧を取得する
  */
 export const getApiBooks = async (params?: GetApiBooksParams, options?: Parameters<typeof apiMutator>[1]): Promise<BookListResponse> => {

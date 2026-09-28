@@ -79,7 +79,7 @@ func (f *fakeDetails) FindDetailByID(_ context.Context, id book.ID) (*book.BookD
 	return f.detail, nil
 }
 
-func (f *fakeDetails) FindList(context.Context, common.ListRange) (*book.BookList, error) {
+func (f *fakeDetails) FindList(context.Context, book.ListCondition, common.ListRange) (*book.BookList, error) {
 	return nil, nil
 }
 
