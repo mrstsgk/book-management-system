@@ -26,11 +26,13 @@ import type {
 import type {
   AuthorBookResponse,
   AuthorResponse,
+  BookListResponse,
   BookResponse,
   CatalogResponse,
   CreateAuthorRequest,
   CreateBookRequest,
   ErrorResponse,
+  GetApiBooksParams,
   UpdateAuthorRequest,
   UpdateBookRequest
 } from './api.schemas';
@@ -327,6 +329,115 @@ export function useGetApiAuthorsIdBooks<TData = Awaited<ReturnType<typeof getApi
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiAuthorsIdBooksQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetApiBooksUrl = (params?: GetApiBooksParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/books?${stringifiedParams}` : `/api/books`
+}
+
+/**
+ * 書籍ID昇順。total は取得範囲外も含む総件数。amazonUrl は ISBN から導出し、coverUrl は提供元（coverSource）の画像で、楽天の場合は画面にクレジット表示が必要
+ * @summary 書籍一覧を取得する
+ */
+export const getApiBooks = async (params?: GetApiBooksParams, options?: Parameters<typeof apiMutator>[1]): Promise<BookListResponse> => {
+
+  return apiMutator<BookListResponse>(getGetApiBooksUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetApiBooksQueryKey = (params?: GetApiBooksParams,) => {
+    return [
+    `/api/books`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetApiBooksQueryOptions = <TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiBooksQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiBooks>>> = ({ signal }) => getApiBooks(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiBooksQueryResult = NonNullable<Awaited<ReturnType<typeof getApiBooks>>>
+export type GetApiBooksQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetApiBooks<TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(
+ params: undefined |  GetApiBooksParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiBooks>>,
+          TError,
+          Awaited<ReturnType<typeof getApiBooks>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiBooks<TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiBooks>>,
+          TError,
+          Awaited<ReturnType<typeof getApiBooks>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiBooks<TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 書籍一覧を取得する
+ */
+
+export function useGetApiBooks<TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiBooksQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

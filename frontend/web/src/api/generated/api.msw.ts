@@ -15,6 +15,7 @@ import type {
 import {
   getGetApiAuthorsIdBooksResponseMock,
   getGetApiBooksIdResponseMock,
+  getGetApiBooksResponseMock,
   getGetApiCatalogIsbnResponseMock,
   getPostApiAuthorsResponseMock,
   getPostApiBooksResponseMock,
@@ -25,11 +26,12 @@ import {
 import type {
   AuthorBookResponse,
   AuthorResponse,
+  BookListResponse,
   BookResponse,
   CatalogResponse
 } from './api.schemas';
 
-export { getPostApiAuthorsResponseMock, getPutApiAuthorsIdResponseMock, getGetApiAuthorsIdBooksResponseMock, getPostApiBooksResponseMock, getGetApiBooksIdResponseMock, getPutApiBooksIdResponseMock, getGetApiCatalogIsbnResponseMock } from './api.faker';
+export { getPostApiAuthorsResponseMock, getPutApiAuthorsIdResponseMock, getGetApiAuthorsIdBooksResponseMock, getGetApiBooksResponseMock, getPostApiBooksResponseMock, getGetApiBooksIdResponseMock, getPutApiBooksIdResponseMock, getGetApiCatalogIsbnResponseMock } from './api.faker';
 
 
 export const getPostApiAuthorsMockHandler = (overrideResponse?: AuthorResponse | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<AuthorResponse> | AuthorResponse), options?: RequestHandlerOptions) => {
@@ -63,6 +65,18 @@ export const getGetApiAuthorsIdBooksMockHandler = (overrideResponse?: AuthorBook
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getGetApiAuthorsIdBooksResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getGetApiBooksMockHandler = (overrideResponse?: BookListResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<BookListResponse> | BookListResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/books', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetApiBooksResponseMock(),
       { status: 200
       })
   }, options)
@@ -119,6 +133,7 @@ export const getBookManagementSystemAPIMock = () => [
   getPostApiAuthorsMockHandler(),
   getPutApiAuthorsIdMockHandler(),
   getGetApiAuthorsIdBooksMockHandler(),
+  getGetApiBooksMockHandler(),
   getPostApiBooksMockHandler(),
   getGetApiBooksIdMockHandler(),
   getPutApiBooksIdMockHandler(),

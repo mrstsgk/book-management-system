@@ -33,6 +33,48 @@ export interface BookAuthorResponse {
   version?: number;
 }
 
+export interface BookListAuthorResponse {
+  id?: number;
+  name?: string;
+}
+
+export type BookListItemResponseCoverSource = typeof BookListItemResponseCoverSource[keyof typeof BookListItemResponseCoverSource];
+
+
+export const BookListItemResponseCoverSource = {
+  openbd: 'openbd',
+  rakuten: 'rakuten',
+} as const;
+
+export type BookListItemResponseStatus = typeof BookListItemResponseStatus[keyof typeof BookListItemResponseStatus];
+
+
+export const BookListItemResponseStatus = {
+  NUMBER_1: 1,
+  NUMBER_2: 2,
+} as const;
+
+export interface BookListItemResponse {
+  /** AmazonURL is derived from the ISBN; null when there is no ISBN (or no ISBN-10 form). */
+  amazonUrl?: string;
+  authors?: BookListAuthorResponse[];
+  coverSource?: BookListItemResponseCoverSource;
+  /** CoverURL is the provider-hosted image; show it as-is with the credit for CoverSource. */
+  coverUrl?: string;
+  id?: number;
+  isbn?: string;
+  price?: number;
+  status?: BookListItemResponseStatus;
+  title?: string;
+}
+
+export interface BookListResponse {
+  items?: BookListItemResponse[];
+  limit?: number;
+  offset?: number;
+  total?: number;
+}
+
 export type BookResponseCoverSource = typeof BookResponseCoverSource[keyof typeof BookResponseCoverSource];
 
 
@@ -161,4 +203,15 @@ export interface UpdateBookRequest {
   title: string;
   version: number;
 }
+
+export type GetApiBooksParams = {
+/**
+ * 取得件数（1〜100、既定20）
+ */
+limit?: number;
+/**
+ * 取得開始位置（0以上、既定0）
+ */
+offset?: number;
+};
 
