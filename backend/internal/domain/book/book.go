@@ -64,6 +64,8 @@ type Repository interface {
 	FindByID(ctx context.Context, id ID) (*Book, error)
 	// Create は b を新規作成し、採番した ID と初期バージョンを b に設定する。同じ ISBN の本があれば ErrConflict を返す。
 	Create(ctx context.Context, b *Book) error
+	// CreateAll は books を1つのトランザクションで全冊作成する。1冊でも同じ ISBN があれば1冊も残さず ErrConflict を返す。
+	CreateAll(ctx context.Context, books []*Book) error
 	// Update は b.Version が一致する行を更新し、b.Version を進める。不一致なら ErrConflict を返す。
 	Update(ctx context.Context, b *Book) error
 	// Delete は id の本を削除する。存在しなければ ErrNotFound を返す。

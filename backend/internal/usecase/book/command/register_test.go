@@ -40,6 +40,8 @@ func (f *fakeBooks) Create(_ context.Context, b *book.Book) error {
 	return nil
 }
 
+func (f *fakeBooks) CreateAll(context.Context, []*book.Book) error { return nil }
+
 func (f *fakeBooks) Update(_ context.Context, b *book.Book) error {
 	if f.updateErr != nil {
 		return f.updateErr
