@@ -92,7 +92,7 @@ func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
 // registerRoutes は手書きの DI（infra → usecase → presentation）で各ハンドラを組み立てて登録する。
 func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalog, adminToken string) {
 	books := pgbook.NewRepository(db)
-	bookQuery := pgbook.NewQuery(db)
+	bookQuery := pgbook.NewQuery(db, time.Now)
 	tags := pgtag.NewRepository(db)
 	tagQuery := pgtag.NewQuery(db)
 	adminOnly := httpcommon.RequireAdminToken(adminToken)

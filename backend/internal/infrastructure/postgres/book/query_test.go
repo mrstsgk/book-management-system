@@ -17,7 +17,7 @@ func strPtr(s string) *string { return &s }
 
 func TestQuery_FindDetailByID(t *testing.T) {
 	db := connectTestDB(t)
-	qry := pgbook.NewQuery(db)
+	qry := pgbook.NewQuery(db, time.Now)
 
 	tests := []struct {
 		name          string
@@ -57,7 +57,7 @@ func TestQuery_FindDetailByID(t *testing.T) {
 
 func TestQuery_FindList(t *testing.T) {
 	db := connectTestDB(t)
-	qry := pgbook.NewQuery(db)
+	qry := pgbook.NewQuery(db, time.Now)
 	ctx := context.Background()
 	listRange := func(t *testing.T, limit, offset int) domaincommon.ListRange {
 		t.Helper()
@@ -108,7 +108,7 @@ func TestQuery_FindList(t *testing.T) {
 
 func TestQuery_DisplayTitle(t *testing.T) {
 	db := connectTestDB(t)
-	q := pgbook.NewQuery(db)
+	q := pgbook.NewQuery(db, time.Now)
 
 	overridden := newBook(t, "9780000001016", "カタログの書名", nil, 4)
 	title, _ := domainbook.NewTitle("正しい書名")
@@ -158,7 +158,7 @@ func TestQuery_DisplayTitle(t *testing.T) {
 
 func TestQuery_Tags(t *testing.T) {
 	db := connectTestDB(t)
-	q := pgbook.NewQuery(db)
+	q := pgbook.NewQuery(db, time.Now)
 
 	tagA := mustCreateTag(t, db, "query-test-タグA")
 	tagB := mustCreateTag(t, db, "query-test-タグB")
@@ -239,13 +239,17 @@ func TestQuery_Tags(t *testing.T) {
 
 func TestQuery_RakutenCover(t *testing.T) {
 	db := connectTestDB(t)
-	q := pgbook.NewQuery(db)
 	day := 24 * time.Hour
+	// 時計を固定し、取得日時からの経過日数をテストの意図どおりに厳密に境界づける
+	// （time.Now() をそのまま使うと、取得日時の計算と判定の間にDBの往復が挟まり、
+	// 実行が遅ければ経過日数がずれて期限切れの境界を確定的に検証できない）。
+	fixedNow := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	q := pgbook.NewQuery(db, func() time.Time { return fixedNow })
 	const product = "https://books.rakuten.co.jp/rb/15949390/"
 
-	fresh := newBook(t, "9780000003416", "rakuten-test-期限内", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/fresh.jpg", product, time.Now().Add(-88*day)), 4)
+	fresh := newBook(t, "9780000003416", "rakuten-test-期限内", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/fresh.jpg", product, fixedNow.Add(-88*day)), 4)
 	createBook(t, db, fresh)
-	expired := newBook(t, "9780000003423", "rakuten-test-期限切れ", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/expired.jpg", product, time.Now().Add(-89*day)), 4)
+	expired := newBook(t, "9780000003423", "rakuten-test-期限切れ", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/expired.jpg", product, fixedNow.Add(-89*day)), 4)
 	createBook(t, db, expired)
 	openbd := newBook(t, "9780000003430", "rakuten-test-openBD", mustCover(t, "https://cover.openbd.jp/rakuten-test.jpg"), 4)
 	createBook(t, db, openbd)

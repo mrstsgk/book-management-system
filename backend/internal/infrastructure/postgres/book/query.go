@@ -17,8 +17,8 @@ type query struct {
 	now func() time.Time
 }
 
-func NewQuery(db *gorm.DB) domainbook.Query {
-	return &query{db: db, now: time.Now}
+func NewQuery(db *gorm.DB, now func() time.Time) domainbook.Query {
+	return &query{db: db, now: now}
 }
 
 // visibleCover は画面に出してよい書影（URL・提供元・楽天の商品ページ）を返す。楽天の書影が保持期限を過ぎていれば
