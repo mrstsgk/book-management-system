@@ -88,6 +88,7 @@ func TestHandlerLookup(t *testing.T) {
 			ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
 			Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
 			CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"),
+			CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"),
 		}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("body = %+v\nwant %+v", got, want)

@@ -84,14 +84,14 @@ func strPtr(s string) *string { return &s }
 var detail = &domainbook.BookDetail{
 	ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
 	Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
-	CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"),
+	CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"), CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"),
 	Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Comment: "良書\n2行目", Rating: 5, Version: 1,
 }
 
 var detailResponse = httpbook.Response{
 	ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
 	Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
-	CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"),
+	CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"), CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"),
 	Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Comment: "良書\n2行目", Rating: 5, Version: 1,
 }
 
@@ -102,7 +102,7 @@ func mustNotCall(t *testing.T) func() {
 func TestHandlerList(t *testing.T) {
 	list := &domainbook.BookList{Total: 21, Items: []*domainbook.BookListItem{{
 		ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Authors: "Kleppmann,Martin",
-		AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), Rating: 5,
+		AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"), CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"), Rating: 5,
 	}}}
 
 	for _, tt := range []struct {
@@ -129,7 +129,7 @@ func TestHandlerList(t *testing.T) {
 			}
 			want := httpbook.ListResponse{Total: 21, Limit: tt.wantLimit, Offset: tt.wantOffset, Items: []httpbook.ListItemResponse{{
 				ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Authors: "Kleppmann,Martin",
-				AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), Rating: 5,
+				AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"), CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"), Rating: 5,
 			}}}
 			if got := decode[httpbook.ListResponse](t, rec); !reflect.DeepEqual(got, want) {
 				t.Fatalf("body = %+v, want %+v", got, want)

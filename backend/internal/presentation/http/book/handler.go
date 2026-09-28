@@ -53,6 +53,8 @@ type Response struct {
 	// CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。
 	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
 	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
+	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。楽天の書影は画面でこのリンクと一緒に見せる必要がある。
+	CoverProductURL *string `json:"coverProductUrl" example:"https://books.rakuten.co.jp/rb/15949390/"`
 	// TitleOverride は自分で上書きした書名。上書きしていなければ null。
 	TitleOverride *string  `json:"titleOverride" example:"徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版"`
 	Summary       string   `json:"summary" example:"分散データの設計を体系的に学べる"`
@@ -73,7 +75,9 @@ type ListItemResponse struct {
 	AmazonURL   *string  `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
 	CoverURL    *string  `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
 	CoverSource *string  `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
-	Rating      int      `json:"rating" example:"5"`
+	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
+	CoverProductURL *string `json:"coverProductUrl" example:"https://books.rakuten.co.jp/rb/15949390/"`
+	Rating          int     `json:"rating" example:"5"`
 } // @name BookListItemResponse
 
 type ListResponse struct {
@@ -133,7 +137,7 @@ func (h *Handler) List(c echo.Context) error {
 	for _, it := range out.Items {
 		items = append(items, ListItemResponse{
 			ID: int64(it.ID), ISBN: it.ISBN, Title: it.Title, Summary: it.Summary, Tags: it.Tags, Authors: it.Authors,
-			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: it.CoverSource, Rating: it.Rating,
+			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: it.CoverSource, CoverProductURL: it.CoverProductURL, Rating: it.Rating,
 		})
 	}
 	return c.JSON(http.StatusOK, ListResponse{Items: items, Total: out.Total, Limit: limit, Offset: offset})
@@ -248,7 +252,7 @@ func (h *Handler) Delete(c echo.Context) error {
 func toResponse(d *domainbook.BookDetail) Response {
 	return Response{
 		ID: int64(d.ID), ISBN: d.ISBN, Title: d.Title, Authors: d.Authors, Publisher: d.Publisher,
-		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource,
+		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource, CoverProductURL: d.CoverProductURL,
 		TitleOverride: d.TitleOverride, Summary: d.Summary, Tags: d.Tags, Comment: d.Comment, Rating: d.Rating, Version: d.Version,
 	}
 }
