@@ -21,6 +21,10 @@ func mustBook(t *testing.T) *book.Book {
 	if err != nil {
 		t.Fatal(err)
 	}
+	summary, err := book.NewSummary("分散データの設計を体系的に学べる")
+	if err != nil {
+		t.Fatal(err)
+	}
 	comment, err := book.NewComment("良書")
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +33,7 @@ func mustBook(t *testing.T) *book.Book {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := book.New(isbn, bib, &cover, comment, rating)
+	b := book.New(isbn, bib, &cover, summary, comment, rating)
 	cover = book.Cover{} // 呼び出し側の変数を変えても本には影響しないこと
 	return b
 }
@@ -42,28 +46,70 @@ func TestNew_SetsFieldsCopiesCoverAndLeavesIdentityUnassigned(t *testing.T) {
 		t.Fatalf("ID/Version = %d/%d, want zero values before saving", b.ID, b.Version)
 	}
 	if b.ISBN.String() != "9784873118703" || b.Bibliography.Title() != "データ指向アプリケーションデザイン" ||
-		b.Comment.String() != "良書" || b.Rating.Int() != 5 {
+		b.Summary.String() != "分散データの設計を体系的に学べる" || b.Comment.String() != "良書" || b.Rating.Int() != 5 {
 		t.Fatalf("got %+v", b)
 	}
 	if b.Cover == nil || b.Cover.URL() != "https://cover.openbd.jp/9784873118703.jpg" {
 		t.Fatalf("Cover = %+v, want a copy of the given cover", b.Cover)
+	}
+	if b.TitleOverride != nil {
+		t.Fatalf("TitleOverride = %v, want nil for a newly created book", b.TitleOverride)
 	}
 }
 
 func TestBook_ChangeReview(t *testing.T) {
 	t.Parallel()
 	b := mustBook(t)
+	summary, _ := book.NewSummary("読み返して見方が変わった")
 	comment, _ := book.NewComment("読み返して評価が変わった")
 	rating, _ := book.NewRating(4)
 
-	b.ChangeReview(comment, rating, 3)
+	b.ChangeReview(summary, comment, rating, 3)
 
-	if b.Comment != comment || b.Rating != rating || b.Version != 3 {
-		t.Fatalf("got comment=%q rating=%d version=%d", b.Comment.String(), b.Rating.Int(), b.Version)
+	if b.Summary != summary || b.Comment != comment || b.Rating != rating || b.Version != 3 {
+		t.Fatalf("got summary=%q comment=%q rating=%d version=%d", b.Summary.String(), b.Comment.String(), b.Rating.Int(), b.Version)
 	}
 	if b.Bibliography.Title() != "データ指向アプリケーションデザイン" || b.Cover == nil {
 		t.Fatal("changing the review must not touch the catalog data")
 	}
+}
+
+func TestBook_OverrideTitle(t *testing.T) {
+	t.Parallel()
+
+	t.Run("上書きを付けるとコピーして持つ", func(t *testing.T) {
+		t.Parallel()
+		b := mustBook(t)
+		title, _ := book.NewTitle("正しい書名")
+		b.OverrideTitle(&title)
+		title = book.Title{}
+		if b.TitleOverride == nil || b.TitleOverride.String() != "正しい書名" {
+			t.Fatalf("TitleOverride = %v, want a copy of the given title", b.TitleOverride)
+		}
+	})
+
+	t.Run("nilで上書きを外す", func(t *testing.T) {
+		t.Parallel()
+		b := mustBook(t)
+		title, _ := book.NewTitle("正しい書名")
+		b.OverrideTitle(&title)
+		b.OverrideTitle(nil)
+		if b.TitleOverride != nil {
+			t.Fatalf("TitleOverride = %v, want nil", b.TitleOverride)
+		}
+	})
+
+	t.Run("外部カタログを取り直しても上書きは残る", func(t *testing.T) {
+		t.Parallel()
+		b := mustBook(t)
+		title, _ := book.NewTitle("正しい書名")
+		b.OverrideTitle(&title)
+		bib, _ := book.NewBibliography("カタログの別の書名", "", "", "")
+		b.RefreshCatalog(bib, nil)
+		if b.TitleOverride == nil || b.TitleOverride.String() != "正しい書名" {
+			t.Fatalf("TitleOverride = %v, want it kept after refreshing the catalog", b.TitleOverride)
+		}
+	})
 }
 
 func TestBook_RefreshCatalog(t *testing.T) {
@@ -89,6 +135,8 @@ func TestReadModels_UsePlainFieldTypes(t *testing.T) {
 		reflect.TypeOf(book.Bibliography{}):  true,
 		reflect.TypeOf(book.Cover{}):         true,
 		reflect.TypeOf(book.CoverSource("")): true,
+		reflect.TypeOf(book.Title{}):         true,
+		reflect.TypeOf(book.Summary{}):       true,
 		reflect.TypeOf(book.Comment{}):       true,
 		reflect.TypeOf(book.Rating{}):        true,
 		reflect.TypeOf(book.Book{}):          true,

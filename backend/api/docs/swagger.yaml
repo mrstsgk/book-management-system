@@ -26,7 +26,11 @@ definitions:
       rating:
         example: 5
         type: integer
+      summary:
+        example: 分散データの設計を体系的に学べる
+        type: string
       title:
+        description: Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
         example: データ指向アプリケーションデザイン
         type: string
     type: object
@@ -83,8 +87,16 @@ definitions:
       rating:
         example: 5
         type: integer
+      summary:
+        example: 分散データの設計を体系的に学べる
+        type: string
       title:
+        description: Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
         example: データ指向アプリケーションデザイン
+        type: string
+      titleOverride:
+        description: TitleOverride は自分で上書きした書名。上書きしていなければ null。
+        example: 徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版
         type: string
       version:
         example: 1
@@ -156,10 +168,20 @@ definitions:
         maximum: 5
         minimum: 1
         type: integer
+      summary:
+        example: 分散データの設計を体系的に学べる
+        maxLength: 100
+        type: string
+      titleOverride:
+        description: TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
+        example: ""
+        maxLength: 255
+        type: string
     required:
     - comment
     - isbn
     - rating
+    - summary
     type: object
   UpdateBookRequest:
     properties:
@@ -172,12 +194,22 @@ definitions:
         maximum: 5
         minimum: 1
         type: integer
+      summary:
+        example: 読み返して理解が深まった
+        maxLength: 100
+        type: string
+      titleOverride:
+        description: TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
+        example: ""
+        maxLength: 255
+        type: string
       version:
         example: 1
         type: integer
     required:
     - comment
     - rating
+    - summary
     - version
     type: object
 info:
@@ -319,7 +351,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。version が一致しない場合は 409
+      description: あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。version
+        が一致しない場合は 409
       parameters:
       - description: 読んだ本のID
         in: path

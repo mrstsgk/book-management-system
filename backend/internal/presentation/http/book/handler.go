@@ -15,14 +15,20 @@ import (
 type RegisterRequest struct {
 	// ISBN は13桁または10桁（ハイフン可）。書誌と書影はこれで外部カタログから取得する。
 	ISBN    string `json:"isbn" validate:"required,max=17" example:"9784873118703"`
-	Comment string `json:"comment" validate:"required,max=5000" example:"分散システムの設計を体系的に学べた"`
-	Rating  *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
+	Summary string `json:"summary" validate:"required,max=100" example:"分散データの設計を体系的に学べる"`
+	// TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
+	TitleOverride string `json:"titleOverride" validate:"max=255" example:""`
+	Comment       string `json:"comment" validate:"required,max=5000" example:"分散システムの設計を体系的に学べた"`
+	Rating        *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
 } // @name RegisterBookRequest
 
 type UpdateRequest struct {
-	Comment string `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
-	Rating  *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
-	Version *int   `json:"version" validate:"required" example:"1"`
+	Summary string `json:"summary" validate:"required,max=100" example:"読み返して理解が深まった"`
+	// TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
+	TitleOverride string `json:"titleOverride" validate:"max=255" example:""`
+	Comment       string `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
+	Rating        *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
+	Version       *int   `json:"version" validate:"required" example:"1"`
 } // @name UpdateBookRequest
 
 type ListRequest struct {
@@ -31,8 +37,9 @@ type ListRequest struct {
 }
 
 type Response struct {
-	ID          int64  `json:"id" example:"1"`
-	ISBN        string `json:"isbn" example:"9784873118703"`
+	ID   int64  `json:"id" example:"1"`
+	ISBN string `json:"isbn" example:"9784873118703"`
+	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
 	Title       string `json:"title" example:"データ指向アプリケーションデザイン"`
 	Authors     string `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
 	Publisher   string `json:"publisher" example:"オーム社"`
@@ -42,15 +49,20 @@ type Response struct {
 	// CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。
 	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
 	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
-	Comment     string  `json:"comment" example:"分散システムの設計を体系的に学べた"`
-	Rating      int     `json:"rating" example:"5"`
-	Version     int     `json:"version" example:"1"`
+	// TitleOverride は自分で上書きした書名。上書きしていなければ null。
+	TitleOverride *string `json:"titleOverride" example:"徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版"`
+	Summary       string  `json:"summary" example:"分散データの設計を体系的に学べる"`
+	Comment       string  `json:"comment" example:"分散システムの設計を体系的に学べた"`
+	Rating        int     `json:"rating" example:"5"`
+	Version       int     `json:"version" example:"1"`
 } // @name BookResponse
 
 type ListItemResponse struct {
-	ID          int64   `json:"id" example:"1"`
-	ISBN        string  `json:"isbn" example:"9784873118703"`
+	ID   int64  `json:"id" example:"1"`
+	ISBN string `json:"isbn" example:"9784873118703"`
+	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
 	Title       string  `json:"title" example:"データ指向アプリケーションデザイン"`
+	Summary     string  `json:"summary" example:"分散データの設計を体系的に学べる"`
 	Authors     string  `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
 	AmazonURL   *string `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
 	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
@@ -114,7 +126,7 @@ func (h *Handler) List(c echo.Context) error {
 	items := make([]ListItemResponse, 0, len(out.Items))
 	for _, it := range out.Items {
 		items = append(items, ListItemResponse{
-			ID: int64(it.ID), ISBN: it.ISBN, Title: it.Title, Authors: it.Authors,
+			ID: int64(it.ID), ISBN: it.ISBN, Title: it.Title, Summary: it.Summary, Authors: it.Authors,
 			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: it.CoverSource, Rating: it.Rating,
 		})
 	}
@@ -163,7 +175,7 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 		return err
 	}
 	out, err := h.RegisterUC.Execute(c.Request().Context(), bookcmd.RegisterCommand{
-		ISBN: req.ISBN, Comment: req.Comment, Rating: *req.Rating,
+		ISBN: req.ISBN, Summary: req.Summary, TitleOverride: req.TitleOverride, Comment: req.Comment, Rating: *req.Rating,
 	})
 	if err != nil {
 		return err
@@ -173,7 +185,7 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 
 // Update godoc
 // @Summary      感想と評価を更新する（自分だけ）
-// @Description  あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。version が一致しない場合は 409
+// @Description  あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。version が一致しない場合は 409
 // @Tags         books
 // @Accept       json
 // @Produce      json
@@ -197,7 +209,7 @@ func (h *Handler) Update(c echo.Context) error {
 		return err
 	}
 	out, err := h.UpdateUC.Execute(c.Request().Context(), bookcmd.UpdateCommand{
-		ID: id, Comment: req.Comment, Rating: *req.Rating, Version: *req.Version,
+		ID: id, Summary: req.Summary, TitleOverride: req.TitleOverride, Comment: req.Comment, Rating: *req.Rating, Version: *req.Version,
 	})
 	if err != nil {
 		return err
@@ -231,6 +243,6 @@ func toResponse(d *domainbook.BookDetail) Response {
 	return Response{
 		ID: int64(d.ID), ISBN: d.ISBN, Title: d.Title, Authors: d.Authors, Publisher: d.Publisher,
 		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource,
-		Comment: d.Comment, Rating: d.Rating, Version: d.Version,
+		TitleOverride: d.TitleOverride, Summary: d.Summary, Comment: d.Comment, Rating: d.Rating, Version: d.Version,
 	}
 }

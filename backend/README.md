@@ -22,7 +22,7 @@ make run
 # http://localhost:8080/health
 # http://localhost:8080/api/books
 # 登録: curl -H "Authorization: Bearer local-admin-token" -H "Content-Type: application/json" \
-#   -d '{"isbn":"9784873118703","comment":"感想","rating":5}' http://localhost:8080/api/books
+#   -d '{"isbn":"9784873118703","summary":"要約","comment":"感想","rating":5}' http://localhost:8080/api/books
 
 # OpenAPI 再排出（DTO/Handler 変更後）
 make swagger

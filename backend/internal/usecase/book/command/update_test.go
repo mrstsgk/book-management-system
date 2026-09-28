@@ -13,16 +13,19 @@ import (
 func existingBook(t *testing.T) *book.Book {
 	t.Helper()
 	entry := catalogEntry(t, "旧い書名", mustCover(t, "https://cover.openbd.jp/old.jpg"))
+	summary, _ := book.NewSummary("最初のまとめ")
 	comment, _ := book.NewComment("最初の感想")
 	rating, _ := book.NewRating(3)
-	b := book.New(entry.ISBN, entry.Bibliography, entry.Cover, comment, rating)
+	b := book.New(entry.ISBN, entry.Bibliography, entry.Cover, summary, comment, rating)
+	title, _ := book.NewTitle("前の上書き")
+	b.OverrideTitle(&title)
 	b.ID, b.Version = 10, 2
 	return b
 }
 
 func TestUpdateUsecase_Execute(t *testing.T) {
 	t.Parallel()
-	cmd := command.UpdateCommand{ID: 10, Comment: "読み返した", Rating: 5, Version: 2}
+	cmd := command.UpdateCommand{ID: 10, Summary: "読み返したまとめ", TitleOverride: "新しい上書き", Comment: "読み返した", Rating: 5, Version: 2}
 
 	t.Run("感想・評価を差し替え、書誌と書影を取り直して保存する", func(t *testing.T) {
 		t.Parallel()
@@ -34,11 +37,46 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		u := books.updated
-		if u == nil || u.Comment.String() != "読み返した" || u.Rating.Int() != 5 || u.Bibliography.Title() != "新しい書名" || u.Cover != nil {
+		if u == nil || u.Summary.String() != "読み返したまとめ" || u.Comment.String() != "読み返した" || u.Rating.Int() != 5 ||
+			u.Bibliography.Title() != "新しい書名" || u.Cover != nil {
 			t.Fatalf("updated %+v", u)
+		}
+		if u.TitleOverride == nil || u.TitleOverride.String() != "新しい上書き" {
+			t.Fatalf("TitleOverride = %v, want it kept even though the catalog returned a new title", u.TitleOverride)
 		}
 		if details.gotID != 10 {
 			t.Fatalf("detail looked up for %d, want 10", details.gotID)
+		}
+	})
+
+	t.Run("書名の上書きを空で送ると上書きを外す", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{findByID: existingBook(t)}
+		c := cmd
+		c.TitleOverride = ""
+		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "新しい書名", nil)}, Details: &fakeDetails{detail: &book.BookDetail{}}}
+
+		if _, err := uc.Execute(context.Background(), c); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if books.updated == nil || books.updated.TitleOverride != nil {
+			t.Fatalf("updated %+v, want TitleOverride = nil", books.updated)
+		}
+	})
+
+	t.Run("空の一言まとめはカタログも保存も呼ばずにエラー", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{findByID: existingBook(t)}
+		catalog := &fakeCatalog{}
+		c := cmd
+		c.Summary = ""
+		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}}
+
+		if _, err := uc.Execute(context.Background(), c); !errors.Is(err, common.ErrInvalid) {
+			t.Fatalf("err = %v, want ErrInvalid", err)
+		}
+		if catalog.called != 0 || books.updated != nil {
+			t.Fatal("neither the catalog nor the repository may be called for invalid input")
 		}
 	})
 

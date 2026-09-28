@@ -3,11 +3,12 @@
   "tables": {
     "book": {
       "description": "自分が読んだ本。書誌・書影は ISBN で外部カタログ（openBD・楽天ブックス）から取得し、感想と評価は自分で書く。著者は独立したテーブルにせず、提供元の文字列のまま持つ。",
-      "source": "backend/migrations/000001_create_book.up.sql",
+      "source": "backend/migrations/000002_add_book_title_override_and_summary.up.sql",
       "columns": [
         { "name": "id", "type": "BIGSERIAL", "nullable": false, "pk": true, "description": "読んだ本のID（主キー）" },
         { "name": "isbn", "type": "VARCHAR(13)", "nullable": false, "unique": true, "description": "ISBN。常に13桁（ISBN-10 は 978 付きの13桁に変換、チェックディジット検証済み。アプリ側で保証）。Amazon の商品リンクは保存せずこの値から導出する（ISBN-10 = ASIN）" },
-        { "name": "title", "type": "VARCHAR(255)", "nullable": false, "description": "書名。外部カタログの値（前後の空白を除いた1〜255文字、制御文字なし。アプリ側で保証）" },
+        { "name": "title", "type": "VARCHAR(255)", "nullable": false, "description": "書名。外部カタログの値（前後の空白を除いた1〜255文字、制御文字なし。アプリ側で保証）。画面では title_override があればそちらを見せる" },
+        { "name": "title_override", "type": "VARCHAR(255)", "nullable": true, "description": "自分で上書きした書名（1〜255文字）。NULLなら上書きしていない。外部カタログを取り直しても消えない" },
         { "name": "authors", "type": "VARCHAR(500)", "nullable": false, "default": "''", "description": "著者。外部カタログの文字列のまま（例: 'Kleppmann,Martin 斉藤,太郎,pub.2019'）。訳者も区別なく混ざりうる。著者情報が無い本は空文字" },
         { "name": "publisher", "type": "VARCHAR(255)", "nullable": false, "default": "''", "description": "出版社。外部カタログの値。無ければ空文字" },
         { "name": "published_on", "type": "VARCHAR(32)", "nullable": false, "default": "''", "description": "発売日。外部カタログの表記のまま（openBD は '201907' '20170807'、楽天は '2019年07月18日頃' など形式が混ざる）。無ければ空文字" },
@@ -20,6 +21,7 @@
         },
         { "name": "comment", "type": "TEXT", "nullable": false, "description": "自分が書いた感想。前後の空白を除いた1〜5000文字。改行・タブは可（アプリ側で保証）" },
         { "name": "rating", "type": "SMALLINT", "nullable": false, "description": "自分が付けた評価（1〜5、CHECK制約あり）" },
+        { "name": "summary", "type": "VARCHAR(100)", "nullable": false, "description": "一覧で見せる一言まとめ（1〜100文字、改行なし）" },
         { "name": "version", "type": "INTEGER", "nullable": false, "description": "バージョン（楽観的ロック用）。作成時1、更新ごとに+1" },
         { "name": "created_at", "type": "TIMESTAMPTZ", "nullable": false, "default": "NOW()", "description": "登録日時。一覧を新しく登録した順に並べるのに使う" },
         { "name": "updated_at", "type": "TIMESTAMPTZ", "nullable": false, "default": "NOW()", "description": "最終更新日時" }

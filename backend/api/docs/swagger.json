@@ -165,7 +165,7 @@
                         "AdminToken": []
                     }
                 ],
-                "description": "あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。version が一致しない場合は 409",
+                "description": "あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。version が一致しない場合は 409",
                 "consumes": [
                     "application/json"
                 ],
@@ -378,7 +378,12 @@
                     "type": "integer",
                     "example": 5
                 },
+                "summary": {
+                    "type": "string",
+                    "example": "分散データの設計を体系的に学べる"
+                },
                 "title": {
+                    "description": "Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。",
                     "type": "string",
                     "example": "データ指向アプリケーションデザイン"
                 }
@@ -456,9 +461,19 @@
                     "type": "integer",
                     "example": 5
                 },
+                "summary": {
+                    "type": "string",
+                    "example": "分散データの設計を体系的に学べる"
+                },
                 "title": {
+                    "description": "Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。",
                     "type": "string",
                     "example": "データ指向アプリケーションデザイン"
+                },
+                "titleOverride": {
+                    "description": "TitleOverride は自分で上書きした書名。上書きしていなければ null。",
+                    "type": "string",
+                    "example": "徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版"
                 },
                 "version": {
                     "type": "integer",
@@ -541,7 +556,8 @@
             "required": [
                 "comment",
                 "isbn",
-                "rating"
+                "rating",
+                "summary"
             ],
             "properties": {
                 "comment": {
@@ -560,6 +576,17 @@
                     "maximum": 5,
                     "minimum": 1,
                     "example": 5
+                },
+                "summary": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "example": "分散データの設計を体系的に学べる"
+                },
+                "titleOverride": {
+                    "description": "TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。",
+                    "type": "string",
+                    "maxLength": 255,
+                    "example": ""
                 }
             }
         },
@@ -568,6 +595,7 @@
             "required": [
                 "comment",
                 "rating",
+                "summary",
                 "version"
             ],
             "properties": {
@@ -581,6 +609,17 @@
                     "maximum": 5,
                     "minimum": 1,
                     "example": 5
+                },
+                "summary": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "example": "読み返して理解が深まった"
+                },
+                "titleOverride": {
+                    "description": "TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。",
+                    "type": "string",
+                    "maxLength": 255,
+                    "example": ""
                 },
                 "version": {
                     "type": "integer",

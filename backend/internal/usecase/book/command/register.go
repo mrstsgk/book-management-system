@@ -12,8 +12,11 @@ import (
 // RegisterCommand は RegisterUsecase の入力（Presentation から渡る境界）。データだけを持ち、ロジックは持たない。
 type RegisterCommand struct {
 	ISBN    string
-	Comment string
-	Rating  int
+	Summary string
+	// TitleOverride は自分で上書きする書名。前後の空白を除いて空なら上書きしない。
+	TitleOverride string
+	Comment       string
+	Rating        int
 }
 
 type RegisterUsecase interface {
@@ -29,6 +32,14 @@ type RegisterUsecaseImpl struct {
 // Execute は入力を検証してから ISBN で外部カタログの書誌・書影を取得し、感想・評価と合わせて登録する。
 func (u *RegisterUsecaseImpl) Execute(ctx context.Context, cmd RegisterCommand) (*book.BookDetail, error) {
 	isbn, err := book.NewISBN(cmd.ISBN)
+	if err != nil {
+		return nil, err
+	}
+	summary, err := book.NewSummary(cmd.Summary)
+	if err != nil {
+		return nil, err
+	}
+	override, err := parseTitleOverride(cmd.TitleOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +60,8 @@ func (u *RegisterUsecaseImpl) Execute(ctx context.Context, cmd RegisterCommand) 
 	if err != nil {
 		return nil, err
 	}
-	b := book.New(isbn, entry.Bibliography, entry.Cover, comment, rating)
+	b := book.New(isbn, entry.Bibliography, entry.Cover, summary, comment, rating)
+	b.OverrideTitle(override)
 	if err := u.Books.Create(ctx, b); err != nil {
 		return nil, err
 	}

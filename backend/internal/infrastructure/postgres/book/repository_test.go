@@ -23,6 +23,10 @@ func newBook(t *testing.T, isbn, title string, cover *domainbook.Cover, rating i
 	if err != nil {
 		t.Fatal(err)
 	}
+	s, err := domainbook.NewSummary("一言まとめ")
+	if err != nil {
+		t.Fatal(err)
+	}
 	c, err := domainbook.NewComment("感想\n2行目")
 	if err != nil {
 		t.Fatal(err)
@@ -31,7 +35,7 @@ func newBook(t *testing.T, isbn, title string, cover *domainbook.Cover, rating i
 	if err != nil {
 		t.Fatal(err)
 	}
-	return domainbook.New(i, bib, cover, c, r)
+	return domainbook.New(i, bib, cover, s, c, r)
 }
 
 func mustCover(t *testing.T, url string) *domainbook.Cover {
@@ -116,7 +120,7 @@ func TestRepository_Update(t *testing.T) {
 		comment, _ := domainbook.NewComment("読み返した")
 		rating, _ := domainbook.NewRating(5)
 		bib, _ := domainbook.NewBibliography("repo-test-after", "", "", "")
-		got.ChangeReview(comment, rating, 1)
+		got.ChangeReview(got.Summary, comment, rating, 1)
 		got.RefreshCatalog(bib, nil)
 
 		if err := repo.Update(context.Background(), got); err != nil {
@@ -175,4 +179,65 @@ func TestRepository_FindByID_NotFound(t *testing.T) {
 	if _, err := repo.FindByID(context.Background(), domainbook.ID(-1)); !errors.Is(err, domaincommon.ErrNotFound) {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
+}
+
+func TestRepository_TitleOverrideAndSummary(t *testing.T) {
+	db := connectTestDB(t)
+	repo := pgbook.NewRepository(db)
+
+	t.Run("書名の上書きと一言まとめを保存して読み込める", func(t *testing.T) {
+		b := newBook(t, "9780000001016", "カタログの書名", nil, 4)
+		title, _ := domainbook.NewTitle("正しい書名")
+		b.OverrideTitle(&title)
+		createBook(t, db, b)
+
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		if got.TitleOverride == nil || got.TitleOverride.String() != "正しい書名" || got.Summary.String() != "一言まとめ" {
+			t.Fatalf("got override=%v summary=%q", got.TitleOverride, got.Summary.String())
+		}
+	})
+
+	t.Run("上書きを外して更新するとNULLになる", func(t *testing.T) {
+		b := newBook(t, "9780000001023", "カタログの書名", nil, 4)
+		title, _ := domainbook.NewTitle("正しい書名")
+		b.OverrideTitle(&title)
+		createBook(t, db, b)
+
+		b.OverrideTitle(nil)
+		if err := repo.Update(context.Background(), b); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+		var override *string
+		db.Raw("SELECT title_override FROM book WHERE id = ?", int64(b.ID)).Scan(&override)
+		if override != nil {
+			t.Fatalf("title_override = %q, want NULL", *override)
+		}
+	})
+
+	t.Run("一言まとめと上書きを変えて更新すると読み込みに反映される", func(t *testing.T) {
+		b := newBook(t, "9780000002310", "カタログの書名", nil, 4)
+		createBook(t, db, b)
+
+		newSummary, _ := domainbook.NewSummary("読み返してのまとめ")
+		b.ChangeReview(newSummary, b.Comment, b.Rating, b.Version)
+		newTitle, _ := domainbook.NewTitle("新しい上書き")
+		b.OverrideTitle(&newTitle)
+		if err := repo.Update(context.Background(), b); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		if got.Summary.String() != "読み返してのまとめ" {
+			t.Fatalf("Summary = %q, want 読み返してのまとめ", got.Summary.String())
+		}
+		if got.TitleOverride == nil || got.TitleOverride.String() != "新しい上書き" {
+			t.Fatalf("TitleOverride = %v, want 新しい上書き", got.TitleOverride)
+		}
+	})
 }

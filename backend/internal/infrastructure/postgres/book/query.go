@@ -28,11 +28,19 @@ func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbo
 		return nil, err
 	}
 	return &domainbook.BookDetail{
-		ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: row.Title, Authors: row.Authors,
+		ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: displayTitle(row.TitleOverride, row.Title), Authors: row.Authors,
 		Publisher: row.Publisher, PublishedOn: row.PublishedOn, AmazonURL: amazonURLOf(row.ISBN),
-		CoverURL: row.CoverURL, CoverSource: row.CoverSource, Comment: row.Comment, Rating: row.Rating,
-		Version: row.Version,
+		CoverURL: row.CoverURL, CoverSource: row.CoverSource, TitleOverride: row.TitleOverride, Summary: row.Summary,
+		Comment: row.Comment, Rating: row.Rating, Version: row.Version,
 	}, nil
+}
+
+// displayTitle は画面に出す書名を決める。自分で上書きした書名があればそれ、無ければ外部カタログの書名。
+func displayTitle(override *string, catalogTitle string) string {
+	if override != nil {
+		return *override
+	}
+	return catalogTitle
 }
 
 // FindList は新しく登録した順（同時刻は ID の大きい順）に、取得範囲の分だけ返す。総件数も返す。
@@ -45,7 +53,7 @@ func (q *query) FindList(ctx context.Context, r common.ListRange) (*domainbook.B
 		return nil, err
 	}
 	var rows []model
-	err := db.Select("id, isbn, title, authors, cover_url, cover_source, rating").
+	err := db.Select("id, isbn, title, title_override, authors, cover_url, cover_source, summary, rating").
 		Order("created_at DESC, id DESC").Limit(r.Limit()).Offset(r.Offset()).
 		Find(&rows).Error
 	if err != nil {
@@ -54,8 +62,8 @@ func (q *query) FindList(ctx context.Context, r common.ListRange) (*domainbook.B
 	list := &domainbook.BookList{Items: make([]*domainbook.BookListItem, 0, len(rows)), Total: int(total)}
 	for _, row := range rows {
 		list.Items = append(list.Items, &domainbook.BookListItem{
-			ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: row.Title, Authors: row.Authors,
-			AmazonURL: amazonURLOf(row.ISBN), CoverURL: row.CoverURL, CoverSource: row.CoverSource, Rating: row.Rating,
+			ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: displayTitle(row.TitleOverride, row.Title), Summary: row.Summary,
+			Authors: row.Authors, AmazonURL: amazonURLOf(row.ISBN), CoverURL: row.CoverURL, CoverSource: row.CoverSource, Rating: row.Rating,
 		})
 	}
 	return list, nil
