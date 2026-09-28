@@ -1,0 +1,24 @@
+# バックエンド DB スキーマ
+
+正は `backend/migrations/*.sql`。AI 向けの詳細（型・nullable・値の意味）は [`backend-schema.json`](./backend-schema.json)。ルールは [`docs/rules/db-documentation.md`](../rules/db-documentation.md)。
+
+`book`: 自分が読んだ本。書誌（書名・著者・出版社・発売日）と書影の URL は ISBN で外部カタログから取得した値、感想と評価は自分で書いた値。著者は提供元の文字列のまま持つ（独立したテーブルは無い）。ISBN は一意。
+
+```mermaid
+erDiagram
+    book {
+        bigserial id PK
+        varchar_13 isbn "unique"
+        varchar_255 title
+        varchar_500 authors
+        varchar_255 publisher
+        varchar_32 published_on
+        varchar_2048 cover_url "nullable"
+        varchar_16 cover_source "nullable"
+        text comment
+        smallint rating
+        integer version
+        timestamptz created_at
+        timestamptz updated_at
+    }
+```
