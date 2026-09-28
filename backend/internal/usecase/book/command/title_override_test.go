@@ -23,6 +23,8 @@ func TestParseTitleOverride(t *testing.T) {
 		{name: "前後の空白は除いて保持する", in: " 正しい書名 ", want: "正しい書名"},
 		{name: "空文字は上書きしない", in: "", wantNil: true},
 		{name: "空白だけは上書きしない", in: "　 ", wantNil: true},
+		{name: "タブだけは空白ではなく制御文字としてエラー", in: "\t", wantErr: true},
+		{name: "改行だけは空白ではなく制御文字としてエラー", in: "\n", wantErr: true},
 		{name: "256文字は書名の規則違反でエラー", in: strings.Repeat("あ", 256), wantErr: true},
 		{name: "改行を含むとエラー", in: "正しい\n書名", wantErr: true},
 	}
