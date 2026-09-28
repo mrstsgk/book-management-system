@@ -57,7 +57,7 @@ func (b *Book) DropExpiredCover(now time.Time) bool {
 
 **Files:** Modify `backend/internal/domain/book/book.go`（IF）、`backend/internal/infrastructure/postgres/book/repository.go`、`repository_test.go`、`backend/internal/usecase/book/command/register_test.go`（Fake）
 
-**Interfaces:** Produces `FindRakutenRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*Book, error)` — 楽天の書影で `cover_fetched_at <= fetchedBefore` の本を ID 順に返す（`NeedsRefresh` の `!now.Before(fetchedAt+83d)` と同じ境界）
+**Interfaces:** Produces `FindRakutenRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*Book, error)` — 楽天の書影で `cover_fetched_at <= fetchedBefore` の本を ID 順に返す（`NeedsRefresh` の `!now.Before(fetchedAt+82d)` と同じ境界）
 
 - [ ] **Step 1: 失敗する契約テスト**: 基準時刻 `now` に対し、取り直し開始ちょうど前（9780000003607）・保持期限超過（…3614）の楽天の書影は返り、取り直し開始の1秒後（…3621）の楽天の書影・古い openBD の書影（…3638）・書影なし（…3645）は返らない。返った本はタグも読めている（…3607 にタグ1つ）。共有 DB に他の行があるので、自分の ID だけを見て判定する
 - [ ] **Step 2:** FAIL（undefined）
