@@ -19,6 +19,8 @@ type Book struct {
 	Status    PublishStatus
 	AmazonURL *AmazonURL
 	ImageKey  *ImageKey
+	ISBN      *ISBN
+	Cover     *Cover
 	Version   int
 }
 
@@ -54,6 +56,21 @@ func (b *Book) ChangeAmazonURL(u *AmazonURL) {
 	}
 	v := *u
 	b.AmazonURL = &v
+}
+
+// ChangeCatalogInfo sets the ISBN and the cover found for it; nil clears each.
+// It keeps copies so later changes to the caller's variables don't alter the book.
+func (b *Book) ChangeCatalogInfo(isbn *ISBN, cover *Cover) {
+	b.ISBN = copyOf(isbn)
+	b.Cover = copyOf(cover)
+}
+
+func copyOf[T any](v *T) *T {
+	if v == nil {
+		return nil
+	}
+	c := *v
+	return &c
 }
 
 // ReplaceImage points the book at a newly stored image and returns the key it
@@ -107,8 +124,11 @@ type BookDetail struct {
 	AmazonURL *string
 	ImageKey  *string
 	// ImageURL is not stored; the use case fills it from ImageKey via ImageStorage.
-	ImageURL *string
-	Version  int
+	ImageURL    *string
+	ISBN        *string
+	CoverURL    *string
+	CoverSource *string
+	Version     int
 }
 
 // BookSummary is the read model for a book list; it omits authors and version.
@@ -133,4 +153,26 @@ type ImageStorage interface {
 	Delete(ctx context.Context, key ImageKey) error
 	// URL returns a time-limited URL a client can fetch the image from.
 	URL(ctx context.Context, key ImageKey) (string, error)
+}
+
+// CatalogEntry is what an external book catalog knows about an ISBN. It is input
+// assistance for registering a book, so it keeps the provider's raw text (e.g. an
+// authors string that mixes authors and translators) instead of domain VOs.
+type CatalogEntry struct {
+	ISBN      ISBN
+	Title     string
+	Authors   string
+	Publisher string
+	// PublishedOn is as the provider gives it (e.g. "201907" or "20170807").
+	PublishedOn string
+	// Price is nil when the provider has no usable yen amount.
+	Price *int64
+	// Cover is nil when no provider has an image for this ISBN.
+	Cover *Cover
+}
+
+// BookCatalog is the port to external book catalogs such as openBD (ExternalGateway).
+type BookCatalog interface {
+	// Lookup returns ErrNotFound when no catalog knows the ISBN.
+	Lookup(ctx context.Context, isbn ISBN) (*CatalogEntry, error)
 }

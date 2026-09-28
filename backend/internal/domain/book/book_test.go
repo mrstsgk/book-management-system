@@ -184,3 +184,32 @@ func TestBook_ReplaceImage(t *testing.T) {
 		t.Fatalf("ImageKey = %v, want %v", b.ImageKey, second)
 	}
 }
+
+func TestBook_ChangeCatalogInfo(t *testing.T) {
+	t.Parallel()
+	b, err := book.New(mustTitle(t, "データ指向アプリケーションデザイン"), mustPrice(t, 4600), []author.ID{1}, book.Published)
+	if err != nil {
+		t.Fatal(err)
+	}
+	isbn, err := book.NewISBN("9784873118703")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cover, err := book.NewCover("https://cover.openbd.jp/9784873118703.jpg", book.CoverSourceOpenBD)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b.ChangeCatalogInfo(&isbn, &cover)
+	other, _ := book.NewISBN("9784297146221")
+	isbn = other // must not leak into the book
+
+	if b.ISBN == nil || b.ISBN.String() != "9784873118703" || b.Cover == nil || *b.Cover != cover {
+		t.Fatalf("ISBN=%v Cover=%v, want the values passed in (copied)", b.ISBN, b.Cover)
+	}
+
+	b.ChangeCatalogInfo(nil, nil)
+	if b.ISBN != nil || b.Cover != nil {
+		t.Fatalf("ISBN=%v Cover=%v, want both cleared", b.ISBN, b.Cover)
+	}
+}
