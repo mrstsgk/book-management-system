@@ -11,32 +11,26 @@ var dbKeys = []string{"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME",
 
 var catalogKeys = []string{"OPENBD_BASE_URL", "RAKUTEN_BASE_URL", "RAKUTEN_APPLICATION_ID", "RAKUTEN_ACCESS_KEY"}
 
-var requiredKeys = []string{"DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "ADMIN_TOKEN"}
-
-const strongToken = "0123456789abcdef0123456789abcdef" // 32文字
-
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range append(append([]string{"STAGE", "LOG_LEVEL", "HTTP_PORT"}, dbKeys...), append(catalogKeys, "ADMIN_TOKEN")...) {
+	for _, k := range append(append([]string{"LOG_LEVEL", "HTTP_PORT"}, dbKeys...), append(catalogKeys, "ADMIN_TOKEN")...) {
 		t.Setenv(k, "")
 	}
 }
 
 func TestLoad(t *testing.T) {
-	t.Run("defaults to local stage with local DB and info level", func(t *testing.T) {
+	t.Run("未設定ならローカルのDBと開発用の管理者トークンとinfoレベルを使う", func(t *testing.T) {
 		clearEnv(t)
 		cfg, err := config.Load()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if cfg.Stage != "local" {
-			t.Errorf("Stage = %q, want local", cfg.Stage)
-		}
 		if cfg.LogLevel != slog.LevelInfo {
 			t.Errorf("LogLevel = %v, want INFO", cfg.LogLevel)
 		}
-		if cfg.DB.Host == "" || cfg.DB.User == "" || cfg.DB.DBName == "" {
-			t.Errorf("local DB defaults missing: %+v", cfg.DB)
+		wantDB := config.DBConfig{Host: "localhost", Port: "5432", User: "postgres", Password: "postgres", DBName: "book_management", SSLMode: "disable"}
+		if cfg.DB != wantDB {
+			t.Errorf("DB = %+v, want %+v", cfg.DB, wantDB)
 		}
 		want := config.CatalogConfig{OpenBDBaseURL: "https://api.openbd.jp", RakutenBaseURL: "https://openapi.rakuten.co.jp"}
 		if cfg.Catalog != want {
@@ -70,40 +64,16 @@ func TestLoad(t *testing.T) {
 		}
 	})
 
-	t.Run("non-local stage fails when a required setting is missing", func(t *testing.T) {
-		for _, missing := range requiredKeys {
-			t.Run(missing, func(t *testing.T) {
-				clearEnv(t)
-				t.Setenv("STAGE", "stg")
-				for _, k := range requiredKeys {
-					if k != missing {
-						t.Setenv(k, strongToken)
-					}
-				}
-				if _, err := config.Load(); err == nil {
-					t.Fatalf("expected error when %s is missing", missing)
-				}
-			})
-		}
-	})
-
-	t.Run("non-local stage succeeds when required settings are given", func(t *testing.T) {
+	t.Run("DBの設定は環境変数で上書きできる", func(t *testing.T) {
 		clearEnv(t)
-		t.Setenv("STAGE", "prd")
-		t.Setenv("DB_HOST", "db.internal")
-		t.Setenv("DB_USER", "app")
-		t.Setenv("DB_PASSWORD", "secret")
-		t.Setenv("DB_NAME", "book_management")
-		t.Setenv("ADMIN_TOKEN", strongToken)
+		t.Setenv("DB_HOST", "db.test")
+		t.Setenv("DB_NAME", "other")
 		cfg, err := config.Load()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if cfg.DB.Host != "db.internal" {
-			t.Errorf("DB.Host = %q, want db.internal", cfg.DB.Host)
-		}
-		if cfg.Catalog.RakutenEnabled() {
-			t.Error("Rakuten must stay optional outside local too")
+		if cfg.DB.Host != "db.test" || cfg.DB.DBName != "other" || cfg.DB.User != "postgres" {
+			t.Errorf("DB = %+v, want overridden host/name with default user", cfg.DB)
 		}
 	})
 }
@@ -147,39 +117,11 @@ func TestLoad_CatalogBaseURLsCanBeOverridden(t *testing.T) {
 	}
 }
 
-func TestLoad_AdminToken(t *testing.T) {
-	setRequired := func(t *testing.T, token string) {
-		t.Helper()
-		clearEnv(t)
-		t.Setenv("STAGE", "prd")
-		t.Setenv("DB_HOST", "db.internal")
-		t.Setenv("DB_USER", "app")
-		t.Setenv("DB_PASSWORD", "secret")
-		t.Setenv("DB_NAME", "book_management")
-		t.Setenv("ADMIN_TOKEN", token)
+func TestLoad_AdminTokenCanBeOverridden(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("ADMIN_TOKEN", "my-token")
+	cfg, err := config.Load()
+	if err != nil || cfg.AdminToken != "my-token" {
+		t.Fatalf("got (%q, %v), want my-token", cfg.AdminToken, err)
 	}
-
-	t.Run("non-localで32文字ちょうどは有効", func(t *testing.T) {
-		setRequired(t, strongToken)
-		cfg, err := config.Load()
-		if err != nil || cfg.AdminToken != strongToken {
-			t.Fatalf("got (%q, %v)", cfg.AdminToken, err)
-		}
-	})
-
-	t.Run("non-localで31文字はエラー", func(t *testing.T) {
-		setRequired(t, strongToken[:31])
-		if _, err := config.Load(); err == nil {
-			t.Fatal("expected an error for a short ADMIN_TOKEN")
-		}
-	})
-
-	t.Run("localでは短いトークンも指定できる", func(t *testing.T) {
-		clearEnv(t)
-		t.Setenv("ADMIN_TOKEN", "dev")
-		cfg, err := config.Load()
-		if err != nil || cfg.AdminToken != "dev" {
-			t.Fatalf("got (%q, %v)", cfg.AdminToken, err)
-		}
-	})
 }
