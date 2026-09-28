@@ -1,11 +1,16 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
+	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
+	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 )
 
 // run は非公開なので、このテストは package main に置く。
@@ -53,6 +58,35 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 		if !got[want] {
 			t.Errorf("route %q is not registered (got %v)", want, got)
 		}
+	}
+}
+
+// TestRegisterRoutes_WiresTagQueryIntoBookUsecases は main.go が RegisterUsecaseImpl/UpdateUsecaseImpl の
+// Tags に本物の tag.Query を渡していることを、実際のリクエストで確かめる（配線漏れなら nil interface の
+// メソッド呼び出しでパニックする）。実DBが要るため繋がらなければ skip する。
+func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
+	db, err := pgcommon.Connect(pgcommon.Config{
+		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
+		DBName: "book_management", SSLMode: "disable",
+	})
+	if err != nil {
+		t.Skipf("skipping: local Postgres not reachable (run `make db-up migrate-up` first): %v", err)
+	}
+
+	e := httpcommon.NewEcho()
+	registerRoutes(e, db, nil, "token")
+
+	body := `{"isbn":"4873118700","summary":"要約","tagIds":[999999999],"comment":"良書","rating":5}`
+	req := httptest.NewRequest(http.MethodPost, "/api/books", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	// 存在しないタグIDは400（実在確認までTagsの配線が届いていないとここでpanicする）。
+	// タグ検証はカタログ問い合わせより前に行われるため、bookCatalog（nil）には到達しない。
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
 	}
 }
 
