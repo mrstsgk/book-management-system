@@ -253,14 +253,22 @@ func TestQuery_RakutenCover(t *testing.T) {
 	createBook(t, db, expired)
 	openbd := newBook(t, "9780000003430", "rakuten-test-openBD", mustCover(t, "https://cover.openbd.jp/rakuten-test.jpg"), 4)
 	createBook(t, db, openbd)
+	// ちょうど89日だけでなく、境界からさらに離れた値も確かめる（`== 89日` のような取り違えは
+	// ちょうど89日のケースだけでは検知できても、実装が偶然そこだけ正しいだけの可能性を消せないため）。
+	veryExpired := newBook(t, "9780000003447", "rakuten-test-大幅に期限切れ", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/very-expired.jpg", product, fixedNow.Add(-100*day)), 4)
+	createBook(t, db, veryExpired)
 
 	type cover struct{ url, source, product *string }
 	wants := map[domainbook.ID]cover{
-		fresh.ID:   {strPtr("https://thumbnail.image.rakuten.co.jp/fresh.jpg"), strPtr("rakuten"), strPtr(product)},
-		expired.ID: {nil, nil, nil},
-		openbd.ID:  {strPtr("https://cover.openbd.jp/rakuten-test.jpg"), strPtr("openbd"), nil},
+		fresh.ID:       {strPtr("https://thumbnail.image.rakuten.co.jp/fresh.jpg"), strPtr("rakuten"), strPtr(product)},
+		expired.ID:     {nil, nil, nil},
+		openbd.ID:      {strPtr("https://cover.openbd.jp/rakuten-test.jpg"), strPtr("openbd"), nil},
+		veryExpired.ID: {nil, nil, nil},
 	}
-	names := map[domainbook.ID]string{fresh.ID: "取得から88日の楽天の書影は商品ページと一緒に返す", expired.ID: "取得からちょうど89日の楽天の書影は返さない", openbd.ID: "openBDの書影は商品ページ無しで返す"}
+	names := map[domainbook.ID]string{
+		fresh.ID: "取得から88日の楽天の書影は商品ページと一緒に返す", expired.ID: "取得からちょうど89日の楽天の書影は返さない",
+		openbd.ID: "openBDの書影は商品ページ無しで返す", veryExpired.ID: "取得から100日の楽天の書影も返さない",
+	}
 
 	for id, want := range wants {
 		t.Run("詳細: "+names[id], func(t *testing.T) {
