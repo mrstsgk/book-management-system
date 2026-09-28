@@ -31,7 +31,7 @@
 ### 2.1 `Title`（新しい VO）
 
 - 1〜255 文字。前後の空白を除く。タブや改行などの制御文字は受け付けない（トリム前に検査する）
-- 今の `Bibliography` の書名と同じ規則なので、`Bibliography` の書名もこの `Title` で持つように揃える（規則を1か所にする）。`Bibliography.Title()` は今どおり文字列を返す
+- 規則は今の `Bibliography` の書名と同じ。検証は同じ関数（`text`）と上限の定数を使い、`Bibliography` の持ち方は変えない
 
 ### 2.2 `Summary`（新しい VO）
 
@@ -51,22 +51,22 @@
 
 | Read Model | 追加・変更 |
 |---|---|
-| `BookDetail` | `Title` を「表示する書名」にする。`CatalogTitle string`（外部カタログの書名）、`TitleOverride *string`、`Summary string` を足す |
+| `BookDetail` | `Title` を「表示する書名」にする。`TitleOverride *string`、`Summary string` を足す |
 | `BookListItem` | `Title` を「表示する書名」にする。`Summary string` を足す |
 
-表示する書名 = 上書きがあればそれ、無ければ外部カタログの書名。管理画面の編集で上書きと元の書名の両方を見せるため、詳細では分けても返す。
+表示する書名 = 上書きがあればそれ、無ければ外部カタログの書名。詳細では `TitleOverride` も返す（PUT は全体の置き換えなので、編集画面が今の上書きを送り直すのに要る）。外部カタログの書名は登録前の確認 API（`GET /api/catalog/{isbn}`）で見られるので、詳細では返さない。
 
 ## 3. 永続化（`infrastructure/postgres/book`）
 
 - Repository: `title_override`・`summary` を読み書きする。読み込み時は VO で検証し直す（今の `adapt` と同じ）
-- Query: 表示する書名を SQL の `COALESCE(title_override, title)` で決める。Read Model には結果の文字列だけを載せる
+- Query: 表示する書名を1つの関数（`displayTitle`）で決め、詳細と一覧の両方で使う。Read Model には結果の文字列だけを載せる
 
 ## 4. ユースケース（`usecase/book/command`）
 
 | Command | 追加 |
 |---|---|
-| `RegisterCommand` | `Summary string`、`TitleOverride string`（空文字なら上書きなし） |
-| `UpdateCommand` | 同上。空文字なら上書きを外す |
+| `RegisterCommand` | `Summary string`、`TitleOverride string`（前後の空白を除いて空なら上書きなし） |
+| `UpdateCommand` | 同上。空なら上書きを外す |
 
 - どちらも入力の検証（ISBN・一言まとめ・感想・評価・書名の上書き）を外部カタログへの問い合わせより先に済ませる（今の方針どおり）
 
@@ -79,7 +79,7 @@
 
 | レスポンス | 追加 |
 |---|---|
-| `BookResponse` | `summary`、`catalogTitle`、`titleOverride`（null 可）。`title` は表示する書名 |
+| `BookResponse` | `summary`、`titleOverride`（null 可）。`title` は表示する書名 |
 | `BookListItemResponse` | `summary`。`title` は表示する書名 |
 
 swag で OpenAPI を排出し直し、フロントの型を再生成する。
@@ -89,7 +89,7 @@ swag で OpenAPI を排出し直し、フロントの型を再生成する。
 | 状況 | 結果 |
 |---|---|
 | `summary` が空・100 文字超・改行を含む | 400 |
-| `titleOverride` が 255 文字超・制御文字を含む | 400 |
+| `titleOverride` が 255 文字超・制御文字を含む | 400（空・空白だけはエラーにせず上書きなし） |
 | それ以外 | 今と同じ（カタログに無い ISBN は 400、重複は 409、版の不一致は 409） |
 
 ## 7. テスト
@@ -97,11 +97,10 @@ swag で OpenAPI を排出し直し、フロントの型を再生成する。
 | 対象 | 確かめること |
 |---|---|
 | `Title` / `Summary` | 上限ちょうど・上限+1、下限（空・空白だけ）、前後の空白の除去（除去前と除去後の両方）、制御文字 |
-| `Bibliography` | 書名の規則が `Title` と同じであること（既存テストが通ること） |
 | `Book` | `OverrideTitle` で付ける・nil で外す・コピーして持つ。`RefreshCatalog` 後も上書きが残る。`ChangeReview` で一言まとめが変わる |
 | Repository（契約テスト） | 上書き・一言まとめの保存と読み込み、上書きを外すと NULL になる |
-| Query（契約テスト） | 表示する書名が上書き優先で、無ければカタログの書名。`CatalogTitle` と `TitleOverride` が別に取れる。Read Model が VO 型でなく `string` であること |
-| ユースケース | 一言まとめ・書名の上書きが不正なら外部カタログも Repository も呼ばれない。更新で上書きを外せる |
+| Query（契約テスト） | 表示する書名が上書き優先で、無ければカタログの書名。詳細で `TitleOverride` が取れる。Read Model が VO 型でなく `string` であること |
+| ユースケース | 一言まとめ・書名の上書きが不正なら外部カタログも Repository も呼ばれない。上書きが空・空白だけなら上書きなし。更新で上書きを外せる |
 | Handler | 必須の欠落と上限超えが 400 とフィールドのエラーになる。`titleOverride` 省略時に上書きなしで渡る |
 
 ## 8. PR の分け方
