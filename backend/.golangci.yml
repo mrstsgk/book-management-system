@@ -11,6 +11,7 @@ linters:
     - copyloopvar
     - errorlint
     - goconst
+    - gocyclo
     - misspell
     - nilerr
     - revive
@@ -22,6 +23,9 @@ linters:
   settings:
     errcheck:
       check-type-assertions: true
+    gocyclo:
+      # 分岐の多すぎる関数を読みにくさとして弾く（一般的な目安の 10。11 以上で失敗）
+      min-complexity: 10
     revive:
       enable-default-rules: true
       rules:
@@ -42,6 +46,8 @@ linters:
         linters:
           - errcheck
           - goconst
+          # 表形式のテストはケースを並べるほど数値が上がるだけで、読みにくさとは関係しない
+          - gocyclo
 
 formatters:
   enable:
