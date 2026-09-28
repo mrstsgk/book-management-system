@@ -15,21 +15,24 @@ import (
 )
 
 type model struct {
-	ID            int64     `gorm:"column:id;primaryKey;autoIncrement"`
-	ISBN          string    `gorm:"column:isbn;size:13;not null"`
-	Title         string    `gorm:"column:title;size:255;not null"`
-	TitleOverride *string   `gorm:"column:title_override;size:255"`
-	Authors       string    `gorm:"column:authors;size:500;not null"`
-	Publisher     string    `gorm:"column:publisher;size:255;not null"`
-	PublishedOn   string    `gorm:"column:published_on;size:32;not null"`
-	CoverURL      *string   `gorm:"column:cover_url;size:2048"`
-	CoverSource   *string   `gorm:"column:cover_source;size:16"`
-	Summary       string    `gorm:"column:summary;size:100;not null"`
-	Comment       string    `gorm:"column:comment;not null"`
-	Rating        int       `gorm:"column:rating;not null"`
-	Version       int       `gorm:"column:version;not null"`
-	CreatedAt     time.Time `gorm:"column:created_at;not null"`
-	UpdatedAt     time.Time `gorm:"column:updated_at;not null"`
+	ID            int64   `gorm:"column:id;primaryKey;autoIncrement"`
+	ISBN          string  `gorm:"column:isbn;size:13;not null"`
+	Title         string  `gorm:"column:title;size:255;not null"`
+	TitleOverride *string `gorm:"column:title_override;size:255"`
+	Authors       string  `gorm:"column:authors;size:500;not null"`
+	Publisher     string  `gorm:"column:publisher;size:255;not null"`
+	PublishedOn   string  `gorm:"column:published_on;size:32;not null"`
+	CoverURL      *string `gorm:"column:cover_url;size:2048"`
+	CoverSource   *string `gorm:"column:cover_source;size:16"`
+	// CoverProductURL・CoverFetchedAt は楽天の書影のときだけ入る（CHECK 制約 ck_book_rakuten_cover）。
+	CoverProductURL *string    `gorm:"column:cover_product_url;size:2048"`
+	CoverFetchedAt  *time.Time `gorm:"column:cover_fetched_at"`
+	Summary         string     `gorm:"column:summary;size:100;not null"`
+	Comment         string     `gorm:"column:comment;not null"`
+	Rating          int        `gorm:"column:rating;not null"`
+	Version         int        `gorm:"column:version;not null"`
+	CreatedAt       time.Time  `gorm:"column:created_at;not null"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at;not null"`
 }
 
 func (model) TableName() string {
@@ -116,6 +119,7 @@ func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
 				"title": row.Title, "title_override": row.TitleOverride, "authors": row.Authors,
 				"publisher": row.Publisher, "published_on": row.PublishedOn,
 				"cover_url": row.CoverURL, "cover_source": row.CoverSource,
+				"cover_product_url": row.CoverProductURL, "cover_fetched_at": row.CoverFetchedAt,
 				"summary": row.Summary, "comment": row.Comment, "rating": row.Rating,
 				"version": next, "updated_at": gorm.Expr("NOW()"),
 			})
@@ -211,6 +215,10 @@ func toModel(b *domainbook.Book) model {
 	if b.Cover != nil {
 		u, s := b.Cover.URL(), string(b.Cover.Source())
 		row.CoverURL, row.CoverSource = &u, &s
+		if b.Cover.Source() == domainbook.CoverSourceRakuten {
+			p, f := b.Cover.ProductURL(), b.Cover.FetchedAt()
+			row.CoverProductURL, row.CoverFetchedAt = &p, &f
+		}
 	}
 	if b.TitleOverride != nil {
 		v := b.TitleOverride.String()
@@ -241,7 +249,7 @@ func adapt(row model, tagIDs []domaintag.ID) (*domainbook.Book, error) {
 	if err != nil {
 		return nil, err
 	}
-	cover, err := adaptCover(row.CoverURL, row.CoverSource)
+	cover, err := adaptCover(row)
 	if err != nil {
 		return nil, err
 	}
@@ -260,12 +268,18 @@ func adapt(row model, tagIDs []domaintag.ID) (*domainbook.Book, error) {
 	return b, nil
 }
 
-// adaptCover は保存済みの書影を VO で検証し直す。どちらかが NULL なら書影なし。
-func adaptCover(url, source *string) (*domainbook.Cover, error) {
-	if url == nil || source == nil {
+// adaptCover は保存済みの書影を VO で検証し直す。URL か提供元が NULL なら書影なし。
+func adaptCover(row model) (*domainbook.Cover, error) {
+	if row.CoverURL == nil || row.CoverSource == nil {
 		return nil, nil
 	}
-	c, err := domainbook.NewCover(*url, domainbook.CoverSource(*source))
+	var c domainbook.Cover
+	var err error
+	if domainbook.CoverSource(*row.CoverSource) == domainbook.CoverSourceRakuten && row.CoverProductURL != nil && row.CoverFetchedAt != nil {
+		c, err = domainbook.NewRakutenCover(*row.CoverURL, *row.CoverProductURL, *row.CoverFetchedAt)
+	} else {
+		c, err = domainbook.NewCover(*row.CoverURL, domainbook.CoverSource(*row.CoverSource))
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -22,6 +22,8 @@ type Response struct {
 	AmazonURL   *string `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
 	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
 	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
+	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
+	CoverProductURL *string `json:"coverProductUrl" example:"https://books.rakuten.co.jp/rb/15949390/"`
 } // @name CatalogResponse
 
 // Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
@@ -71,6 +73,9 @@ func toResponse(e *domainbook.CatalogEntry) Response {
 	if e.Cover != nil {
 		u, src := e.Cover.URL(), string(e.Cover.Source())
 		res.CoverURL, res.CoverSource = &u, &src
+		if p := e.Cover.ProductURL(); p != "" {
+			res.CoverProductURL = &p
+		}
 	}
 	return res
 }

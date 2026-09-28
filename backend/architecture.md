@@ -188,6 +188,7 @@ backend/
 
 - 認証は `Authorization: Bearer <ADMIN_TOKEN>`。自分だけが書き込めればよいので、ユーザー管理は持たない
 - 書影は提供元の URL をそのまま返す。`coverSource` が `rakuten` なら画面に楽天ウェブサービスのクレジット表示が必要（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）
+- 楽天の書影は楽天の商品ページ（`coverProductUrl`）と一緒に返す。取得から89日以上経過した楽天の書影は返さない（楽天の規約の保持期限）（[設計](../docs/superpowers/specs/2026-09-28-rakuten-expiry-design.md)）
 
 ## 5. やらないこと（全体）
 

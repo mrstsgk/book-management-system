@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
@@ -16,7 +17,12 @@ import (
 
 // formatVersion=2 の BooksBook/Search の応答と同じ形。
 const found = `{"Items":[{"title":"データ指向アプリケーションデザイン","author":"Martin Kleppmann/斉藤 太郎","publisherName":"オライリー・ジャパン",
-"salesDate":"2019年07月18日頃","itemPrice":5060,"largeImageUrl":"https://thumbnail.image.rakuten.co.jp/0_mall/book/cabinet/8703/9784873118703.jpg?_ex=200x200"}],"count":1}`
+"salesDate":"2019年07月18日頃","itemPrice":5060,"largeImageUrl":"https://thumbnail.image.rakuten.co.jp/0_mall/book/cabinet/8703/9784873118703.jpg?_ex=200x200",
+"itemUrl":"https://books.rakuten.co.jp/rb/15949390/"}],"count":1}`
+
+var fetchedAt = time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+
+func fixedNow() time.Time { return fetchedAt }
 
 func serve(t *testing.T, status int, body string) (*httptest.Server, *url.Values) {
 	t.Helper()
@@ -46,7 +52,7 @@ func isbn(t *testing.T) domainbook.ISBN {
 func TestCatalog_Lookup(t *testing.T) {
 	t.Run("ISBNとキーを付けて検索し、書誌と書影を返す", func(t *testing.T) {
 		srv, q := serve(t, http.StatusOK, found)
-		got, err := rakuten.NewCatalog(srv.URL, "app-id", "access-key", srv.Client()).Lookup(context.Background(), isbn(t))
+		got, err := rakuten.NewCatalog(srv.URL, "app-id", "access-key", srv.Client(), fixedNow).Lookup(context.Background(), isbn(t))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -58,21 +64,30 @@ func TestCatalog_Lookup(t *testing.T) {
 		if b.Title() != "データ指向アプリケーションデザイン" || b.Authors() != "Martin Kleppmann/斉藤 太郎" || b.Publisher() != "オライリー・ジャパン" || b.PublishedOn() != "2019年07月18日頃" {
 			t.Fatalf("got %+v", got)
 		}
-		if got.Cover == nil || got.Cover.Source() != domainbook.CoverSourceRakuten || !strings.HasPrefix(got.Cover.URL(), "https://thumbnail.image.rakuten.co.jp/") {
-			t.Fatalf("Cover = %+v", got.Cover)
+		if got.Cover == nil || got.Cover.Source() != domainbook.CoverSourceRakuten || !strings.HasPrefix(got.Cover.URL(), "https://thumbnail.image.rakuten.co.jp/") ||
+			got.Cover.ProductURL() != "https://books.rakuten.co.jp/rb/15949390/" || !got.Cover.FetchedAt().Equal(fetchedAt) {
+			t.Fatalf("Cover = %+v, want the rakuten image with its product page, fetched now", got.Cover)
+		}
+	})
+
+	t.Run("商品ページが無ければ画像があっても書影なし", func(t *testing.T) {
+		srv, _ := serve(t, http.StatusOK, `{"Items":[{"title":"x","largeImageUrl":"https://thumbnail.image.rakuten.co.jp/1.jpg","itemUrl":""}]}`)
+		got, err := rakuten.NewCatalog(srv.URL, "a", "k", srv.Client(), fixedNow).Lookup(context.Background(), isbn(t))
+		if err != nil || got.Cover != nil {
+			t.Fatalf("got (%+v, %v), want no cover", got, err)
 		}
 	})
 
 	t.Run("0件はErrNotFound", func(t *testing.T) {
 		srv, _ := serve(t, http.StatusOK, `{"Items":[],"count":0}`)
-		if _, err := rakuten.NewCatalog(srv.URL, "a", "k", srv.Client()).Lookup(context.Background(), isbn(t)); !errors.Is(err, common.ErrNotFound) {
+		if _, err := rakuten.NewCatalog(srv.URL, "a", "k", srv.Client(), fixedNow).Lookup(context.Background(), isbn(t)); !errors.Is(err, common.ErrNotFound) {
 			t.Fatalf("err = %v, want ErrNotFound", err)
 		}
 	})
 
 	t.Run("画像が無ければ書影なし", func(t *testing.T) {
 		srv, _ := serve(t, http.StatusOK, `{"Items":[{"title":"x","largeImageUrl":""}]}`)
-		got, err := rakuten.NewCatalog(srv.URL, "a", "k", srv.Client()).Lookup(context.Background(), isbn(t))
+		got, err := rakuten.NewCatalog(srv.URL, "a", "k", srv.Client(), fixedNow).Lookup(context.Background(), isbn(t))
 		if err != nil || got.Cover != nil {
 			t.Fatalf("got (%+v, %v), want no cover", got, err)
 		}
@@ -80,7 +95,7 @@ func TestCatalog_Lookup(t *testing.T) {
 
 	t.Run("書名が空ならエラー", func(t *testing.T) {
 		srv, _ := serve(t, http.StatusOK, `{"Items":[{"title":""}]}`)
-		_, err := rakuten.NewCatalog(srv.URL, "a", "k", srv.Client()).Lookup(context.Background(), isbn(t))
+		_, err := rakuten.NewCatalog(srv.URL, "a", "k", srv.Client(), fixedNow).Lookup(context.Background(), isbn(t))
 		if err == nil || errors.Is(err, common.ErrNotFound) {
 			t.Fatalf("err = %v, want a non-NotFound error", err)
 		}
@@ -88,7 +103,7 @@ func TestCatalog_Lookup(t *testing.T) {
 
 	t.Run("認証エラーなど200以外はエラー", func(t *testing.T) {
 		srv, _ := serve(t, http.StatusUnauthorized, `{"error":"wrong_parameter"}`)
-		_, err := rakuten.NewCatalog(srv.URL, "a", "k", srv.Client()).Lookup(context.Background(), isbn(t))
+		_, err := rakuten.NewCatalog(srv.URL, "a", "k", srv.Client(), fixedNow).Lookup(context.Background(), isbn(t))
 		if err == nil || errors.Is(err, common.ErrNotFound) {
 			t.Fatalf("err = %v, want a non-NotFound error", err)
 		}
@@ -97,7 +112,7 @@ func TestCatalog_Lookup(t *testing.T) {
 	t.Run("通信エラーのメッセージにキーを含めない", func(t *testing.T) {
 		srv, _ := serve(t, http.StatusOK, found)
 		srv.Close() // connection refused
-		_, err := rakuten.NewCatalog(srv.URL, "secret-app-id", "secret-access-key", http.DefaultClient).Lookup(context.Background(), isbn(t))
+		_, err := rakuten.NewCatalog(srv.URL, "secret-app-id", "secret-access-key", http.DefaultClient, fixedNow).Lookup(context.Background(), isbn(t))
 		if err == nil {
 			t.Fatal("expected a connection error")
 		}

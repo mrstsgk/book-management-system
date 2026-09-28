@@ -69,7 +69,7 @@ func run() error {
 	}()
 
 	bookCatalog := newCatalog(cfg.Catalog)
-	if err := seedIfEmpty(context.Background(), pgbook.NewRepository(db), pgbook.NewQuery(db), bookCatalog); err != nil {
+	if err := seedIfEmpty(context.Background(), pgbook.NewRepository(db), pgbook.NewQuery(db, time.Now), bookCatalog); err != nil {
 		return err
 	}
 
@@ -88,7 +88,7 @@ func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
 	primary := openbd.NewCatalog(cfg.OpenBDBaseURL, client)
 	var fallback domainbook.BookCatalog
 	if cfg.RakutenEnabled() {
-		fallback = rakuten.NewCatalog(cfg.RakutenBaseURL, cfg.RakutenApplicationID, cfg.RakutenAccessKey, client)
+		fallback = rakuten.NewCatalog(cfg.RakutenBaseURL, cfg.RakutenApplicationID, cfg.RakutenAccessKey, client, time.Now)
 	} else {
 		slog.Info("RAKUTEN_APPLICATION_ID / RAKUTEN_ACCESS_KEY not set; covers come from openBD only")
 	}
@@ -98,7 +98,7 @@ func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
 // registerRoutes は手書きの DI（infra → usecase → presentation）で各ハンドラを組み立てて登録する。
 func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalog, adminToken string) {
 	books := pgbook.NewRepository(db)
-	bookQuery := pgbook.NewQuery(db)
+	bookQuery := pgbook.NewQuery(db, time.Now)
 	tags := pgtag.NewRepository(db)
 	tagQuery := pgtag.NewQuery(db)
 	adminOnly := httpcommon.RequireAdminToken(adminToken)

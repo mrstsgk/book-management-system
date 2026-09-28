@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	domaincommon "github.com/mrstsgk/book-management-system/backend/internal/domain/common"
@@ -16,7 +17,7 @@ func strPtr(s string) *string { return &s }
 
 func TestQuery_FindDetailByID(t *testing.T) {
 	db := connectTestDB(t)
-	qry := pgbook.NewQuery(db)
+	qry := pgbook.NewQuery(db, time.Now)
 
 	tests := []struct {
 		name          string
@@ -56,7 +57,7 @@ func TestQuery_FindDetailByID(t *testing.T) {
 
 func TestQuery_FindList(t *testing.T) {
 	db := connectTestDB(t)
-	qry := pgbook.NewQuery(db)
+	qry := pgbook.NewQuery(db, time.Now)
 	ctx := context.Background()
 	listRange := func(t *testing.T, limit, offset int) domaincommon.ListRange {
 		t.Helper()
@@ -107,7 +108,7 @@ func TestQuery_FindList(t *testing.T) {
 
 func TestQuery_DisplayTitle(t *testing.T) {
 	db := connectTestDB(t)
-	q := pgbook.NewQuery(db)
+	q := pgbook.NewQuery(db, time.Now)
 
 	overridden := newBook(t, "9780000001016", "カタログの書名", nil, 4)
 	title, _ := domainbook.NewTitle("正しい書名")
@@ -157,7 +158,7 @@ func TestQuery_DisplayTitle(t *testing.T) {
 
 func TestQuery_Tags(t *testing.T) {
 	db := connectTestDB(t)
-	q := pgbook.NewQuery(db)
+	q := pgbook.NewQuery(db, time.Now)
 
 	tagA := mustCreateTag(t, db, "query-test-タグA")
 	tagB := mustCreateTag(t, db, "query-test-タグB")
@@ -236,9 +237,79 @@ func TestQuery_Tags(t *testing.T) {
 	})
 }
 
+func TestQuery_RakutenCover(t *testing.T) {
+	db := connectTestDB(t)
+	day := 24 * time.Hour
+	// 時計を固定し、取得日時からの経過日数をテストの意図どおりに厳密に境界づける
+	// （time.Now() をそのまま使うと、取得日時の計算と判定の間にDBの往復が挟まり、
+	// 実行が遅ければ経過日数がずれて期限切れの境界を確定的に検証できない）。
+	fixedNow := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	q := pgbook.NewQuery(db, func() time.Time { return fixedNow })
+	const product = "https://books.rakuten.co.jp/rb/15949390/"
+
+	fresh := newBook(t, "9780000003416", "rakuten-test-期限内", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/fresh.jpg", product, fixedNow.Add(-88*day)), 4)
+	createBook(t, db, fresh)
+	expired := newBook(t, "9780000003423", "rakuten-test-期限切れ", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/expired.jpg", product, fixedNow.Add(-89*day)), 4)
+	createBook(t, db, expired)
+	openbd := newBook(t, "9780000003430", "rakuten-test-openBD", mustCover(t, "https://cover.openbd.jp/rakuten-test.jpg"), 4)
+	createBook(t, db, openbd)
+	// ちょうど89日だけでなく、境界からさらに離れた値も確かめる（`== 89日` のような取り違えは
+	// ちょうど89日のケースだけでは検知できても、実装が偶然そこだけ正しいだけの可能性を消せないため）。
+	veryExpired := newBook(t, "9780000003447", "rakuten-test-大幅に期限切れ", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/very-expired.jpg", product, fixedNow.Add(-100*day)), 4)
+	createBook(t, db, veryExpired)
+
+	type cover struct{ url, source, product *string }
+	wants := map[domainbook.ID]cover{
+		fresh.ID:       {strPtr("https://thumbnail.image.rakuten.co.jp/fresh.jpg"), strPtr("rakuten"), strPtr(product)},
+		expired.ID:     {nil, nil, nil},
+		openbd.ID:      {strPtr("https://cover.openbd.jp/rakuten-test.jpg"), strPtr("openbd"), nil},
+		veryExpired.ID: {nil, nil, nil},
+	}
+	names := map[domainbook.ID]string{
+		fresh.ID: "取得から88日の楽天の書影は商品ページと一緒に返す", expired.ID: "取得からちょうど89日の楽天の書影は返さない",
+		openbd.ID: "openBDの書影は商品ページ無しで返す", veryExpired.ID: "取得から100日の楽天の書影も返さない",
+	}
+
+	for id, want := range wants {
+		t.Run("詳細: "+names[id], func(t *testing.T) {
+			got, err := q.FindDetailByID(context.Background(), id)
+			if err != nil {
+				t.Fatalf("FindDetailByID: %v", err)
+			}
+			if gotCover := (cover{got.CoverURL, got.CoverSource, got.CoverProductURL}); !reflect.DeepEqual(gotCover, want) {
+				t.Fatalf("cover = %s, want %s", describe(gotCover.url, gotCover.source, gotCover.product), describe(want.url, want.source, want.product))
+			}
+		})
+	}
+
+	r, err := domaincommon.NewListRange(100, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := q.FindList(context.Background(), domainbook.ListCondition{}, r)
+	if err != nil {
+		t.Fatalf("FindList: %v", err)
+	}
+	byID := map[domainbook.ID]*domainbook.BookListItem{}
+	for _, it := range list.Items {
+		byID[it.ID] = it
+	}
+	for id, want := range wants {
+		t.Run("一覧: "+names[id], func(t *testing.T) {
+			it := byID[id]
+			if it == nil {
+				t.Fatalf("book %d is missing from the list", id)
+			}
+			if gotCover := (cover{it.CoverURL, it.CoverSource, it.CoverProductURL}); !reflect.DeepEqual(gotCover, want) {
+				t.Fatalf("cover = %s, want %s", describe(gotCover.url, gotCover.source, gotCover.product), describe(want.url, want.source, want.product))
+			}
+		})
+	}
+}
+
 func TestQuery_FindList_Condition(t *testing.T) {
 	db := connectTestDB(t)
-	q := pgbook.NewQuery(db)
+	q := pgbook.NewQuery(db, time.Now)
 	ctx := context.Background()
 
 	tagA := domaintag.ID(mustCreateTag(t, db, "search-test-タグA"))
@@ -324,4 +395,16 @@ func TestQuery_FindList_Condition(t *testing.T) {
 			}
 		})
 	}
+}
+
+func describe(ps ...*string) string {
+	s := ""
+	for _, p := range ps {
+		if p == nil {
+			s += "<nil> "
+		} else {
+			s += *p + " "
+		}
+	}
+	return s
 }

@@ -2,7 +2,7 @@
 
 正は `backend/migrations/*.sql`。AI 向けの詳細（型・nullable・値の意味）は [`backend-schema.json`](./backend-schema.json)。ルールは [`docs/rules/db-documentation.md`](../rules/db-documentation.md)。
 
-`book`: 自分が読んだ本。書誌（書名・著者・出版社・発売日）と書影の URL は ISBN で外部カタログから取得した値、感想と評価は自分で書いた値。著者は提供元の文字列のまま持つ（独立したテーブルは無い）。ISBN は一意。
+`book`: 自分が読んだ本。書誌（書名・著者・出版社・発売日）と書影の URL は ISBN で外部カタログから取得した値、感想と評価は自分で書いた値。著者は提供元の文字列のまま持つ（独立したテーブルは無い）。ISBN は一意。楽天の書影は商品ページの URL と取得日時（保持期限89日の起点）を必ず一緒に持ち、それ以外（openBD・書影なし）はどちらも持たない（CHECK 制約 `ck_book_rakuten_cover`）。
 
 ```mermaid
 erDiagram
@@ -16,6 +16,8 @@ erDiagram
         varchar_32 published_on
         varchar_2048 cover_url "nullable"
         varchar_16 cover_source "nullable"
+        varchar_2048 cover_product_url "nullable"
+        timestamptz cover_fetched_at "nullable"
         text comment
         smallint rating
         varchar_100 summary

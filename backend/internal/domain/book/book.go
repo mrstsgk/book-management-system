@@ -82,9 +82,12 @@ type BookDetail struct {
 	Publisher   string
 	PublishedOn string
 	// AmazonURL は ISBN から導出する（保存しない）。ISBN-10 の形式が無ければ nil。
-	AmazonURL   *string
+	AmazonURL *string
+	// CoverURL・CoverSource・CoverProductURL は、書影が無いか楽天の書影が保持期限を過ぎていれば nil。
 	CoverURL    *string
 	CoverSource *string
+	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ。画面は書影と一緒にリンクする）。
+	CoverProductURL *string
 	// TitleOverride は自分で上書きした書名。上書きしていなければ nil（編集画面が今の上書きを送り直すのに使う）。
 	TitleOverride *string
 	Summary       string
@@ -106,7 +109,9 @@ type BookListItem struct {
 	AmazonURL   *string
 	CoverURL    *string
 	CoverSource *string
-	Rating      int
+	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
+	CoverProductURL *string
+	Rating          int
 }
 
 // BookList は一覧のうち取得範囲の分と、全体の総件数。

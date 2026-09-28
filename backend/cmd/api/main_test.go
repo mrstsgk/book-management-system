@@ -178,7 +178,7 @@ func migratedTempDB(t *testing.T) *gorm.DB {
 func TestSeedIfEmpty_OnAnEmptyDatabaseSeedsOnceAcrossRestarts(t *testing.T) {
 	db := migratedTempDB(t)
 	ctx := context.Background()
-	books, query := pgbook.NewRepository(db), pgbook.NewQuery(db)
+	books, query := pgbook.NewRepository(db), pgbook.NewQuery(db, time.Now)
 	offline := &fakeSeedCatalog{err: fmt.Errorf("offline")}
 
 	for start := 1; start <= 2; start++ {

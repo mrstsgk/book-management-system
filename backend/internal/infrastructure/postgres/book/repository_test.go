@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -50,6 +51,56 @@ func mustCover(t *testing.T, url string) *domainbook.Cover {
 		t.Fatal(err)
 	}
 	return &c
+}
+
+// mustRakutenCover は取得日時 fetchedAt の楽天の書影を作る。DB の TIMESTAMPTZ はマイクロ秒までなので、渡す時刻もそこで丸める。
+func mustRakutenCover(t *testing.T, url, productURL string, fetchedAt time.Time) *domainbook.Cover {
+	t.Helper()
+	c, err := domainbook.NewRakutenCover(url, productURL, fetchedAt.Truncate(time.Microsecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &c
+}
+
+func TestRepository_RakutenCover(t *testing.T) {
+	db := connectTestDB(t)
+	repo := pgbook.NewRepository(db)
+	// 日本時間で渡しても、読み直した時刻が同じ瞬間を指すこと（タイムゾーンでずれないこと）を確かめる
+	fetchedAt := time.Date(2026, 9, 1, 12, 34, 56, 123456000, time.FixedZone("JST", 9*60*60))
+	b := newBook(t, "9780000003409", "rakuten-test-楽天の書影", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/rakuten-test.jpg", "https://books.rakuten.co.jp/rb/15949390/", fetchedAt), 4)
+	createBook(t, db, b)
+
+	t.Run("楽天の書影は商品ページと取得日時ごと保存して読める", func(t *testing.T) {
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		c := got.Cover
+		if c == nil || c.Source() != domainbook.CoverSourceRakuten || c.URL() != "https://thumbnail.image.rakuten.co.jp/rakuten-test.jpg" ||
+			c.ProductURL() != "https://books.rakuten.co.jp/rb/15949390/" || !c.FetchedAt().Equal(fetchedAt) {
+			t.Fatalf("Cover = %+v, want the rakuten cover fetched at %v", c, fetchedAt)
+		}
+	})
+
+	t.Run("openBDの書影に差し替えると商品ページと取得日時が消える", func(t *testing.T) {
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got.RefreshCatalog(got.Bibliography, mustCover(t, "https://cover.openbd.jp/rakuten-test.jpg"))
+		if err := repo.Update(context.Background(), got); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+		reread, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c := reread.Cover
+		if c == nil || c.Source() != domainbook.CoverSourceOpenBD || c.ProductURL() != "" || !c.FetchedAt().IsZero() {
+			t.Fatalf("Cover = %+v, want the openBD cover without rakuten info", c)
+		}
+	})
 }
 
 func createBook(t *testing.T, db *gorm.DB, b *domainbook.Book) {
