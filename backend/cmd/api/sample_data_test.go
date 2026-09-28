@@ -29,21 +29,27 @@ func TestSampleBooks_AreValidAndDistinct(t *testing.T) {
 	}
 }
 
-// fakeSeedBooks は book.Repository の手書き Fake。createErr に ISBN ごとのエラーを入れられる。
+// fakeSeedBooks は book.Repository の手書き Fake。CreateAll は createAllErr を返すか、渡された全冊を保存する。
 type fakeSeedBooks struct {
-	created   []*domainbook.Book
-	createErr map[string]error
+	created      []*domainbook.Book
+	createAllErr error
+	singleCalls  int
 }
 
 func (f *fakeSeedBooks) FindByID(context.Context, domainbook.ID) (*domainbook.Book, error) {
 	return nil, common.ErrNotFound
 }
 
-func (f *fakeSeedBooks) Create(_ context.Context, b *domainbook.Book) error {
-	if err := f.createErr[b.ISBN.String()]; err != nil {
-		return err
+func (f *fakeSeedBooks) Create(context.Context, *domainbook.Book) error {
+	f.singleCalls++
+	return nil
+}
+
+func (f *fakeSeedBooks) CreateAll(_ context.Context, books []*domainbook.Book) error {
+	if f.createAllErr != nil {
+		return f.createAllErr
 	}
-	f.created = append(f.created, b)
+	f.created = append(f.created, books...)
 	return nil
 }
 
@@ -88,13 +94,13 @@ func (f *fakeSeedCatalog) Lookup(_ context.Context, isbn domainbook.ISBN) (*doma
 func TestSeedIfEmpty(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("本が無ければ全冊を書影付きで保存する", func(t *testing.T) {
+	t.Run("本が無ければ全冊を書影付きでまとめて保存する", func(t *testing.T) {
 		books := &fakeSeedBooks{}
 		if err := seedIfEmpty(ctx, books, &fakeSeedQuery{}, &fakeSeedCatalog{}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(books.created) != len(sampleBooks) {
-			t.Fatalf("created %d books, want %d", len(books.created), len(sampleBooks))
+		if len(books.created) != len(sampleBooks) || books.singleCalls != 0 {
+			t.Fatalf("created %d books (single Create calls: %d), want %d via CreateAll only", len(books.created), books.singleCalls, len(sampleBooks))
 		}
 		for _, b := range books.created {
 			if b.Cover == nil || b.Cover.URL() != "https://cover.openbd.jp/"+b.ISBN.String()+".jpg" {
@@ -137,20 +143,16 @@ func TestSeedIfEmpty(t *testing.T) {
 		})
 	}
 
-	t.Run("同じISBNが先に入っていたらその冊を飛ばして残りを保存する", func(t *testing.T) {
-		first := sampleBooks[0].isbn
-		books := &fakeSeedBooks{createErr: map[string]error{first: common.ErrConflict}}
+	t.Run("同時に起動した別のプロセスが先に入れていたら（Conflict）投入済みとして正常に終わる", func(t *testing.T) {
+		books := &fakeSeedBooks{createAllErr: common.ErrConflict}
 		if err := seedIfEmpty(ctx, books, &fakeSeedQuery{}, &fakeSeedCatalog{}); err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(books.created) != len(sampleBooks)-1 {
-			t.Fatalf("created %d books, want %d", len(books.created), len(sampleBooks)-1)
+			t.Fatalf("err = %v, want nil", err)
 		}
 	})
 
 	t.Run("保存のその他のエラーは返す", func(t *testing.T) {
 		wantErr := errors.New("db: connection reset")
-		books := &fakeSeedBooks{createErr: map[string]error{sampleBooks[0].isbn: wantErr}}
+		books := &fakeSeedBooks{createAllErr: wantErr}
 		if err := seedIfEmpty(ctx, books, &fakeSeedQuery{}, &fakeSeedCatalog{}); !errors.Is(err, wantErr) {
 			t.Fatalf("err = %v, want %v", err, wantErr)
 		}

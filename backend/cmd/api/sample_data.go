@@ -118,14 +118,15 @@ func seedIfEmpty(ctx context.Context, books domainbook.Repository, query domainb
 	}
 	for _, b := range prepared {
 		b.Cover = lookupSampleCover(ctx, catalog, b.ISBN)
-		if err := books.Create(ctx, b); err != nil {
-			if errors.Is(err, common.ErrConflict) {
-				// 同時に起動した別のプロセスが先に入れた
-				slog.InfoContext(ctx, "sample book already exists; skipping", "isbn", b.ISBN.String())
-				continue
-			}
-			return err
+	}
+	// 1冊ずつ保存すると、途中で失敗したとき次の起動では「本がある」と判断されて残りが入らないため、まとめて保存する
+	if err := books.CreateAll(ctx, prepared); err != nil {
+		if errors.Is(err, common.ErrConflict) {
+			// 同時に起動した別のプロセスが先に入れた
+			slog.InfoContext(ctx, "sample books already seeded by another process; skipping")
+			return nil
 		}
+		return err
 	}
 	slog.InfoContext(ctx, "seeded sample books", "count", len(prepared))
 	return nil
