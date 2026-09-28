@@ -174,7 +174,7 @@ backend/
 
 | Method | Path | 用途 | 認証 |
 |---|---|---|---|
-| `GET` | `/api/books` | 読んだ本の一覧（新しく登録した順。`limit` 1〜100・既定20、`offset`。総件数付き。感想の本文は含めない） | 不要 |
+| `GET` | `/api/books` | 読んだ本の一覧（新しく登録した順。`limit` 1〜100・既定20、`offset`。`q`（書名・著者の部分一致）と `tagId`（分野タグ）で絞り込める。総件数は条件に合う件数。感想の本文は含めない） | 不要 |
 | `GET` | `/api/books/{id}` | 読んだ本の詳細（書誌・書影・Amazon リンク・感想・評価） | 不要 |
 | `POST` | `/api/books` | 読んだ本を登録する（`isbn`・`summary`・`comment`・`rating`、任意で `titleOverride`・分野タグ（`tagIds`）。書誌と書影は ISBN で外部カタログから取得。openBD に無ければ 400、同じ ISBN は 409） | 必要 |
 | `PUT` | `/api/books/{id}` | 一言まとめ・感想・評価・書名の上書き・分野タグ（`tagIds`）を更新する（楽観的ロック。書誌と書影を取り直す） | 必要 |
@@ -182,13 +182,14 @@ backend/
 | `DELETE` | `/api/books/{id}/rakuten` | 楽天から削除の指示を受けた本の楽天由来の情報を消す（以後その本に楽天の書影を付けない。楽天の情報を持たない本でも204） | 必要 |
 | `GET` | `/api/catalog/{isbn}` | 登録前に、ISBN で外部カタログの書誌と書影を確かめる | 必要 |
 | `GET` | `/api/tags` | 分野タグの一覧 | 不要 |
+| `GET` | `/api/tags/counts` | 分野タグごとの冊数（本が付いていないタグは含めない。冊数の多い順、同数ならタグ名順） | 不要 |
 | `POST` | `/api/tags` | 分野タグを追加する（同名は409） | 必要 |
 | `PUT` | `/api/tags/{id}` | 分野タグの名前を変更する（楽観的ロック） | 必要 |
 | `DELETE` | `/api/tags/{id}` | 分野タグを削除する（付いていた本からは自動で外れる） | 必要 |
 
 - 認証は `Authorization: Bearer <ADMIN_TOKEN>`。自分だけが書き込めればよいので、ユーザー管理は持たない
 - 書影は提供元の URL をそのまま返す。`coverSource` が `rakuten` なら画面に楽天ウェブサービスのクレジット表示が必要（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）
-- 楽天の書影は楽天の商品ページ（`coverProductUrl`）と一緒に返す。楽天の規約の保持期限（取得から89日）を過ぎた楽天の書影は返さない（[設計](../docs/superpowers/specs/2026-09-28-rakuten-expiry-design.md)）
+- 楽天の書影は楽天の商品ページ（`coverProductUrl`）と一緒に返す。取得から89日以上経過した楽天の書影は返さない（楽天の規約の保持期限）（[設計](../docs/superpowers/specs/2026-09-28-rakuten-expiry-design.md)）
 
 ## 5. やらないこと（全体）
 

@@ -40,6 +40,8 @@ func (f *fakeBooks) Create(_ context.Context, b *book.Book) error {
 	return nil
 }
 
+func (f *fakeBooks) CreateAll(context.Context, []*book.Book) error { return nil }
+
 func (f *fakeBooks) Update(_ context.Context, b *book.Book) error {
 	if f.updateErr != nil {
 		return f.updateErr
@@ -77,7 +79,7 @@ func (f *fakeDetails) FindDetailByID(_ context.Context, id book.ID) (*book.BookD
 	return f.detail, nil
 }
 
-func (f *fakeDetails) FindList(context.Context, common.ListRange) (*book.BookList, error) {
+func (f *fakeDetails) FindList(context.Context, book.ListCondition, common.ListRange) (*book.BookList, error) {
 	return nil, nil
 }
 
@@ -99,6 +101,8 @@ type fakeTagQuery struct {
 }
 
 func (f *fakeTagQuery) FindList(context.Context) (*tag.TagList, error) { return nil, nil }
+
+func (f *fakeTagQuery) CountBooks(context.Context) (*tag.TagBookCounts, error) { return nil, nil }
 
 func (f *fakeTagQuery) ExistsAll(_ context.Context, ids []tag.ID) (bool, error) {
 	f.gotIDs = ids

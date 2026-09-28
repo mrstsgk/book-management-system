@@ -244,6 +244,25 @@ definitions:
     - name
     - version
     type: object
+  TagBookCountListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/TagBookCountResponse'
+        type: array
+    type: object
+  TagBookCountResponse:
+    properties:
+      bookCount:
+        example: 3
+        type: integer
+      id:
+        example: 1
+        type: integer
+      name:
+        example: データベース
+        type: string
+    type: object
   TagListResponse:
     properties:
       items:
@@ -308,7 +327,8 @@ info:
 paths:
   /api/books:
     get:
-      description: 新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す
+      description: 新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない
+        tagId は0件
       parameters:
       - description: 取得件数（1〜100、既定20）
         in: query
@@ -317,6 +337,14 @@ paths:
       - description: 取得開始位置（0以上、既定0）
         in: query
         name: offset
+        type: integer
+      - description: 書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）
+        in: query
+        name: q
+        type: string
+      - description: この分野タグが付いた本だけにする（1以上）
+        in: query
+        name: tagId
         type: integer
       produces:
       - application/json
@@ -695,6 +723,23 @@ paths:
       security:
       - AdminToken: []
       summary: 分野タグの名前を変更する（自分だけ）
+      tags:
+      - tags
+  /api/tags/counts:
+    get:
+      description: 本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TagBookCountListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: 分野タグごとの冊数を取得する
       tags:
       - tags
 securityDefinitions:

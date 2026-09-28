@@ -17,6 +17,7 @@ type fakeQuery struct {
 	err      error
 	gotID    book.ID
 	gotRange *common.ListRange
+	gotCond  *book.ListCondition
 }
 
 func (f *fakeQuery) FindDetailByID(_ context.Context, id book.ID) (*book.BookDetail, error) {
@@ -24,7 +25,8 @@ func (f *fakeQuery) FindDetailByID(_ context.Context, id book.ID) (*book.BookDet
 	return f.detail, f.err
 }
 
-func (f *fakeQuery) FindList(_ context.Context, r common.ListRange) (*book.BookList, error) {
+func (f *fakeQuery) FindList(_ context.Context, c book.ListCondition, r common.ListRange) (*book.BookList, error) {
+	f.gotCond = &c
 	f.gotRange = &r
 	return f.list, f.err
 }

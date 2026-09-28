@@ -139,6 +139,16 @@ export interface RenameTagRequest {
   version: number;
 }
 
+export interface TagBookCountResponse {
+  bookCount?: number;
+  id?: number;
+  name?: string;
+}
+
+export interface TagBookCountListResponse {
+  items?: TagBookCountResponse[];
+}
+
 export interface TagResponse {
   id?: number;
   name?: string;
@@ -181,5 +191,13 @@ limit?: number;
  * 取得開始位置（0以上、既定0）
  */
 offset?: number;
+/**
+ * 書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）
+ */
+q?: string;
+/**
+ * この分野タグが付いた本だけにする（1以上）
+ */
+tagId?: number;
 };
 

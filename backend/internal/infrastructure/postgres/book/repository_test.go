@@ -432,3 +432,57 @@ func TestRepository_Tags(t *testing.T) {
 		}
 	})
 }
+
+func TestRepository_CreateAll(t *testing.T) {
+	db := connectTestDB(t)
+	repo := pgbook.NewRepository(db)
+	ctx := context.Background()
+	t.Cleanup(func() {
+		db.Exec("DELETE FROM book WHERE title LIKE 'seed-test-%'")
+		db.Exec("DELETE FROM tag WHERE name LIKE 'seed-test-%'")
+	})
+
+	t.Run("全冊をタグごと保存し、IDとバージョンを設定する", func(t *testing.T) {
+		tagID := mustCreateTag(t, db, "seed-test-タグ")
+		books := []*domainbook.Book{
+			newBook(t, "9780000003300", "seed-test-1冊目", nil, 3, domaintag.ID(tagID)),
+			newBook(t, "9780000003317", "seed-test-2冊目", nil, 4),
+		}
+		if err := repo.CreateAll(ctx, books); err != nil {
+			t.Fatalf("CreateAll: %v", err)
+		}
+		for _, b := range books {
+			if b.ID == 0 || b.Version != 1 {
+				t.Fatalf("%s: ID=%d Version=%d, want an assigned ID and version 1", b.ISBN.String(), b.ID, b.Version)
+			}
+		}
+		got, err := repo.FindByID(ctx, books[0].ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		if ids := got.Tags.IDs(); len(ids) != 1 || ids[0] != domaintag.ID(tagID) {
+			t.Fatalf("Tags = %v, want [%d]", ids, tagID)
+		}
+	})
+
+	t.Run("同じISBNがあればConflictを返し、1冊も残さない", func(t *testing.T) {
+		createBook(t, db, newBook(t, "9780000003331", "seed-test-既存", nil, 3))
+		books := []*domainbook.Book{
+			newBook(t, "9780000003324", "seed-test-先に入る冊", nil, 3),
+			newBook(t, "9780000003331", "seed-test-重複", nil, 3),
+		}
+		if err := repo.CreateAll(ctx, books); !errors.Is(err, domaincommon.ErrConflict) {
+			t.Fatalf("err = %v, want ErrConflict", err)
+		}
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM book WHERE isbn = ?", "9780000003324").Scan(&count).Error; err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatalf("book 9780000003324 remains (%d rows), want the whole batch rolled back", count)
+		}
+		if books[0].ID != 0 || books[0].Version != 0 {
+			t.Fatalf("rolled-back book has ID=%d Version=%d, want 0/0 (no row exists)", books[0].ID, books[0].Version)
+		}
+	})
+}
