@@ -20,11 +20,12 @@ const (
 const coverURLMaxLength = 2048
 
 const (
-	// RakutenRetention は楽天由来の情報を持てる期間。規約の「最長3か月」はどの月の組み合わせでも90日以上なので、
-	// 90日で切れば必ず規約内に収まる。
-	RakutenRetention = 90 * 24 * time.Hour
+	// RakutenRetention は楽天由来の情報を持てる期間。規約の「最長3か月」は、連続する3か月で最も短い89日
+	// （平年の2〜4月）で切れば、どの日に取得しても規約内に収まる。暦の月で足す（AddDate(0, 3, 0)）と
+	// 11/30 + 3か月が 3/2 に正規化されるように月末で期限がずれるので使わない。
+	RakutenRetention = 89 * 24 * time.Hour
 	// RakutenRefreshAfter を過ぎたら取り直す（期限の7日前）。
-	RakutenRefreshAfter = 83 * 24 * time.Hour
+	RakutenRefreshAfter = 82 * 24 * time.Hour
 )
 
 // RakutenExpired は取得日時 fetchedAt の楽天由来の情報が now の時点で保持期限を過ぎているかを返す。

@@ -19,8 +19,10 @@
 
 | 定数 | 値 | 理由 |
 |---|---|---|
-| 保持期限 | 取得から90日 | 「3か月」はどの月の組み合わせでも90日以上なので、90日で切れば必ず規約内に収まる |
-| 取り直しの開始 | 期限の7日前（取得から83日） | 要件定義 §1.2「残り7日以内」 |
+| 保持期限 | 取得から89日 | 連続する3か月で最も短いのは89日（平年の2〜4月）。89日で切れば、どの日に取得しても規約の「最長3か月」を超えない |
+| 取り直しの開始 | 期限の7日前（取得から82日） | 要件定義 §1.2「残り7日以内」 |
+
+暦の月で足す（`AddDate(0, 3, 0)`）方式は採らない。11/30 に3か月を足すと 2/30 が 3/2 に正規化されるように、月末の取得で期限が3か月を超えてしまうため。固定の日数なら SQL と Go で同じ規則を書けることも理由。
 
 ## 2. ドメイン
 
@@ -32,8 +34,8 @@ func NewRakutenCover(imageURL, productURL string, fetchedAt time.Time) (Cover, e
 
 func (c Cover) ProductURL() string              // 楽天の商品ページ。openBD なら空
 func (c Cover) FetchedAt() time.Time            // 楽天の取得日時。openBD ならゼロ値
-func (c Cover) IsExpired(now time.Time) bool    // 楽天で取得から90日以上。openBD は常に false
-func (c Cover) NeedsRefresh(now time.Time) bool // 楽天で取得から83日以上
+func (c Cover) IsExpired(now time.Time) bool    // 楽天で取得から89日以上。openBD は常に false
+func (c Cover) NeedsRefresh(now time.Time) bool // 楽天で取得から82日以上
 ```
 
 `Book` に次を足す。
@@ -70,7 +72,7 @@ ALTER TABLE book ADD CONSTRAINT ck_book_rakuten_cover CHECK (
 
 ## 5. 期限切れを返さない（参照側）
 
-`book.Query` の詳細・一覧で、楽天の書影が期限切れ（`cover_fetched_at <= NOW() - INTERVAL '90 days'`）なら書影を返さない（`coverUrl`・`coverSource`・`coverProductUrl` を null）。取り直し・消去が走る前でも、期限切れの値を画面に出さないための保険。
+`book.Query` の詳細・一覧で、楽天の書影が期限切れ（`cover_fetched_at <= NOW() - INTERVAL '89 days'`）なら書影を返さない（`coverUrl`・`coverSource`・`coverProductUrl` を null）。取り直し・消去が走る前でも、期限切れの値を画面に出さないための保険。
 
 `Response`・`ListItemResponse` に `coverProductUrl`（nullable）を足す。
 
@@ -78,7 +80,7 @@ ALTER TABLE book ADD CONSTRAINT ck_book_rakuten_cover CHECK (
 
 ### 6.1 ユースケース `RefreshRakutenCoversUsecase`（`usecase/book/command`）
 
-1. 取得から83日以上たった楽天の書影を持つ本を Repository から読む（`book.Repository.FindRakutenRefreshTargets(ctx, fetchedBefore time.Time)`）
+1. 取得から82日以上たった楽天の書影を持つ本を Repository から読む（`book.Repository.FindRakutenRefreshTargets(ctx, fetchedBefore time.Time)`）
 2. 1冊ずつ外部カタログに問い合わせ、書影を取り直して保存する
 3. 取り直せず（障害・該当なし）、期限も切れていたら、書影を外して保存する。期限前ならそのままにして次の契機を待つ
 4. 保存が `ErrConflict`（その間に自分で更新した）なら飛ばす。その更新で書影は取り直されている
@@ -116,7 +118,7 @@ ALTER TABLE book ADD CONSTRAINT ck_book_rakuten_cover CHECK (
 
 | 対象 | 確かめること |
 |---|---|
-| `Cover` | 楽天は商品ページ・取得日時が必須、openBD に楽天を渡すとエラー、`IsExpired` の境界（89日・90日）、`NeedsRefresh` の境界（82日・83日）、openBD は期限切れにならない |
+| `Cover` | 楽天は商品ページ・取得日時が必須、openBD に楽天を渡すとエラー、`IsExpired` の境界（88日台・89日）、`NeedsRefresh` の境界（81日台・82日）、openBD は期限切れにならない |
 | `Book` | `DropExpiredCover`、`DisableRakuten` の後は `RefreshCatalog` で楽天の書影が付かない（openBD の書影は付く） |
 | 楽天のゲートウェイ | `itemUrl` を読む、`itemUrl` が空なら書影なし |
 | `book.Repository`（契約テスト） | 商品ページ・取得日時・`rakuten_disabled` を保存して読める、`FindRakutenRefreshTargets` の境界 |

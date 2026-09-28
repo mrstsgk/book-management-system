@@ -20,7 +20,7 @@
           ]
         },
         { "name": "cover_product_url", "type": "VARCHAR(2048)", "nullable": true, "description": "楽天の商品ページの URL（楽天の書影のときだけ。楽天の規約上、書影と一緒にリンクする）。それ以外は NULL（CHECK制約あり）" },
-        { "name": "cover_fetched_at", "type": "TIMESTAMPTZ", "nullable": true, "description": "楽天の書影・商品ページを取得した日時（保持期限90日の起点。期限を過ぎた楽天の書影は API が返さない）。楽天の書影のときだけ。それ以外は NULL（CHECK制約あり）" },
+        { "name": "cover_fetched_at", "type": "TIMESTAMPTZ", "nullable": true, "description": "楽天の書影・商品ページを取得した日時（保持期限89日の起点。期限を過ぎた楽天の書影は API が返さない）。楽天の書影のときだけ。それ以外は NULL（CHECK制約あり）" },
         { "name": "comment", "type": "TEXT", "nullable": false, "description": "自分が書いた感想。前後の空白を除いた1〜5000文字。改行・タブは可（アプリ側で保証）" },
         { "name": "rating", "type": "SMALLINT", "nullable": false, "description": "自分が付けた評価（1〜5、CHECK制約あり）" },
         { "name": "summary", "type": "VARCHAR(100)", "nullable": false, "description": "一覧で見せる一言まとめ（1〜100文字、改行なし）" },
