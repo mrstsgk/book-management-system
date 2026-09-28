@@ -29,12 +29,15 @@ func (f *fakeTagQuery) ExistsAll(_ context.Context, ids []tag.ID) (bool, error) 
 func TestParseTagSelection(t *testing.T) {
 	t.Parallel()
 
-	t.Run("0個は空のTagSelectionを返し、実在確認はしない", func(t *testing.T) {
+	t.Run("0個は空のTagSelectionを返す（実在確認は空配列で呼ばれる）", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTagQuery{exists: true}
 		got, err := parseTagSelection(context.Background(), tags, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if tags.called != 1 || len(tags.gotIDs) != 0 {
+			t.Fatalf("ExistsAll called=%d with %v, want called once with an empty slice", tags.called, tags.gotIDs)
 		}
 		if len(got.IDs()) != 0 {
 			t.Fatalf("IDs = %v, want empty", got.IDs())
