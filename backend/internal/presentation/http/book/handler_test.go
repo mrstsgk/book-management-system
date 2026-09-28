@@ -163,6 +163,32 @@ func TestHandlerList(t *testing.T) {
 		}
 	})
 
+	t.Run("前後の空白を除いて100文字のキーワードは200", func(t *testing.T) {
+		var got bookqry.ListInput
+		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+			got = in
+			return &domainbook.BookList{}, nil
+		})}
+		kw := strings.Repeat("a", 100)
+		rec := serve(t, h, http.MethodGet, "/api/books?q=%20%20"+kw+"%20%20", "", false)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		if got.Keyword != "  "+kw+"  " {
+			t.Fatalf("usecase received %q, want the raw keyword (trimming is the domain's job)", got.Keyword)
+		}
+	})
+
+	t.Run("前後の空白を除いて101文字のキーワードは400", func(t *testing.T) {
+		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) {
+			return nil, domaincommon.ErrInvalid
+		})}
+		rec := serve(t, h, http.MethodGet, "/api/books?q=%20"+strings.Repeat("a", 101)+"%20", "", false)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400", rec.Code)
+		}
+	})
+
 	t.Run("キーワードと分野タグを省略すると絞り込まない", func(t *testing.T) {
 		var got bookqry.ListInput
 		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
@@ -182,7 +208,6 @@ func TestHandlerList(t *testing.T) {
 		query string
 	}{
 		{name: "limit上限+1は400", query: "?limit=101"},
-		{name: "キーワード101文字は400", query: "?q=" + strings.Repeat("a", 101)},
 		{name: "分野タグID 0は400", query: "?tagId=0"},
 		{name: "分野タグIDが数値でなければ400", query: "?tagId=abc"},
 	} {

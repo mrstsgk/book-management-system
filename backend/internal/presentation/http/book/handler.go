@@ -39,7 +39,8 @@ type ListRequest struct {
 	Limit  *int `json:"limit" query:"limit" validate:"omitempty,min=1,max=100"`
 	Offset *int `json:"offset" query:"offset" validate:"omitempty,min=0"`
 	// Q は書名・著者の部分一致。前後の空白を除いて空なら検索しない。
-	Q     string `json:"q" query:"q" validate:"max=100"`
+	// 文字数の上限は HTTP 層で見ない（トリム前の長さで弾くと、前後に空白の付いた100文字が400になるため）。VO が判定する。
+	Q     string `json:"q" query:"q"`
 	TagID *int64 `json:"tagId" query:"tagId" validate:"omitempty,min=1"`
 }
 
