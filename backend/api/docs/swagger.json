@@ -283,6 +283,64 @@
                 }
             }
         },
+        "/api/books/{id}/rakuten": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "楽天から削除の指示を受けた本の楽天の書影・商品ページを消し、以後この本には楽天の書影を付けない。楽天の情報を持たない本でも 204。version は受け取らない（削除の指示には最後に読んだ内容に関係なく従うため）",
+                "tags": [
+                    "books"
+                ],
+                "summary": "楽天由来の情報を消す（自分だけ）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "読んだ本のID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/catalog/{isbn}": {
             "get": {
                 "security": [
@@ -688,6 +746,11 @@
                 "publisher": {
                     "type": "string",
                     "example": "オーム社"
+                },
+                "rakutenDisabled": {
+                    "description": "RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（以後、楽天の書影は付かない）。",
+                    "type": "boolean",
+                    "example": false
                 },
                 "rating": {
                     "type": "integer",

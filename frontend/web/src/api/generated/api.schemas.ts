@@ -57,6 +57,8 @@ export interface BookResponse {
   isbn?: string;
   publishedOn?: string;
   publisher?: string;
+  /** RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（以後、楽天の書影は付かない）。 */
+  rakutenDisabled?: boolean;
   rating?: number;
   summary?: string;
   tags?: string[];

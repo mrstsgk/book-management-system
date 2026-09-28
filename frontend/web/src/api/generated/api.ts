@@ -523,6 +523,81 @@ export const usePutApiBooksId = <TError = ErrorType<ErrorResponse>,
       return useMutation(getPutApiBooksIdMutationOptions(options), queryClient);
     }
 
+export const getDeleteApiBooksIdRakutenUrl = (id: number,) => {
+
+
+
+
+  return `/api/books/${id}/rakuten`
+}
+
+/**
+ * 楽天から削除の指示を受けた本の楽天の書影・商品ページを消し、以後この本には楽天の書影を付けない。楽天の情報を持たない本でも 204。version は受け取らない（削除の指示には最後に読んだ内容に関係なく従うため）
+ * @summary 楽天由来の情報を消す（自分だけ）
+ */
+export const deleteApiBooksIdRakuten = async (id: number, options?: Parameters<typeof apiMutator>[1]): Promise<void> => {
+
+  return apiMutator<void>(getDeleteApiBooksIdRakutenUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteApiBooksIdRakutenMutationKey = () => ['deleteApiBooksIdRakuten'] as const;
+
+export const getDeleteApiBooksIdRakutenMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>, TError,DeleteApiBooksIdRakutenMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>, TError,DeleteApiBooksIdRakutenMutationVariables, TContext> => {
+
+const mutationKey = getDeleteApiBooksIdRakutenMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>, DeleteApiBooksIdRakutenMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteApiBooksIdRakuten(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteApiBooksIdRakutenMutationResult = NonNullable<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>>
+
+    export type DeleteApiBooksIdRakutenMutationError = ErrorType<ErrorResponse>
+    export type DeleteApiBooksIdRakutenMutationVariables = {id: number}
+
+    /**
+ * @summary 楽天由来の情報を消す（自分だけ）
+ */
+export const useDeleteApiBooksIdRakuten = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>, TError,DeleteApiBooksIdRakutenMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>,
+        TError,
+        DeleteApiBooksIdRakutenMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteApiBooksIdRakutenMutationOptions(options), queryClient);
+    }
+
 export const getGetApiCatalogIsbnUrl = (isbn: string,) => {
 
 
