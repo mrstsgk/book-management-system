@@ -20,6 +20,10 @@ func NewQuery(db *gorm.DB) domainbook.Query {
 	return &query{db: db}
 }
 
+func NewListQuery(db *gorm.DB) domainbook.ListQuery {
+	return &query{db: db}
+}
+
 type detailRow struct {
 	ID              int64
 	Title           string
@@ -113,4 +117,61 @@ func amazonURLOf(isbn *string) *string {
 		return nil
 	}
 	return &u
+}
+
+type listAuthorRow struct {
+	BookID     int64
+	AuthorID   int64
+	AuthorName string
+}
+
+// FindList は書籍を ID 順に取得範囲の分だけ取得し、その書籍の著者をまとめて1クエリで引いて各行に詰める。
+func (q *query) FindList(ctx context.Context, r common.ListRange) (*domainbook.BookList, error) {
+	db := q.db.WithContext(ctx)
+	// Count and the range fetch are separate statements, so a concurrent insert can make them
+	// disagree by a row; acceptable for a list screen, and cheaper than a snapshot tx.
+	var total int64
+	if err := db.Model(&bookModel{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
+	var books []bookModel
+	err := db.Select("id, title, price, publish_status, isbn, cover_url, cover_source").
+		Order("id").Limit(r.Limit()).Offset(r.Offset()).
+		Find(&books).Error
+	if err != nil {
+		return nil, err
+	}
+	list := &domainbook.BookList{Items: make([]*domainbook.BookListItem, 0, len(books)), Total: int(total)}
+	if len(books) == 0 {
+		return list, nil
+	}
+
+	ids := make([]int64, 0, len(books))
+	byID := make(map[int64]*domainbook.BookListItem, len(books))
+	for _, b := range books {
+		item := &domainbook.BookListItem{
+			ID: domainbook.ID(b.ID), Title: b.Title, Price: int64(b.Price), Status: b.PublishStatus,
+			ISBN: b.ISBN, AmazonURL: amazonURLOf(b.ISBN), CoverURL: b.CoverURL, CoverSource: b.CoverSource,
+			Authors: []domainbook.BookListAuthor{},
+		}
+		ids = append(ids, b.ID)
+		byID[b.ID] = item
+		list.Items = append(list.Items, item)
+	}
+
+	var authors []listAuthorRow
+	err = db.Table("author_book AS ab").
+		Select("ab.book_id, a.id AS author_id, a.name AS author_name").
+		Joins("JOIN author a ON a.id = ab.author_id").
+		Where("ab.book_id IN ?", ids).
+		Order("ab.book_id, a.id").
+		Scan(&authors).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range authors {
+		item := byID[a.BookID]
+		item.Authors = append(item.Authors, domainbook.BookListAuthor{ID: domainauthor.ID(a.AuthorID), Name: a.AuthorName})
+	}
+	return list, nil
 }

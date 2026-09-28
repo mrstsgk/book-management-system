@@ -137,3 +137,84 @@ func TestQuery_FindDetailByID_IncludesCatalogInfo(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func TestListQuery_FindList(t *testing.T) {
+	db := connectTestDB(t)
+	qry := pgbook.NewListQuery(db)
+	ctx := context.Background()
+	listRange := func(t *testing.T, limit, offset int) domaincommon.ListRange {
+		t.Helper()
+		p, err := domaincommon.NewListRange(limit, offset)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	// Other rows may already exist in the dev DB; seeded books get the highest IDs,
+	// so they sit at the end of the ID-ordered list starting at offset `before`.
+	baseline, err := qry.FindList(ctx, listRange(t, 1, 0))
+	if err != nil {
+		t.Fatalf("FindList (baseline): %v", err)
+	}
+	before := baseline.Total
+
+	a1 := seedAuthor(t, db, "list-test-a1", nil)
+	a2 := seedAuthor(t, db, "list-test-a2", nil)
+	first := newBook(t, "list-test-first", 100, []domainauthor.ID{a2, a1}, domainbook.Unpublished)
+	firstISBN, err := domainbook.NewISBN("9780000000002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstCover, err := domainbook.NewCover("https://cover.openbd.jp/list-test.jpg", domainbook.CoverSourceOpenBD)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.ChangeCatalogInfo(&firstISBN, &firstCover)
+	createBook(t, db, first)
+	second := newBook(t, "list-test-second", 0, []domainauthor.ID{a2}, domainbook.Published)
+	createBook(t, db, second)
+	third := newBook(t, "list-test-third", 300, []domainauthor.ID{a1}, domainbook.Unpublished)
+	createBook(t, db, third)
+
+	t.Run("ID順に取得範囲の分を著者付きで返し総件数は全体の件数", func(t *testing.T) {
+		got, err := qry.FindList(ctx, listRange(t, 2, before))
+		if err != nil {
+			t.Fatalf("FindList: %v", err)
+		}
+		want := &domainbook.BookList{
+			Total: before + 3,
+			Items: []*domainbook.BookListItem{
+				{ID: first.ID, Title: "list-test-first", Price: 100, Status: 1, ISBN: strPtr("9780000000002"), AmazonURL: strPtr("https://www.amazon.co.jp/dp/0000000000"), CoverURL: strPtr(firstCover.URL()), CoverSource: strPtr("openbd"), Authors: []domainbook.BookListAuthor{
+					{ID: a1, Name: "list-test-a1"}, {ID: a2, Name: "list-test-a2"},
+				}},
+				{ID: second.ID, Title: "list-test-second", Price: 0, Status: 2, Authors: []domainbook.BookListAuthor{
+					{ID: a2, Name: "list-test-a2"},
+				}},
+			},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("got %+v\nwant %+v", got, want)
+		}
+	})
+
+	t.Run("続きの範囲は残りの書籍だけを返す", func(t *testing.T) {
+		got, err := qry.FindList(ctx, listRange(t, 2, before+2))
+		if err != nil {
+			t.Fatalf("FindList: %v", err)
+		}
+		if len(got.Items) != 1 || got.Items[0].ID != third.ID || got.Total != before+3 {
+			t.Fatalf("got %+v, want only the third book with total %d", got, before+3)
+		}
+	})
+
+	t.Run("範囲外は空配列で総件数は変わらない", func(t *testing.T) {
+		got, err := qry.FindList(ctx, listRange(t, 2, before+3))
+		if err != nil {
+			t.Fatalf("FindList: %v", err)
+		}
+		if got.Items == nil || len(got.Items) != 0 || got.Total != before+3 {
+			t.Fatalf("got %#v, want an empty non-nil list with total %d", got, before+3)
+		}
+	})
+}
