@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -83,17 +84,18 @@ func orEmpty(names []string) []string {
 	return names
 }
 
-// FindList は新しく登録した順（同時刻は ID の大きい順）に、取得範囲の分だけ返す。総件数も返す。
-func (q *query) FindList(ctx context.Context, r common.ListRange) (*domainbook.BookList, error) {
+// FindList は条件に合う本を新しく登録した順（同時刻は ID の大きい順）に、取得範囲の分だけ返す。総件数も条件に合う件数。
+func (q *query) FindList(ctx context.Context, c domainbook.ListCondition, r common.ListRange) (*domainbook.BookList, error) {
 	db := q.db.WithContext(ctx)
 	// 総件数と取得範囲の取得は別の SQL なので、同時に登録されると1件ずれうる。
 	// 一覧画面では許容でき、スナップショットのトランザクションより軽い。
 	var total int64
-	if err := db.Model(&model{}).Count(&total).Error; err != nil {
+	if err := applyCondition(db.Model(&model{}), c).Count(&total).Error; err != nil {
 		return nil, err
 	}
 	var rows []model
-	err := db.Select("id, isbn, title, title_override, authors, cover_url, cover_source, summary, rating").
+	err := applyCondition(db.Model(&model{}), c).
+		Select("id, isbn, title, title_override, authors, cover_url, cover_source, summary, rating").
 		Order("created_at DESC, id DESC").Limit(r.Limit()).Offset(r.Offset()).
 		Find(&rows).Error
 	if err != nil {
@@ -117,6 +119,23 @@ func (q *query) FindList(ctx context.Context, r common.ListRange) (*domainbook.B
 	}
 	return list, nil
 }
+
+// applyCondition は一覧の検索・絞り込みの条件を WHERE に足す。
+// 書名は画面に出す書名（上書き優先）で探す。上書き前の書名で当たると、画面に見えない書名で当たって利用者が混乱するため。
+// タグは JOIN ではなく EXISTS にする（JOIN だと本の行が重複しうるため）。
+func applyCondition(tx *gorm.DB, c domainbook.ListCondition) *gorm.DB {
+	if kw := c.Keyword(); kw != "" {
+		p := "%" + likeEscaper.Replace(kw) + "%"
+		tx = tx.Where(`(COALESCE(title_override, title) ILIKE ? ESCAPE '\' OR authors ILIKE ? ESCAPE '\')`, p, p)
+	}
+	if id, ok := c.TagID(); ok {
+		tx = tx.Where("EXISTS (SELECT 1 FROM book_tag WHERE book_tag.book_id = book.id AND book_tag.tag_id = ?)", int64(id))
+	}
+	return tx
+}
+
+// likeEscaper はキーワード中の LIKE のワイルドカードを文字として扱うためにエスケープする。
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 // amazonURLOf は保存済みの ISBN から商品ページのリンクを導出する（domainbook.ISBN.AmazonURL）。
 // 保存済みの ISBN は書き込み時に検証済みなので、解釈できなければリンクなしとする。

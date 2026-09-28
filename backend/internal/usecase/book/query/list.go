@@ -20,5 +20,5 @@ func (u *ListUsecaseImpl) Execute(ctx context.Context, limit, offset int) (*book
 	if err != nil {
 		return nil, err
 	}
-	return u.Books.FindList(ctx, r)
+	return u.Books.FindList(ctx, book.ListCondition{}, r)
 }

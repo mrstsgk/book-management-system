@@ -117,8 +117,8 @@ type BookList struct {
 type Query interface {
 	// FindDetailByID は存在しなければ ErrNotFound を返す。
 	FindDetailByID(ctx context.Context, id ID) (*BookDetail, error)
-	// FindList は新しく登録した順に、取得範囲 r の分だけ返す。
-	FindList(ctx context.Context, r common.ListRange) (*BookList, error)
+	// FindList は条件 c に合う本を新しく登録した順に、取得範囲 r の分だけ返す。総件数も c に合う件数。
+	FindList(ctx context.Context, c ListCondition, r common.ListRange) (*BookList, error)
 }
 
 // CatalogEntry は外部カタログが ISBN について持っている書誌と書影。
