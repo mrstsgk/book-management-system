@@ -103,6 +103,41 @@ func TestRepository_RakutenCover(t *testing.T) {
 	})
 }
 
+func TestRepository_RakutenDisabled(t *testing.T) {
+	db := connectTestDB(t)
+	repo := pgbook.NewRepository(db)
+	b := newBook(t, "9780000003706", "disable-test-削除指示", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/disable-test.jpg", "https://books.rakuten.co.jp/rb/1/", time.Now()), 4)
+	createBook(t, db, b)
+
+	t.Run("登録直後は無効化されていない", func(t *testing.T) {
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		if got.RakutenDisabled {
+			t.Fatal("RakutenDisabled = true, want false for a new book")
+		}
+	})
+
+	t.Run("無効化して保存すると楽天の書影が消え、無効化が残る", func(t *testing.T) {
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got.DisableRakuten()
+		if err := repo.Update(context.Background(), got); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+		reread, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reread.RakutenDisabled || reread.Cover != nil {
+			t.Fatalf("RakutenDisabled=%v Cover=%+v, want disabled with no cover", reread.RakutenDisabled, reread.Cover)
+		}
+	})
+}
+
 func createBook(t *testing.T, db *gorm.DB, b *domainbook.Book) {
 	t.Helper()
 	if err := pgbook.NewRepository(db).Create(context.Background(), b); err != nil {

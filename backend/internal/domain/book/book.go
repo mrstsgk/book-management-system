@@ -106,7 +106,9 @@ type BookDetail struct {
 	Tags          []string
 	Comment       string
 	Rating        int
-	Version       int
+	// RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（管理画面で見分けるため）。
+	RakutenDisabled bool
+	Version         int
 }
 
 // BookListItem は読んだ本の一覧の1行分の Read Model。感想の本文は詳細でだけ返す。

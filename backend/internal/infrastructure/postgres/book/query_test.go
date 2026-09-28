@@ -295,6 +295,40 @@ func TestQuery_RakutenCover(t *testing.T) {
 	}
 }
 
+func TestQuery_RakutenDisabled(t *testing.T) {
+	db := connectTestDB(t)
+	q := pgbook.NewQuery(db)
+	repo := pgbook.NewRepository(db)
+
+	disabled := newBook(t, "9780000003713", "disable-test-無効化した本", nil, 4)
+	createBook(t, db, disabled)
+	disabled.DisableRakuten()
+	if err := repo.Update(context.Background(), disabled); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	plain := newBook(t, "9780000003720", "disable-test-無効化していない本", nil, 4)
+	createBook(t, db, plain)
+
+	for _, tt := range []struct {
+		name string
+		id   domainbook.ID
+		want bool
+	}{
+		{name: "楽天の情報を消した本は詳細でそのことを返す", id: disabled.ID, want: true},
+		{name: "消していない本はfalseを返す", id: plain.ID, want: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := q.FindDetailByID(context.Background(), tt.id)
+			if err != nil {
+				t.Fatalf("FindDetailByID: %v", err)
+			}
+			if got.RakutenDisabled != tt.want {
+				t.Fatalf("RakutenDisabled = %v, want %v", got.RakutenDisabled, tt.want)
+			}
+		})
+	}
+}
+
 func describe(ps ...*string) string {
 	s := ""
 	for _, p := range ps {
