@@ -263,6 +263,7 @@ definitions:
         maxLength: 100
         type: string
       tagIds:
+        description: TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。
         example:
         - 1
         - 2

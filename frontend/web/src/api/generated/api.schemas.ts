@@ -151,7 +151,10 @@ export interface UpdateBookRequest {
   rating: number;
   /** @maxLength 100 */
   summary: string;
-  /** @maxItems 10 */
+  /**
+     * TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。
+     * @maxItems 10
+     */
   tagIds?: number[];
   /**
      * TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。

@@ -27,11 +27,12 @@ type RegisterRequest struct {
 type UpdateRequest struct {
 	Summary string `json:"summary" validate:"required,max=100" example:"読み返して理解が深まった"`
 	// TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
-	TitleOverride string  `json:"titleOverride" validate:"max=255" example:""`
-	TagIDs        []int64 `json:"tagIds" validate:"max=10" example:"1,2"`
-	Comment       string  `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
-	Rating        *int    `json:"rating" validate:"required,min=1,max=5" example:"5"`
-	Version       *int    `json:"version" validate:"required" example:"1"`
+	TitleOverride string `json:"titleOverride" validate:"max=255" example:""`
+	// TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。
+	TagIDs  []int64 `json:"tagIds" validate:"max=10" example:"1,2"`
+	Comment string  `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
+	Rating  *int    `json:"rating" validate:"required,min=1,max=5" example:"5"`
+	Version *int    `json:"version" validate:"required" example:"1"`
 } // @name UpdateBookRequest
 
 type ListRequest struct {

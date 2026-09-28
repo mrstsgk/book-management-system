@@ -919,6 +919,7 @@
                     "example": "読み返して理解が深まった"
                 },
                 "tagIds": {
+                    "description": "TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。",
                     "type": "array",
                     "maxItems": 10,
                     "items": {
