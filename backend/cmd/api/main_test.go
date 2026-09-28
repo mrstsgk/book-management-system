@@ -42,6 +42,7 @@ func TestRegisterRoutes_ExposesBookAndAuthorAPI(t *testing.T) {
 		"POST /api/authors",
 		"PUT /api/authors/:id",
 		"GET /api/authors/:id/books",
+		"GET /api/books",
 		"POST /api/books",
 		"GET /api/books/:id",
 		"PUT /api/books/:id",

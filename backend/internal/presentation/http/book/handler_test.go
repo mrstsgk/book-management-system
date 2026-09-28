@@ -274,3 +274,101 @@ func TestHandlerCreateAndUpdate_PassISBN(t *testing.T) {
 		t.Fatalf("status = %d body = %s, want 400 isbn/max", rec.Code, rec.Body.String())
 	}
 }
+
+type fakeList func(ctx context.Context, limit, offset int) (*domainbook.BookList, error)
+
+func (f fakeList) Execute(ctx context.Context, limit, offset int) (*domainbook.BookList, error) {
+	return f(ctx, limit, offset)
+}
+func TestHandlerList(t *testing.T) {
+	list := &domainbook.BookList{
+		Items: []*domainbook.BookListItem{{
+			ID: 1, Title: "人間失格", Price: 1500, Status: 2,
+			Authors:     []domainbook.BookListAuthor{{ID: 1, Name: "太宰治"}, {ID: 2, Name: "芥川龍之介"}},
+			ISBN:        strPtr("9784873118703"),
+			AmazonURL:   strPtr("https://www.amazon.co.jp/dp/4873118700"),
+			CoverURL:    strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"),
+			CoverSource: strPtr("rakuten"),
+		}},
+		Total: 21,
+	}
+
+	pages := []struct {
+		name                  string
+		query                 string
+		wantLimit, wantOffset int
+	}{
+		{name: "クエリなしは既定の取得範囲で取得する", query: "", wantLimit: domaincommon.DefaultListLimit, wantOffset: 0},
+		{name: "limitとoffsetを指定できる", query: "?limit=5&offset=10", wantLimit: 5, wantOffset: 10},
+		{name: "limit上限ちょうどは有効", query: "?limit=100", wantLimit: 100, wantOffset: 0},
+	}
+	for _, tt := range pages {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotLimit, gotOffset int
+			h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, limit, offset int) (*domainbook.BookList, error) {
+				gotLimit, gotOffset = limit, offset
+				return list, nil
+			})}
+			rec := serve(t, h, http.MethodGet, "/api/books"+tt.query, "")
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+			}
+			if gotLimit != tt.wantLimit || gotOffset != tt.wantOffset {
+				t.Fatalf("usecase received limit=%d offset=%d, want %d/%d", gotLimit, gotOffset, tt.wantLimit, tt.wantOffset)
+			}
+			want := httpbook.ListResponse{
+				Items: []httpbook.ListItemResponse{{
+					ID: 1, Title: "人間失格", Price: 1500, Status: 2,
+					Authors:     []httpbook.ListAuthorResponse{{ID: 1, Name: "太宰治"}, {ID: 2, Name: "芥川龍之介"}},
+					ISBN:        strPtr("9784873118703"),
+					AmazonURL:   strPtr("https://www.amazon.co.jp/dp/4873118700"),
+					CoverURL:    strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"),
+					CoverSource: strPtr("rakuten"),
+				}},
+				Total: 21, Limit: tt.wantLimit, Offset: tt.wantOffset,
+			}
+			if got := decode[httpbook.ListResponse](t, rec); !reflect.DeepEqual(got, want) {
+				t.Fatalf("body = %+v, want %+v", got, want)
+			}
+		})
+	}
+
+	t.Run("0件は空配列で返す", func(t *testing.T) {
+		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, int, int) (*domainbook.BookList, error) {
+			return &domainbook.BookList{Total: 0}, nil
+		})}
+		rec := serve(t, h, http.MethodGet, "/api/books", "")
+
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"items":[]`) {
+			t.Fatalf("status = %d body = %s, want 200 with items []", rec.Code, rec.Body.String())
+		}
+	})
+
+	invalid := []struct {
+		name  string
+		query string
+		want  []common.FieldError
+	}{
+		{name: "limit 0 は400", query: "?limit=0", want: []common.FieldError{{Field: "limit", Rule: "min"}}},
+		{name: "limit上限+1は400", query: "?limit=101", want: []common.FieldError{{Field: "limit", Rule: "max"}}},
+		{name: "offset負は400", query: "?offset=-1", want: []common.FieldError{{Field: "offset", Rule: "min"}}},
+		{name: "数値でないlimitは400", query: "?limit=abc", want: nil},
+	}
+	for _, tt := range invalid {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &httpbook.Handler{ListUC: fakeList(func(context.Context, int, int) (*domainbook.BookList, error) {
+				t.Error("usecase must not be called")
+				return nil, nil
+			})}
+			rec := serve(t, h, http.MethodGet, "/api/books"+tt.query, "")
+
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+			if got := decode[common.ErrorResponse](t, rec).Errors; !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("errors = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}

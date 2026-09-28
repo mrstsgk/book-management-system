@@ -169,6 +169,50 @@
             }
         },
         "/api/books": {
+            "get": {
+                "description": "書籍ID昇順。total は取得範囲外も含む総件数。amazonUrl は ISBN から導出し、coverUrl は提供元（coverSource）の画像で、楽天の場合は画面にクレジット表示が必要",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "書籍一覧を取得する",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "取得件数（1〜100、既定20）",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "取得開始位置（0以上、既定0）",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/BookListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "description": "書籍価格は0以上、著者は1人以上（重複不可・存在する著者のみ）",
                 "consumes": [
@@ -435,6 +479,95 @@
                     "example": "太宰治"
                 },
                 "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "BookListAuthorResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Martin Kleppmann"
+                }
+            }
+        },
+        "BookListItemResponse": {
+            "type": "object",
+            "properties": {
+                "amazonUrl": {
+                    "description": "AmazonURL is derived from the ISBN; null when there is no ISBN (or no ISBN-10 form).",
+                    "type": "string",
+                    "example": "https://www.amazon.co.jp/dp/4873118700"
+                },
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/BookListAuthorResponse"
+                    }
+                },
+                "coverSource": {
+                    "type": "string",
+                    "enum": [
+                        "openbd",
+                        "rakuten"
+                    ],
+                    "example": "openbd"
+                },
+                "coverUrl": {
+                    "description": "CoverURL is the provider-hosted image; show it as-is with the credit for CoverSource.",
+                    "type": "string",
+                    "example": "https://cover.openbd.jp/9784873118703.jpg"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "isbn": {
+                    "type": "string",
+                    "example": "9784873118703"
+                },
+                "price": {
+                    "type": "integer",
+                    "example": 4600
+                },
+                "status": {
+                    "type": "integer",
+                    "enum": [
+                        1,
+                        2
+                    ],
+                    "example": 2
+                },
+                "title": {
+                    "type": "string",
+                    "example": "データ指向アプリケーションデザイン"
+                }
+            }
+        },
+        "BookListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/BookListItemResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer",
+                    "example": 20
+                },
+                "offset": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "total": {
                     "type": "integer",
                     "example": 1
                 }

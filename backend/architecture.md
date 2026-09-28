@@ -178,6 +178,7 @@ backend/
 | `POST` | `/api/authors` | 著者を作成する（生年月日は現在より過去日付） |
 | `PUT` | `/api/authors/{id}` | 著者を更新する（楽観的ロック） |
 | `GET` | `/api/authors/{id}/books` | 著者に紐づく書籍一覧を取得する |
+| `GET` | `/api/books` | 書籍一覧を取得する（ID昇順。`limit` 1〜100（既定20）で取得件数、`offset` で取得開始位置を指定。総件数付き。各行に ISBN・Amazon リンク・書影を含む） |
 | `POST` | `/api/books` | 書籍を作成する（価格は0以上、著者は1人以上。`isbn` は任意で、指定すると書影を外部カタログから取得する） |
 | `GET` | `/api/books/{id}` | 書籍を取得する（`amazonUrl` は ISBN から導出。`coverUrl` は提供元の画像で、`coverSource` が `rakuten` なら画面にクレジット表示が必要） |
 | `PUT` | `/api/books/{id}` | 書籍を更新する（出版済み→未出版は不可、楽観的ロック。`isbn` は省略で解除。保存のたびに書影を取り直す） |

@@ -92,6 +92,7 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 	authorQuery := pgauthor.NewQuery(db)
 	bookRepo := pgbook.NewRepository(db)
 	bookQuery := pgbook.NewQuery(db)
+	bookListQuery := pgbook.NewListQuery(db)
 
 	api := e.Group("/api")
 	(&httpauthor.Handler{
@@ -103,6 +104,7 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 		CreateUC: &bookcmd.CreateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Catalog: bookCatalog},
 		UpdateUC: &bookcmd.UpdateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Catalog: bookCatalog},
 		GetUC:    &bookqry.GetUsecaseImpl{Books: bookQuery},
+		ListUC:   &bookqry.ListUsecaseImpl{Books: bookListQuery},
 	}).Register(api.Group("/books"))
 	(&httpcatalog.Handler{
 		LookupUC: &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},

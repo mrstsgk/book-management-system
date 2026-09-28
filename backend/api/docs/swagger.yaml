@@ -48,6 +48,72 @@ definitions:
         example: 1
         type: integer
     type: object
+  BookListAuthorResponse:
+    properties:
+      id:
+        example: 1
+        type: integer
+      name:
+        example: Martin Kleppmann
+        type: string
+    type: object
+  BookListItemResponse:
+    properties:
+      amazonUrl:
+        description: AmazonURL is derived from the ISBN; null when there is no ISBN
+          (or no ISBN-10 form).
+        example: https://www.amazon.co.jp/dp/4873118700
+        type: string
+      authors:
+        items:
+          $ref: '#/definitions/BookListAuthorResponse'
+        type: array
+      coverSource:
+        enum:
+        - openbd
+        - rakuten
+        example: openbd
+        type: string
+      coverUrl:
+        description: CoverURL is the provider-hosted image; show it as-is with the
+          credit for CoverSource.
+        example: https://cover.openbd.jp/9784873118703.jpg
+        type: string
+      id:
+        example: 1
+        type: integer
+      isbn:
+        example: "9784873118703"
+        type: string
+      price:
+        example: 4600
+        type: integer
+      status:
+        enum:
+        - 1
+        - 2
+        example: 2
+        type: integer
+      title:
+        example: データ指向アプリケーションデザイン
+        type: string
+    type: object
+  BookListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/BookListItemResponse'
+        type: array
+      limit:
+        example: 20
+        type: integer
+      offset:
+        example: 0
+        type: integer
+      total:
+        example: 1
+        type: integer
+    type: object
   BookResponse:
     properties:
       amazonUrl:
@@ -359,6 +425,35 @@ paths:
       tags:
       - authors
   /api/books:
+    get:
+      description: 書籍ID昇順。total は取得範囲外も含む総件数。amazonUrl は ISBN から導出し、coverUrl は提供元（coverSource）の画像で、楽天の場合は画面にクレジット表示が必要
+      parameters:
+      - description: 取得件数（1〜100、既定20）
+        in: query
+        name: limit
+        type: integer
+      - description: 取得開始位置（0以上、既定0）
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/BookListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: 書籍一覧を取得する
+      tags:
+      - books
     post:
       consumes:
       - application/json
