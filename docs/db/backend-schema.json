@@ -33,6 +33,19 @@
         "ck_book_cover_source CHECK (cover_source IN ('openbd', 'rakuten'))",
         "ck_book_cover_pair CHECK ((cover_url IS NULL) = (cover_source IS NULL))"
       ]
+    },
+    "tag": {
+      "description": "自分が定義した分野タグ。本には book_tag 経由で複数付けられる。",
+      "source": "backend/migrations/000003_create_tag.up.sql",
+      "columns": [
+        { "name": "id", "type": "BIGSERIAL", "nullable": false, "pk": true, "description": "タグのID（主キー）" },
+        { "name": "name", "type": "VARCHAR(30)", "nullable": false, "unique": true, "description": "タグ名（1〜30文字）" },
+        { "name": "version", "type": "INTEGER", "nullable": false, "description": "バージョン（楽観的ロック用）。作成時1、更新ごとに+1" },
+        { "name": "created_at", "type": "TIMESTAMPTZ", "nullable": false, "default": "NOW()", "description": "作成日時" },
+        { "name": "updated_at", "type": "TIMESTAMPTZ", "nullable": false, "default": "NOW()", "description": "最終更新日時" }
+      ],
+      "indexes": [],
+      "constraints": ["uq_tag_name UNIQUE (name)"]
     }
   }
 }
