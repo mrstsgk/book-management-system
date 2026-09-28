@@ -49,3 +49,18 @@ func TestNewTagSelection(t *testing.T) {
 		})
 	}
 }
+
+func TestTagSelection_IDs_ReturnsACopy(t *testing.T) {
+	t.Parallel()
+	s, err := book.NewTagSelection([]tag.ID{1, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ids := s.IDs()
+	ids[0] = 999
+
+	if got := s.IDs(); got[0] != 1 {
+		t.Fatalf("mutating the returned slice changed the VO: got %v, want [1 2] unchanged", got)
+	}
+}

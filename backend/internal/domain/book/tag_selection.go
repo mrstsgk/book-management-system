@@ -2,6 +2,7 @@ package book
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
@@ -33,6 +34,7 @@ func NewTagSelection(ids []tag.ID) (TagSelection, error) {
 	return TagSelection{ids: cp}, nil
 }
 
+// IDs は呼び出し側が変更してもVOの不変条件を壊さないよう、複製を返す。
 func (s TagSelection) IDs() []tag.ID {
-	return s.ids
+	return slices.Clone(s.ids)
 }
