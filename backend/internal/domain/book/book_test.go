@@ -141,3 +141,31 @@ func TestBook_ChangeCatalogInfo(t *testing.T) {
 		t.Fatalf("ISBN=%v Cover=%v, want both cleared", b.ISBN, b.Cover)
 	}
 }
+
+// The list read model must not depend on write-side VOs/Entities (docs/rules/testing.md).
+func TestBookListReadModel_UsesPlainFieldTypes(t *testing.T) {
+	t.Parallel()
+	writeSide := map[reflect.Type]bool{
+		reflect.TypeOf(book.Title{}):          true,
+		reflect.TypeOf(book.Price{}):          true,
+		reflect.TypeOf(book.PublishStatus(0)): true,
+		reflect.TypeOf(book.ISBN{}):           true,
+		reflect.TypeOf(book.Cover{}):          true,
+		reflect.TypeOf(book.CoverSource("")):  true,
+		reflect.TypeOf(book.Book{}):           true,
+		reflect.TypeOf(author.Name{}):         true,
+		reflect.TypeOf(author.Author{}):       true,
+	}
+	for _, typ := range []reflect.Type{reflect.TypeOf(book.BookListItem{}), reflect.TypeOf(book.BookListAuthor{})} {
+		for i := range typ.NumField() {
+			f := typ.Field(i)
+			ft := f.Type
+			for ft.Kind() == reflect.Slice || ft.Kind() == reflect.Pointer {
+				ft = ft.Elem()
+			}
+			if writeSide[ft] {
+				t.Errorf("%s.%s uses write-side type %s", typ.Name(), f.Name, ft)
+			}
+		}
+	}
+}

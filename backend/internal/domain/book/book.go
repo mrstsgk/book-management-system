@@ -143,3 +143,37 @@ type BookCatalog interface {
 	// Lookup returns ErrNotFound when no catalog knows the ISBN.
 	Lookup(ctx context.Context, isbn ISBN) (*CatalogEntry, error)
 }
+
+// BookListAuthor is the read model of an author shown on each row of the book list.
+type BookListAuthor struct {
+	ID   author.ID
+	Name string
+}
+
+// BookListItem is the read model of one row of the book list. It carries the same
+// book information as BookDetail except the authors' details and the version.
+type BookListItem struct {
+	ID      ID
+	Title   string
+	Price   int64
+	Status  int
+	Authors []BookListAuthor
+	ISBN    *string
+	// AmazonURL is derived from ISBN (not stored); nil when there is no ISBN-10 form.
+	AmazonURL   *string
+	CoverURL    *string
+	CoverSource *string
+}
+
+// BookList is the requested range of the book list plus the total count of all books.
+type BookList struct {
+	Items []*BookListItem
+	Total int
+}
+
+// ListQuery is the read-side port for the book list. It is separate from Query so
+// the list use case depends only on what it calls.
+type ListQuery interface {
+	// FindList returns the books ordered by ID, sliced by r.
+	FindList(ctx context.Context, r common.ListRange) (*BookList, error)
+}
