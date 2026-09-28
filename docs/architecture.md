@@ -31,7 +31,7 @@
 
 正は [`backend/architecture.md`](../backend/architecture.md)。
 
-- API の path は `/api/...`（例: `/api/books`）
+- API の path は `/api/...`（例: `/api/books`）。閲覧は認証なし、書き込みは管理者トークン
 - ローカル開発: **ホスト Go（mise で版固定）+ Docker は DB**。API の日常起動はコンテナにしない（詳細は backend 文書）
 
 ## 3. フロントエンド（境界のみ）

@@ -21,6 +21,8 @@
 | マイグレーション | **golang-migrate**（`backend/migrations/` が SQL の正。アプリ起動時 migrate しない） |
 | HTTP / OpenAPI | Echo + validator + swag。**Go の DTO／Handler が BE の正** |
 | FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
+| 書誌・書影 | 外部カタログ。Domain の `book.BookCatalog`（ExternalGateway）を `infrastructure/gateway/openbd`・`rakuten` が実装し、`gateway/catalog` が「openBD を優先し、書影が無ければ楽天で補う」形に組み合わせる。画像は保存しない |
+| 認証 | 書き込み系だけ管理者トークン（`presentation/http/common.RequireAdminToken`）。閲覧は認証なし |
 | ツールチェーン | **mise で Go 版を固定**（リポジトリ直下 `.mise.toml`。`go.mod` と揃える） |
 | ローカル開発 | API は**ホストの Go**、DB は **Docker Compose**。Dev Container なし |
 | 旧スタック | Kotlin / Spring Boot / jOOQ / Flyway と、旧仕様（書籍・著者の管理 API）の Go 版は**削除済み**（[ADR](../docs/adr/2026-09-28-rebuild-as-reading-portfolio.md)） |
@@ -170,7 +172,17 @@ backend/
 
 ### プロダクト API 範囲
 
-「読んだ本の紹介」として作り直し中（後続 PR）。予定は、読んだ本の登録（ISBN から書誌・書影を取得）・更新・削除・一覧・詳細と、ISBN での書誌の事前確認。登録・更新・削除は自分だけが行える（簡易な認証）。
+| Method | Path | 用途 | 認証 |
+|---|---|---|---|
+| `GET` | `/api/books` | 読んだ本の一覧（新しく登録した順。`limit` 1〜100・既定20、`offset`。総件数付き。感想の本文は含めない） | 不要 |
+| `GET` | `/api/books/{id}` | 読んだ本の詳細（書誌・書影・Amazon リンク・感想・評価） | 不要 |
+| `POST` | `/api/books` | 読んだ本を登録する（`isbn`・`comment`・`rating`。書誌と書影は ISBN で外部カタログから取得。カタログに無ければ 400、同じ ISBN は 409） | 必要 |
+| `PUT` | `/api/books/{id}` | 感想と評価を更新する（楽観的ロック。書誌と書影を取り直す） | 必要 |
+| `DELETE` | `/api/books/{id}` | 読んだ本を削除する | 必要 |
+| `GET` | `/api/catalog/{isbn}` | 登録前に、ISBN で外部カタログの書誌と書影を確かめる | 必要 |
+
+- 認証は `Authorization: Bearer <ADMIN_TOKEN>`。自分だけが書き込めればよいので、ユーザー管理は持たない
+- 書影は提供元の URL をそのまま返す。`coverSource` が `rakuten` なら画面に楽天ウェブサービスのクレジット表示が必要（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）
 
 ## 5. やらないこと（全体）
 
