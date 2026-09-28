@@ -9,11 +9,12 @@ import (
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	domaincommon "github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+	domaintag "github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 )
 
 // newBook はテスト用の読んだ本を作る。ISBN はテスト間で重ならないものを渡す。
-func newBook(t *testing.T, isbn, title string, cover *domainbook.Cover, rating int) *domainbook.Book {
+func newBook(t *testing.T, isbn, title string, cover *domainbook.Cover, rating int, tagIDs ...domaintag.ID) *domainbook.Book {
 	t.Helper()
 	i, err := domainbook.NewISBN(isbn)
 	if err != nil {
@@ -35,7 +36,11 @@ func newBook(t *testing.T, isbn, title string, cover *domainbook.Cover, rating i
 	if err != nil {
 		t.Fatal(err)
 	}
-	return domainbook.New(i, bib, cover, s, c, r, domainbook.TagSelection{})
+	tags, err := domainbook.NewTagSelection(tagIDs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return domainbook.New(i, bib, cover, s, c, r, tags)
 }
 
 func mustCover(t *testing.T, url string) *domainbook.Cover {
@@ -238,6 +243,71 @@ func TestRepository_TitleOverrideAndSummary(t *testing.T) {
 		}
 		if got.TitleOverride == nil || got.TitleOverride.String() != "新しい上書き" {
 			t.Fatalf("TitleOverride = %v, want 新しい上書き", got.TitleOverride)
+		}
+	})
+}
+
+func TestRepository_Tags(t *testing.T) {
+	db := connectTestDB(t)
+	repo := pgbook.NewRepository(db)
+
+	// テスト用のタグを2つ作る
+	var tagA, tagB int64
+	db.Raw("INSERT INTO tag (name, version) VALUES ('repo-test-タグA', 1) RETURNING id").Scan(&tagA)
+	db.Raw("INSERT INTO tag (name, version) VALUES ('repo-test-タグB', 1) RETURNING id").Scan(&tagB)
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'repo-test-%'") })
+
+	t.Run("タグ付きで作成して読み込める", func(t *testing.T) {
+		b := newBook(t, "9780000002419", "カタログの書名", nil, 4, domaintag.ID(tagA), domaintag.ID(tagB))
+		createBook(t, db, b)
+
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		ids := got.Tags.IDs()
+		if len(ids) != 2 {
+			t.Fatalf("Tags = %v, want 2 tags", ids)
+		}
+	})
+
+	t.Run("更新でタグを差し替えると入れ替わる", func(t *testing.T) {
+		b := newBook(t, "9780000002426", "カタログの書名", nil, 4, domaintag.ID(tagA))
+		createBook(t, db, b)
+
+		newTags, err := domainbook.NewTagSelection([]domaintag.ID{domaintag.ID(tagB)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.ChangeReview(b.Summary, b.Comment, b.Rating, newTags, b.Version)
+		if err := repo.Update(context.Background(), b); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		ids := got.Tags.IDs()
+		if len(ids) != 1 || ids[0] != domaintag.ID(tagB) {
+			t.Fatalf("Tags = %v, want [%d]", ids, tagB)
+		}
+	})
+
+	t.Run("タグを削除すると本から自動で外れる", func(t *testing.T) {
+		var soloTag int64
+		db.Raw("INSERT INTO tag (name, version) VALUES ('repo-test-単独', 1) RETURNING id").Scan(&soloTag)
+		b := newBook(t, "9780000002433", "カタログの書名", nil, 4, domaintag.ID(soloTag))
+		createBook(t, db, b)
+
+		db.Exec("DELETE FROM tag WHERE id = ?", soloTag)
+
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		if len(got.Tags.IDs()) != 0 {
+			t.Fatalf("Tags = %v, want empty after the tag was deleted", got.Tags.IDs())
 		}
 	})
 }
