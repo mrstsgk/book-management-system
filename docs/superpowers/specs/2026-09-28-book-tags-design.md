@@ -150,7 +150,7 @@ func (s TagSelection) IDs() []tag.ID
 
 ### 5.2 `presentation/http/book` の拡張
 
-- `RegisterRequest`/`UpdateRequest` に `TagIDs []int64` を足す（`validate:"max=10,dive,min=1"` で上限と要素の妥当性を見る。0個・省略は「タグ無し」）
+- `RegisterRequest`/`UpdateRequest` に `TagIDs []int64` を足す（`validate:"max=10"` で個数の上限だけ見る。要素が実在するかは `tag.Query.ExistsAll` に任せ、HTTP層で二重に検証しない。0個・省略は「タグ無し」）
 - `Response`/`ListItemResponse` に `Tags []string` を足す
 - `RegisterCommand`/`UpdateCommand` に `TagIDs []int64` を足す
 
