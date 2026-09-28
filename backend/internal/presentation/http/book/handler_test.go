@@ -18,6 +18,7 @@ import (
 	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
+	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
 )
 
 const adminToken = "test-admin-token"
@@ -44,10 +45,10 @@ func (f fakeGet) Execute(ctx context.Context, id int64) (*domainbook.BookDetail,
 	return f(ctx, id)
 }
 
-type fakeList func(context.Context, int, int) (*domainbook.BookList, error)
+type fakeList func(context.Context, bookqry.ListInput) (*domainbook.BookList, error)
 
-func (f fakeList) Execute(ctx context.Context, limit, offset int) (*domainbook.BookList, error) {
-	return f(ctx, limit, offset)
+func (f fakeList) Execute(ctx context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+	return f(ctx, in)
 }
 
 // serve は cmd/api/main.go と同じ形（NewEcho + Register）でハンドラを組み立ててリクエストを流す。
@@ -115,8 +116,8 @@ func TestHandlerList(t *testing.T) {
 	} {
 		t.Run(tt.name+"で誰でも取得できる", func(t *testing.T) {
 			var gotLimit, gotOffset int
-			h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, limit, offset int) (*domainbook.BookList, error) {
-				gotLimit, gotOffset = limit, offset
+			h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+				gotLimit, gotOffset = in.Limit, in.Offset
 				return list, nil
 			})}
 			rec := serve(t, h, http.MethodGet, "/api/books"+tt.query, "", false)
@@ -138,7 +139,7 @@ func TestHandlerList(t *testing.T) {
 	}
 
 	t.Run("0件は空配列", func(t *testing.T) {
-		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, int, int) (*domainbook.BookList, error) {
+		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) {
 			return &domainbook.BookList{}, nil
 		})}
 		rec := serve(t, h, http.MethodGet, "/api/books", "", false)
@@ -147,14 +148,78 @@ func TestHandlerList(t *testing.T) {
 		}
 	})
 
-	t.Run("limit上限+1は400", func(t *testing.T) {
-		called := mustNotCall(t)
-		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, int, int) (*domainbook.BookList, error) { called(); return nil, nil })}
-		rec := serve(t, h, http.MethodGet, "/api/books?limit=101", "", false)
+	t.Run("キーワードと分野タグをusecaseに渡す", func(t *testing.T) {
+		var got bookqry.ListInput
+		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+			got = in
+			return &domainbook.BookList{}, nil
+		})}
+		rec := serve(t, h, http.MethodGet, "/api/books?q=%E8%A8%AD%E8%A8%88&tagId=3", "", false)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		if got.Keyword != "設計" || got.TagID == nil || *got.TagID != 3 {
+			t.Fatalf("usecase received %+v, want Keyword=設計 TagID=3", got)
+		}
+	})
+
+	t.Run("前後の空白を除いて100文字のキーワードは200", func(t *testing.T) {
+		var got bookqry.ListInput
+		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+			got = in
+			return &domainbook.BookList{}, nil
+		})}
+		kw := strings.Repeat("a", 100)
+		rec := serve(t, h, http.MethodGet, "/api/books?q=%20%20"+kw+"%20%20", "", false)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		if got.Keyword != "  "+kw+"  " {
+			t.Fatalf("usecase received %q, want the raw keyword (trimming is the domain's job)", got.Keyword)
+		}
+	})
+
+	t.Run("前後の空白を除いて101文字のキーワードは400", func(t *testing.T) {
+		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) {
+			return nil, domaincommon.ErrInvalid
+		})}
+		rec := serve(t, h, http.MethodGet, "/api/books?q=%20"+strings.Repeat("a", 101)+"%20", "", false)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want 400", rec.Code)
 		}
 	})
+
+	t.Run("キーワードと分野タグを省略すると絞り込まない", func(t *testing.T) {
+		var got bookqry.ListInput
+		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+			got = in
+			return &domainbook.BookList{}, nil
+		})}
+		if rec := serve(t, h, http.MethodGet, "/api/books", "", false); rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", rec.Code)
+		}
+		if got.Keyword != "" || got.TagID != nil {
+			t.Fatalf("usecase received %+v, want no keyword and no tag", got)
+		}
+	})
+
+	for _, tt := range []struct {
+		name  string
+		query string
+	}{
+		{name: "limit上限+1は400", query: "?limit=101"},
+		{name: "分野タグID 0は400", query: "?tagId=0"},
+		{name: "分野タグIDが数値でなければ400", query: "?tagId=abc"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			called := mustNotCall(t)
+			h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) { called(); return nil, nil })}
+			rec := serve(t, h, http.MethodGet, "/api/books"+tt.query, "", false)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", rec.Code)
+			}
+		})
+	}
 }
 
 func TestHandlerGet(t *testing.T) {

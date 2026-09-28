@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -67,8 +68,13 @@ func run() error {
 		}
 	}()
 
+	bookCatalog := newCatalog(cfg.Catalog)
+	if err := seedIfEmpty(context.Background(), pgbook.NewRepository(db), pgbook.NewQuery(db, time.Now), bookCatalog); err != nil {
+		return err
+	}
+
 	e := httpcommon.NewEcho()
-	registerRoutes(e, db, newCatalog(cfg.Catalog), cfg.AdminToken)
+	registerRoutes(e, db, bookCatalog, cfg.AdminToken)
 
 	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
 }
@@ -112,10 +118,11 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 	}).Register(api.Group("/catalog"))
 
 	(&httptag.Handler{
-		RegisterUC: &tagcmd.RegisterUsecaseImpl{Tags: tags},
-		RenameUC:   &tagcmd.RenameUsecaseImpl{Tags: tags},
-		DeleteUC:   &tagcmd.DeleteUsecaseImpl{Tags: tags},
-		ListUC:     &tagqry.ListUsecaseImpl{Tags: tagQuery},
-		AdminOnly:  adminOnly,
+		RegisterUC:   &tagcmd.RegisterUsecaseImpl{Tags: tags},
+		RenameUC:     &tagcmd.RenameUsecaseImpl{Tags: tags},
+		DeleteUC:     &tagcmd.DeleteUsecaseImpl{Tags: tags},
+		ListUC:       &tagqry.ListUsecaseImpl{Tags: tagQuery},
+		CountBooksUC: &tagqry.CountBooksUsecaseImpl{Tags: tagQuery},
+		AdminOnly:    adminOnly,
 	}).Register(api.Group("/tags"))
 }

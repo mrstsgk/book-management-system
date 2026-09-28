@@ -9,7 +9,7 @@
     "paths": {
         "/api/books": {
             "get": {
-                "description": "新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す",
+                "description": "新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は0件",
                 "produces": [
                     "application/json"
                 ],
@@ -28,6 +28,18 @@
                         "type": "integer",
                         "description": "取得開始位置（0以上、既定0）",
                         "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "この分野タグが付いた本だけにする（1以上）",
+                        "name": "tagId",
                         "in": "query"
                     }
                 ],
@@ -416,6 +428,32 @@
                         "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tags/counts": {
+            "get": {
+                "description": "本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tags"
+                ],
+                "summary": "分野タグごとの冊数を取得する",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TagBookCountListResponse"
                         }
                     },
                     "500": {
@@ -877,6 +915,34 @@
                 "version": {
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "TagBookCountListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/TagBookCountResponse"
+                    }
+                }
+            }
+        },
+        "TagBookCountResponse": {
+            "type": "object",
+            "properties": {
+                "bookCount": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "データベース"
                 }
             }
         },

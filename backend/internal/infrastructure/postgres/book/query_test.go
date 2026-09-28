@@ -73,13 +73,13 @@ func TestQuery_FindList(t *testing.T) {
 	createBook(t, db, older)
 	newer := newBook(t, "9780000000071", "list-test-newer", mustCover(t, "https://cover.openbd.jp/newer.jpg"), 5)
 	createBook(t, db, newer)
-	all, err := qry.FindList(ctx, listRange(t, 1, 0))
+	all, err := qry.FindList(ctx, domainbook.ListCondition{}, listRange(t, 1, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	t.Run("新しく登録した順に取得範囲の分を返し、感想の本文は含めない", func(t *testing.T) {
-		got, err := qry.FindList(ctx, listRange(t, 2, 0))
+		got, err := qry.FindList(ctx, domainbook.ListCondition{}, listRange(t, 2, 0))
 		if err != nil {
 			t.Fatalf("FindList: %v", err)
 		}
@@ -95,11 +95,11 @@ func TestQuery_FindList(t *testing.T) {
 	})
 
 	t.Run("続きの範囲と範囲外", func(t *testing.T) {
-		got, err := qry.FindList(ctx, listRange(t, 1, 1))
+		got, err := qry.FindList(ctx, domainbook.ListCondition{}, listRange(t, 1, 1))
 		if err != nil || len(got.Items) != 1 || got.Items[0].ID != older.ID {
 			t.Fatalf("got (%+v, %v), want only the older book", got, err)
 		}
-		out, err := qry.FindList(ctx, listRange(t, 1, all.Total))
+		out, err := qry.FindList(ctx, domainbook.ListCondition{}, listRange(t, 1, all.Total))
 		if err != nil || out.Items == nil || len(out.Items) != 0 || out.Total != all.Total {
 			t.Fatalf("got (%#v, %v), want an empty non-nil list with total %d", out, err, all.Total)
 		}
@@ -139,7 +139,7 @@ func TestQuery_DisplayTitle(t *testing.T) {
 
 	t.Run("一覧も表示する書名と一言まとめを返す", func(t *testing.T) {
 		r, _ := domaincommon.NewListRange(100, 0)
-		list, err := q.FindList(context.Background(), r)
+		list, err := q.FindList(context.Background(), domainbook.ListCondition{}, r)
 		if err != nil {
 			t.Fatalf("FindList: %v", err)
 		}
@@ -199,7 +199,7 @@ func TestQuery_Tags(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		list, err := q.FindList(context.Background(), r)
+		list, err := q.FindList(context.Background(), domainbook.ListCondition{}, r)
 		if err != nil {
 			t.Fatalf("FindList: %v", err)
 		}
@@ -224,7 +224,7 @@ func TestQuery_Tags(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		list, err := q.FindList(context.Background(), r)
+		list, err := q.FindList(context.Background(), domainbook.ListCondition{}, r)
 		if err != nil {
 			t.Fatalf("FindList: %v", err)
 		}
@@ -278,7 +278,7 @@ func TestQuery_RakutenCover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := q.FindList(context.Background(), r)
+	list, err := q.FindList(context.Background(), domainbook.ListCondition{}, r)
 	if err != nil {
 		t.Fatalf("FindList: %v", err)
 	}
@@ -294,6 +294,96 @@ func TestQuery_RakutenCover(t *testing.T) {
 			}
 			if gotCover := (cover{it.CoverURL, it.CoverSource, it.CoverProductURL}); !reflect.DeepEqual(gotCover, want) {
 				t.Fatalf("cover = %s, want %s", describe(gotCover.url, gotCover.source, gotCover.product), describe(want.url, want.source, want.product))
+			}
+		})
+	}
+}
+
+func TestQuery_FindList_Condition(t *testing.T) {
+	db := connectTestDB(t)
+	q := pgbook.NewQuery(db, time.Now)
+	ctx := context.Background()
+
+	tagA := domaintag.ID(mustCreateTag(t, db, "search-test-タグA"))
+	tagB := domaintag.ID(mustCreateTag(t, db, "search-test-タグB"))
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'search-test-%'") })
+
+	create := func(isbn, title string, tagIDs ...domaintag.ID) *domainbook.Book {
+		b := newBook(t, isbn, title, nil, 4, tagIDs...)
+		createBook(t, db, b)
+		return b
+	}
+	design := create("9780000003003", "search-test-データ設計入門", tagA, tagB)
+	network := create("9780000003010", "search-test-ネットワーク", tagA)
+	if err := db.Exec("UPDATE book SET authors = ? WHERE id = ?", "search-test-戸根勤", int64(network.ID)).Error; err != nil {
+		t.Fatal(err)
+	}
+	overridden := newBook(t, "9780000003027", "search-test-元の書名", nil, 4)
+	title, err := domainbook.NewTitle("search-test-上書き書名")
+	if err != nil {
+		t.Fatal(err)
+	}
+	overridden.OverrideTitle(&title)
+	createBook(t, db, overridden)
+	percent := create("9780000003034", "search-test-100%達成")
+	create("9780000003041", "search-test-100点満点")
+	underscore := create("9780000003058", "search-test-A_B")
+	create("9780000003065", "search-test-AxB")
+	golang := create("9780000003072", "search-test-GoLang")
+
+	set := func(bs ...*domainbook.Book) map[domainbook.ID]bool {
+		m := map[domainbook.ID]bool{}
+		for _, b := range bs {
+			m[b.ID] = true
+		}
+		return m
+	}
+	ptr := func(id domaintag.ID) *domaintag.ID { return &id }
+
+	tests := []struct {
+		name    string
+		keyword string
+		tagID   *domaintag.ID
+		want    map[domainbook.ID]bool
+	}{
+		{name: "書名の部分一致", keyword: "search-test-データ", want: set(design)},
+		{name: "大文字小文字を区別しない", keyword: "SEARCH-TEST-golang", want: set(golang)},
+		{name: "上書きした書名で当たる", keyword: "search-test-上書き", want: set(overridden)},
+		{name: "上書き前の書名では当たらない", keyword: "search-test-元の書名", want: set()},
+		{name: "著者の部分一致", keyword: "search-test-戸根", want: set(network)},
+		{name: "%を文字として扱う", keyword: "search-test-100%", want: set(percent)},
+		{name: "_を文字として扱う", keyword: "search-test-A_B", want: set(underscore)},
+		{name: "分野タグで絞り込み、タグが2つの本も重複しない", tagID: ptr(tagA), want: set(design, network)},
+		{name: "キーワードと分野タグは両方を満たす本だけ", keyword: "search-test-", tagID: ptr(tagB), want: set(design)},
+		{name: "両方を満たす本が無ければ0件", keyword: "search-test-ネットワーク", tagID: ptr(tagB), want: set()},
+		{name: "存在しない分野タグは0件", tagID: ptr(999999999), want: set()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := domainbook.NewListCondition(tt.keyword, tt.tagID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r, err := domaincommon.NewListRange(100, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			list, err := q.FindList(ctx, c, r)
+			if err != nil {
+				t.Fatalf("FindList: %v", err)
+			}
+			got := map[domainbook.ID]bool{}
+			for _, it := range list.Items {
+				if got[it.ID] {
+					t.Fatalf("book %d appears twice", it.ID)
+				}
+				got[it.ID] = true
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			if list.Total != len(tt.want) {
+				t.Fatalf("Total = %d, want %d (Total must count only the matching books)", list.Total, len(tt.want))
 			}
 		})
 	}

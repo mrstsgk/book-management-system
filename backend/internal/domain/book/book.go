@@ -64,6 +64,8 @@ type Repository interface {
 	FindByID(ctx context.Context, id ID) (*Book, error)
 	// Create は b を新規作成し、採番した ID と初期バージョンを b に設定する。同じ ISBN の本があれば ErrConflict を返す。
 	Create(ctx context.Context, b *Book) error
+	// CreateAll は books を1つのトランザクションで全冊作成する。1冊でも同じ ISBN があれば1冊も残さず ErrConflict を返す。
+	CreateAll(ctx context.Context, books []*Book) error
 	// Update は b.Version が一致する行を更新し、b.Version を進める。不一致なら ErrConflict を返す。
 	Update(ctx context.Context, b *Book) error
 	// Delete は id の本を削除する。存在しなければ ErrNotFound を返す。
@@ -122,8 +124,8 @@ type BookList struct {
 type Query interface {
 	// FindDetailByID は存在しなければ ErrNotFound を返す。
 	FindDetailByID(ctx context.Context, id ID) (*BookDetail, error)
-	// FindList は新しく登録した順に、取得範囲 r の分だけ返す。
-	FindList(ctx context.Context, r common.ListRange) (*BookList, error)
+	// FindList は条件 c に合う本を新しく登録した順に、取得範囲 r の分だけ返す。総件数も c に合う件数。
+	FindList(ctx context.Context, c ListCondition, r common.ListRange) (*BookList, error)
 }
 
 // CatalogEntry は外部カタログが ISBN について持っている書誌と書影。
