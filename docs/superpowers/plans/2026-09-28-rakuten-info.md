@@ -39,7 +39,7 @@
 
 **Interfaces:**
 - Produces:
-  - `const RakutenRetention = 90 * 24 * time.Hour`、`const RakutenRefreshAfter = 83 * 24 * time.Hour`
+  - `const RakutenRetention = 89 * 24 * time.Hour`、`const RakutenRefreshAfter = 82 * 24 * time.Hour`
   - `func RakutenExpired(fetchedAt, now time.Time) bool`（`!now.Before(fetchedAt.Add(RakutenRetention))`。参照側と VO が同じ規則を使うため）
   - `func NewRakutenCover(imageURL, productURL string, fetchedAt time.Time) (Cover, error)`
   - `func (c Cover) ProductURL() string`・`FetchedAt() time.Time`・`IsExpired(now time.Time) bool`・`NeedsRefresh(now time.Time) bool`

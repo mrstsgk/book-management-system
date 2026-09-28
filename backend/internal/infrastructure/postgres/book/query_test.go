@@ -245,7 +245,7 @@ func TestQuery_RakutenCover(t *testing.T) {
 
 	fresh := newBook(t, "9780000003416", "rakuten-test-期限内", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/fresh.jpg", product, time.Now().Add(-88*day)), 4)
 	createBook(t, db, fresh)
-	expired := newBook(t, "9780000003423", "rakuten-test-期限切れ", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/expired.jpg", product, time.Now().Add(-90*day)), 4)
+	expired := newBook(t, "9780000003423", "rakuten-test-期限切れ", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/expired.jpg", product, time.Now().Add(-89*day)), 4)
 	createBook(t, db, expired)
 	openbd := newBook(t, "9780000003430", "rakuten-test-openBD", mustCover(t, "https://cover.openbd.jp/rakuten-test.jpg"), 4)
 	createBook(t, db, openbd)
@@ -256,7 +256,7 @@ func TestQuery_RakutenCover(t *testing.T) {
 		expired.ID: {nil, nil, nil},
 		openbd.ID:  {strPtr("https://cover.openbd.jp/rakuten-test.jpg"), strPtr("openbd"), nil},
 	}
-	names := map[domainbook.ID]string{fresh.ID: "取得から88日の楽天の書影は商品ページと一緒に返す", expired.ID: "取得から90日の楽天の書影は返さない", openbd.ID: "openBDの書影は商品ページ無しで返す"}
+	names := map[domainbook.ID]string{fresh.ID: "取得から88日の楽天の書影は商品ページと一緒に返す", expired.ID: "取得からちょうど89日の楽天の書影は返さない", openbd.ID: "openBDの書影は商品ページ無しで返す"}
 
 	for id, want := range wants {
 		t.Run("詳細: "+names[id], func(t *testing.T) {
