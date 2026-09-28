@@ -27,11 +27,15 @@ func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbo
 		}
 		return nil, err
 	}
+	tagNames, err := tagNamesByBookID(ctx, q.db, []int64{row.ID})
+	if err != nil {
+		return nil, err
+	}
 	return &domainbook.BookDetail{
 		ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: displayTitle(row.TitleOverride, row.Title), Authors: row.Authors,
 		Publisher: row.Publisher, PublishedOn: row.PublishedOn, AmazonURL: amazonURLOf(row.ISBN),
 		CoverURL: row.CoverURL, CoverSource: row.CoverSource, TitleOverride: row.TitleOverride, Summary: row.Summary,
-		Comment: row.Comment, Rating: row.Rating, Version: row.Version,
+		Tags: orEmpty(tagNames[row.ID]), Comment: row.Comment, Rating: row.Rating, Version: row.Version,
 	}, nil
 }
 
@@ -41,6 +45,42 @@ func displayTitle(override *string, catalogTitle string) string {
 		return *override
 	}
 	return catalogTitle
+}
+
+// bookTagRow は book_tag と tag を結合した1行（どの本にどのタグ名が付くか）。
+type bookTagRow struct {
+	BookID  int64
+	TagName string
+}
+
+// tagNamesByBookID は bookIDs に対応するタグ名を book_id ごとにまとめて返す（1回の別クエリ、N+1にしない）。
+func tagNamesByBookID(ctx context.Context, db *gorm.DB, bookIDs []int64) (map[int64][]string, error) {
+	result := make(map[int64][]string, len(bookIDs))
+	if len(bookIDs) == 0 {
+		return result, nil
+	}
+	var rows []bookTagRow
+	err := db.WithContext(ctx).Table("book_tag").
+		Select("book_tag.book_id AS book_id, tag.name AS tag_name").
+		Joins("JOIN tag ON tag.id = book_tag.tag_id").
+		Where("book_tag.book_id IN ?", bookIDs).
+		Order("tag.name").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.BookID] = append(result[row.BookID], row.TagName)
+	}
+	return result, nil
+}
+
+// orEmpty は nil のスライスを空スライスに揃える（Read Model は「タグ無し」と「未取得」を区別しないため）。
+func orEmpty(names []string) []string {
+	if names == nil {
+		return []string{}
+	}
+	return names
 }
 
 // FindList は新しく登録した順（同時刻は ID の大きい順）に、取得範囲の分だけ返す。総件数も返す。
@@ -59,11 +99,20 @@ func (q *query) FindList(ctx context.Context, r common.ListRange) (*domainbook.B
 	if err != nil {
 		return nil, err
 	}
+	bookIDs := make([]int64, len(rows))
+	for i, row := range rows {
+		bookIDs[i] = row.ID
+	}
+	tagNames, err := tagNamesByBookID(ctx, q.db, bookIDs)
+	if err != nil {
+		return nil, err
+	}
 	list := &domainbook.BookList{Items: make([]*domainbook.BookListItem, 0, len(rows)), Total: int(total)}
 	for _, row := range rows {
 		list.Items = append(list.Items, &domainbook.BookListItem{
 			ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: displayTitle(row.TitleOverride, row.Title), Summary: row.Summary,
-			Authors: row.Authors, AmazonURL: amazonURLOf(row.ISBN), CoverURL: row.CoverURL, CoverSource: row.CoverSource, Rating: row.Rating,
+			Authors: row.Authors, AmazonURL: amazonURLOf(row.ISBN), CoverURL: row.CoverURL, CoverSource: row.CoverSource,
+			Rating: row.Rating, Tags: orEmpty(tagNames[row.ID]),
 		})
 	}
 	return list, nil

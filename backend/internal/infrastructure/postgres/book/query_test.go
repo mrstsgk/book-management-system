@@ -8,6 +8,7 @@ import (
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	domaincommon "github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+	domaintag "github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 )
 
@@ -37,7 +38,7 @@ func TestQuery_FindDetailByID(t *testing.T) {
 			}
 			want := &domainbook.BookDetail{
 				ID: b.ID, ISBN: tt.isbn, Title: "query-test-書名", Authors: "Kleppmann,Martin", Publisher: "オーム社",
-				PublishedOn: "201907", AmazonURL: tt.wantAmazonURL, Summary: "一言まとめ", Comment: "感想\n2行目", Rating: 4, Version: 1,
+				PublishedOn: "201907", AmazonURL: tt.wantAmazonURL, Summary: "一言まとめ", Tags: []string{}, Comment: "感想\n2行目", Rating: 4, Version: 1,
 			}
 			if tt.cover != nil {
 				want.CoverURL, want.CoverSource = strPtr(tt.cover.URL()), strPtr("openbd")
@@ -82,9 +83,9 @@ func TestQuery_FindList(t *testing.T) {
 			t.Fatalf("FindList: %v", err)
 		}
 		want := &domainbook.BookList{Total: all.Total, Items: []*domainbook.BookListItem{
-			{ID: newer.ID, ISBN: "9780000000071", Title: "list-test-newer", Summary: "一言まとめ", Authors: "Kleppmann,Martin",
+			{ID: newer.ID, ISBN: "9780000000071", Title: "list-test-newer", Summary: "一言まとめ", Tags: []string{}, Authors: "Kleppmann,Martin",
 				AmazonURL: strPtr("https://www.amazon.co.jp/dp/0000000078"), CoverURL: strPtr("https://cover.openbd.jp/newer.jpg"), CoverSource: strPtr("openbd"), Rating: 5},
-			{ID: older.ID, ISBN: "9780000000064", Title: "list-test-older", Summary: "一言まとめ", Authors: "Kleppmann,Martin",
+			{ID: older.ID, ISBN: "9780000000064", Title: "list-test-older", Summary: "一言まとめ", Tags: []string{}, Authors: "Kleppmann,Martin",
 				AmazonURL: strPtr("https://www.amazon.co.jp/dp/000000006X"), Rating: 3},
 		}}
 		if !reflect.DeepEqual(got, want) {
@@ -150,6 +151,62 @@ func TestQuery_DisplayTitle(t *testing.T) {
 		}
 		if it := titles[plain.ID]; it == nil || it.Title != "上書きなしの書名" {
 			t.Fatalf("plain item = %+v", it)
+		}
+	})
+}
+
+func TestQuery_Tags(t *testing.T) {
+	db := connectTestDB(t)
+	q := pgbook.NewQuery(db)
+
+	var tagA, tagB int64
+	db.Raw("INSERT INTO tag (name, version) VALUES ('query-test-タグA', 1) RETURNING id").Scan(&tagA)
+	db.Raw("INSERT INTO tag (name, version) VALUES ('query-test-タグB', 1) RETURNING id").Scan(&tagB)
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'query-test-%'") })
+
+	tagged := newBook(t, "9780000002440", "タグ付きの本", nil, 4, domaintag.ID(tagA), domaintag.ID(tagB))
+	createBook(t, db, tagged)
+	untagged := newBook(t, "9780000002457", "タグ無しの本", nil, 4)
+	createBook(t, db, untagged)
+
+	t.Run("詳細はタグ名を返す", func(t *testing.T) {
+		got, err := q.FindDetailByID(context.Background(), tagged.ID)
+		if err != nil {
+			t.Fatalf("FindDetailByID: %v", err)
+		}
+		if len(got.Tags) != 2 {
+			t.Fatalf("Tags = %v, want 2 names", got.Tags)
+		}
+	})
+
+	t.Run("タグが無い本は空スライスを返す", func(t *testing.T) {
+		got, err := q.FindDetailByID(context.Background(), untagged.ID)
+		if err != nil {
+			t.Fatalf("FindDetailByID: %v", err)
+		}
+		if got.Tags == nil || len(got.Tags) != 0 {
+			t.Fatalf("Tags = %v, want an empty non-nil slice", got.Tags)
+		}
+	})
+
+	t.Run("一覧はそれぞれの本に対応するタグ名だけを返す", func(t *testing.T) {
+		r, err := domaincommon.NewListRange(100, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		list, err := q.FindList(context.Background(), r)
+		if err != nil {
+			t.Fatalf("FindList: %v", err)
+		}
+		byID := map[domainbook.ID]*domainbook.BookListItem{}
+		for _, it := range list.Items {
+			byID[it.ID] = it
+		}
+		if it := byID[tagged.ID]; it == nil || len(it.Tags) != 2 {
+			t.Fatalf("tagged item = %+v", it)
+		}
+		if it := byID[untagged.ID]; it == nil || len(it.Tags) != 0 {
+			t.Fatalf("untagged item = %+v", it)
 		}
 	})
 }
