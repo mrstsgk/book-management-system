@@ -82,7 +82,6 @@ func newRakutenCover(t *testing.T, fetchedAt time.Time) *book.Cover {
 
 func TestRefreshRakutenCoversUsecase_Execute(t *testing.T) {
 	t.Parallel()
-	day := 24 * time.Hour
 
 	t.Run("取り直す時期の基準として今から83日前を渡す", func(t *testing.T) {
 		t.Parallel()
@@ -99,7 +98,7 @@ func TestRefreshRakutenCoversUsecase_Execute(t *testing.T) {
 
 	t.Run("取り直せたら新しい書影で保存する", func(t *testing.T) {
 		t.Parallel()
-		b := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-85*day))
+		b := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-book.RakutenRefreshAfter))
 		fresh := newRakutenCover(t, refreshNow)
 		entry := catalogEntry(t, "取り直した書名", fresh)
 		books := &fakeRefreshBooks{targets: []*book.Book{b}}
@@ -123,7 +122,7 @@ func TestRefreshRakutenCoversUsecase_Execute(t *testing.T) {
 	} {
 		t.Run("取り直せず（"+tt.name+"）期限切れなら書影を外して保存する", func(t *testing.T) {
 			t.Parallel()
-			b := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-90*day))
+			b := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-book.RakutenRetention))
 			books := &fakeRefreshBooks{targets: []*book.Book{b}}
 			uc := &command.RefreshRakutenCoversUsecaseImpl{Books: books, Catalog: &fakeCatalogByISBN{err: tt.err}, Now: func() time.Time { return refreshNow }}
 
@@ -138,7 +137,7 @@ func TestRefreshRakutenCoversUsecase_Execute(t *testing.T) {
 
 	t.Run("取り直せず期限前なら保存しない", func(t *testing.T) {
 		t.Parallel()
-		b := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-89*day))
+		b := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-book.RakutenRetention+time.Second))
 		books := &fakeRefreshBooks{targets: []*book.Book{b}}
 		uc := &command.RefreshRakutenCoversUsecaseImpl{Books: books, Catalog: &fakeCatalogByISBN{err: errors.New("rakuten: timeout")}, Now: func() time.Time { return refreshNow }}
 
@@ -159,8 +158,8 @@ func TestRefreshRakutenCoversUsecase_Execute(t *testing.T) {
 	} {
 		t.Run("1冊目の保存が"+tt.name+"でも2冊目を処理する", func(t *testing.T) {
 			t.Parallel()
-			first := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-90*day))
-			second := rakutenBook(t, 2, "9780000003669", refreshNow.Add(-90*day))
+			first := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-book.RakutenRetention))
+			second := rakutenBook(t, 2, "9780000003669", refreshNow.Add(-book.RakutenRetention))
 			books := &fakeRefreshBooks{targets: []*book.Book{first, second}, updateErrByID: map[book.ID]error{1: tt.err}}
 			uc := &command.RefreshRakutenCoversUsecaseImpl{Books: books, Catalog: &fakeCatalogByISBN{err: common.ErrNotFound}, Now: func() time.Time { return refreshNow }}
 

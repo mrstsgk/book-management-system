@@ -402,7 +402,6 @@ func TestRepository_FindRakutenRefreshTargets(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgbook.NewRepository(db)
 	now := time.Now().Truncate(time.Microsecond)
-	day := 24 * time.Hour
 	fetchedBefore := now.Add(-domainbook.RakutenRefreshAfter)
 	rakuten := func(fetchedAt time.Time) *domainbook.Cover {
 		return mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/refresh.jpg", "https://books.rakuten.co.jp/rb/refresh/", fetchedAt)
@@ -410,11 +409,11 @@ func TestRepository_FindRakutenRefreshTargets(t *testing.T) {
 	tagID := mustCreateTag(t, db, "refresh-test-タグ")
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'refresh-test-%'") })
 
-	atBoundary := newBook(t, "9780000003607", "refresh-test-83日ちょうど", rakuten(fetchedBefore), 4, domaintag.ID(tagID))
+	atBoundary := newBook(t, "9780000003607", "refresh-test-取り直し開始ちょうど", rakuten(fetchedBefore), 4, domaintag.ID(tagID))
 	createBook(t, db, atBoundary)
-	expired := newBook(t, "9780000003614", "refresh-test-期限切れ", rakuten(now.Add(-100*day)), 4)
+	expired := newBook(t, "9780000003614", "refresh-test-期限切れ", rakuten(now.Add(-domainbook.RakutenRetention-time.Hour)), 4)
 	createBook(t, db, expired)
-	fresh := newBook(t, "9780000003621", "refresh-test-82日", rakuten(now.Add(-82*day)), 4)
+	fresh := newBook(t, "9780000003621", "refresh-test-取り直し前", rakuten(fetchedBefore.Add(time.Second)), 4)
 	createBook(t, db, fresh)
 	oldOpenBD := newBook(t, "9780000003638", "refresh-test-openBD", mustCover(t, "https://cover.openbd.jp/refresh.jpg"), 4)
 	createBook(t, db, oldOpenBD)

@@ -139,7 +139,6 @@ func TestBook_RefreshCatalog(t *testing.T) {
 func TestBook_DropExpiredCover(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
-	day := 24 * time.Hour
 	rakuten := func(t *testing.T, fetchedAt time.Time) *book.Cover {
 		t.Helper()
 		c, err := book.NewRakutenCover("https://thumbnail.image.rakuten.co.jp/1.jpg", "https://books.rakuten.co.jp/rb/1/", fetchedAt)
@@ -158,8 +157,8 @@ func TestBook_DropExpiredCover(t *testing.T) {
 		cover       *book.Cover
 		wantDropped bool
 	}{
-		{name: "楽天の書影は取得から90日で外す", cover: rakuten(t, now.Add(-90*day)), wantDropped: true},
-		{name: "楽天の書影は取得から89日なら残す", cover: rakuten(t, now.Add(-89*day)), wantDropped: false},
+		{name: "楽天の書影は保持期限ちょうどで外す", cover: rakuten(t, now.Add(-book.RakutenRetention)), wantDropped: true},
+		{name: "楽天の書影は保持期限の1秒前なら残す", cover: rakuten(t, now.Add(-book.RakutenRetention+time.Second)), wantDropped: false},
 		{name: "openBDの書影は古くても残す", cover: &openbd, wantDropped: false},
 		{name: "書影なしは何もしない", cover: nil, wantDropped: false},
 	}

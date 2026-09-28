@@ -112,8 +112,8 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		age       time.Duration
 		wantCover bool
 	}{
-		{name: "カタログを取り直せず楽天の書影が期限切れなら外して保存する", age: 90 * 24 * time.Hour, wantCover: false},
-		{name: "カタログを取り直せず楽天の書影が期限前なら残して保存する", age: 89 * 24 * time.Hour, wantCover: true},
+		{name: "カタログを取り直せず楽天の書影が期限切れなら外して保存する", age: book.RakutenRetention, wantCover: false},
+		{name: "カタログを取り直せず楽天の書影が期限前なら残して保存する", age: book.RakutenRetention - time.Second, wantCover: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
