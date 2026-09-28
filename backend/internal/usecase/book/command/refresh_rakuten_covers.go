@@ -29,6 +29,12 @@ func (u *RefreshRakutenCoversUsecaseImpl) Execute(ctx context.Context) error {
 		return err
 	}
 	for _, b := range targets {
+		if ctx.Err() != nil {
+			// シャットダウンによる通常のキャンセルなので失敗として返さない（呼び出し側が「取り直しに
+			// 失敗した」という誤解を招くwarnログを出さないため）。残りの対象を無駄に処理し続けない
+			// （1冊ずつwarnログが増えるだけになるため）だけが目的。
+			return nil //nolint:nilerr
+		}
 		u.refresh(ctx, b, now)
 	}
 	return nil

@@ -40,9 +40,18 @@ func (f *fakeRefreshBooks) Update(_ context.Context, b *book.Book) error {
 type fakeCatalogByISBN struct {
 	entries map[string]*book.CatalogEntry
 	err     error
+	// cancelOnCall が設定されていれば、その回数目の呼び出しの直前に cancel を呼ぶ
+	// （ループ処理中にctxがキャンセルされた状況を模す）。
+	cancelOnCall int
+	cancel       func()
+	calls        int
 }
 
 func (f *fakeCatalogByISBN) Lookup(_ context.Context, isbn book.ISBN) (*book.CatalogEntry, error) {
+	f.calls++
+	if f.cancelOnCall != 0 && f.calls == f.cancelOnCall {
+		f.cancel()
+	}
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -211,6 +220,25 @@ func TestRefreshRakutenCoversUsecase_Execute(t *testing.T) {
 
 		if err := uc.Execute(context.Background()); !errors.Is(err, wantErr) {
 			t.Fatalf("err = %v, want %v", err, wantErr)
+		}
+	})
+
+	t.Run("処理の途中でctxがキャンセルされたら残りを処理せず止まる", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithCancel(context.Background())
+		first := rakutenBook(t, 1, "9780000003652", refreshNow.Add(-book.RakutenRetention))
+		second := rakutenBook(t, 2, "9780000003669", refreshNow.Add(-book.RakutenRetention))
+		third := rakutenBook(t, 3, "9780000003676", refreshNow.Add(-book.RakutenRetention))
+		books := &fakeRefreshBooks{targets: []*book.Book{first, second, third}}
+		// 1冊目の処理中にctxがキャンセルされた状況を模す
+		catalog := &fakeCatalogByISBN{err: errors.New("rakuten: timeout"), cancelOnCall: 1, cancel: cancel}
+		uc := &command.RefreshRakutenCoversUsecaseImpl{Books: books, Catalog: catalog, Now: func() time.Time { return refreshNow }}
+
+		if err := uc.Execute(ctx); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if catalog.calls != 1 {
+			t.Fatalf("Catalog.Lookup was called %d times, want 1 (stop once ctx is cancelled)", catalog.calls)
 		}
 	})
 }
