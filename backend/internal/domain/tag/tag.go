@@ -34,10 +34,12 @@ type Repository interface {
 	Delete(ctx context.Context, id ID) error
 }
 
-// TagListItem はタグ一覧の1行分の Read Model。
+// TagListItem はタグ一覧の1行分の Read Model。Version は一覧から改名（version が要る）へ進むのに必要
+// （個別取得の API が無いため、一覧の応答だけが version の取得元になる）。
 type TagListItem struct {
-	ID   ID
-	Name string
+	ID      ID
+	Name    string
+	Version int
 }
 
 // TagList はタグの一覧全体（想定件数が少ないため取得範囲は絞らない）。
