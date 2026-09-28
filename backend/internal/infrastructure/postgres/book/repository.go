@@ -173,7 +173,7 @@ func adapt(row model) (*domainbook.Book, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := domainbook.New(isbn, bib, cover, summary, comment, rating)
+	b := domainbook.New(isbn, bib, cover, summary, comment, rating, domainbook.TagSelection{})
 	b.OverrideTitle(override)
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version

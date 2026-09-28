@@ -60,7 +60,7 @@ func (u *RegisterUsecaseImpl) Execute(ctx context.Context, cmd RegisterCommand) 
 	if err != nil {
 		return nil, err
 	}
-	b := book.New(isbn, entry.Bibliography, entry.Cover, summary, comment, rating)
+	b := book.New(isbn, entry.Bibliography, entry.Cover, summary, comment, rating, book.TagSelection{})
 	b.OverrideTitle(override)
 	if err := u.Books.Create(ctx, b); err != nil {
 		return nil, err

@@ -16,7 +16,7 @@ func existingBook(t *testing.T) *book.Book {
 	summary, _ := book.NewSummary("最初のまとめ")
 	comment, _ := book.NewComment("最初の感想")
 	rating, _ := book.NewRating(3)
-	b := book.New(entry.ISBN, entry.Bibliography, entry.Cover, summary, comment, rating)
+	b := book.New(entry.ISBN, entry.Bibliography, entry.Cover, summary, comment, rating, book.TagSelection{})
 	title, _ := book.NewTitle("前の上書き")
 	b.OverrideTitle(&title)
 	b.ID, b.Version = 10, 2

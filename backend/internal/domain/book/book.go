@@ -20,19 +20,21 @@ type Book struct {
 	Summary       Summary
 	Comment       Comment
 	Rating        Rating
+	Tags          TagSelection
 	Version       int
 }
 
 // New は登録前の読んだ本を作る（ID とバージョンは保存時に採番する）。
-func New(isbn ISBN, bibliography Bibliography, cover *Cover, summary Summary, comment Comment, rating Rating) *Book {
-	return &Book{ISBN: isbn, Bibliography: bibliography, Cover: copyOf(cover), Summary: summary, Comment: comment, Rating: rating}
+func New(isbn ISBN, bibliography Bibliography, cover *Cover, summary Summary, comment Comment, rating Rating, tags TagSelection) *Book {
+	return &Book{ISBN: isbn, Bibliography: bibliography, Cover: copyOf(cover), Summary: summary, Comment: comment, Rating: rating, Tags: tags}
 }
 
-// ChangeReview は一言まとめ・感想・評価を差し替える。version は更新元が読んだバージョン（楽観的ロックに使う）。
-func (b *Book) ChangeReview(summary Summary, comment Comment, rating Rating, version int) {
+// ChangeReview は一言まとめ・感想・評価・分野タグを差し替える。version は更新元が読んだバージョン（楽観的ロックに使う）。
+func (b *Book) ChangeReview(summary Summary, comment Comment, rating Rating, tags TagSelection, version int) {
 	b.Summary = summary
 	b.Comment = comment
 	b.Rating = rating
+	b.Tags = tags
 	b.Version = version
 }
 
@@ -84,6 +86,7 @@ type BookDetail struct {
 	// TitleOverride は自分で上書きした書名。上書きしていなければ nil（編集画面が今の上書きを送り直すのに使う）。
 	TitleOverride *string
 	Summary       string
+	Tags          []string
 	Comment       string
 	Rating        int
 	Version       int
@@ -96,6 +99,7 @@ type BookListItem struct {
 	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
 	Title       string
 	Summary     string
+	Tags        []string
 	Authors     string
 	AmazonURL   *string
 	CoverURL    *string

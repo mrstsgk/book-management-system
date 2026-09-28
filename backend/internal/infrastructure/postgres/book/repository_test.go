@@ -35,7 +35,7 @@ func newBook(t *testing.T, isbn, title string, cover *domainbook.Cover, rating i
 	if err != nil {
 		t.Fatal(err)
 	}
-	return domainbook.New(i, bib, cover, s, c, r)
+	return domainbook.New(i, bib, cover, s, c, r, domainbook.TagSelection{})
 }
 
 func mustCover(t *testing.T, url string) *domainbook.Cover {
@@ -120,7 +120,7 @@ func TestRepository_Update(t *testing.T) {
 		comment, _ := domainbook.NewComment("読み返した")
 		rating, _ := domainbook.NewRating(5)
 		bib, _ := domainbook.NewBibliography("repo-test-after", "", "", "")
-		got.ChangeReview(got.Summary, comment, rating, 1)
+		got.ChangeReview(got.Summary, comment, rating, got.Tags, 1)
 		got.RefreshCatalog(bib, nil)
 
 		if err := repo.Update(context.Background(), got); err != nil {
@@ -222,7 +222,7 @@ func TestRepository_TitleOverrideAndSummary(t *testing.T) {
 		createBook(t, db, b)
 
 		newSummary, _ := domainbook.NewSummary("読み返してのまとめ")
-		b.ChangeReview(newSummary, b.Comment, b.Rating, b.Version)
+		b.ChangeReview(newSummary, b.Comment, b.Rating, b.Tags, b.Version)
 		newTitle, _ := domainbook.NewTitle("新しい上書き")
 		b.OverrideTitle(&newTitle)
 		if err := repo.Update(context.Background(), b); err != nil {

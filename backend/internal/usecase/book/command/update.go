@@ -52,7 +52,7 @@ func (u *UpdateUsecaseImpl) Execute(ctx context.Context, cmd UpdateCommand) (*bo
 	if err != nil {
 		return nil, err
 	}
-	b.ChangeReview(summary, comment, rating, cmd.Version)
+	b.ChangeReview(summary, comment, rating, b.Tags, cmd.Version)
 	b.OverrideTitle(override)
 	u.refreshCatalog(ctx, b)
 	if err := u.Books.Update(ctx, b); err != nil {

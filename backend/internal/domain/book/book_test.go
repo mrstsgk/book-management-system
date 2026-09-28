@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
+	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
 func mustBook(t *testing.T) *book.Book {
@@ -33,7 +34,7 @@ func mustBook(t *testing.T) *book.Book {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := book.New(isbn, bib, &cover, summary, comment, rating)
+	b := book.New(isbn, bib, &cover, summary, comment, rating, book.TagSelection{})
 	cover = book.Cover{} // 呼び出し側の変数を変えても本には影響しないこと
 	return b
 }
@@ -55,6 +56,9 @@ func TestNew_SetsFieldsCopiesCoverAndLeavesIdentityUnassigned(t *testing.T) {
 	if b.TitleOverride != nil {
 		t.Fatalf("TitleOverride = %v, want nil for a newly created book", b.TitleOverride)
 	}
+	if len(b.Tags.IDs()) != 0 {
+		t.Fatalf("Tags = %v, want empty for a newly created book", b.Tags.IDs())
+	}
 }
 
 func TestBook_ChangeReview(t *testing.T) {
@@ -63,11 +67,15 @@ func TestBook_ChangeReview(t *testing.T) {
 	summary, _ := book.NewSummary("読み返して見方が変わった")
 	comment, _ := book.NewComment("読み返して評価が変わった")
 	rating, _ := book.NewRating(4)
+	tags, _ := book.NewTagSelection([]tag.ID{1, 2})
 
-	b.ChangeReview(summary, comment, rating, 3)
+	b.ChangeReview(summary, comment, rating, tags, 3)
 
 	if b.Summary != summary || b.Comment != comment || b.Rating != rating || b.Version != 3 {
 		t.Fatalf("got summary=%q comment=%q rating=%d version=%d", b.Summary.String(), b.Comment.String(), b.Rating.Int(), b.Version)
+	}
+	if got := b.Tags.IDs(); len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Fatalf("Tags = %v, want [1 2]", got)
 	}
 	if b.Bibliography.Title() != "データ指向アプリケーションデザイン" || b.Cover == nil {
 		t.Fatal("changing the review must not touch the catalog data")
@@ -139,6 +147,7 @@ func TestReadModels_UsePlainFieldTypes(t *testing.T) {
 		reflect.TypeOf(book.Summary{}):       true,
 		reflect.TypeOf(book.Comment{}):       true,
 		reflect.TypeOf(book.Rating{}):        true,
+		reflect.TypeOf(book.TagSelection{}):  true,
 		reflect.TypeOf(book.Book{}):          true,
 	}
 	for _, typ := range []reflect.Type{reflect.TypeOf(book.BookDetail{}), reflect.TypeOf(book.BookListItem{})} {
