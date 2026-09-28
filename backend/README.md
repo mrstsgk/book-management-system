@@ -38,9 +38,9 @@ make swagger
 
 ## 環境変数（DB 以外）
 
-| 環境変数 | 既定値（local） | 内容 |
+| 環境変数 | 既定値 | 内容 |
 |---|---|---|
-| `ADMIN_TOKEN` | `local-admin-token` | 書き込み系 API のトークン。local 以外では**必須・32文字以上** |
+| `ADMIN_TOKEN` | `local-admin-token` | 書き込み系 API のトークン（既定値は開発用） |
 | `OPENBD_BASE_URL` | `https://api.openbd.jp` | openBD（登録・キー不要） |
 | `RAKUTEN_APPLICATION_ID` / `RAKUTEN_ACCESS_KEY` | なし | 楽天ウェブサービスのアプリ ID とアクセスキー（任意。両方あるときだけ書影を楽天で補う） |
 | `RAKUTEN_BASE_URL` | `https://openapi.rakuten.co.jp` | 楽天ウェブサービス |
