@@ -21,7 +21,7 @@
 | マイグレーション | **golang-migrate**（`backend/migrations/` が SQL の正。アプリ起動時 migrate しない） |
 | HTTP / OpenAPI | Echo + validator + swag。**Go の DTO／Handler が BE の正** |
 | FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
-| 書誌・書影 | 外部カタログ。Domain の `book.BookCatalog`（ExternalGateway）を `infrastructure/gateway/openbd`・`rakuten` が実装し、`gateway/catalog` が「openBD を優先し、書影が無ければ楽天で補う」形に組み合わせる。画像は保存しない |
+| 書誌・書影 | 外部カタログ。Domain の `book.BookCatalog`（ExternalGateway）を `infrastructure/gateway/openbd`・`rakuten` が実装し、`gateway/catalog` が「書誌は openBD だけから取り、書影が無ければ楽天で補う」形に組み合わせる。画像は保存しない |
 | 認証 | 書き込み系だけ管理者トークン（`presentation/http/common.RequireAdminToken`）。閲覧は認証なし |
 | ツールチェーン | **mise で Go 版を固定**（リポジトリ直下 `.mise.toml`。`go.mod` と揃える） |
 | ローカル開発 | API は**ホストの Go**、DB は **Docker Compose**。Dev Container なし |
@@ -176,7 +176,7 @@ backend/
 |---|---|---|---|
 | `GET` | `/api/books` | 読んだ本の一覧（新しく登録した順。`limit` 1〜100・既定20、`offset`。総件数付き。感想の本文は含めない） | 不要 |
 | `GET` | `/api/books/{id}` | 読んだ本の詳細（書誌・書影・Amazon リンク・感想・評価） | 不要 |
-| `POST` | `/api/books` | 読んだ本を登録する（`isbn`・`comment`・`rating`。書誌と書影は ISBN で外部カタログから取得。カタログに無ければ 400、同じ ISBN は 409） | 必要 |
+| `POST` | `/api/books` | 読んだ本を登録する（`isbn`・`comment`・`rating`。書誌と書影は ISBN で外部カタログから取得。openBD に無ければ 400、同じ ISBN は 409） | 必要 |
 | `PUT` | `/api/books/{id}` | 感想と評価を更新する（楽観的ロック。書誌と書影を取り直す） | 必要 |
 | `DELETE` | `/api/books/{id}` | 読んだ本を削除する | 必要 |
 | `GET` | `/api/catalog/{isbn}` | 登録前に、ISBN で外部カタログの書誌と書影を確かめる | 必要 |

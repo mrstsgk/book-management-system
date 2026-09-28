@@ -145,7 +145,7 @@ func (h *Handler) Get(c echo.Context) error {
 
 // RegisterBook godoc
 // @Summary      読んだ本を登録する（自分だけ）
-// @Description  書誌と書影は ISBN で外部カタログ（openBD・楽天ブックス）から取得する。カタログに無い ISBN は 400、同じ ISBN の登録済みは 409
+// @Description  書誌は ISBN で openBD から取得し、書影が無ければ楽天ブックスで補う。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409
 // @Tags         books
 // @Accept       json
 // @Produce      json

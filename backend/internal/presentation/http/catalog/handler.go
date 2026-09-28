@@ -37,7 +37,7 @@ func (h *Handler) Register(g *echo.Group) {
 
 // Lookup godoc
 // @Summary      ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
-// @Description  登録前の確認用。openBD を優先し、書影が無ければ楽天ブックスで補う
+// @Description  登録前の確認用。書誌は openBD から取得し、書影が無ければ楽天ブックスで補う
 // @Tags         catalog
 // @Produce      json
 // @Security     AdminToken
