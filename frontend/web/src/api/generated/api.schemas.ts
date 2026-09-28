@@ -33,6 +33,14 @@ export interface BookAuthorResponse {
   version?: number;
 }
 
+export type BookResponseCoverSource = typeof BookResponseCoverSource[keyof typeof BookResponseCoverSource];
+
+
+export const BookResponseCoverSource = {
+  openbd: 'openbd',
+  rakuten: 'rakuten',
+} as const;
+
 export type BookResponseStatus = typeof BookResponseStatus[keyof typeof BookResponseStatus];
 
 
@@ -42,15 +50,39 @@ export const BookResponseStatus = {
 } as const;
 
 export interface BookResponse {
+  /** AmazonURL is derived from the ISBN; null when there is no ISBN (or no ISBN-10 form). */
   amazonUrl?: string;
   authors?: BookAuthorResponse[];
+  coverSource?: BookResponseCoverSource;
+  /** CoverURL is the provider-hosted image; show it as-is with the credit for CoverSource. */
+  coverUrl?: string;
   id?: number;
-  /** ImageURL is a presigned URL valid for 15 minutes; fetch the book again for a new one. */
-  imageUrl?: string;
+  isbn?: string;
   price?: number;
   status?: BookResponseStatus;
   title?: string;
   version?: number;
+}
+
+export type CatalogResponseCoverSource = typeof CatalogResponseCoverSource[keyof typeof CatalogResponseCoverSource];
+
+
+export const CatalogResponseCoverSource = {
+  openbd: 'openbd',
+  rakuten: 'rakuten',
+} as const;
+
+export interface CatalogResponse {
+  amazonUrl?: string;
+  /** Authors is the provider's raw text and may include translators; the user picks the authors. */
+  authors?: string;
+  coverSource?: CatalogResponseCoverSource;
+  coverUrl?: string;
+  isbn?: string;
+  price?: number;
+  publishedOn?: string;
+  publisher?: string;
+  title?: string;
 }
 
 export interface CreateAuthorRequest {
@@ -68,10 +100,13 @@ export const CreateBookRequestStatus = {
 } as const;
 
 export interface CreateBookRequest {
-  /** @maxLength 2048 */
-  amazonUrl?: string;
   /** @minItems 1 */
   authorIds: number[];
+  /**
+     * ISBN (13 or 10 digits, hyphens allowed). The cover is looked up by it on save.
+     * @maxLength 17
+     */
+  isbn?: string;
   /**
      * @minimum 0
      * @maximum 99999999
@@ -109,13 +144,13 @@ export const UpdateBookRequestStatus = {
 } as const;
 
 export interface UpdateBookRequest {
-  /**
-     * Omitted or null clears the link (PUT replaces the whole book).
-     * @maxLength 2048
-     */
-  amazonUrl?: string;
   /** @minItems 1 */
   authorIds: number[];
+  /**
+     * Omitted or null clears the ISBN and its cover (PUT replaces the whole book).
+     * @maxLength 17
+     */
+  isbn?: string;
   /**
      * @minimum 0
      * @maximum 99999999
@@ -126,9 +161,4 @@ export interface UpdateBookRequest {
   title: string;
   version: number;
 }
-
-export type PostApiBooksIdImageBody = {
-  /** 表紙画像 */
-  image: Blob | File;
-};
 

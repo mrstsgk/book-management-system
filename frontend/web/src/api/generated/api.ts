@@ -27,10 +27,10 @@ import type {
   AuthorBookResponse,
   AuthorResponse,
   BookResponse,
+  CatalogResponse,
   CreateAuthorRequest,
   CreateBookRequest,
   ErrorResponse,
-  PostApiBooksIdImageBody,
   UpdateAuthorRequest,
   UpdateBookRequest
 } from './api.schemas';
@@ -437,7 +437,7 @@ export const getGetApiBooksIdUrl = (id: number,) => {
 }
 
 /**
- * imageUrl は15分間有効な署名付きURL
+ * amazonUrl は ISBN から導出する。coverUrl は提供元（coverSource）がホストする画像で、楽天の場合は画面にクレジット表示が必要
  * @summary 書籍を取得する
  */
 export const getApiBooksId = async (id: number, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
@@ -620,31 +620,26 @@ export const usePutApiBooksId = <TError = ErrorType<ErrorResponse>,
       return useMutation(getPutApiBooksIdMutationOptions(options), queryClient);
     }
 
-export const getPostApiBooksIdImageUrl = (id: number,) => {
+export const getGetApiCatalogIsbnUrl = (isbn: string,) => {
 
 
 
 
-  return `/api/books/${id}/image`
+  return `/api/catalog/${isbn}`
 }
 
 /**
- * JPEG / PNG / WebP、5MB以下。既存の画像は差し替える。種別はファイルの中身から判定する
- * @summary 書籍の表紙画像をアップロードする
+ * 書籍登録の入力補助。openBD を優先し、書影が無ければ楽天ブックスで補う。著者は提供元の文字列のまま返す
+ * @summary ISBNから書誌情報と書影を取得する
  */
-export const postApiBooksIdImage = async (id: number,
-    postApiBooksIdImageBody?: PostApiBooksIdImageBody, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
-    const formData = new FormData();
-if(postApiBooksIdImageBody?.image !== undefined) {
- formData.append(`image`, postApiBooksIdImageBody.image);
- }
+export const getApiCatalogIsbn = async (isbn: string, options?: Parameters<typeof apiMutator>[1]): Promise<CatalogResponse> => {
 
-  return apiMutator<BookResponse>(getPostApiBooksIdImageUrl(id),
+  return apiMutator<CatalogResponse>(getGetApiCatalogIsbnUrl(isbn),
   {
     ...options,
-    method: 'POST'
-    ,
-    body: formData
+    method: 'GET'
+
+
   }
 );}
 
@@ -652,51 +647,78 @@ if(postApiBooksIdImageBody?.image !== undefined) {
 
 
 
-export const getPostApiBooksIdImageMutationKey = () => ['postApiBooksIdImage'] as const;
-
-export const getPostApiBooksIdImageMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiBooksIdImage>>, TError,PostApiBooksIdImageMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
-): UseMutationOptions<Awaited<ReturnType<typeof postApiBooksIdImage>>, TError,PostApiBooksIdImageMutationVariables, TContext> => {
-
-const mutationKey = getPostApiBooksIdImageMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiBooksIdImage>>, PostApiBooksIdImageMutationVariables> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  postApiBooksIdImage(id,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostApiBooksIdImageMutationResult = NonNullable<Awaited<ReturnType<typeof postApiBooksIdImage>>>
-    export type PostApiBooksIdImageMutationBody = PostApiBooksIdImageBody | undefined
-    export type PostApiBooksIdImageMutationError = ErrorType<ErrorResponse>
-    export type PostApiBooksIdImageMutationVariables = {id: number;data?: PostApiBooksIdImageBody}
-
-    /**
- * @summary 書籍の表紙画像をアップロードする
- */
-export const usePostApiBooksIdImage = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiBooksIdImage>>, TError,PostApiBooksIdImageMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postApiBooksIdImage>>,
-        TError,
-        PostApiBooksIdImageMutationVariables,
-        TContext
-      > => {
-      return useMutation(getPostApiBooksIdImageMutationOptions(options), queryClient);
+export const getGetApiCatalogIsbnQueryKey = (isbn: string,) => {
+    return [
+    `/api/catalog/${isbn}`
+    ] as const;
     }
+
+
+export const getGetApiCatalogIsbnQueryOptions = <TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(isbn: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiCatalogIsbnQueryKey(isbn);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiCatalogIsbn>>> = ({ signal }) => getApiCatalogIsbn(isbn, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: isbn !== null && isbn !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiCatalogIsbnQueryResult = NonNullable<Awaited<ReturnType<typeof getApiCatalogIsbn>>>
+export type GetApiCatalogIsbnQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetApiCatalogIsbn<TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(
+ isbn: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiCatalogIsbn>>,
+          TError,
+          Awaited<ReturnType<typeof getApiCatalogIsbn>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiCatalogIsbn<TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(
+ isbn: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiCatalogIsbn>>,
+          TError,
+          Awaited<ReturnType<typeof getApiCatalogIsbn>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiCatalogIsbn<TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(
+ isbn: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary ISBNから書誌情報と書影を取得する
+ */
+
+export function useGetApiCatalogIsbn<TData = Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError = ErrorType<ErrorResponse>>(
+ isbn: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCatalogIsbn>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiCatalogIsbnQueryOptions(isbn,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
