@@ -54,7 +54,7 @@ func (r *repository) FindByID(ctx context.Context, id domainbook.ID) (*domainboo
 		}
 		return nil, err
 	}
-	tagIDs, err := findBookTagIDs(r.db, ctx, row.ID)
+	tagIDs, err := findBookTagIDs(ctx, r.db, row.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func insertBookTags(tx *gorm.DB, bookID int64, tagIDs []domaintag.ID) error {
 }
 
 // findBookTagIDs は bookID に付いているタグIDを返す。
-func findBookTagIDs(db *gorm.DB, ctx context.Context, bookID int64) ([]domaintag.ID, error) {
+func findBookTagIDs(ctx context.Context, db *gorm.DB, bookID int64) ([]domaintag.ID, error) {
 	var rows []bookTagModel
 	if err := db.WithContext(ctx).Where("book_id = ?", bookID).Find(&rows).Error; err != nil {
 		return nil, err
@@ -216,13 +216,9 @@ func adapt(row model, tagIDs []domaintag.ID) (*domainbook.Book, error) {
 	if err != nil {
 		return nil, err
 	}
-	var cover *domainbook.Cover
-	if row.CoverURL != nil && row.CoverSource != nil {
-		c, err := domainbook.NewCover(*row.CoverURL, domainbook.CoverSource(*row.CoverSource))
-		if err != nil {
-			return nil, err
-		}
-		cover = &c
+	cover, err := adaptCover(row.CoverURL, row.CoverSource)
+	if err != nil {
+		return nil, err
 	}
 	override, err := adaptTitleOverride(row.TitleOverride)
 	if err != nil {
@@ -237,6 +233,18 @@ func adapt(row model, tagIDs []domaintag.ID) (*domainbook.Book, error) {
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version
 	return b, nil
+}
+
+// adaptCover は保存済みの書影を VO で検証し直す。どちらかが NULL なら書影なし。
+func adaptCover(url, source *string) (*domainbook.Cover, error) {
+	if url == nil || source == nil {
+		return nil, nil
+	}
+	c, err := domainbook.NewCover(*url, domainbook.CoverSource(*source))
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
 }
 
 // adaptTitleOverride は保存済みの上書きを VO で検証し直す。NULL なら上書きなし。

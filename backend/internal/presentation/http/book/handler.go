@@ -18,17 +18,20 @@ type RegisterRequest struct {
 	Summary string `json:"summary" validate:"required,max=100" example:"分散データの設計を体系的に学べる"`
 	// TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
 	TitleOverride string `json:"titleOverride" validate:"max=255" example:""`
-	Comment       string `json:"comment" validate:"required,max=5000" example:"分散システムの設計を体系的に学べた"`
-	Rating        *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
+	// TagIDs は分野タグのID。0〜10個、実在するIDのみ指定できる。
+	TagIDs  []int64 `json:"tagIds" validate:"max=10" example:"1,2"`
+	Comment string  `json:"comment" validate:"required,max=5000" example:"分散システムの設計を体系的に学べた"`
+	Rating  *int    `json:"rating" validate:"required,min=1,max=5" example:"5"`
 } // @name RegisterBookRequest
 
 type UpdateRequest struct {
 	Summary string `json:"summary" validate:"required,max=100" example:"読み返して理解が深まった"`
 	// TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
-	TitleOverride string `json:"titleOverride" validate:"max=255" example:""`
-	Comment       string `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
-	Rating        *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
-	Version       *int   `json:"version" validate:"required" example:"1"`
+	TitleOverride string  `json:"titleOverride" validate:"max=255" example:""`
+	TagIDs        []int64 `json:"tagIds" validate:"max=10" example:"1,2"`
+	Comment       string  `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
+	Rating        *int    `json:"rating" validate:"required,min=1,max=5" example:"5"`
+	Version       *int    `json:"version" validate:"required" example:"1"`
 } // @name UpdateBookRequest
 
 type ListRequest struct {
@@ -50,24 +53,26 @@ type Response struct {
 	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
 	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
 	// TitleOverride は自分で上書きした書名。上書きしていなければ null。
-	TitleOverride *string `json:"titleOverride" example:"徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版"`
-	Summary       string  `json:"summary" example:"分散データの設計を体系的に学べる"`
-	Comment       string  `json:"comment" example:"分散システムの設計を体系的に学べた"`
-	Rating        int     `json:"rating" example:"5"`
-	Version       int     `json:"version" example:"1"`
+	TitleOverride *string  `json:"titleOverride" example:"徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版"`
+	Summary       string   `json:"summary" example:"分散データの設計を体系的に学べる"`
+	Tags          []string `json:"tags" example:"データベース,分散システム"`
+	Comment       string   `json:"comment" example:"分散システムの設計を体系的に学べた"`
+	Rating        int      `json:"rating" example:"5"`
+	Version       int      `json:"version" example:"1"`
 } // @name BookResponse
 
 type ListItemResponse struct {
 	ID   int64  `json:"id" example:"1"`
 	ISBN string `json:"isbn" example:"9784873118703"`
 	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
-	Title       string  `json:"title" example:"データ指向アプリケーションデザイン"`
-	Summary     string  `json:"summary" example:"分散データの設計を体系的に学べる"`
-	Authors     string  `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
-	AmazonURL   *string `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
-	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
-	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
-	Rating      int     `json:"rating" example:"5"`
+	Title       string   `json:"title" example:"データ指向アプリケーションデザイン"`
+	Summary     string   `json:"summary" example:"分散データの設計を体系的に学べる"`
+	Tags        []string `json:"tags" example:"データベース,分散システム"`
+	Authors     string   `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
+	AmazonURL   *string  `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
+	CoverURL    *string  `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
+	CoverSource *string  `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
+	Rating      int      `json:"rating" example:"5"`
 } // @name BookListItemResponse
 
 type ListResponse struct {
@@ -126,7 +131,7 @@ func (h *Handler) List(c echo.Context) error {
 	items := make([]ListItemResponse, 0, len(out.Items))
 	for _, it := range out.Items {
 		items = append(items, ListItemResponse{
-			ID: int64(it.ID), ISBN: it.ISBN, Title: it.Title, Summary: it.Summary, Authors: it.Authors,
+			ID: int64(it.ID), ISBN: it.ISBN, Title: it.Title, Summary: it.Summary, Tags: it.Tags, Authors: it.Authors,
 			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: it.CoverSource, Rating: it.Rating,
 		})
 	}
@@ -175,7 +180,7 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 		return err
 	}
 	out, err := h.RegisterUC.Execute(c.Request().Context(), bookcmd.RegisterCommand{
-		ISBN: req.ISBN, Summary: req.Summary, TitleOverride: req.TitleOverride, Comment: req.Comment, Rating: *req.Rating,
+		ISBN: req.ISBN, Summary: req.Summary, TitleOverride: req.TitleOverride, TagIDs: req.TagIDs, Comment: req.Comment, Rating: *req.Rating,
 	})
 	if err != nil {
 		return err
@@ -209,7 +214,7 @@ func (h *Handler) Update(c echo.Context) error {
 		return err
 	}
 	out, err := h.UpdateUC.Execute(c.Request().Context(), bookcmd.UpdateCommand{
-		ID: id, Summary: req.Summary, TitleOverride: req.TitleOverride, Comment: req.Comment, Rating: *req.Rating, Version: *req.Version,
+		ID: id, Summary: req.Summary, TitleOverride: req.TitleOverride, TagIDs: req.TagIDs, Comment: req.Comment, Rating: *req.Rating, Version: *req.Version,
 	})
 	if err != nil {
 		return err
@@ -243,6 +248,6 @@ func toResponse(d *domainbook.BookDetail) Response {
 	return Response{
 		ID: int64(d.ID), ISBN: d.ISBN, Title: d.Title, Authors: d.Authors, Publisher: d.Publisher,
 		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource,
-		TitleOverride: d.TitleOverride, Summary: d.Summary, Comment: d.Comment, Rating: d.Rating, Version: d.Version,
+		TitleOverride: d.TitleOverride, Summary: d.Summary, Tags: d.Tags, Comment: d.Comment, Rating: d.Rating, Version: d.Version,
 	}
 }
