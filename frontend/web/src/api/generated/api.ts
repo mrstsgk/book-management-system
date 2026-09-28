@@ -32,6 +32,7 @@ import type {
   RegisterBookRequest,
   RegisterTagRequest,
   RenameTagRequest,
+  TagBookCountListResponse,
   TagListResponse,
   TagResponse,
   UpdateBookRequest
@@ -979,4 +980,106 @@ export const usePutApiTagsId = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getPutApiTagsIdMutationOptions(options), queryClient);
     }
+
+export const getGetApiTagsCountsUrl = () => {
+
+
+
+
+  return `/api/tags/counts`
+}
+
+/**
+ * 本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順
+ * @summary 分野タグごとの冊数を取得する
+ */
+export const getApiTagsCounts = async ( options?: Parameters<typeof apiMutator>[1]): Promise<TagBookCountListResponse> => {
+
+  return apiMutator<TagBookCountListResponse>(getGetApiTagsCountsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetApiTagsCountsQueryKey = () => {
+    return [
+    `/api/tags/counts`
+    ] as const;
+    }
+
+
+export const getGetApiTagsCountsQueryOptions = <TData = Awaited<ReturnType<typeof getApiTagsCounts>>, TError = ErrorType<ErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTagsCounts>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiTagsCountsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiTagsCounts>>> = ({ signal }) => getApiTagsCounts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiTagsCounts>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiTagsCountsQueryResult = NonNullable<Awaited<ReturnType<typeof getApiTagsCounts>>>
+export type GetApiTagsCountsQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetApiTagsCounts<TData = Awaited<ReturnType<typeof getApiTagsCounts>>, TError = ErrorType<ErrorResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTagsCounts>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiTagsCounts>>,
+          TError,
+          Awaited<ReturnType<typeof getApiTagsCounts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiTagsCounts<TData = Awaited<ReturnType<typeof getApiTagsCounts>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTagsCounts>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiTagsCounts>>,
+          TError,
+          Awaited<ReturnType<typeof getApiTagsCounts>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiTagsCounts<TData = Awaited<ReturnType<typeof getApiTagsCounts>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTagsCounts>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 分野タグごとの冊数を取得する
+ */
+
+export function useGetApiTagsCounts<TData = Awaited<ReturnType<typeof getApiTagsCounts>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiTagsCounts>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiTagsCountsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
