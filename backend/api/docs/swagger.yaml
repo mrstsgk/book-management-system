@@ -8,6 +8,10 @@ definitions:
       authors:
         example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
         type: string
+      coverProductUrl:
+        description: CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
+        example: https://books.rakuten.co.jp/rb/15949390/
+        type: string
       coverSource:
         enum:
         - openbd
@@ -69,6 +73,10 @@ definitions:
       comment:
         example: 分散システムの設計を体系的に学べた
         type: string
+      coverProductUrl:
+        description: CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。楽天の書影は画面でこのリンクと一緒に見せる必要がある。
+        example: https://books.rakuten.co.jp/rb/15949390/
+        type: string
       coverSource:
         enum:
         - openbd
@@ -123,6 +131,10 @@ definitions:
         type: string
       authors:
         example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        type: string
+      coverProductUrl:
+        description: CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
+        example: https://books.rakuten.co.jp/rb/15949390/
         type: string
       coverSource:
         enum:

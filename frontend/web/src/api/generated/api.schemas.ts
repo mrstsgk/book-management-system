@@ -15,6 +15,8 @@ export const BookListItemResponseCoverSource = {
 export interface BookListItemResponse {
   amazonUrl?: string;
   authors?: string;
+  /** CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。 */
+  coverProductUrl?: string;
   coverSource?: BookListItemResponseCoverSource;
   coverUrl?: string;
   id?: number;
@@ -46,6 +48,8 @@ export interface BookResponse {
   amazonUrl?: string;
   authors?: string;
   comment?: string;
+  /** CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。楽天の書影は画面でこのリンクと一緒に見せる必要がある。 */
+  coverProductUrl?: string;
   coverSource?: BookResponseCoverSource;
   /** CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。 */
   coverUrl?: string;
@@ -74,6 +78,8 @@ export const CatalogResponseCoverSource = {
 export interface CatalogResponse {
   amazonUrl?: string;
   authors?: string;
+  /** CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。 */
+  coverProductUrl?: string;
   coverSource?: CatalogResponseCoverSource;
   coverUrl?: string;
   isbn?: string;
