@@ -30,7 +30,7 @@ make swagger
 
 ## 現状
 
-- 読んだ本の API（一覧・詳細・登録・更新・削除）とカタログの確認 API（範囲は `architecture.md` §4）
+- 読んだ本の API（一覧・詳細・登録・更新・削除）とカタログの確認 API、分野タグの API（一覧・追加・改名・削除）（範囲は `architecture.md` §4）
 - 書誌は ISBN で openBD から取得し、書影が無ければ楽天ブックスで補う（楽天は任意。書誌は楽天から取らない）
 - 書き込み系は管理者トークンが必要（`Authorization: Bearer <ADMIN_TOKEN>`）
 - Repository／Query の契約テストはローカルの PostgreSQL（`make db-up migrate-up`）に対して実行し、起動していなければ skip する。外部カタログのゲートウェイは偽の HTTP サーバに対してテストする
