@@ -49,7 +49,7 @@ func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbo
 		ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: displayTitle(row.TitleOverride, row.Title), Authors: row.Authors,
 		Publisher: row.Publisher, PublishedOn: row.PublishedOn, AmazonURL: amazonURLOf(row.ISBN),
 		CoverURL: coverURL, CoverSource: coverSource, CoverProductURL: coverProductURL, TitleOverride: row.TitleOverride, Summary: row.Summary,
-		Tags: orEmpty(tagNames[row.ID]), Comment: row.Comment, Rating: row.Rating, Version: row.Version,
+		Tags: orEmpty(tagNames[row.ID]), Comment: row.Comment, Rating: row.Rating, RakutenDisabled: row.RakutenDisabled, Version: row.Version,
 	}, nil
 }
 

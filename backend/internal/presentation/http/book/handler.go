@@ -65,7 +65,9 @@ type Response struct {
 	Tags          []string `json:"tags" example:"データベース,分散システム"`
 	Comment       string   `json:"comment" example:"分散システムの設計を体系的に学べた"`
 	Rating        int      `json:"rating" example:"5"`
-	Version       int      `json:"version" example:"1"`
+	// RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（以後、楽天の書影は付かない）。
+	RakutenDisabled bool `json:"rakutenDisabled" example:"false"`
+	Version         int  `json:"version" example:"1"`
 } // @name BookResponse
 
 type ListItemResponse struct {
@@ -96,8 +98,10 @@ type Handler struct {
 	RegisterUC bookcmd.RegisterUsecase
 	UpdateUC   bookcmd.UpdateUsecase
 	DeleteUC   bookcmd.DeleteUsecase
-	GetUC      bookqry.GetUsecase
-	ListUC     bookqry.ListUsecase
+	// DisableRakutenUC は楽天から削除の指示を受けた本の楽天由来の情報を消す。
+	DisableRakutenUC bookcmd.DisableRakutenUsecase
+	GetUC            bookqry.GetUsecase
+	ListUC           bookqry.ListUsecase
 	// AdminOnly は登録・更新・削除に掛ける認証（閲覧は誰でもできる）。
 	AdminOnly echo.MiddlewareFunc
 }
@@ -108,6 +112,7 @@ func (h *Handler) Register(g *echo.Group) {
 	g.POST("", h.RegisterBook, h.AdminOnly)
 	g.PUT("/:id", h.Update, h.AdminOnly)
 	g.DELETE("/:id", h.Delete, h.AdminOnly)
+	g.DELETE("/:id/rakuten", h.DisableRakuten, h.AdminOnly)
 }
 
 // List godoc
@@ -255,10 +260,34 @@ func (h *Handler) Delete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// DisableRakuten godoc
+// @Summary      楽天由来の情報を消す（自分だけ）
+// @Description  楽天から削除の指示を受けた本の楽天の書影・商品ページを消し、以後この本には楽天の書影を付けない。楽天の情報を持たない本でも 204。version は受け取らない（削除の指示には最後に読んだ内容に関係なく従うため）
+// @Tags         books
+// @Security     AdminToken
+// @Param        id path int true "読んだ本のID"
+// @Success      204
+// @Failure      400 {object} common.ErrorResponse
+// @Failure      401 {object} common.ErrorResponse
+// @Failure      404 {object} common.ErrorResponse
+// @Failure      409 {object} common.ErrorResponse
+// @Failure      500 {object} common.ErrorResponse
+// @Router       /api/books/{id}/rakuten [delete]
+func (h *Handler) DisableRakuten(c echo.Context) error {
+	id, err := common.ParseID(c, "id")
+	if err != nil {
+		return err
+	}
+	if err := h.DisableRakutenUC.Execute(c.Request().Context(), id); err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
 func toResponse(d *domainbook.BookDetail) Response {
 	return Response{
 		ID: int64(d.ID), ISBN: d.ISBN, Title: d.Title, Authors: d.Authors, Publisher: d.Publisher,
 		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource, CoverProductURL: d.CoverProductURL,
-		TitleOverride: d.TitleOverride, Summary: d.Summary, Tags: d.Tags, Comment: d.Comment, Rating: d.Rating, Version: d.Version,
+		TitleOverride: d.TitleOverride, Summary: d.Summary, Tags: d.Tags, Comment: d.Comment, Rating: d.Rating, RakutenDisabled: d.RakutenDisabled, Version: d.Version,
 	}
 }

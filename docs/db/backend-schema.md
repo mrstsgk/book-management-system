@@ -18,6 +18,7 @@ erDiagram
         varchar_16 cover_source "nullable"
         varchar_2048 cover_product_url "nullable"
         timestamptz cover_fetched_at "nullable"
+        boolean rakuten_disabled
         text comment
         smallint rating
         varchar_100 summary

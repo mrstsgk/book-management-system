@@ -21,7 +21,9 @@ type Book struct {
 	Comment       Comment
 	Rating        Rating
 	Tags          TagSelection
-	Version       int
+	// RakutenDisabled は楽天から削除の指示を受けた本。以後、この本には楽天の書影を付けない（取り直しで元に戻さないため）。
+	RakutenDisabled bool
+	Version         int
 }
 
 // New は登録前の読んだ本を作る（ID とバージョンは保存時に採番する）。
@@ -44,9 +46,21 @@ func (b *Book) OverrideTitle(title *Title) {
 }
 
 // RefreshCatalog は外部カタログから取り直した書誌と書影に差し替える（提供元の変更を反映するため）。
+// 楽天から削除の指示を受けた本に楽天の書影が来たら、書影なしとして扱う。
 func (b *Book) RefreshCatalog(bibliography Bibliography, cover *Cover) {
 	b.Bibliography = bibliography
+	if b.RakutenDisabled && cover != nil && cover.Source() == CoverSourceRakuten {
+		cover = nil
+	}
 	b.Cover = copyOf(cover)
+}
+
+// DisableRakuten は楽天由来の情報（楽天の書影）を外し、以後この本に付けないようにする。
+func (b *Book) DisableRakuten() {
+	if b.Cover != nil && b.Cover.Source() == CoverSourceRakuten {
+		b.Cover = nil
+	}
+	b.RakutenDisabled = true
 }
 
 // copyOf は呼び出し側の変数を後から変えても本が変わらないよう、値をコピーして持つ。
@@ -94,7 +108,9 @@ type BookDetail struct {
 	Tags          []string
 	Comment       string
 	Rating        int
-	Version       int
+	// RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（管理画面で見分けるため）。
+	RakutenDisabled bool
+	Version         int
 }
 
 // BookListItem は読んだ本の一覧の1行分の Read Model。感想の本文は詳細でだけ返す。

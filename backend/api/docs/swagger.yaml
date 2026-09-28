@@ -99,6 +99,10 @@ definitions:
       publisher:
         example: オーム社
         type: string
+      rakutenDisabled:
+        description: RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（以後、楽天の書影は付かない）。
+        example: false
+        type: boolean
       rating:
         example: 5
         type: integer
@@ -508,6 +512,44 @@ paths:
       security:
       - AdminToken: []
       summary: 感想と評価を更新する（自分だけ）
+      tags:
+      - books
+  /api/books/{id}/rakuten:
+    delete:
+      description: 楽天から削除の指示を受けた本の楽天の書影・商品ページを消し、以後この本には楽天の書影を付けない。楽天の情報を持たない本でも 204。version
+        は受け取らない（削除の指示には最後に読んだ内容に関係なく従うため）
+      parameters:
+      - description: 読んだ本のID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 楽天由来の情報を消す（自分だけ）
       tags:
       - books
   /api/catalog/{isbn}:

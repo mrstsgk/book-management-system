@@ -105,12 +105,13 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 
 	api := e.Group("/api")
 	(&httpbook.Handler{
-		RegisterUC: &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
-		UpdateUC:   &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
-		DeleteUC:   &bookcmd.DeleteUsecaseImpl{Books: books},
-		GetUC:      &bookqry.GetUsecaseImpl{Books: bookQuery},
-		ListUC:     &bookqry.ListUsecaseImpl{Books: bookQuery},
-		AdminOnly:  adminOnly,
+		RegisterUC:       &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
+		UpdateUC:         &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
+		DeleteUC:         &bookcmd.DeleteUsecaseImpl{Books: books},
+		DisableRakutenUC: &bookcmd.DisableRakutenUsecaseImpl{Books: books},
+		GetUC:            &bookqry.GetUsecaseImpl{Books: bookQuery},
+		ListUC:           &bookqry.ListUsecaseImpl{Books: bookQuery},
+		AdminOnly:        adminOnly,
 	}).Register(api.Group("/books"))
 	(&httpcatalog.Handler{
 		LookupUC:  &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},

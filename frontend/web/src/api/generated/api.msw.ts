@@ -94,6 +94,16 @@ export const getPutApiBooksIdMockHandler = (overrideResponse?: BookResponse | ((
   }, options)
 }
 
+export const getDeleteApiBooksIdRakutenMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.delete('*/api/books/:id/rakuten', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
+      })
+  }, options)
+}
+
 export const getGetApiCatalogIsbnMockHandler = (overrideResponse?: CatalogResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<CatalogResponse> | CatalogResponse), options?: RequestHandlerOptions) => {
   return http.get('*/api/catalog/:isbn', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
@@ -169,6 +179,7 @@ export const getBookManagementSystemAPIMock = () => [
   getDeleteApiBooksIdMockHandler(),
   getGetApiBooksIdMockHandler(),
   getPutApiBooksIdMockHandler(),
+  getDeleteApiBooksIdRakutenMockHandler(),
   getGetApiCatalogIsbnMockHandler(),
   getGetApiTagsMockHandler(),
   getPostApiTagsMockHandler(),
