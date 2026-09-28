@@ -44,7 +44,7 @@ type Cover struct {
 
 // NewCover は openBD の書影を作る。楽天の書影は商品ページと取得日時が要るので NewRakutenCover で作る。
 func NewCover(rawURL string, source CoverSource) (Cover, error) {
-	if source != CoverSourceOpenBD && source != CoverSourceRakuten {
+	if source != CoverSourceOpenBD {
 		return Cover{}, fmt.Errorf("%w: 書影の提供元が不正です", common.ErrInvalid)
 	}
 	if !validCoverURL(rawURL) {

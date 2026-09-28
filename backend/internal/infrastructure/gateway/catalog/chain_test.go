@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
@@ -27,6 +28,9 @@ func (f *fakeCatalog) Lookup(context.Context, domainbook.ISBN) (*domainbook.Cata
 func cover(t *testing.T, url string, src domainbook.CoverSource) *domainbook.Cover {
 	t.Helper()
 	c, err := domainbook.NewCover(url, src)
+	if src == domainbook.CoverSourceRakuten {
+		c, err = domainbook.NewRakutenCover(url, "https://books.rakuten.co.jp/rb/1/", time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC))
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

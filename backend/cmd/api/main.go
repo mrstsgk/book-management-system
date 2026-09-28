@@ -82,7 +82,7 @@ func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
 	primary := openbd.NewCatalog(cfg.OpenBDBaseURL, client)
 	var fallback domainbook.BookCatalog
 	if cfg.RakutenEnabled() {
-		fallback = rakuten.NewCatalog(cfg.RakutenBaseURL, cfg.RakutenApplicationID, cfg.RakutenAccessKey, client)
+		fallback = rakuten.NewCatalog(cfg.RakutenBaseURL, cfg.RakutenApplicationID, cfg.RakutenAccessKey, client, time.Now)
 	} else {
 		slog.Info("RAKUTEN_APPLICATION_ID / RAKUTEN_ACCESS_KEY not set; covers come from openBD only")
 	}

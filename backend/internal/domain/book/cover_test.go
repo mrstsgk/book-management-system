@@ -20,7 +20,7 @@ func TestNewCover(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "openBDの書影は有効", url: "https://cover.openbd.jp/9784480434623.jpg", source: book.CoverSourceOpenBD},
-		{name: "楽天の書影は有効", url: "https://thumbnail.image.rakuten.co.jp/0_mall/book/cabinet/1.jpg", source: book.CoverSourceRakuten},
+		{name: "楽天の書影は商品ページと取得日時が要るのでエラー", url: "https://thumbnail.image.rakuten.co.jp/0_mall/book/cabinet/1.jpg", source: book.CoverSourceRakuten, wantErr: true},
 		{name: "2048文字ちょうどは有効", url: prefix + strings.Repeat("a", 2048-len(prefix)), source: book.CoverSourceOpenBD},
 		{name: "2049文字はエラー", url: prefix + strings.Repeat("a", 2049-len(prefix)), source: book.CoverSourceOpenBD, wantErr: true},
 		{name: "httpはエラー", url: "http://cover.openbd.jp/1.jpg", source: book.CoverSourceOpenBD, wantErr: true},
