@@ -24,6 +24,7 @@ cd backend
 make tools
 make db-up                # PostgreSQL と LocalStack（S3）
 make migrate-up
+make seed                 # 見本の書籍・著者（任意）
 make run                  # http://localhost:8080/health
 
 # フロントエンド（別ターミナル）

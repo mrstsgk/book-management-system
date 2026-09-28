@@ -9,6 +9,7 @@ Go / Echo モノリス。方針の正は [`architecture.md`](./architecture.md)�
 | Go | **ホスト**（版はリポジトリ直下 `.mise.toml` で固定） |
 | DB | **Docker Compose**（PostgreSQL） |
 | 画像ストレージ | **Docker Compose**（LocalStack の S3。バケット `book-images` は起動時に自動作成。ポートは `127.0.0.1` のみに公開するため Docker Engine 28.0.0 以上が必要） |
+| 見本データ | `make seed` で書籍・著者（ID 9001 番台）を投入。表紙画像（`localstack/seed/`）は LocalStack の起動のたびに自動でアップロードされる |
 | Dev Container | 使わない |
 
 ```bash
@@ -19,6 +20,7 @@ cd backend
 make tools          # swag / migrate / golangci-lint / govulncheck を版固定で導入
 make db-up
 make migrate-up
+make seed           # 見本の書籍・著者（任意。何度実行しても同じ状態になる）
 make run
 # http://localhost:8080/health
 # http://localhost:8080/api/authors/1/books
@@ -46,3 +48,7 @@ make swagger
 | FE 契約 | swag 排出 OpenAPI → TypeScript 生成（必須） |
 
 詳細は [`architecture.md`](./architecture.md)。
+
+### LocalStack の画像について
+
+LocalStack（コミュニティ版）はデータを永続化しないため、コンテナを作り直すとアップロードした画像は消える（DB には画像キーが残るので、その書籍の `imageUrl` は 404 になる）。見本データの表紙画像だけは起動のたびに自動でアップロードされるので、見本データで画面を確認する分には影響しない。自分でアップロードした画像が必要なら、作り直した後にアップロードし直す。

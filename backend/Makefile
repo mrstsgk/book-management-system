@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help tidy run db-up db-down migrate-up migrate-down migrate-create swagger swagger-check fmt-check lint vuln test build tools
+.PHONY: help tidy run db-up db-down seed migrate-up migrate-down migrate-create swagger swagger-check fmt-check lint vuln test build tools
 
 # CLI ツールは go.mod に入れず go install する。版はここで固定し、CI と揃える。
 SWAG_VERSION        := v1.16.6
@@ -24,6 +24,9 @@ db-up: ## PostgreSQL と S3（LocalStack）を起動（docker compose）
 
 db-down: ## PostgreSQL と S3（LocalStack）を停止
 	docker compose down
+
+seed: ## 見本データ（書籍・著者）を投入（何度実行しても同じ状態になる。画像は LocalStack 起動時に自動アップロード）
+	docker compose exec -T db psql -v ON_ERROR_STOP=1 -q -U postgres -d book_management < seed/seed.sql
 
 migrate-up: ## マイグレーションを適用
 	migrate -path ./migrations -database "$(DB_URL)" up

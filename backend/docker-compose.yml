@@ -30,6 +30,7 @@ services:
       AWS_DEFAULT_REGION: ap-northeast-1
     volumes:
       - ./localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+      - ./localstack/seed:/seed:ro
     healthcheck:
       test: ["CMD-SHELL", "awslocal s3api head-bucket --bucket book-images"]
       interval: 5s
