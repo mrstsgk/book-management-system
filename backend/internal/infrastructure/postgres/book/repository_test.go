@@ -395,5 +395,8 @@ func TestRepository_CreateAll(t *testing.T) {
 		if count != 0 {
 			t.Fatalf("book 9780000003324 remains (%d rows), want the whole batch rolled back", count)
 		}
+		if books[0].ID != 0 || books[0].Version != 0 {
+			t.Fatalf("rolled-back book has ID=%d Version=%d, want 0/0 (no row exists)", books[0].ID, books[0].Version)
+		}
 	})
 }

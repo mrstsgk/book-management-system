@@ -64,36 +64,44 @@ func (r *repository) FindByID(ctx context.Context, id domainbook.ID) (*domainboo
 // Create は行を初期バージョン 1 で挿入し、採番した ID とバージョンを b に設定する。同じ ISBN があれば common.ErrConflict を返す。
 // 本の行と book_tag の挿入は同一トランザクションで行う。
 func (r *repository) Create(ctx context.Context, b *domainbook.Book) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return insertBook(tx, b)
-	})
+	return r.CreateAll(ctx, []*domainbook.Book{b})
 }
 
 // CreateAll は books を1つのトランザクションで挿入する。1冊でも失敗すれば全冊をロールバックする。
+// ロールバックした行の ID を本に残さないよう、採番した ID はコミットの後で設定する。
 func (r *repository) CreateAll(ctx context.Context, books []*domainbook.Book) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, b := range books {
-			if err := insertBook(tx, b); err != nil {
+	ids := make([]int64, len(books))
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for i, b := range books {
+			id, err := insertBook(tx, b)
+			if err != nil {
 				return err
 			}
+			ids[i] = id
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	for i, b := range books {
+		b.ID = domainbook.ID(ids[i])
+		b.Version = 1
+	}
+	return nil
 }
 
-// insertBook は本の行と book_tag を tx で挿入し、採番した ID と初期バージョンを b に設定する。
-func insertBook(tx *gorm.DB, b *domainbook.Book) error {
+// insertBook は本の行（初期バージョン 1）と book_tag を tx で挿入し、採番した ID を返す。
+func insertBook(tx *gorm.DB, b *domainbook.Book) (int64, error) {
 	row := toModel(b)
 	row.Version = 1
 	if err := tx.Create(&row).Error; err != nil {
-		return translateDuplicateISBN(err)
+		return 0, translateDuplicateISBN(err)
 	}
 	if err := insertBookTags(tx, row.ID, b.Tags.IDs()); err != nil {
-		return err
+		return 0, err
 	}
-	b.ID = domainbook.ID(row.ID)
-	b.Version = row.Version
-	return nil
+	return row.ID, nil
 }
 
 // Update は ID とバージョンが一致する行を更新してバージョンを進める。一致しなければ common.ErrConflict を返す。
