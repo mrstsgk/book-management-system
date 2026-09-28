@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 保持期限 90日、取り直し開始 83日（`book.RakutenRetention`・`book.RakutenRefreshAfter`、PR #75 で定義済み）。二つ目の期限規則を作らない
+- 保持期限 89日、取り直し開始 82日（`book.RakutenRetention`・`book.RakutenRefreshAfter`、PR #75 で定義済み）。二つ目の期限規則を作らない
 - 時刻はユースケースに `Now func() time.Time` で注入する。ドメインは時計を持たない
 - 1冊の失敗で残りを止めない。失敗は warn ログ
 - 起動を取り直しで待たせない
@@ -24,7 +24,7 @@
 1. 取り直しが `ErrConflict`（同時に自分が更新した）を返した本は飛ばし、残りは続ける — Task 3 のテスト
 2. 取り直せず期限前の本は保存しない（version を無駄に進めない） — Task 3 のテスト
 3. openBD の書影は古くても対象にならない — Task 2 の契約テスト
-4. 83日ちょうどの本が対象に入り、83日未満は入らない — Task 2 の契約テスト
+4. 取り直し開始（82日）ちょうどの本が対象に入り、それ未満は入らない — Task 2 の契約テスト
 5. shutdown（context のキャンセル）で定期実行が止まる — Task 5 のテスト
 
 ---
@@ -35,7 +35,7 @@
 
 **Interfaces:** Produces `func (b *Book) DropExpiredCover(now time.Time) bool`（外したら true）
 
-- [ ] **Step 1: 失敗するテスト**（`book_test.go`）: 楽天の書影が90日たっていれば外して true、89日なら残して false、openBD の書影は何年たっても残して false、書影なしは false
+- [ ] **Step 1: 失敗するテスト**（`book_test.go`）: 楽天の書影が保持期限ちょうどなら外して true、その1秒前なら残して false、openBD の書影は何年たっても残して false、書影なしは false
 - [ ] **Step 2:** `go test ./internal/domain/book/ -run TestBook_DropExpiredCover` → FAIL（undefined）
 - [ ] **Step 3: 実装**
 
@@ -59,7 +59,7 @@ func (b *Book) DropExpiredCover(now time.Time) bool {
 
 **Interfaces:** Produces `FindRakutenRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*Book, error)` — 楽天の書影で `cover_fetched_at <= fetchedBefore` の本を ID 順に返す（`NeedsRefresh` の `!now.Before(fetchedAt+83d)` と同じ境界）
 
-- [ ] **Step 1: 失敗する契約テスト**: 基準時刻 `now` に対し、83日ちょうど前（9780000003607）・90日超前（…3614）の楽天の書影は返り、82日前（…3621）の楽天の書影・古い openBD の書影（…3638）・書影なし（…3645）は返らない。返った本はタグも読めている（…3607 にタグ1つ）。共有 DB に他の行があるので、自分の ID だけを見て判定する
+- [ ] **Step 1: 失敗する契約テスト**: 基準時刻 `now` に対し、取り直し開始ちょうど前（9780000003607）・保持期限超過（…3614）の楽天の書影は返り、取り直し開始の1秒後（…3621）の楽天の書影・古い openBD の書影（…3638）・書影なし（…3645）は返らない。返った本はタグも読めている（…3607 にタグ1つ）。共有 DB に他の行があるので、自分の ID だけを見て判定する
 - [ ] **Step 2:** FAIL（undefined）
 - [ ] **Step 3: 実装**: IF に追加。postgres は `Where("cover_source = ? AND cover_fetched_at <= ?", "rakuten", fetchedBefore).Order("id")` で行を取り、1冊ずつ `findBookTagIDs`＋`adapt`（対象は多くて数冊なので1冊ずつで足りる）。Fake にも空実装
 - [ ] **Step 4:** PASS（SKIP でないこと）
@@ -83,7 +83,7 @@ type RefreshRakutenCoversUsecaseImpl struct {
 ```
 
 - [ ] **Step 1: 失敗するテスト**（Fake の Repository/Catalog）:
-  - `FindRakutenRefreshTargets` に `now - 83日` が渡る
+  - `FindRakutenRefreshTargets` に `now - RakutenRefreshAfter` が渡る
   - 取り直せたら新しい書影で `Update` する
   - 取り直せず（障害・該当なし）期限切れなら書影を外して `Update` する
   - 取り直せず期限前なら `Update` しない
@@ -122,4 +122,4 @@ type RefreshRakutenCoversUsecaseImpl struct {
 ### Task 6: 仕上げ
 
 - [ ] `go build ./... && go vet ./... && go test ./... -count=1`（SKIP なし）、`golangci-lint run ./...` 0 issues、`make swagger-check`（API 変更なし）
-- [ ] `backend/architecture.md` の「書誌・書影」の行に「楽天の書影は起動時・1日1回・更新時に取り直し、90日で外す」を足す → `git commit -m "chore: 楽天の書影の取り直しをドキュメントに反映"`
+- [ ] `backend/architecture.md` の「書誌・書影」の行に「楽天の書影は起動時・1日1回・更新時に取り直し、保持期限（89日）で外す」を足す → `git commit -m "chore: 楽天の書影の取り直しをドキュメントに反映"`
