@@ -14,7 +14,7 @@ type CreateCommand struct {
 	Price     int64
 	AuthorIDs []int64
 	Status    int
-	AmazonURL *string
+	ISBN      *string
 }
 
 type CreateUsecase interface {
@@ -25,11 +25,11 @@ type CreateUsecaseImpl struct {
 	Books   book.Repository
 	Authors author.Repository
 	Details book.Query
-	Images  book.ImageStorage
+	Catalog book.BookCatalog
 }
 
 func (u *CreateUsecaseImpl) Execute(ctx context.Context, cmd CreateCommand) (*book.BookDetail, error) {
-	c, err := newContents(cmd.Title, cmd.Price, cmd.AuthorIDs, cmd.Status, cmd.AmazonURL)
+	c, err := newContents(cmd.Title, cmd.Price, cmd.AuthorIDs, cmd.Status, cmd.ISBN)
 	if err != nil {
 		return nil, err
 	}
@@ -37,12 +37,12 @@ func (u *CreateUsecaseImpl) Execute(ctx context.Context, cmd CreateCommand) (*bo
 	if err != nil {
 		return nil, err
 	}
-	b.ChangeAmazonURL(c.amazonURL)
 	if err := ensureAuthorsExist(ctx, u.Authors, b.AuthorIDs); err != nil {
 		return nil, err
 	}
+	b.ChangeCatalogInfo(c.isbn, coverFor(ctx, u.Catalog, c.isbn))
 	if err := u.Books.Create(ctx, b); err != nil {
 		return nil, err
 	}
-	return detailOf(ctx, u.Details, u.Images, b.ID)
+	return u.Details.FindDetailByID(ctx, b.ID)
 }

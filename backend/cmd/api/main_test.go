@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/mrstsgk/book-management-system/backend/config"
 )
 
 // run is unexported, so this test lives in package main.
@@ -43,10 +45,21 @@ func TestRegisterRoutes_ExposesBookAndAuthorAPI(t *testing.T) {
 		"POST /api/books",
 		"GET /api/books/:id",
 		"PUT /api/books/:id",
-		"POST /api/books/:id/image",
+		"GET /api/catalog/:isbn",
 	} {
 		if !got[want] {
 			t.Errorf("route %q is not registered (got %v)", want, got)
+		}
+	}
+}
+
+func TestNewCatalog_WorksWithAndWithoutRakutenKeys(t *testing.T) {
+	for _, cfg := range []config.CatalogConfig{
+		{OpenBDBaseURL: "http://openbd.test"},
+		{OpenBDBaseURL: "http://openbd.test", RakutenBaseURL: "http://rakuten.test", RakutenApplicationID: "app", RakutenAccessKey: "key"},
+	} {
+		if newCatalog(cfg) == nil {
+			t.Fatalf("newCatalog(%+v) returned nil", cfg)
 		}
 	}
 }

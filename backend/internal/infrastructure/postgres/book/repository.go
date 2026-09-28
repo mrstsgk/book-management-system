@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
 	domainauthor "github.com/mrstsgk/book-management-system/backend/internal/domain/author"
@@ -54,8 +55,9 @@ type bookModel struct {
 	Title         string  `gorm:"column:title;size:255;not null"`
 	Price         yen     `gorm:"column:price;type:numeric(10,2);not null"`
 	PublishStatus int     `gorm:"column:publish_status;not null"`
-	AmazonURL     *string `gorm:"column:amazon_url;size:2048"`
-	ImageKey      *string `gorm:"column:image_key;size:255"`
+	ISBN          *string `gorm:"column:isbn;size:13"`
+	CoverURL      *string `gorm:"column:cover_url;size:2048"`
+	CoverSource   *string `gorm:"column:cover_source;size:16"`
 	Version       int     `gorm:"column:version;not null"`
 }
 
@@ -103,7 +105,7 @@ func (r *repository) FindByID(ctx context.Context, id domainbook.ID) (*domainboo
 func (r *repository) Create(ctx context.Context, b *domainbook.Book) error {
 	row := bookModel{
 		Title: b.Title.String(), Price: yen(b.Price.Int64()), PublishStatus: int(b.Status),
-		AmazonURL: amazonURLString(b.AmazonURL), ImageKey: imageKeyString(b.ImageKey), Version: 1,
+		ISBN: isbnString(b.ISBN), CoverURL: coverURL(b.Cover), CoverSource: coverSource(b.Cover), Version: 1,
 	}
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
@@ -112,7 +114,7 @@ func (r *repository) Create(ctx context.Context, b *domainbook.Book) error {
 		return insertAuthorBooks(tx, row.ID, b.AuthorIDs)
 	})
 	if err != nil {
-		return err
+		return translateDuplicateISBN(err)
 	}
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version
@@ -127,7 +129,7 @@ func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
 			Where("id = ? AND version = ?", int64(b.ID), b.Version).
 			Updates(map[string]any{
 				"title": b.Title.String(), "price": b.Price.Int64(), "publish_status": int(b.Status),
-				"amazon_url": amazonURLString(b.AmazonURL), "image_key": imageKeyString(b.ImageKey), "version": next,
+				"isbn": isbnString(b.ISBN), "cover_url": coverURL(b.Cover), "cover_source": coverSource(b.Cover), "version": next,
 			})
 		if res.Error != nil {
 			return res.Error
@@ -141,10 +143,23 @@ func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
 		return insertAuthorBooks(tx, int64(b.ID), b.AuthorIDs)
 	})
 	if err != nil {
-		return err
+		return translateDuplicateISBN(err)
 	}
 	b.Version = next
 	return nil
+}
+
+// uniqueViolation is PostgreSQL's SQLSTATE for a unique constraint violation.
+const uniqueViolation = "23505"
+
+// translateDuplicateISBN turns the isbn unique violation into ErrConflict so a second
+// registration of the same book is a 409, not an opaque 500.
+func translateDuplicateISBN(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == "book_isbn_key" {
+		return fmt.Errorf("%w: 同じISBNの書籍が既に登録されています", common.ErrConflict)
+	}
+	return err
 }
 
 func insertAuthorBooks(tx *gorm.DB, bookID int64, authorIDs []domainauthor.ID) error {
@@ -177,37 +192,55 @@ func adapt(row bookModel, authorIDs []int64) (*domainbook.Book, error) {
 		// A book without authors breaks the invariant enforced on every write: data corruption.
 		return nil, fmt.Errorf("book %d is inconsistent: %w", row.ID, err)
 	}
-	if row.AmazonURL != nil {
-		u, err := domainbook.NewAmazonURL(*row.AmazonURL)
-		if err != nil {
-			return nil, err
-		}
-		b.ChangeAmazonURL(&u)
-	}
-	if row.ImageKey != nil {
-		k, err := domainbook.NewImageKey(*row.ImageKey)
-		if err != nil {
-			return nil, err
-		}
-		b.ReplaceImage(k)
+	if err := restoreCatalogInfo(b, row); err != nil {
+		return nil, err
 	}
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version
 	return b, nil
 }
 
-func amazonURLString(u *domainbook.AmazonURL) *string {
-	if u == nil {
+func restoreCatalogInfo(b *domainbook.Book, row bookModel) error {
+	var isbn *domainbook.ISBN
+	if row.ISBN != nil {
+		v, err := domainbook.NewISBN(*row.ISBN)
+		if err != nil {
+			return err
+		}
+		isbn = &v
+	}
+	var cover *domainbook.Cover
+	if row.CoverURL != nil && row.CoverSource != nil {
+		v, err := domainbook.NewCover(*row.CoverURL, domainbook.CoverSource(*row.CoverSource))
+		if err != nil {
+			return err
+		}
+		cover = &v
+	}
+	b.ChangeCatalogInfo(isbn, cover)
+	return nil
+}
+
+func isbnString(i *domainbook.ISBN) *string {
+	if i == nil {
 		return nil
 	}
-	s := u.String()
+	s := i.String()
 	return &s
 }
 
-func imageKeyString(k *domainbook.ImageKey) *string {
-	if k == nil {
+func coverURL(c *domainbook.Cover) *string {
+	if c == nil {
 		return nil
 	}
-	s := k.String()
+	s := c.URL()
+	return &s
+}
+
+func coverSource(c *domainbook.Cover) *string {
+	if c == nil {
+		return nil
+	}
+	s := string(c.Source())
 	return &s
 }

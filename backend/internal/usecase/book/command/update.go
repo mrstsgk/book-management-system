@@ -15,7 +15,7 @@ type UpdateCommand struct {
 	Price     int64
 	AuthorIDs []int64
 	Status    int
-	AmazonURL *string
+	ISBN      *string
 	Version   int
 }
 
@@ -27,7 +27,7 @@ type UpdateUsecaseImpl struct {
 	Books   book.Repository
 	Authors author.Repository
 	Details book.Query
-	Images  book.ImageStorage
+	Catalog book.BookCatalog
 }
 
 func (u *UpdateUsecaseImpl) Execute(ctx context.Context, cmd UpdateCommand) (*book.BookDetail, error) {
@@ -35,20 +35,21 @@ func (u *UpdateUsecaseImpl) Execute(ctx context.Context, cmd UpdateCommand) (*bo
 	if err != nil {
 		return nil, err
 	}
-	c, err := newContents(cmd.Title, cmd.Price, cmd.AuthorIDs, cmd.Status, cmd.AmazonURL)
+	c, err := newContents(cmd.Title, cmd.Price, cmd.AuthorIDs, cmd.Status, cmd.ISBN)
 	if err != nil {
 		return nil, err
 	}
 	if err := b.Change(c.title, c.price, c.authorIDs, c.status, cmd.Version); err != nil {
 		return nil, err
 	}
-	// Omitting the URL on update clears it, matching how the other fields are replaced wholesale (PUT).
-	b.ChangeAmazonURL(c.amazonURL)
 	if err := ensureAuthorsExist(ctx, u.Authors, b.AuthorIDs); err != nil {
 		return nil, err
 	}
+	// Omitting the ISBN clears it (PUT replaces the whole book). The cover is fetched
+	// again on every save so changes on the provider side are picked up (openBD terms).
+	b.ChangeCatalogInfo(c.isbn, coverFor(ctx, u.Catalog, c.isbn))
 	if err := u.Books.Update(ctx, b); err != nil {
 		return nil, err
 	}
-	return detailOf(ctx, u.Details, u.Images, b.ID)
+	return u.Details.FindDetailByID(ctx, b.ID)
 }

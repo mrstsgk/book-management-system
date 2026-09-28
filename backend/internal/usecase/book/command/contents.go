@@ -2,12 +2,13 @@ package command
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/author"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
-	"github.com/mrstsgk/book-management-system/backend/internal/usecase/book/imageurl"
 )
 
 // contents holds the validated values shared by the create and update commands.
@@ -16,10 +17,10 @@ type contents struct {
 	price     book.Price
 	authorIDs []author.ID
 	status    book.PublishStatus
-	amazonURL *book.AmazonURL
+	isbn      *book.ISBN
 }
 
-func newContents(title string, price int64, authorIDs []int64, status int, amazonURL *string) (contents, error) {
+func newContents(title string, price int64, authorIDs []int64, status int, isbn *string) (contents, error) {
 	t, err := book.NewTitle(title)
 	if err != nil {
 		return contents{}, err
@@ -32,31 +33,35 @@ func newContents(title string, price int64, authorIDs []int64, status int, amazo
 	if err != nil {
 		return contents{}, err
 	}
-	var u *book.AmazonURL
-	if amazonURL != nil {
-		v, err := book.NewAmazonURL(*amazonURL)
+	var i *book.ISBN
+	if isbn != nil {
+		v, err := book.NewISBN(*isbn)
 		if err != nil {
 			return contents{}, err
 		}
-		u = &v
+		i = &v
 	}
 	ids := make([]author.ID, 0, len(authorIDs))
 	for _, id := range authorIDs {
 		ids = append(ids, author.ID(id))
 	}
-	return contents{title: t, price: p, authorIDs: ids, status: s, amazonURL: u}, nil
+	return contents{title: t, price: p, authorIDs: ids, status: s, isbn: i}, nil
 }
 
-// detailOf は保存後の書籍の Read Model を取得し、画像があれば取得用 URL を詰める。
-func detailOf(ctx context.Context, details book.Query, images book.ImageStorage, id book.ID) (*book.BookDetail, error) {
-	d, err := details.FindDetailByID(ctx, id)
+// coverFor は ISBN で外部カタログを引いて書影を返す。ISBN が無い・該当なし・カタログの障害のときは書影なし（nil）とする。
+func coverFor(ctx context.Context, catalog book.BookCatalog, isbn *book.ISBN) *book.Cover {
+	if isbn == nil {
+		return nil
+	}
+	entry, err := catalog.Lookup(ctx, *isbn)
 	if err != nil {
-		return nil, err
+		// A catalog outage must not block registering the book; saving again fetches the cover later.
+		if !errors.Is(err, common.ErrNotFound) {
+			slog.WarnContext(ctx, "book catalog lookup failed; saving without a cover", "isbn", isbn.String(), "error", err)
+		}
+		return nil
 	}
-	if err := imageurl.Fill(ctx, images, d); err != nil {
-		return nil, err
-	}
-	return d, nil
+	return entry.Cover
 }
 
 // ensureAuthorsExist は指定された著者がすべて存在することを確認し、1人でも欠けていれば ErrInvalid を返す。

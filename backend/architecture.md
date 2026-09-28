@@ -18,7 +18,7 @@
 | HTTP | **Echo** |
 | 設計 | **オニオン** + DDD 戦術 + **CQRS**（単一 DB。全体 Event Sourcing はしない） |
 | 永続化 | **PostgreSQL + GORM**（現在状態が正）。**GORM AutoMigrate は使わない** |
-| 画像ストレージ | **S3**（aws-sdk-go-v2）。ローカルは **LocalStack 4.9**。Domain の `book.ImageStorage`（ExternalGateway）を `infrastructure/gateway/book` が実装する。DB にはオブジェクトキーだけを保存し、取得時に署名付き URL を発行する（[ADR](../docs/adr/2026-09-28-book-image-storage-s3-localstack.md)） |
+| 書誌・書影 | 外部カタログ。Domain の `book.BookCatalog`（ExternalGateway）を `infrastructure/gateway/openbd`・`rakuten` が実装し、`gateway/catalog` が「openBD を優先し、書影が無ければ楽天で補う」形に組み合わせる。書影は提供元の URL を保存して表示するだけで、画像は保存しない（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)） |
 | マイグレーション | **golang-migrate**（`backend/migrations/` が SQL の正。アプリ起動時 migrate しない） |
 | HTTP / OpenAPI | Echo + validator + swag。**Go の DTO／Handler が BE の正** |
 | FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
@@ -33,7 +33,7 @@
 | 対象 | どう動かすか |
 |---|---|
 | Go 本体 | `mise install`（`.mise.toml` の `go`）→ ホストで `go run` / `make run` |
-| PostgreSQL・S3（LocalStack） | `docker compose up -d`（`backend/docker-compose.yml`） |
+| PostgreSQL | `docker compose up -d`（`backend/docker-compose.yml`） |
 | migrate | ホストの `golang-migrate`（`make migrate-up`）。アプリ起動時には走らせない |
 
 Dev Container で IDE ごとコンテナに閉じ込める方式は採らない。
@@ -178,10 +178,10 @@ backend/
 | `POST` | `/api/authors` | 著者を作成する（生年月日は現在より過去日付） |
 | `PUT` | `/api/authors/{id}` | 著者を更新する（楽観的ロック） |
 | `GET` | `/api/authors/{id}/books` | 著者に紐づく書籍一覧を取得する |
-| `POST` | `/api/books` | 書籍を作成する（価格は0以上、著者は1人以上。`amazonUrl` は任意で https の Amazon のみ） |
-| `GET` | `/api/books/{id}` | 書籍を取得する（`imageUrl` は15分有効の署名付き URL） |
-| `PUT` | `/api/books/{id}` | 書籍を更新する（出版済み→未出版は不可、楽観的ロック。`amazonUrl` は省略で解除） |
-| `POST` | `/api/books/{id}/image` | 表紙画像をアップロードする（multipart `image`。JPEG / PNG / WebP・5MB以下。既存画像は差し替え） |
+| `POST` | `/api/books` | 書籍を作成する（価格は0以上、著者は1人以上。`isbn` は任意で、指定すると書影を外部カタログから取得する） |
+| `GET` | `/api/books/{id}` | 書籍を取得する（`amazonUrl` は ISBN から導出。`coverUrl` は提供元の画像で、`coverSource` が `rakuten` なら画面にクレジット表示が必要） |
+| `PUT` | `/api/books/{id}` | 書籍を更新する（出版済み→未出版は不可、楽観的ロック。`isbn` は省略で解除。保存のたびに書影を取り直す） |
+| `GET` | `/api/catalog/{isbn}` | ISBN から書誌情報と書影を取得する（書籍登録の入力補助。著者は提供元の文字列のまま） |
 
 ## 5. やらないこと（全体）
 

@@ -9,13 +9,13 @@ import (
 
 var dbKeys = []string{"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE"}
 
-var s3Keys = []string{"S3_ENDPOINT", "S3_REGION", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"}
+var catalogKeys = []string{"OPENBD_BASE_URL", "RAKUTEN_BASE_URL", "RAKUTEN_APPLICATION_ID", "RAKUTEN_ACCESS_KEY"}
 
-var requiredKeys = []string{"DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME", "S3_BUCKET"}
+var requiredKeys = []string{"DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"}
 
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range append(append([]string{"STAGE", "LOG_LEVEL", "HTTP_PORT"}, dbKeys...), s3Keys...) {
+	for _, k := range append(append([]string{"STAGE", "LOG_LEVEL", "HTTP_PORT"}, dbKeys...), catalogKeys...) {
 		t.Setenv(k, "")
 	}
 }
@@ -36,12 +36,12 @@ func TestLoad(t *testing.T) {
 		if cfg.DB.Host == "" || cfg.DB.User == "" || cfg.DB.DBName == "" {
 			t.Errorf("local DB defaults missing: %+v", cfg.DB)
 		}
-		want := config.S3Config{
-			Endpoint: "http://localhost:4566", Region: "ap-northeast-1", Bucket: "book-images",
-			AccessKeyID: "test", SecretAccessKey: "test",
+		want := config.CatalogConfig{OpenBDBaseURL: "https://api.openbd.jp", RakutenBaseURL: "https://openapi.rakuten.co.jp"}
+		if cfg.Catalog != want {
+			t.Errorf("catalog defaults = %+v, want %+v", cfg.Catalog, want)
 		}
-		if cfg.S3 != want {
-			t.Errorf("local S3 defaults = %+v, want %+v (LocalStack in docker-compose)", cfg.S3, want)
+		if cfg.Catalog.RakutenEnabled() {
+			t.Error("Rakuten must be disabled without its keys")
 		}
 	})
 
@@ -89,7 +89,6 @@ func TestLoad(t *testing.T) {
 		t.Setenv("DB_USER", "app")
 		t.Setenv("DB_PASSWORD", "secret")
 		t.Setenv("DB_NAME", "book_management")
-		t.Setenv("S3_BUCKET", "prd-book-images")
 		cfg, err := config.Load()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -97,10 +96,47 @@ func TestLoad(t *testing.T) {
 		if cfg.DB.Host != "db.internal" {
 			t.Errorf("DB.Host = %q, want db.internal", cfg.DB.Host)
 		}
-		// Outside local there is no LocalStack: AWS S3 endpoint and the SDK credential chain.
-		want := config.S3Config{Region: "ap-northeast-1", Bucket: "prd-book-images"}
-		if cfg.S3 != want {
-			t.Errorf("S3 = %+v, want %+v", cfg.S3, want)
+		if cfg.Catalog.RakutenEnabled() {
+			t.Error("Rakuten must stay optional outside local too")
 		}
 	})
+}
+
+func TestCatalogConfig_RakutenEnabled(t *testing.T) {
+	tests := []struct {
+		name        string
+		appID, key  string
+		wantEnabled bool
+	}{
+		{name: "アプリIDとアクセスキーの両方があれば有効", appID: "app", key: "key", wantEnabled: true},
+		{name: "アクセスキーが無ければ無効", appID: "app", key: "", wantEnabled: false},
+		{name: "アプリIDが無ければ無効", appID: "", key: "key", wantEnabled: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearEnv(t)
+			t.Setenv("RAKUTEN_APPLICATION_ID", tt.appID)
+			t.Setenv("RAKUTEN_ACCESS_KEY", tt.key)
+			cfg, err := config.Load()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := cfg.Catalog.RakutenEnabled(); got != tt.wantEnabled {
+				t.Fatalf("RakutenEnabled() = %v, want %v", got, tt.wantEnabled)
+			}
+		})
+	}
+}
+
+func TestLoad_CatalogBaseURLsCanBeOverridden(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("OPENBD_BASE_URL", "http://openbd.test")
+	t.Setenv("RAKUTEN_BASE_URL", "http://rakuten.test")
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Catalog.OpenBDBaseURL != "http://openbd.test" || cfg.Catalog.RakutenBaseURL != "http://rakuten.test" {
+		t.Fatalf("catalog = %+v", cfg.Catalog)
+	}
 }

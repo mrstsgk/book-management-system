@@ -191,46 +191,57 @@ func TestRepository_Update(t *testing.T) {
 	})
 }
 
-func TestRepository_AmazonURLAndImageKey(t *testing.T) {
+func TestRepository_ISBNAndCover(t *testing.T) {
 	db := connectTestDB(t)
-	a := seedAuthor(t, db, "repo-test-media", nil)
+	a := seedAuthor(t, db, "repo-test-catalog", nil)
 	repo := pgbook.NewRepository(db)
 	ctx := context.Background()
-	u, err := domainbook.NewAmazonURL("https://www.amazon.co.jp/dp/4101006059")
+	isbn, err := domainbook.NewISBN("9780000000002")
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, err := domainbook.NewImageKey("books/test/cover.png")
+	cover, err := domainbook.NewCover("https://thumbnail.image.rakuten.co.jp/test.jpg", domainbook.CoverSourceRakuten)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b := newBook(t, "repo-test-media", 100, []domainauthor.ID{a}, domainbook.Unpublished)
-	b.ChangeAmazonURL(&u)
-	b.ReplaceImage(key)
+	b := newBook(t, "repo-test-catalog", 100, []domainauthor.ID{a}, domainbook.Unpublished)
+	b.ChangeCatalogInfo(&isbn, &cover)
 	createBook(t, db, b)
 
 	got, err := repo.FindByID(ctx, b.ID)
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
-	if got.AmazonURL == nil || *got.AmazonURL != u || got.ImageKey == nil || *got.ImageKey != key {
-		t.Fatalf("got url=%v key=%v, want %v / %v", got.AmazonURL, got.ImageKey, u, key)
+	if got.ISBN == nil || *got.ISBN != isbn || got.Cover == nil || *got.Cover != cover {
+		t.Fatalf("got isbn=%v cover=%v, want %v / %v", got.ISBN, got.Cover, isbn, cover)
 	}
 
-	got.ChangeAmazonURL(nil)
-	if err := repo.Update(ctx, got); err != nil {
-		t.Fatalf("Update: %v", err)
-	}
-	cleared, err := repo.FindByID(ctx, b.ID)
-	if err != nil {
-		t.Fatalf("FindByID after clearing: %v", err)
-	}
-	if cleared.AmazonURL != nil {
-		t.Fatalf("AmazonURL = %v, want NULL after clearing", cleared.AmazonURL)
-	}
-	if cleared.ImageKey == nil || *cleared.ImageKey != key {
-		t.Fatalf("ImageKey = %v, want it kept when only the URL is cleared", cleared.ImageKey)
-	}
+	t.Run("同じISBNの書籍はConflictで登録されない", func(t *testing.T) {
+		dup := newBook(t, "repo-test-catalog-dup", 100, []domainauthor.ID{a}, domainbook.Unpublished)
+		dup.ChangeCatalogInfo(&isbn, nil)
+		if err := repo.Create(ctx, dup); !errors.Is(err, domaincommon.ErrConflict) {
+			if dup.ID != 0 {
+				cleanupBook(t, db, func() domainbook.ID { return dup.ID })
+			}
+			t.Fatalf("err = %v, want ErrConflict", err)
+		}
+		if dup.ID != 0 {
+			t.Fatalf("dup was assigned ID %d on failure", dup.ID)
+		}
+	})
 
+	t.Run("ISBNと書影を解除できる", func(t *testing.T) {
+		got.ChangeCatalogInfo(nil, nil)
+		if err := repo.Update(ctx, got); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+		cleared, err := repo.FindByID(ctx, b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		if cleared.ISBN != nil || cleared.Cover != nil {
+			t.Fatalf("isbn=%v cover=%v, want both NULL", cleared.ISBN, cleared.Cover)
+		}
+	})
 }

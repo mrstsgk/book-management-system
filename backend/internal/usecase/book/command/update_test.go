@@ -114,63 +114,80 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 	})
 }
 
-func TestUpdateUsecase_AmazonURL(t *testing.T) {
+func TestUpdateUsecase_ISBNAndCover(t *testing.T) {
 	t.Parallel()
-	withURL := func(t *testing.T) *book.Book {
+	withCatalogInfo := func(t *testing.T) *book.Book {
 		t.Helper()
 		b := existingBook(t, book.Unpublished)
-		u, err := book.NewAmazonURL("https://www.amazon.co.jp/dp/old")
+		isbn, err := book.NewISBN("9784297146221")
 		if err != nil {
 			t.Fatal(err)
 		}
-		b.ChangeAmazonURL(&u)
+		old, err := book.NewCover("https://cover.openbd.jp/old.jpg", book.CoverSourceOpenBD)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.ChangeCatalogInfo(&isbn, &old)
 		return b
 	}
 	cmd := command.UpdateCommand{ID: 10, Title: "斜陽", Price: 800, AuthorIDs: []int64{2}, Status: 1, Version: 2}
 
-	t.Run("新しいURLに差し替える", func(t *testing.T) {
+	t.Run("保存のたびに書影を取り直す", func(t *testing.T) {
 		t.Parallel()
-		books := &fakeBooks{findByID: withURL(t)}
-		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{detail: &book.BookDetail{}}}
+		fresh := mustCover(t)
+		books := &fakeBooks{findByID: withCatalogInfo(t)}
+		catalog := &fakeCatalog{entry: &book.CatalogEntry{Cover: &fresh}}
+		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{detail: &book.BookDetail{}}, Catalog: catalog}
 		c := cmd
-		u := "https://amzn.asia/d/new"
-		c.AmazonURL = &u
+		c.ISBN = strPtr("9784297146221")
 
 		if _, err := uc.Execute(context.Background(), c); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if books.updated.AmazonURL == nil || books.updated.AmazonURL.String() != u {
-			t.Fatalf("AmazonURL = %v, want %s", books.updated.AmazonURL, u)
+		if len(catalog.called) != 1 || books.updated.Cover == nil || *books.updated.Cover != fresh {
+			t.Fatalf("catalog called %v, cover %v; want one lookup and the fresh cover", catalog.called, books.updated.Cover)
 		}
 	})
 
-	t.Run("URLを省略すると解除する", func(t *testing.T) {
+	t.Run("ISBNを省略するとISBNも書影も解除する", func(t *testing.T) {
 		t.Parallel()
-		books := &fakeBooks{findByID: withURL(t)}
-		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{detail: &book.BookDetail{}}}
+		books := &fakeBooks{findByID: withCatalogInfo(t)}
+		catalog := &fakeCatalog{}
+		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{detail: &book.BookDetail{}}, Catalog: catalog}
 
 		if _, err := uc.Execute(context.Background(), cmd); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if books.updated.AmazonURL != nil {
-			t.Fatalf("AmazonURL = %v, want nil", books.updated.AmazonURL)
+		if books.updated.ISBN != nil || books.updated.Cover != nil || len(catalog.called) != 0 {
+			t.Fatalf("ISBN=%v Cover=%v lookups=%v, want both cleared without a lookup", books.updated.ISBN, books.updated.Cover, catalog.called)
 		}
 	})
 
-	t.Run("不正なURLはエラーで既存のURLも変わらない", func(t *testing.T) {
+	t.Run("不正なISBNはエラーで既存のISBNと書影も変わらない", func(t *testing.T) {
 		t.Parallel()
-		existing := withURL(t)
+		existing := withCatalogInfo(t)
 		books := &fakeBooks{findByID: existing}
-		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{}}
+		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{}, Catalog: &fakeCatalog{}}
 		c := cmd
-		u := "http://www.amazon.co.jp/dp/insecure"
-		c.AmazonURL = &u
+		c.ISBN = strPtr("123")
 
 		if _, err := uc.Execute(context.Background(), c); !errors.Is(err, common.ErrInvalid) {
 			t.Fatalf("err = %v, want ErrInvalid", err)
 		}
-		if books.updated != nil || existing.AmazonURL.String() != "https://www.amazon.co.jp/dp/old" {
+		if books.updated != nil || existing.ISBN.String() != "9784297146221" || existing.Cover.URL() != "https://cover.openbd.jp/old.jpg" {
 			t.Fatalf("book changed on failure: %+v", existing)
+		}
+	})
+
+	t.Run("同じISBNの別書籍があればConflictを返す", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{findByID: withCatalogInfo(t), updateErr: common.ErrConflict}
+		uc := &command.UpdateUsecaseImpl{Books: books, Authors: authorsExisting(2), Details: &fakeDetails{}, Catalog: &fakeCatalog{entry: &book.CatalogEntry{}}}
+		c := cmd
+		c.ISBN = strPtr("9784873118703")
+
+		if _, err := uc.Execute(context.Background(), c); !errors.Is(err, common.ErrConflict) {
+			t.Fatalf("err = %v, want ErrConflict", err)
 		}
 	})
 }

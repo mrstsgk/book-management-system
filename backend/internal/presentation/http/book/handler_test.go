@@ -1,15 +1,12 @@
 package book_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"net/textproto"
 	"reflect"
 	"strings"
 	"testing"
@@ -186,20 +183,16 @@ func (f fakeGet) Execute(ctx context.Context, id int64) (*domainbook.BookDetail,
 	return f(ctx, id)
 }
 
-type fakeUpload func(ctx context.Context, cmd bookcmd.UploadImageCommand) (*domainbook.BookDetail, error)
-
-func (f fakeUpload) Execute(ctx context.Context, cmd bookcmd.UploadImageCommand) (*domainbook.BookDetail, error) {
-	return f(ctx, cmd)
-}
-
 func strPtr(s string) *string { return &s }
 
 func TestHandlerGet(t *testing.T) {
-	t.Run("URLと画像URLを含む書籍詳細を返す", func(t *testing.T) {
+	t.Run("ISBN・Amazonリンク・書影を含む書籍詳細を返す", func(t *testing.T) {
 		var gotID int64
 		d := *detail
-		d.AmazonURL = strPtr("https://www.amazon.co.jp/dp/4101006059")
-		d.ImageURL = strPtr("http://localhost:4566/book-images/books/1/a.png?X-Amz-Expires=900")
+		d.ISBN = strPtr("9784873118703")
+		d.AmazonURL = strPtr("https://www.amazon.co.jp/dp/4873118700")
+		d.CoverURL = strPtr("https://cover.openbd.jp/9784873118703.jpg")
+		d.CoverSource = strPtr("openbd")
 		h := &httpbook.Handler{GetUC: fakeGet(func(_ context.Context, id int64) (*domainbook.BookDetail, error) {
 			gotID = id
 			return &d, nil
@@ -210,19 +203,23 @@ func TestHandlerGet(t *testing.T) {
 			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 		}
 		want := detailResponse
+		want.ISBN = d.ISBN
 		want.AmazonURL = d.AmazonURL
-		want.ImageURL = d.ImageURL
+		want.CoverURL = d.CoverURL
+		want.CoverSource = d.CoverSource
 		if got := decode[httpbook.Response](t, rec); gotID != 1 || !reflect.DeepEqual(got, want) {
 			t.Fatalf("id=%d body = %+v, want %+v", gotID, got, want)
 		}
 	})
 
-	t.Run("URLも画像もなければnullで返す", func(t *testing.T) {
+	t.Run("ISBNも書影もなければnullで返す", func(t *testing.T) {
 		h := &httpbook.Handler{GetUC: fakeGet(func(context.Context, int64) (*domainbook.BookDetail, error) { return detail, nil })}
 		rec := serve(t, h, http.MethodGet, "/api/books/1", "")
 
-		if !strings.Contains(rec.Body.String(), `"amazonUrl":null`) || !strings.Contains(rec.Body.String(), `"imageUrl":null`) {
-			t.Fatalf("body = %s, want amazonUrl and imageUrl null", rec.Body.String())
+		for _, f := range []string{`"isbn":null`, `"amazonUrl":null`, `"coverUrl":null`, `"coverSource":null`} {
+			if !strings.Contains(rec.Body.String(), f) {
+				t.Fatalf("body = %s, want %s", rec.Body.String(), f)
+			}
 		}
 	})
 
@@ -250,143 +247,30 @@ func TestHandlerGet(t *testing.T) {
 	}
 }
 
-func TestHandlerCreateAndUpdate_PassAmazonURL(t *testing.T) {
-	const u = "https://www.amazon.co.jp/dp/4101006059"
+func TestHandlerCreateAndUpdate_PassISBN(t *testing.T) {
+	const isbn = "978-4-87311-870-3"
 	var created, updated *string
 	h := &httpbook.Handler{
 		CreateUC: fakeCreate(func(_ context.Context, cmd bookcmd.CreateCommand) (*domainbook.BookDetail, error) {
-			created = cmd.AmazonURL
+			created = cmd.ISBN
 			return detail, nil
 		}),
 		UpdateUC: fakeUpdate(func(_ context.Context, cmd bookcmd.UpdateCommand) (*domainbook.BookDetail, error) {
-			updated = cmd.AmazonURL
+			updated = cmd.ISBN
 			return detail, nil
 		}),
 	}
 
-	serve(t, h, http.MethodPost, "/api/books", `{"title":"a","price":1,"authorIds":[1],"status":1,"amazonUrl":"`+u+`"}`)
-	serve(t, h, http.MethodPut, "/api/books/1", `{"title":"a","price":1,"authorIds":[1],"status":1,"amazonUrl":"`+u+`","version":1}`)
+	serve(t, h, http.MethodPost, "/api/books", `{"title":"a","price":1,"authorIds":[1],"status":1,"isbn":"`+isbn+`"}`)
+	serve(t, h, http.MethodPut, "/api/books/1", `{"title":"a","price":1,"authorIds":[1],"status":1,"isbn":"`+isbn+`","version":1}`)
 
-	if created == nil || *created != u || updated == nil || *updated != u {
-		t.Fatalf("create got %v, update got %v, want %s for both", created, updated, u)
+	// Normalizing and validating the ISBN is the domain's job, so the raw input is passed through.
+	if created == nil || *created != isbn || updated == nil || *updated != isbn {
+		t.Fatalf("create got %v, update got %v, want %s for both", created, updated, isbn)
 	}
 
-	rec := serve(t, h, http.MethodPost, "/api/books", `{"title":"a","price":1,"authorIds":[1],"status":1,"amazonUrl":"`+"https://www.amazon.co.jp/"+strings.Repeat("a", 2048)+`"}`)
-	if rec.Code != http.StatusBadRequest || !reflect.DeepEqual(decode[common.ErrorResponse](t, rec).Errors, []common.FieldError{{Field: "amazonUrl", Rule: "max"}}) {
-		t.Fatalf("status = %d body = %s, want 400 amazonUrl/max", rec.Code, rec.Body.String())
-	}
-}
-
-// serveUpload posts content as the multipart field `field`, declaring declaredType for it.
-func serveUpload(t *testing.T, h *httpbook.Handler, path, field, declaredType string, content []byte) *httptest.ResponseRecorder {
-	t.Helper()
-	var body bytes.Buffer
-	w := multipart.NewWriter(&body)
-	header := textproto.MIMEHeader{}
-	header.Set("Content-Disposition", `form-data; name="`+field+`"; filename="cover.png"`)
-	header.Set("Content-Type", declaredType)
-	part, err := w.CreatePart(header)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := part.Write(content); err != nil {
-		t.Fatal(err)
-	}
-	if err := w.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	orig := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-	t.Cleanup(func() { slog.SetDefault(orig) })
-	e := common.NewEcho()
-	h.Register(e.Group("/api/books"))
-	req := httptest.NewRequest(http.MethodPost, path, &body)
-	req.Header.Set("Content-Type", w.FormDataContentType())
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	return rec
-}
-
-var pngBytes = []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
-
-func TestHandlerUploadImage(t *testing.T) {
-	t.Run("中身から判定した種別・サイズ・本文をusecaseに渡し200で返す", func(t *testing.T) {
-		var got bookcmd.UploadImageCommand
-		var gotBody []byte
-		h := &httpbook.Handler{UploadImageUC: fakeUpload(func(_ context.Context, cmd bookcmd.UploadImageCommand) (*domainbook.BookDetail, error) {
-			got = cmd
-			gotBody, _ = io.ReadAll(cmd.Body)
-			return detail, nil
-		})}
-		rec := serveUpload(t, h, "/api/books/1/image", "image", "image/png", pngBytes)
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
-		}
-		if got.BookID != 1 || got.ContentType != "image/png" || got.Size != int64(len(pngBytes)) || !bytes.Equal(gotBody, pngBytes) {
-			t.Fatalf("usecase received %+v body=%q; the body must be rewound after sniffing", got, gotBody)
-		}
-	})
-
-	t.Run("申告された種別ではなく中身の種別を渡す", func(t *testing.T) {
-		var gotType string
-		h := &httpbook.Handler{UploadImageUC: fakeUpload(func(_ context.Context, cmd bookcmd.UploadImageCommand) (*domainbook.BookDetail, error) {
-			gotType = cmd.ContentType
-			return nil, domaincommon.ErrInvalid
-		})}
-		rec := serveUpload(t, h, "/api/books/1/image", "image", "image/png", []byte("<script>alert(1)</script>"))
-
-		if rec.Code != http.StatusBadRequest || strings.HasPrefix(gotType, "image/") {
-			t.Fatalf("status = %d, usecase got type %q; a spoofed header must not reach the usecase as an image type", rec.Code, gotType)
-		}
-	})
-
-	t.Run("imageフィールドがなければ400でusecaseを呼ばない", func(t *testing.T) {
-		h := &httpbook.Handler{UploadImageUC: fakeUpload(func(context.Context, bookcmd.UploadImageCommand) (*domainbook.BookDetail, error) {
-			t.Error("usecase must not be called")
-			return nil, nil
-		})}
-		rec := serveUpload(t, h, "/api/books/1/image", "file", "image/png", pngBytes)
-
-		if rec.Code != http.StatusBadRequest || !reflect.DeepEqual(decode[common.ErrorResponse](t, rec).Errors, []common.FieldError{{Field: "image", Rule: "required"}}) {
-			t.Fatalf("status = %d body = %s, want 400 image/required", rec.Code, rec.Body.String())
-		}
-	})
-
-	t.Run("本文が上限を超えると413でusecaseを呼ばない", func(t *testing.T) {
-		h := &httpbook.Handler{UploadImageUC: fakeUpload(func(context.Context, bookcmd.UploadImageCommand) (*domainbook.BookDetail, error) {
-			t.Error("usecase must not be called")
-			return nil, nil
-		})}
-		rec := serveUpload(t, h, "/api/books/1/image", "image", "image/png", bytes.Repeat([]byte{0}, 6<<20+1))
-
-		if rec.Code != http.StatusRequestEntityTooLarge {
-			t.Fatalf("status = %d, want 413", rec.Code)
-		}
-	})
-
-	statuses := []struct {
-		name string
-		path string
-		err  error
-		want int
-	}{
-		{name: "不正なIDは400", path: "/api/books/abc/image", want: http.StatusBadRequest},
-		{name: "存在しない書籍は404", path: "/api/books/1/image", err: domaincommon.ErrNotFound, want: http.StatusNotFound},
-		{name: "更新の競合は409", path: "/api/books/1/image", err: domaincommon.ErrConflict, want: http.StatusConflict},
-	}
-	for _, tt := range statuses {
-		t.Run(tt.name, func(t *testing.T) {
-			h := &httpbook.Handler{UploadImageUC: fakeUpload(func(context.Context, bookcmd.UploadImageCommand) (*domainbook.BookDetail, error) {
-				if tt.err == nil {
-					t.Error("usecase must not be called")
-				}
-				return nil, tt.err
-			})}
-			if rec := serveUpload(t, h, tt.path, "image", "image/png", pngBytes); rec.Code != tt.want {
-				t.Fatalf("status = %d, want %d", rec.Code, tt.want)
-			}
-		})
+	rec := serve(t, h, http.MethodPost, "/api/books", `{"title":"a","price":1,"authorIds":[1],"status":1,"isbn":"`+strings.Repeat("9", 18)+`"}`)
+	if rec.Code != http.StatusBadRequest || !reflect.DeepEqual(decode[common.ErrorResponse](t, rec).Errors, []common.FieldError{{Field: "isbn", Rule: "max"}}) {
+		t.Fatalf("status = %d body = %s, want 400 isbn/max", rec.Code, rec.Body.String())
 	}
 }

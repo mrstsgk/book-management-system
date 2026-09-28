@@ -51,19 +51,30 @@ definitions:
   BookResponse:
     properties:
       amazonUrl:
-        example: https://www.amazon.co.jp/dp/4101006059
+        description: AmazonURL is derived from the ISBN; null when there is no ISBN
+          (or no ISBN-10 form).
+        example: https://www.amazon.co.jp/dp/4873118700
         type: string
       authors:
         items:
           $ref: '#/definitions/BookAuthorResponse'
         type: array
+      coverSource:
+        enum:
+        - openbd
+        - rakuten
+        example: openbd
+        type: string
+      coverUrl:
+        description: CoverURL is the provider-hosted image; show it as-is with the
+          credit for CoverSource.
+        example: https://cover.openbd.jp/9784873118703.jpg
+        type: string
       id:
         example: 1
         type: integer
-      imageUrl:
-        description: ImageURL is a presigned URL valid for 15 minutes; fetch the book
-          again for a new one.
-        example: http://localhost:4566/book-images/books/1/abc.png?X-Amz-Expires=900
+      isbn:
+        example: "9784873118703"
         type: string
       price:
         example: 1500
@@ -81,6 +92,41 @@ definitions:
         example: 1
         type: integer
     type: object
+  CatalogResponse:
+    properties:
+      amazonUrl:
+        example: https://www.amazon.co.jp/dp/4873118700
+        type: string
+      authors:
+        description: Authors is the provider's raw text and may include translators;
+          the user picks the authors.
+        example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        type: string
+      coverSource:
+        enum:
+        - openbd
+        - rakuten
+        example: openbd
+        type: string
+      coverUrl:
+        example: https://cover.openbd.jp/9784873118703.jpg
+        type: string
+      isbn:
+        example: "9784873118703"
+        type: string
+      price:
+        example: 4600
+        type: integer
+      publishedOn:
+        example: "201907"
+        type: string
+      publisher:
+        example: オライリー・ジャパン
+        type: string
+      title:
+        example: データ指向アプリケーションデザイン
+        type: string
+    type: object
   CreateAuthorRequest:
     properties:
       birthDate:
@@ -95,15 +141,17 @@ definitions:
     type: object
   CreateBookRequest:
     properties:
-      amazonUrl:
-        example: https://www.amazon.co.jp/dp/4101006059
-        maxLength: 2048
-        type: string
       authorIds:
         items:
           type: integer
         minItems: 1
         type: array
+      isbn:
+        description: ISBN (13 or 10 digits, hyphens allowed). The cover is looked
+          up by it on save.
+        example: "9784873118703"
+        maxLength: 17
+        type: string
       price:
         example: 1500
         maximum: 99999999
@@ -163,16 +211,17 @@ definitions:
     type: object
   UpdateBookRequest:
     properties:
-      amazonUrl:
-        description: Omitted or null clears the link (PUT replaces the whole book).
-        example: https://www.amazon.co.jp/dp/4101006059
-        maxLength: 2048
-        type: string
       authorIds:
         items:
           type: integer
         minItems: 1
         type: array
+      isbn:
+        description: Omitted or null clears the ISBN and its cover (PUT replaces the
+          whole book).
+        example: "9784873118703"
+        maxLength: 17
+        type: string
       price:
         example: 1500
         maximum: 99999999
@@ -341,7 +390,7 @@ paths:
       - books
   /api/books/{id}:
     get:
-      description: imageUrl は15分間有効な署名付きURL
+      description: amazonUrl は ISBN から導出する。coverUrl は提供元（coverSource）がホストする画像で、楽天の場合は画面にクレジット表示が必要
       parameters:
       - description: 書籍ID
         in: path
@@ -412,29 +461,22 @@ paths:
       summary: 書籍を更新する
       tags:
       - books
-  /api/books/{id}/image:
-    post:
-      consumes:
-      - multipart/form-data
-      description: JPEG / PNG / WebP、5MB以下。既存の画像は差し替える。種別はファイルの中身から判定する
+  /api/catalog/{isbn}:
+    get:
+      description: 書籍登録の入力補助。openBD を優先し、書影が無ければ楽天ブックスで補う。著者は提供元の文字列のまま返す
       parameters:
-      - description: 書籍ID
+      - description: ISBN（13桁または10桁。ハイフン可）
         in: path
-        name: id
+        name: isbn
         required: true
-        type: integer
-      - description: 表紙画像
-        in: formData
-        name: image
-        required: true
-        type: file
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/BookResponse'
+            $ref: '#/definitions/CatalogResponse'
         "400":
           description: Bad Request
           schema:
@@ -443,19 +485,11 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/ErrorResponse'
-        "409":
-          description: Conflict
-          schema:
-            $ref: '#/definitions/ErrorResponse'
-        "413":
-          description: Request Entity Too Large
-          schema:
-            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorResponse'
-      summary: 書籍の表紙画像をアップロードする
+      summary: ISBNから書誌情報と書影を取得する
       tags:
-      - books
+      - catalog
 swagger: "2.0"

@@ -81,28 +81,59 @@ func TestQuery_FindSummariesByAuthorID(t *testing.T) {
 	})
 }
 
-func TestQuery_FindDetailByID_IncludesAmazonURLAndImageKey(t *testing.T) {
+func TestQuery_FindDetailByID_IncludesCatalogInfo(t *testing.T) {
 	db := connectTestDB(t)
-	a := seedAuthor(t, db, "query-test-media", nil)
-	u, err := domainbook.NewAmazonURL("https://www.amazon.co.jp/dp/4101006059")
-	if err != nil {
-		t.Fatal(err)
-	}
-	key, err := domainbook.NewImageKey("books/test/cover.png")
-	if err != nil {
-		t.Fatal(err)
-	}
-	b := newBook(t, "query-test-media", 100, []domainauthor.ID{a}, domainbook.Unpublished)
-	b.ChangeAmazonURL(&u)
-	b.ReplaceImage(key)
-	createBook(t, db, b)
+	a := seedAuthor(t, db, "query-test-catalog", nil)
+	qry := pgbook.NewQuery(db)
 
-	got, err := pgbook.NewQuery(db).FindDetailByID(context.Background(), b.ID)
-	if err != nil {
-		t.Fatalf("FindDetailByID: %v", err)
+	tests := []struct {
+		name          string
+		isbn          string
+		wantAmazonURL *string
+	}{
+		{name: "978のISBNからAmazonのリンクを導出する", isbn: "9780000000002", wantAmazonURL: strPtr("https://www.amazon.co.jp/dp/0000000000")},
+		{name: "979のISBNにはAmazonのリンクが無い", isbn: "9791032305690", wantAmazonURL: nil},
 	}
-	// The read model carries plain strings, and ImageURL stays empty: URLs are issued by the use case.
-	if got.AmazonURL == nil || *got.AmazonURL != u.String() || got.ImageKey == nil || *got.ImageKey != key.String() || got.ImageURL != nil {
-		t.Fatalf("url=%v key=%v imageURL=%v, want %s / %s / nil", got.AmazonURL, got.ImageKey, got.ImageURL, u, key)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isbn, err := domainbook.NewISBN(tt.isbn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cover, err := domainbook.NewCover("https://cover.openbd.jp/"+tt.isbn+".jpg", domainbook.CoverSourceOpenBD)
+			if err != nil {
+				t.Fatal(err)
+			}
+			b := newBook(t, "query-test-catalog-"+tt.isbn, 100, []domainauthor.ID{a}, domainbook.Unpublished)
+			b.ChangeCatalogInfo(&isbn, &cover)
+			createBook(t, db, b)
+
+			got, err := qry.FindDetailByID(context.Background(), b.ID)
+			if err != nil {
+				t.Fatalf("FindDetailByID: %v", err)
+			}
+			// The read model carries plain strings, not the write-side VOs.
+			if got.ISBN == nil || *got.ISBN != tt.isbn || got.CoverURL == nil || *got.CoverURL != cover.URL() ||
+				got.CoverSource == nil || *got.CoverSource != "openbd" {
+				t.Fatalf("isbn=%v cover=%v source=%v", got.ISBN, got.CoverURL, got.CoverSource)
+			}
+			if (got.AmazonURL == nil) != (tt.wantAmazonURL == nil) || (got.AmazonURL != nil && *got.AmazonURL != *tt.wantAmazonURL) {
+				t.Fatalf("AmazonURL = %v, want %v", got.AmazonURL, tt.wantAmazonURL)
+			}
+		})
 	}
+
+	t.Run("ISBNが無ければAmazonのリンクも書影も無い", func(t *testing.T) {
+		b := newBook(t, "query-test-catalog-none", 100, []domainauthor.ID{a}, domainbook.Unpublished)
+		createBook(t, db, b)
+		got, err := qry.FindDetailByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindDetailByID: %v", err)
+		}
+		if got.ISBN != nil || got.AmazonURL != nil || got.CoverURL != nil || got.CoverSource != nil {
+			t.Fatalf("got %+v, want no catalog info", got)
+		}
+	})
 }
+
+func strPtr(s string) *string { return &s }

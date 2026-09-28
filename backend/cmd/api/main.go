@@ -1,22 +1,26 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
-	gwbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/book"
+	"github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/catalog"
+	"github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/openbd"
+	"github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/rakuten"
 	pgauthor "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/author"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
 	httpauthor "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/author"
 	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
+	httpcatalog "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/catalog"
 	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 	authorcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/author/command"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
@@ -58,25 +62,32 @@ func run() error {
 		}
 	}()
 
-	images, err := gwbook.NewImageStorage(context.Background(), gwbook.Config{
-		Endpoint:        cfg.S3.Endpoint,
-		Region:          cfg.S3.Region,
-		Bucket:          cfg.S3.Bucket,
-		AccessKeyID:     cfg.S3.AccessKeyID,
-		SecretAccessKey: cfg.S3.SecretAccessKey,
-	})
-	if err != nil {
-		return err
-	}
+	catalog := newCatalog(cfg.Catalog)
 
 	e := httpcommon.NewEcho()
-	registerRoutes(e, db, images)
+	registerRoutes(e, db, catalog)
 
 	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
 }
 
 // registerRoutes is the hand-written DI: infra → usecase → presentation.
-func registerRoutes(e *echo.Echo, db *gorm.DB, images domainbook.ImageStorage) {
+// catalogTimeout bounds each external catalog call so a slow provider can't hold a request.
+const catalogTimeout = 5 * time.Second
+
+// newCatalog uses openBD and, when its keys are set, Rakuten Books to fill missing covers.
+func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
+	client := &http.Client{Timeout: catalogTimeout}
+	primary := openbd.NewCatalog(cfg.OpenBDBaseURL, client)
+	var fallback domainbook.BookCatalog
+	if cfg.RakutenEnabled() {
+		fallback = rakuten.NewCatalog(cfg.RakutenBaseURL, cfg.RakutenApplicationID, cfg.RakutenAccessKey, client)
+	} else {
+		slog.Info("RAKUTEN_APPLICATION_ID / RAKUTEN_ACCESS_KEY not set; covers come from openBD only")
+	}
+	return catalog.NewChain(primary, fallback)
+}
+
+func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalog) {
 	authorRepo := pgauthor.NewRepository(db)
 	authorQuery := pgauthor.NewQuery(db)
 	bookRepo := pgbook.NewRepository(db)
@@ -89,9 +100,11 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, images domainbook.ImageStorage) {
 		BooksUC:  &bookqry.ListByAuthorUsecaseImpl{Authors: authorQuery, Books: bookQuery},
 	}).Register(api.Group("/authors"))
 	(&httpbook.Handler{
-		CreateUC:      &bookcmd.CreateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Images: images},
-		UpdateUC:      &bookcmd.UpdateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Images: images},
-		UploadImageUC: &bookcmd.UploadImageUsecaseImpl{Books: bookRepo, Images: images, Details: bookQuery},
-		GetUC:         &bookqry.GetUsecaseImpl{Books: bookQuery, Images: images},
+		CreateUC: &bookcmd.CreateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Catalog: bookCatalog},
+		UpdateUC: &bookcmd.UpdateUsecaseImpl{Books: bookRepo, Authors: authorRepo, Details: bookQuery, Catalog: bookCatalog},
+		GetUC:    &bookqry.GetUsecaseImpl{Books: bookQuery},
 	}).Register(api.Group("/books"))
+	(&httpcatalog.Handler{
+		LookupUC: &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},
+	}).Register(api.Group("/catalog"))
 }

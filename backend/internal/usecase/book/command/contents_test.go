@@ -3,7 +3,6 @@ package command_test
 import (
 	"context"
 	"errors"
-	"io"
 	"testing"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/author"
@@ -146,30 +145,109 @@ func TestCreateUsecase_AuthorLookupErrorPropagates(t *testing.T) {
 	}
 }
 
-// fakeImages is a hand-written Fake for book.ImageStorage.
-type fakeImages struct {
-	put     []book.ImageKey
-	putBody []byte
-	putErr  error
-	deleted []book.ImageKey
-	delErr  error
-	url     string
+// fakeCatalog is a hand-written Fake for book.BookCatalog.
+type fakeCatalog struct {
+	entry  *book.CatalogEntry
+	err    error
+	called []book.ISBN
 }
 
-func (f *fakeImages) Put(_ context.Context, key book.ImageKey, _ book.Image, body io.Reader) error {
-	if f.putErr != nil {
-		return f.putErr
+func (f *fakeCatalog) Lookup(_ context.Context, isbn book.ISBN) (*book.CatalogEntry, error) {
+	f.called = append(f.called, isbn)
+	return f.entry, f.err
+}
+
+func mustCover(t *testing.T) book.Cover {
+	t.Helper()
+	c, err := book.NewCover("https://cover.openbd.jp/9784873118703.jpg", book.CoverSourceOpenBD)
+	if err != nil {
+		t.Fatal(err)
 	}
-	f.put = append(f.put, key)
-	f.putBody, _ = io.ReadAll(body)
-	return nil
+	return c
 }
 
-func (f *fakeImages) Delete(_ context.Context, key book.ImageKey) error {
-	f.deleted = append(f.deleted, key)
-	return f.delErr
-}
+func strPtr(s string) *string { return &s }
 
-func (f *fakeImages) URL(_ context.Context, key book.ImageKey) (string, error) {
-	return f.url + key.String(), nil
+// The ISBN handling and the cover lookup are shared by create and update; exercised through CreateUsecase.
+func TestCreateUsecase_ISBNAndCover(t *testing.T) {
+	t.Parallel()
+	base := command.CreateCommand{Title: "データ指向アプリケーションデザイン", Price: 4600, AuthorIDs: []int64{1}, Status: 2}
+
+	t.Run("ISBNを正規化して保存し、カタログの書影を付ける", func(t *testing.T) {
+		t.Parallel()
+		cover := mustCover(t)
+		books := &fakeBooks{}
+		catalog := &fakeCatalog{entry: &book.CatalogEntry{Cover: &cover}}
+		uc := &command.CreateUsecaseImpl{Books: books, Authors: authorsExisting(1), Details: &fakeDetails{detail: &book.BookDetail{}}, Catalog: catalog}
+		cmd := base
+		cmd.ISBN = strPtr("4873118700")
+
+		if _, err := uc.Execute(context.Background(), cmd); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if books.created.ISBN == nil || books.created.ISBN.String() != "9784873118703" {
+			t.Fatalf("ISBN = %v, want the ISBN-13 form", books.created.ISBN)
+		}
+		if books.created.Cover == nil || *books.created.Cover != cover {
+			t.Fatalf("Cover = %v, want %v", books.created.Cover, cover)
+		}
+		if len(catalog.called) != 1 || catalog.called[0].String() != "9784873118703" {
+			t.Fatalf("catalog called with %v", catalog.called)
+		}
+	})
+
+	covers := []struct {
+		name    string
+		catalog *fakeCatalog
+	}{
+		{name: "カタログに書影が無ければ書影なしで保存する", catalog: &fakeCatalog{entry: &book.CatalogEntry{}}},
+		{name: "カタログに該当が無ければ書影なしで保存する", catalog: &fakeCatalog{err: common.ErrNotFound}},
+		{name: "カタログの障害でも登録は止めず書影なしで保存する", catalog: &fakeCatalog{err: errors.New("openbd: timeout")}},
+	}
+	for _, tt := range covers {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			books := &fakeBooks{}
+			uc := &command.CreateUsecaseImpl{Books: books, Authors: authorsExisting(1), Details: &fakeDetails{detail: &book.BookDetail{}}, Catalog: tt.catalog}
+			cmd := base
+			cmd.ISBN = strPtr("9784873118703")
+
+			if _, err := uc.Execute(context.Background(), cmd); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if books.created == nil || books.created.ISBN == nil || books.created.Cover != nil {
+				t.Fatalf("created %+v, want the ISBN kept and no cover", books.created)
+			}
+		})
+	}
+
+	t.Run("ISBNが無ければカタログを引かない", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{}
+		catalog := &fakeCatalog{}
+		uc := &command.CreateUsecaseImpl{Books: books, Authors: authorsExisting(1), Details: &fakeDetails{detail: &book.BookDetail{}}, Catalog: catalog}
+
+		if _, err := uc.Execute(context.Background(), base); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(catalog.called) != 0 || books.created.ISBN != nil || books.created.Cover != nil {
+			t.Fatalf("catalog called %v, created %+v; want no lookup and no ISBN/cover", catalog.called, books.created)
+		}
+	})
+
+	t.Run("不正なISBNは保存せずカタログも引かずにエラー", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{}
+		catalog := &fakeCatalog{}
+		uc := &command.CreateUsecaseImpl{Books: books, Authors: authorsExisting(1), Details: &fakeDetails{}, Catalog: catalog}
+		cmd := base
+		cmd.ISBN = strPtr("9784873118704")
+
+		if _, err := uc.Execute(context.Background(), cmd); !errors.Is(err, common.ErrInvalid) {
+			t.Fatalf("err = %v, want ErrInvalid", err)
+		}
+		if books.created != nil || len(catalog.called) != 0 {
+			t.Fatal("neither the repository nor the catalog may be called for an invalid ISBN")
+		}
+	})
 }

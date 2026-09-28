@@ -25,8 +25,9 @@ type detailRow struct {
 	Title           string
 	Price           yen
 	PublishStatus   int
-	AmazonURL       *string
-	ImageKey        *string
+	ISBN            *string
+	CoverURL        *string
+	CoverSource     *string
 	Version         int
 	AuthorID        int64
 	AuthorName      string
@@ -40,7 +41,7 @@ func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbo
 	// Inner joins: every book has at least one author (enforced on every write).
 	err := q.db.WithContext(ctx).
 		Table("book AS b").
-		Select(`b.id, b.title, b.price, b.publish_status, b.amazon_url, b.image_key, b.version,
+		Select(`b.id, b.title, b.price, b.publish_status, b.isbn, b.cover_url, b.cover_source, b.version,
 			a.id AS author_id, a.name AS author_name, a.birth_date AS author_birth_date, a.version AS author_version`).
 		Joins("JOIN author_book ab ON ab.book_id = b.id").
 		Joins("JOIN author a ON a.id = ab.author_id").
@@ -55,14 +56,16 @@ func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbo
 	}
 	first := rows[0]
 	d := &domainbook.BookDetail{
-		ID:        domainbook.ID(first.ID),
-		Title:     first.Title,
-		Price:     int64(first.Price),
-		Status:    first.PublishStatus,
-		AmazonURL: first.AmazonURL,
-		ImageKey:  first.ImageKey,
-		Version:   first.Version,
-		Authors:   make([]domainbook.AuthorSummary, 0, len(rows)),
+		ID:          domainbook.ID(first.ID),
+		Title:       first.Title,
+		Price:       int64(first.Price),
+		Status:      first.PublishStatus,
+		ISBN:        first.ISBN,
+		AmazonURL:   amazonURLOf(first.ISBN),
+		CoverURL:    first.CoverURL,
+		CoverSource: first.CoverSource,
+		Version:     first.Version,
+		Authors:     make([]domainbook.AuthorSummary, 0, len(rows)),
 	}
 	for _, r := range rows {
 		var birthDate *string
@@ -93,4 +96,21 @@ func (q *query) FindSummariesByAuthorID(ctx context.Context, authorID domainauth
 		out = append(out, &domainbook.BookSummary{ID: domainbook.ID(r.ID), Title: r.Title, Price: int64(r.Price), Status: r.PublishStatus})
 	}
 	return out, nil
+}
+
+// amazonURLOf derives the product link from a stored ISBN (see domainbook.ISBN.AmazonURL).
+// Stored ISBNs were validated on write, so an unparsable one just yields no link.
+func amazonURLOf(isbn *string) *string {
+	if isbn == nil {
+		return nil
+	}
+	v, err := domainbook.NewISBN(*isbn)
+	if err != nil {
+		return nil
+	}
+	u, ok := v.AmazonURL()
+	if !ok {
+		return nil
+	}
+	return &u
 }

@@ -3,7 +3,6 @@ package book
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/author"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
@@ -17,8 +16,6 @@ type Book struct {
 	Price     Price
 	AuthorIDs []author.ID
 	Status    PublishStatus
-	AmazonURL *AmazonURL
-	ImageKey  *ImageKey
 	ISBN      *ISBN
 	Cover     *Cover
 	Version   int
@@ -47,17 +44,6 @@ func (b *Book) Change(title Title, price Price, authorIDs []author.ID, status Pu
 	return nil
 }
 
-// ChangeAmazonURL sets the Amazon link; nil clears it. It keeps a copy so later
-// changes to the caller's variable don't silently alter the book.
-func (b *Book) ChangeAmazonURL(u *AmazonURL) {
-	if u == nil {
-		b.AmazonURL = nil
-		return
-	}
-	v := *u
-	b.AmazonURL = &v
-}
-
 // ChangeCatalogInfo sets the ISBN and the cover found for it; nil clears each.
 // It keeps copies so later changes to the caller's variables don't alter the book.
 func (b *Book) ChangeCatalogInfo(isbn *ISBN, cover *Cover) {
@@ -71,14 +57,6 @@ func copyOf[T any](v *T) *T {
 	}
 	c := *v
 	return &c
-}
-
-// ReplaceImage points the book at a newly stored image and returns the key it
-// replaced (nil if none) so the caller can remove the old object.
-func (b *Book) ReplaceImage(key ImageKey) *ImageKey {
-	previous := b.ImageKey
-	b.ImageKey = &key
-	return previous
 }
 
 func validateAuthorIDs(ids []author.ID) error {
@@ -116,16 +94,14 @@ type AuthorSummary struct {
 
 // BookDetail is the read model of a single book.
 type BookDetail struct {
-	ID        ID
-	Title     string
-	Price     int64
-	Authors   []AuthorSummary
-	Status    int
-	AmazonURL *string
-	ImageKey  *string
-	// ImageURL is not stored; the use case fills it from ImageKey via ImageStorage.
-	ImageURL    *string
-	ISBN        *string
+	ID      ID
+	Title   string
+	Price   int64
+	Authors []AuthorSummary
+	Status  int
+	ISBN    *string
+	// AmazonURL is derived from ISBN (not stored); nil when there is no ISBN-10 form.
+	AmazonURL   *string
 	CoverURL    *string
 	CoverSource *string
 	Version     int
@@ -144,15 +120,6 @@ type Query interface {
 	// FindDetailByID returns ErrNotFound when the book does not exist.
 	FindDetailByID(ctx context.Context, id ID) (*BookDetail, error)
 	FindSummariesByAuthorID(ctx context.Context, authorID author.ID) ([]*BookSummary, error)
-}
-
-// ImageStorage is the port to the object storage holding cover images (ExternalGateway).
-type ImageStorage interface {
-	// Put stores body under key; body must yield exactly image.Size() bytes.
-	Put(ctx context.Context, key ImageKey, image Image, body io.Reader) error
-	Delete(ctx context.Context, key ImageKey) error
-	// URL returns a time-limited URL a client can fetch the image from.
-	URL(ctx context.Context, key ImageKey) (string, error)
 }
 
 // CatalogEntry is what an external book catalog knows about an ISBN. It is input
