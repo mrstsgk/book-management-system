@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -67,8 +68,13 @@ func run() error {
 		}
 	}()
 
+	bookCatalog := newCatalog(cfg.Catalog)
+	if err := seedIfEmpty(context.Background(), pgbook.NewRepository(db), pgbook.NewQuery(db), bookCatalog); err != nil {
+		return err
+	}
+
 	e := httpcommon.NewEcho()
-	registerRoutes(e, db, newCatalog(cfg.Catalog), cfg.AdminToken)
+	registerRoutes(e, db, bookCatalog, cfg.AdminToken)
 
 	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
 }
