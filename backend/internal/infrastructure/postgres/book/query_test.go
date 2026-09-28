@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	domaincommon "github.com/mrstsgk/book-management-system/backend/internal/domain/common"
@@ -234,4 +235,74 @@ func TestQuery_Tags(t *testing.T) {
 			t.Fatalf("Tags = %v, want only query-test-タグC (tagged's タグA/タグB must not leak in)", got)
 		}
 	})
+}
+
+func TestQuery_RakutenCover(t *testing.T) {
+	db := connectTestDB(t)
+	q := pgbook.NewQuery(db)
+	day := 24 * time.Hour
+	const product = "https://books.rakuten.co.jp/rb/15949390/"
+
+	fresh := newBook(t, "9780000003416", "rakuten-test-期限内", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/fresh.jpg", product, time.Now().Add(-89*day)), 4)
+	createBook(t, db, fresh)
+	expired := newBook(t, "9780000003423", "rakuten-test-期限切れ", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/expired.jpg", product, time.Now().Add(-91*day)), 4)
+	createBook(t, db, expired)
+	openbd := newBook(t, "9780000003430", "rakuten-test-openBD", mustCover(t, "https://cover.openbd.jp/rakuten-test.jpg"), 4)
+	createBook(t, db, openbd)
+
+	type cover struct{ url, source, product *string }
+	wants := map[domainbook.ID]cover{
+		fresh.ID:   {strPtr("https://thumbnail.image.rakuten.co.jp/fresh.jpg"), strPtr("rakuten"), strPtr(product)},
+		expired.ID: {nil, nil, nil},
+		openbd.ID:  {strPtr("https://cover.openbd.jp/rakuten-test.jpg"), strPtr("openbd"), nil},
+	}
+	names := map[domainbook.ID]string{fresh.ID: "取得から89日の楽天の書影は商品ページと一緒に返す", expired.ID: "取得から91日の楽天の書影は返さない", openbd.ID: "openBDの書影は商品ページ無しで返す"}
+
+	for id, want := range wants {
+		t.Run("詳細: "+names[id], func(t *testing.T) {
+			got, err := q.FindDetailByID(context.Background(), id)
+			if err != nil {
+				t.Fatalf("FindDetailByID: %v", err)
+			}
+			if gotCover := (cover{got.CoverURL, got.CoverSource, got.CoverProductURL}); !reflect.DeepEqual(gotCover, want) {
+				t.Fatalf("cover = %s, want %s", describe(gotCover.url, gotCover.source, gotCover.product), describe(want.url, want.source, want.product))
+			}
+		})
+	}
+
+	r, err := domaincommon.NewListRange(100, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := q.FindList(context.Background(), r)
+	if err != nil {
+		t.Fatalf("FindList: %v", err)
+	}
+	byID := map[domainbook.ID]*domainbook.BookListItem{}
+	for _, it := range list.Items {
+		byID[it.ID] = it
+	}
+	for id, want := range wants {
+		t.Run("一覧: "+names[id], func(t *testing.T) {
+			it := byID[id]
+			if it == nil {
+				t.Fatalf("book %d is missing from the list", id)
+			}
+			if gotCover := (cover{it.CoverURL, it.CoverSource, it.CoverProductURL}); !reflect.DeepEqual(gotCover, want) {
+				t.Fatalf("cover = %s, want %s", describe(gotCover.url, gotCover.source, gotCover.product), describe(want.url, want.source, want.product))
+			}
+		})
+	}
+}
+
+func describe(ps ...*string) string {
+	s := ""
+	for _, p := range ps {
+		if p == nil {
+			s += "<nil> "
+		} else {
+			s += *p + " "
+		}
+	}
+	return s
 }
