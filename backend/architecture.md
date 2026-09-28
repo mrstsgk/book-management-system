@@ -116,7 +116,7 @@ Repository／Query／ExternalGateway の IF はすべて **Domain** に置き、
 | OpenAPI | **swag で排出**（`backend/api/docs/` 等。手編集しない） |
 | FE | 排出 OpenAPI → **openapi-typescript または orval**（必須） |
 | 共通エラー形 | `ErrorResponse` を DTO で1か所 |
-| ログ | `slog`。`STAGE=local` は text、それ以外は JSON。アクセスログは RequestID 付き |
+| ログ | `slog` のテキスト形式（デプロイしないので環境ごとに切り替えない）。アクセスログは RequestID 付き |
 | 終了 | SIGINT / SIGTERM で graceful shutdown |
 
 ```text
