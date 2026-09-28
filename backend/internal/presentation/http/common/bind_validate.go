@@ -29,7 +29,8 @@ type ValidationError struct {
 
 func (e *ValidationError) Error() string {
 	if len(e.Fields) == 0 {
-		return "invalid json"
+		// Bind covers both the JSON body and query parameters, so don't name either one.
+		return "malformed request"
 	}
 	return "invalid request"
 }
