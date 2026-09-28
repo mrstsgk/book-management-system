@@ -81,19 +81,19 @@ func TestChain_Lookup(t *testing.T) {
 		}
 	})
 
-	t.Run("primaryに該当が無ければfallbackの結果を返す", func(t *testing.T) {
-		primary := &fakeCatalog{err: common.ErrNotFound}
-		want := entry(t, "楽天の書名", rakutenCover)
-		got, err := catalog.NewChain(primary, &fakeCatalog{entry: want}).Lookup(context.Background(), isbn(t))
-		if err != nil || got != want {
-			t.Fatalf("got (%+v, %v), want fallback's entry", got, err)
+	t.Run("primaryに該当が無ければfallbackを呼ばずにErrNotFound", func(t *testing.T) {
+		fallback := &fakeCatalog{entry: entry(t, "楽天の書名", rakutenCover)}
+		chain := catalog.NewChain(&fakeCatalog{err: common.ErrNotFound}, fallback)
+		if _, err := chain.Lookup(context.Background(), isbn(t)); !errors.Is(err, common.ErrNotFound) || fallback.calls != 0 {
+			t.Fatalf("err = %v, fallback calls=%d, want ErrNotFound without calling fallback", err, fallback.calls)
 		}
 	})
 
-	t.Run("どちらにも該当が無ければErrNotFound", func(t *testing.T) {
-		chain := catalog.NewChain(&fakeCatalog{err: common.ErrNotFound}, &fakeCatalog{err: common.ErrNotFound})
-		if _, err := chain.Lookup(context.Background(), isbn(t)); !errors.Is(err, common.ErrNotFound) {
-			t.Fatalf("err = %v, want ErrNotFound", err)
+	t.Run("fallbackにも書影が無ければ書影なしで返す", func(t *testing.T) {
+		primary := &fakeCatalog{entry: entry(t, "openbd の書名", nil)}
+		got, err := catalog.NewChain(primary, &fakeCatalog{err: common.ErrNotFound}).Lookup(context.Background(), isbn(t))
+		if err != nil || got.Cover != nil {
+			t.Fatalf("got (%+v, %v), want primary's entry without cover", got, err)
 		}
 	})
 
