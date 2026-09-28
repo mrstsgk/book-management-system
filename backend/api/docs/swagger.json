@@ -594,6 +594,16 @@
                     "type": "string",
                     "example": "分散データの設計を体系的に学べる"
                 },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "データベース",
+                        "分散システム"
+                    ]
+                },
                 "title": {
                     "description": "Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。",
                     "type": "string",
@@ -676,6 +686,16 @@
                 "summary": {
                     "type": "string",
                     "example": "分散データの設計を体系的に学べる"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "データベース",
+                        "分散システム"
+                    ]
                 },
                 "title": {
                     "description": "Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。",
@@ -794,6 +814,18 @@
                     "maxLength": 100,
                     "example": "分散データの設計を体系的に学べる"
                 },
+                "tagIds": {
+                    "description": "TagIDs は分野タグのID。0〜10個、実在するIDのみ指定できる。",
+                    "type": "array",
+                    "maxItems": 10,
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2
+                    ]
+                },
                 "titleOverride": {
                     "description": "TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。",
                     "type": "string",
@@ -885,6 +917,17 @@
                     "type": "string",
                     "maxLength": 100,
                     "example": "読み返して理解が深まった"
+                },
+                "tagIds": {
+                    "type": "array",
+                    "maxItems": 10,
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2
+                    ]
                 },
                 "titleOverride": {
                     "description": "TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。",
