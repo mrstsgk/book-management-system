@@ -20,6 +20,8 @@ export interface BookListItemResponse {
   id?: number;
   isbn?: string;
   rating?: number;
+  summary?: string;
+  /** Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。 */
   title?: string;
 }
 
@@ -51,7 +53,11 @@ export interface BookResponse {
   publishedOn?: string;
   publisher?: string;
   rating?: number;
+  summary?: string;
+  /** Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。 */
   title?: string;
+  /** TitleOverride は自分で上書きした書名。上書きしていなければ null。 */
+  titleOverride?: string;
   version?: number;
 }
 
@@ -98,6 +104,13 @@ export interface RegisterBookRequest {
      * @maximum 5
      */
   rating: number;
+  /** @maxLength 100 */
+  summary: string;
+  /**
+     * TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
+     * @maxLength 255
+     */
+  titleOverride?: string;
 }
 
 export interface UpdateBookRequest {
@@ -108,6 +121,13 @@ export interface UpdateBookRequest {
      * @maximum 5
      */
   rating: number;
+  /** @maxLength 100 */
+  summary: string;
+  /**
+     * TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
+     * @maxLength 255
+     */
+  titleOverride?: string;
   version: number;
 }
 

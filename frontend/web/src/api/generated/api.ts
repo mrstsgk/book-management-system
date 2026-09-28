@@ -438,7 +438,7 @@ export const getPutApiBooksIdUrl = (id: number,) => {
 }
 
 /**
- * あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。version が一致しない場合は 409
+ * あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。version が一致しない場合は 409
  * @summary 感想と評価を更新する（自分だけ）
  */
 export const putApiBooksId = async (id: number,
