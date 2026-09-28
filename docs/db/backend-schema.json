@@ -3,7 +3,7 @@
   "tables": {
     "book": {
       "description": "自分が読んだ本。書誌・書影は ISBN で外部カタログ（openBD・楽天ブックス）から取得し、感想と評価は自分で書く。著者は独立したテーブルにせず、提供元の文字列のまま持つ。",
-      "source": "backend/migrations/000002_add_book_title_override_and_summary.up.sql",
+      "source": "backend/migrations/000005_add_book_rakuten_cover_info.up.sql",
       "columns": [
         { "name": "id", "type": "BIGSERIAL", "nullable": false, "pk": true, "description": "読んだ本のID（主キー）" },
         { "name": "isbn", "type": "VARCHAR(13)", "nullable": false, "unique": true, "description": "ISBN。常に13桁（ISBN-10 は 978 付きの13桁に変換、チェックディジット検証済み。アプリ側で保証）。Amazon の商品リンクは保存せずこの値から導出する（ISBN-10 = ASIN）" },
@@ -19,6 +19,8 @@
             { "value": "rakuten", "description": "楽天ブックス書籍検索API" }
           ]
         },
+        { "name": "cover_product_url", "type": "VARCHAR(2048)", "nullable": true, "description": "楽天の商品ページの URL（楽天の書影のときだけ。楽天の規約上、書影と一緒にリンクする）。それ以外は NULL（CHECK制約あり）" },
+        { "name": "cover_fetched_at", "type": "TIMESTAMPTZ", "nullable": true, "description": "楽天の書影・商品ページを取得した日時（保持期限90日の起点。期限を過ぎた楽天の書影は API が返さない）。楽天の書影のときだけ。それ以外は NULL（CHECK制約あり）" },
         { "name": "comment", "type": "TEXT", "nullable": false, "description": "自分が書いた感想。前後の空白を除いた1〜5000文字。改行・タブは可（アプリ側で保証）" },
         { "name": "rating", "type": "SMALLINT", "nullable": false, "description": "自分が付けた評価（1〜5、CHECK制約あり）" },
         { "name": "summary", "type": "VARCHAR(100)", "nullable": false, "description": "一覧で見せる一言まとめ（1〜100文字、改行なし）" },
@@ -31,7 +33,8 @@
         "uq_book_isbn UNIQUE (isbn)",
         "ck_book_rating CHECK (rating BETWEEN 1 AND 5)",
         "ck_book_cover_source CHECK (cover_source IN ('openbd', 'rakuten'))",
-        "ck_book_cover_pair CHECK ((cover_url IS NULL) = (cover_source IS NULL))"
+        "ck_book_cover_pair CHECK ((cover_url IS NULL) = (cover_source IS NULL))",
+        "ck_book_rakuten_cover CHECK ((cover_source IS NOT DISTINCT FROM 'rakuten') = (cover_product_url IS NOT NULL AND cover_fetched_at IS NOT NULL))"
       ]
     },
     "tag": {
