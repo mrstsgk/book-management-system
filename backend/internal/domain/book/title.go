@@ -19,13 +19,14 @@ type Title struct {
 }
 
 func NewTitle(raw string) (Title, error) {
+	// Checked before trimming so a stray tab or newline is rejected rather than silently dropped.
+	if strings.IndexFunc(raw, unicode.IsControl) >= 0 {
+		return Title{}, fmt.Errorf("%w: 書籍タイトルにタブや改行は使用できません", common.ErrInvalid)
+	}
 	v := strings.TrimSpace(raw)
 	n := utf8.RuneCountInString(v)
 	if n < 1 || n > titleMaxLength {
 		return Title{}, fmt.Errorf("%w: 書籍タイトルは1〜%d文字で入力してください", common.ErrInvalid, titleMaxLength)
-	}
-	if strings.IndexFunc(v, unicode.IsControl) >= 0 {
-		return Title{}, fmt.Errorf("%w: 書籍タイトルにタブや改行は使用できません", common.ErrInvalid)
 	}
 	return Title{value: v}, nil
 }

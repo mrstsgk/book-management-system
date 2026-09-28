@@ -19,13 +19,14 @@ type Name struct {
 }
 
 func NewName(raw string) (Name, error) {
+	// Checked before trimming so a stray tab or newline is rejected rather than silently dropped.
+	if strings.IndexFunc(raw, unicode.IsControl) >= 0 {
+		return Name{}, fmt.Errorf("%w: 著者名にタブや改行は使用できません", common.ErrInvalid)
+	}
 	v := strings.TrimSpace(raw)
 	n := utf8.RuneCountInString(v)
 	if n < 1 || n > nameMaxLength {
 		return Name{}, fmt.Errorf("%w: 著者名は1〜%d文字で入力してください", common.ErrInvalid, nameMaxLength)
-	}
-	if strings.IndexFunc(v, unicode.IsControl) >= 0 {
-		return Name{}, fmt.Errorf("%w: 著者名にタブや改行は使用できません", common.ErrInvalid)
 	}
 	return Name{value: v}, nil
 }

@@ -28,6 +28,8 @@ func TestNewTitle(t *testing.T) {
 		{name: "空白だけはエラー", in: "　 　", wantErr: true},
 		{name: "途中のタブはエラー", in: "人間\t失格", wantErr: true},
 		{name: "途中の改行はエラー", in: "人間\r\n失格", wantErr: true},
+		{name: "先頭のタブはエラー", in: "\t人間失格", wantErr: true},
+		{name: "末尾の改行はエラー", in: "人間失格\n", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

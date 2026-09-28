@@ -28,6 +28,8 @@ func TestNewName(t *testing.T) {
 		{name: "空白だけはエラー", in: " 　 ", wantErr: true},
 		{name: "途中のタブはエラー", in: "太宰\t治", wantErr: true},
 		{name: "途中の改行はエラー", in: "太宰\n治", wantErr: true},
+		{name: "先頭のタブはエラー", in: "\t太宰治", wantErr: true},
+		{name: "末尾の改行はエラー", in: "太宰治\n", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
