@@ -85,14 +85,14 @@ var detail = &domainbook.BookDetail{
 	ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
 	Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
 	CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"),
-	Summary: "分散データの設計を学べる", Comment: "良書\n2行目", Rating: 5, Version: 1,
+	Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Comment: "良書\n2行目", Rating: 5, Version: 1,
 }
 
 var detailResponse = httpbook.Response{
 	ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
 	Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
 	CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"),
-	Summary: "分散データの設計を学べる", Comment: "良書\n2行目", Rating: 5, Version: 1,
+	Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Comment: "良書\n2行目", Rating: 5, Version: 1,
 }
 
 func mustNotCall(t *testing.T) func() {
@@ -101,7 +101,7 @@ func mustNotCall(t *testing.T) func() {
 
 func TestHandlerList(t *testing.T) {
 	list := &domainbook.BookList{Total: 21, Items: []*domainbook.BookListItem{{
-		ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる", Authors: "Kleppmann,Martin",
+		ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Authors: "Kleppmann,Martin",
 		AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), Rating: 5,
 	}}}
 
@@ -128,7 +128,7 @@ func TestHandlerList(t *testing.T) {
 				t.Fatalf("usecase received limit=%d offset=%d", gotLimit, gotOffset)
 			}
 			want := httpbook.ListResponse{Total: 21, Limit: tt.wantLimit, Offset: tt.wantOffset, Items: []httpbook.ListItemResponse{{
-				ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる", Authors: "Kleppmann,Martin",
+				ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Authors: "Kleppmann,Martin",
 				AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), Rating: 5,
 			}}}
 			if got := decode[httpbook.ListResponse](t, rec); !reflect.DeepEqual(got, want) {
@@ -196,8 +196,25 @@ func TestHandlerRegister(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 		}
-		if want := (bookcmd.RegisterCommand{ISBN: "978-4-87311-870-3", Summary: "分散データの設計を学べる", Comment: "良書", Rating: 5}); got != want {
+		if want := (bookcmd.RegisterCommand{ISBN: "978-4-87311-870-3", Summary: "分散データの設計を学べる", Comment: "良書", Rating: 5}); !reflect.DeepEqual(got, want) {
 			t.Fatalf("usecase received %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("分野タグを指定するとusecaseに渡る", func(t *testing.T) {
+		var got bookcmd.RegisterCommand
+		h := &httpbook.Handler{RegisterUC: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+			got = cmd
+			return detail, nil
+		})}
+		withTags := `{"isbn":"978-4-87311-870-3","summary":"分散データの設計を学べる","tagIds":[1,2],"comment":"良書","rating":5}`
+		rec := serve(t, h, http.MethodPost, "/api/books", withTags, true)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		if len(got.TagIDs) != 2 || got.TagIDs[0] != 1 || got.TagIDs[1] != 2 {
+			t.Fatalf("usecase received TagIDs=%v", got.TagIDs)
 		}
 	})
 
@@ -258,6 +275,7 @@ func TestHandlerRegister(t *testing.T) {
 		{name: "一言まとめが無いは400", body: `{"isbn":"4873118700","comment":"良書","rating":5}`, want: []common.FieldError{{Field: "summary", Rule: "required"}}},
 		{name: "一言まとめが101文字は400", body: `{"isbn":"4873118700","summary":"` + strings.Repeat("あ", 101) + `","comment":"良書","rating":5}`, want: []common.FieldError{{Field: "summary", Rule: "max"}}},
 		{name: "書名の上書きが256文字は400", body: `{"isbn":"4873118700","summary":"要約","titleOverride":"` + strings.Repeat("あ", 256) + `","comment":"良書","rating":5}`, want: []common.FieldError{{Field: "titleOverride", Rule: "max"}}},
+		{name: "タグを11個指定すると400", body: `{"isbn":"4873118700","summary":"要約","tagIds":[1,2,3,4,5,6,7,8,9,10,11],"comment":"良書","rating":5}`, want: []common.FieldError{{Field: "tagIds", Rule: "max"}}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			called := mustNotCall(t)
@@ -305,7 +323,7 @@ func TestHandlerUpdate(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 		}
-		if want := (bookcmd.UpdateCommand{ID: 5, Summary: "読み返してのまとめ", Comment: "読み返した", Rating: 4, Version: 2}); got != want {
+		if want := (bookcmd.UpdateCommand{ID: 5, Summary: "読み返してのまとめ", Comment: "読み返した", Rating: 4, Version: 2}); !reflect.DeepEqual(got, want) {
 			t.Fatalf("usecase received %+v, want %+v", got, want)
 		}
 	})
@@ -320,6 +338,7 @@ func TestHandlerUpdate(t *testing.T) {
 	}{
 		{name: "トークンが無ければ401", path: "/api/books/5", body: body, withToken: false, want: http.StatusUnauthorized},
 		{name: "不正なIDは400", path: "/api/books/abc", body: body, withToken: true, want: http.StatusBadRequest},
+		{name: "タグを11個指定すると400", path: "/api/books/5", body: `{"summary":"読み返してのまとめ","tagIds":[1,2,3,4,5,6,7,8,9,10,11],"comment":"読み返した","rating":4,"version":2}`, withToken: true, want: http.StatusBadRequest},
 		{name: "バージョンなしは400", path: "/api/books/5", body: `{"comment":"x","rating":4}`, withToken: true, want: http.StatusBadRequest},
 		{name: "存在しない本は404", path: "/api/books/5", body: body, withToken: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
 		{name: "楽観的ロックの競合は409", path: "/api/books/5", body: body, withToken: true, err: domaincommon.ErrConflict, want: http.StatusConflict},

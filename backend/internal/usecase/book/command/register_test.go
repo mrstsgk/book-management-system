@@ -8,6 +8,7 @@ import (
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 	"github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
 )
 
@@ -90,6 +91,20 @@ func catalogEntry(t *testing.T, title string, cover *book.Cover) *book.CatalogEn
 	return &book.CatalogEntry{ISBN: isbn, Bibliography: bib, Cover: cover}
 }
 
+// fakeTagQuery は tag.Query の手書き Fake。
+type fakeTagQuery struct {
+	exists    bool
+	existsErr error
+	gotIDs    []tag.ID
+}
+
+func (f *fakeTagQuery) FindList(context.Context) (*tag.TagList, error) { return nil, nil }
+
+func (f *fakeTagQuery) ExistsAll(_ context.Context, ids []tag.ID) (bool, error) {
+	f.gotIDs = ids
+	return f.exists, f.existsErr
+}
+
 func mustCover(t *testing.T, url string) *book.Cover {
 	t.Helper()
 	c, err := book.NewCover(url, book.CoverSourceOpenBD)
@@ -101,7 +116,7 @@ func mustCover(t *testing.T, url string) *book.Cover {
 
 func TestRegisterUsecase_Execute(t *testing.T) {
 	t.Parallel()
-	valid := command.RegisterCommand{ISBN: "4873118700", Summary: "分散データの設計を学べる", Comment: "良書", Rating: 5}
+	valid := command.RegisterCommand{ISBN: "4873118700", Summary: "分散データの設計を学べる", TagIDs: []int64{1, 2}, Comment: "良書", Rating: 5}
 
 	t.Run("カタログの書誌・書影と感想・評価を組み合わせて登録し詳細を返す", func(t *testing.T) {
 		t.Parallel()
@@ -109,7 +124,10 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		books := &fakeBooks{}
 		want := &book.BookDetail{ID: 1}
 		details := &fakeDetails{detail: want}
-		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "データ指向アプリケーションデザイン", cover)}, Details: details}
+		uc := &command.RegisterUsecaseImpl{
+			Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "データ指向アプリケーションデザイン", cover)},
+			Details: details, Tags: &fakeTagQuery{exists: true},
+		}
 
 		got, err := uc.Execute(context.Background(), valid)
 		if err != nil {
@@ -121,6 +139,9 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 			c.Comment.String() != "良書" || c.Rating.Int() != 5 || c.TitleOverride != nil {
 			t.Fatalf("created %+v", c)
 		}
+		if ids := c.Tags.IDs(); len(ids) != 2 || ids[0] != 1 || ids[1] != 2 {
+			t.Fatalf("Tags = %v, want [1 2]", ids)
+		}
 		if got != want || details.gotID != 1 {
 			t.Fatalf("got %+v (detail looked up for %d), want the created book's detail", got, details.gotID)
 		}
@@ -131,7 +152,7 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		cmd := valid
 		cmd.TitleOverride = "正しい書名"
 		books := &fakeBooks{}
-		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "カタログの書名", nil)}, Details: &fakeDetails{detail: &book.BookDetail{}}}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "カタログの書名", nil)}, Details: &fakeDetails{detail: &book.BookDetail{}}, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), cmd); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -146,7 +167,7 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		cmd := valid
 		cmd.TitleOverride = "　"
 		books := &fakeBooks{}
-		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "カタログの書名", nil)}, Details: &fakeDetails{detail: &book.BookDetail{}}}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "カタログの書名", nil)}, Details: &fakeDetails{detail: &book.BookDetail{}}, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), cmd); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -172,7 +193,7 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 			t.Parallel()
 			books := &fakeBooks{}
 			catalog := &fakeCatalog{}
-			uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}}
+			uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
 
 			if _, err := uc.Execute(context.Background(), tt.cmd); !errors.Is(err, common.ErrInvalid) {
 				t.Fatalf("err = %v, want ErrInvalid", err)
@@ -183,10 +204,43 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		})
 	}
 
+	t.Run("存在しないタグIDはカタログも保存も呼ばずにエラー", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{}
+		catalog := &fakeCatalog{}
+		tags := &fakeTagQuery{exists: false}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: tags}
+		cmd := valid
+		cmd.TagIDs = []int64{999}
+
+		if _, err := uc.Execute(context.Background(), cmd); !errors.Is(err, common.ErrInvalid) {
+			t.Fatalf("err = %v, want ErrInvalid", err)
+		}
+		if catalog.called != 0 || books.created != nil {
+			t.Fatal("neither the catalog nor the repository may be called for invalid input")
+		}
+	})
+
+	t.Run("タグを11個指定するとカタログも保存も呼ばずにエラー", func(t *testing.T) {
+		t.Parallel()
+		books := &fakeBooks{}
+		catalog := &fakeCatalog{}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
+		cmd := valid
+		cmd.TagIDs = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+
+		if _, err := uc.Execute(context.Background(), cmd); !errors.Is(err, common.ErrInvalid) {
+			t.Fatalf("err = %v, want ErrInvalid", err)
+		}
+		if catalog.called != 0 || books.created != nil {
+			t.Fatal("neither the catalog nor the repository may be called for invalid input")
+		}
+	})
+
 	t.Run("カタログに無いISBNは登録できない入力として扱う", func(t *testing.T) {
 		t.Parallel()
 		books := &fakeBooks{}
-		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{err: common.ErrNotFound}, Details: &fakeDetails{}}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{err: common.ErrNotFound}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
 
 		_, err := uc.Execute(context.Background(), valid)
 		if !errors.Is(err, common.ErrInvalid) || errors.Is(err, common.ErrNotFound) {
@@ -201,7 +255,7 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		t.Parallel()
 		wantErr := errors.New("openbd: timeout")
 		books := &fakeBooks{}
-		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{err: wantErr}, Details: &fakeDetails{}}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{err: wantErr}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), valid); !errors.Is(err, wantErr) {
 			t.Fatalf("err = %v, want %v", err, wantErr)
@@ -214,7 +268,7 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 	t.Run("同じISBNの登録済みはConflictを返し詳細は取得しない", func(t *testing.T) {
 		t.Parallel()
 		details := &fakeDetails{}
-		uc := &command.RegisterUsecaseImpl{Books: &fakeBooks{createErr: common.ErrConflict}, Catalog: &fakeCatalog{entry: catalogEntry(t, "x", nil)}, Details: details}
+		uc := &command.RegisterUsecaseImpl{Books: &fakeBooks{createErr: common.ErrConflict}, Catalog: &fakeCatalog{entry: catalogEntry(t, "x", nil)}, Details: details, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), valid); !errors.Is(err, common.ErrConflict) {
 			t.Fatalf("err = %v, want ErrConflict", err)

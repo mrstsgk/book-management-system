@@ -21,6 +21,7 @@ export interface BookListItemResponse {
   isbn?: string;
   rating?: number;
   summary?: string;
+  tags?: string[];
   /** Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。 */
   title?: string;
 }
@@ -54,6 +55,7 @@ export interface BookResponse {
   publisher?: string;
   rating?: number;
   summary?: string;
+  tags?: string[];
   /** Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。 */
   title?: string;
   /** TitleOverride は自分で上書きした書名。上書きしていなければ null。 */
@@ -107,6 +109,11 @@ export interface RegisterBookRequest {
   /** @maxLength 100 */
   summary: string;
   /**
+     * TagIDs は分野タグのID。0〜10個、実在するIDのみ指定できる。
+     * @maxItems 10
+     */
+  tagIds?: number[];
+  /**
      * TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
      * @maxLength 255
      */
@@ -144,6 +151,11 @@ export interface UpdateBookRequest {
   rating: number;
   /** @maxLength 100 */
   summary: string;
+  /**
+     * TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。
+     * @maxItems 10
+     */
+  tagIds?: number[];
   /**
      * TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
      * @maxLength 255

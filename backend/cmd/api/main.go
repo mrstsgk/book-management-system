@@ -93,12 +93,14 @@ func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
 func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalog, adminToken string) {
 	books := pgbook.NewRepository(db)
 	bookQuery := pgbook.NewQuery(db)
+	tags := pgtag.NewRepository(db)
+	tagQuery := pgtag.NewQuery(db)
 	adminOnly := httpcommon.RequireAdminToken(adminToken)
 
 	api := e.Group("/api")
 	(&httpbook.Handler{
-		RegisterUC: &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery},
-		UpdateUC:   &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery},
+		RegisterUC: &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
+		UpdateUC:   &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
 		DeleteUC:   &bookcmd.DeleteUsecaseImpl{Books: books},
 		GetUC:      &bookqry.GetUsecaseImpl{Books: bookQuery},
 		ListUC:     &bookqry.ListUsecaseImpl{Books: bookQuery},
@@ -109,8 +111,6 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 		AdminOnly: adminOnly,
 	}).Register(api.Group("/catalog"))
 
-	tags := pgtag.NewRepository(db)
-	tagQuery := pgtag.NewQuery(db)
 	(&httptag.Handler{
 		RegisterUC: &tagcmd.RegisterUsecaseImpl{Tags: tags},
 		RenameUC:   &tagcmd.RenameUsecaseImpl{Tags: tags},

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
 // UpdateCommand は UpdateUsecase の入力（Presentation から渡る境界）。データだけを持ち、ロジックは持たない。
@@ -15,6 +16,7 @@ type UpdateCommand struct {
 	Summary string
 	// TitleOverride は自分で上書きする書名。全体の置き換えなので、前後の空白を除いて空なら上書きを外す。
 	TitleOverride string
+	TagIDs        []int64
 	Comment       string
 	Rating        int
 	Version       int
@@ -28,6 +30,7 @@ type UpdateUsecaseImpl struct {
 	Books   book.Repository
 	Catalog book.BookCatalog
 	Details book.Query
+	Tags    tag.Query
 }
 
 // Execute は感想と評価を差し替え、あわせて書誌と書影を外部カタログから取り直して保存する。
@@ -52,7 +55,11 @@ func (u *UpdateUsecaseImpl) Execute(ctx context.Context, cmd UpdateCommand) (*bo
 	if err != nil {
 		return nil, err
 	}
-	b.ChangeReview(summary, comment, rating, cmd.Version)
+	tags, err := parseTagSelection(ctx, u.Tags, cmd.TagIDs)
+	if err != nil {
+		return nil, err
+	}
+	b.ChangeReview(summary, comment, rating, tags, cmd.Version)
 	b.OverrideTitle(override)
 	u.refreshCatalog(ctx, b)
 	if err := u.Books.Update(ctx, b); err != nil {

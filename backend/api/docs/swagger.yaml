@@ -29,6 +29,13 @@ definitions:
       summary:
         example: 分散データの設計を体系的に学べる
         type: string
+      tags:
+        example:
+        - データベース
+        - 分散システム
+        items:
+          type: string
+        type: array
       title:
         description: Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
         example: データ指向アプリケーションデザイン
@@ -90,6 +97,13 @@ definitions:
       summary:
         example: 分散データの設計を体系的に学べる
         type: string
+      tags:
+        example:
+        - データベース
+        - 分散システム
+        items:
+          type: string
+        type: array
       title:
         description: Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
         example: データ指向アプリケーションデザイン
@@ -172,6 +186,15 @@ definitions:
         example: 分散データの設計を体系的に学べる
         maxLength: 100
         type: string
+      tagIds:
+        description: TagIDs は分野タグのID。0〜10個、実在するIDのみ指定できる。
+        example:
+        - 1
+        - 2
+        items:
+          type: integer
+        maxItems: 10
+        type: array
       titleOverride:
         description: TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
         example: ""
@@ -239,6 +262,15 @@ definitions:
         example: 読み返して理解が深まった
         maxLength: 100
         type: string
+      tagIds:
+        description: TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。
+        example:
+        - 1
+        - 2
+        items:
+          type: integer
+        maxItems: 10
+        type: array
       titleOverride:
         description: TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
         example: ""
