@@ -216,4 +216,28 @@ func TestRepository_TitleOverrideAndSummary(t *testing.T) {
 			t.Fatalf("title_override = %q, want NULL", *override)
 		}
 	})
+
+	t.Run("一言まとめと上書きを変えて更新すると読み込みに反映される", func(t *testing.T) {
+		b := newBook(t, "9780000002310", "カタログの書名", nil, 4)
+		createBook(t, db, b)
+
+		newSummary, _ := domainbook.NewSummary("読み返してのまとめ")
+		b.ChangeReview(newSummary, b.Comment, b.Rating, b.Version)
+		newTitle, _ := domainbook.NewTitle("新しい上書き")
+		b.OverrideTitle(&newTitle)
+		if err := repo.Update(context.Background(), b); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+
+		got, err := repo.FindByID(context.Background(), b.ID)
+		if err != nil {
+			t.Fatalf("FindByID: %v", err)
+		}
+		if got.Summary.String() != "読み返してのまとめ" {
+			t.Fatalf("Summary = %q, want 読み返してのまとめ", got.Summary.String())
+		}
+		if got.TitleOverride == nil || got.TitleOverride.String() != "新しい上書き" {
+			t.Fatalf("TitleOverride = %v, want 新しい上書き", got.TitleOverride)
+		}
+	})
 }

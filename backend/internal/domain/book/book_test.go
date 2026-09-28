@@ -135,6 +135,8 @@ func TestReadModels_UsePlainFieldTypes(t *testing.T) {
 		reflect.TypeOf(book.Bibliography{}):  true,
 		reflect.TypeOf(book.Cover{}):         true,
 		reflect.TypeOf(book.CoverSource("")): true,
+		reflect.TypeOf(book.Title{}):         true,
+		reflect.TypeOf(book.Summary{}):       true,
 		reflect.TypeOf(book.Comment{}):       true,
 		reflect.TypeOf(book.Rating{}):        true,
 		reflect.TypeOf(book.Book{}):          true,
