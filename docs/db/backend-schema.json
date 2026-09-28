@@ -3,7 +3,7 @@
   "tables": {
     "book": {
       "description": "書籍情報を管理するテーブル。著者は author_book 経由で1人以上紐づく（アプリ側で保証）。",
-      "source": "backend/migrations/000001_create_book.up.sql, backend/migrations/000004_add_book_amazon_url_and_image_key.up.sql",
+      "source": "backend/migrations/000001_create_book.up.sql, backend/migrations/000005_replace_book_image_with_catalog_cover.up.sql",
       "columns": [
         {
           "name": "id",
@@ -41,16 +41,33 @@
           ]
         },
         {
-          "name": "amazon_url",
-          "type": "VARCHAR(2048)",
+          "name": "isbn",
+          "type": "VARCHAR(13)",
           "nullable": true,
-          "description": "Amazonの商品リンク。https かつ amazon.co.jp / amazon.com（とそのサブドメイン）・amzn.asia / amzn.to のみ（アプリ側で保証）。未設定はNULL"
+          "unique": true,
+          "description": "ISBN。常に13桁（ISBN-10 は 978 付きの13桁に変換、チェックディジット検証済み。アプリ側で保証）。未設定はNULL。Amazonの商品リンクは保存せずこの値から導出する（ISBN-10 = ASIN）"
         },
         {
-          "name": "image_key",
-          "type": "VARCHAR(255)",
+          "name": "cover_url",
+          "type": "VARCHAR(2048)",
           "nullable": true,
-          "description": "表紙画像のオブジェクトストレージ（ローカルはLocalStackのS3、バケット book-images）上のキー。形式は books/{書籍ID}/{ランダム値}.{jpg|png|webp}。URLは保存せず、取得時に期限付きURLを発行する。未設定はNULL"
+          "description": "書影の URL。提供元（openBD・楽天ブックス）がホストする画像を指し、画像そのものは保存しない。書籍の作成・更新時に ISBN で取得し直す。未取得はNULL"
+        },
+        {
+          "name": "cover_source",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "description": "書影の提供元。画面のクレジット表示（楽天は表記必須）に使う。cover_url と同時にNULL（CHECK制約あり）",
+          "enum": [
+            {
+              "value": "openbd",
+              "description": "openBD"
+            },
+            {
+              "value": "rakuten",
+              "description": "楽天ブックス書籍検索API"
+            }
+          ]
         },
         {
           "name": "version",
@@ -60,7 +77,11 @@
         }
       ],
       "indexes": [],
-      "constraints": []
+      "constraints": [
+        "UNIQUE (isbn)",
+        "ck_book_cover_source CHECK (cover_source IN ('openbd', 'rakuten'))",
+        "ck_book_cover_pair CHECK ((cover_url IS NULL) = (cover_source IS NULL))"
+      ]
     },
     "author": {
       "description": "著者情報を管理するテーブル。",
