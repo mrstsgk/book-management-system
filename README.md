@@ -1,13 +1,13 @@
 # Book Management System
 
-書籍・著者を管理するシステム。バックエンド API（Go / Echo）と管理画面（React / Vite）のモノレポ。
+自分が読んだ本を紹介するポートフォリオ。バックエンド API（Go / Echo）と Web 画面（React / Vite）のモノレポ。
 
 方針の正は [`docs/architecture.md`](./docs/architecture.md)（バックエンド詳細は [`backend/architecture.md`](./backend/architecture.md)、フロントエンド詳細は [`frontend/architecture.md`](./frontend/architecture.md)）。
 
 ## 構成
 
 ```
-backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag、画像は S3・ローカルは LocalStack）
+backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag）
 frontend/   # React + Vite + TypeScript（pnpm workspace: web, packages/ui）
 docs/       # 方針・ルール・ADR
 ```
@@ -22,7 +22,7 @@ mise install              # Go / Node / pnpm（版は .mise.toml）
 # バックエンド
 cd backend
 make tools
-make db-up                # PostgreSQL と LocalStack（S3）
+make db-up                # PostgreSQL
 make migrate-up
 make run                  # http://localhost:8080/health
 

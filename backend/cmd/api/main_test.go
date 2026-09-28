@@ -1,10 +1,6 @@
 package main
 
-import (
-	"testing"
-
-	"github.com/labstack/echo/v4"
-)
+import "testing"
 
 // run is unexported, so this test lives in package main.
 
@@ -25,28 +21,5 @@ func TestRun_FailsWhenDBIsUnreachable(t *testing.T) {
 
 	if err := run(); err == nil {
 		t.Fatal("expected an error when the DB is unreachable")
-	}
-}
-
-func TestRegisterRoutes_ExposesBookAndAuthorAPI(t *testing.T) {
-	e := echo.New()
-	registerRoutes(e, nil, nil)
-
-	got := map[string]bool{}
-	for _, r := range e.Routes() {
-		got[r.Method+" "+r.Path] = true
-	}
-	for _, want := range []string{
-		"POST /api/authors",
-		"PUT /api/authors/:id",
-		"GET /api/authors/:id/books",
-		"POST /api/books",
-		"GET /api/books/:id",
-		"PUT /api/books/:id",
-		"POST /api/books/:id/image",
-	} {
-		if !got[want] {
-			t.Errorf("route %q is not registered (got %v)", want, got)
-		}
 	}
 }
