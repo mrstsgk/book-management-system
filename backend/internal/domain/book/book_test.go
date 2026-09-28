@@ -3,6 +3,7 @@ package book_test
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
@@ -132,6 +133,54 @@ func TestBook_RefreshCatalog(t *testing.T) {
 	}
 	if b.Comment.String() != "良書" || b.Rating.Int() != 5 {
 		t.Fatal("refreshing the catalog must not touch the review")
+	}
+}
+
+func TestBook_DropExpiredCover(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	day := 24 * time.Hour
+	rakuten := func(t *testing.T, fetchedAt time.Time) *book.Cover {
+		t.Helper()
+		c, err := book.NewRakutenCover("https://thumbnail.image.rakuten.co.jp/1.jpg", "https://books.rakuten.co.jp/rb/1/", fetchedAt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &c
+	}
+	openbd, err := book.NewCover("https://cover.openbd.jp/9784873118703.jpg", book.CoverSourceOpenBD)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name        string
+		cover       *book.Cover
+		wantDropped bool
+	}{
+		{name: "楽天の書影は取得から90日で外す", cover: rakuten(t, now.Add(-90*day)), wantDropped: true},
+		{name: "楽天の書影は取得から89日なら残す", cover: rakuten(t, now.Add(-89*day)), wantDropped: false},
+		{name: "openBDの書影は古くても残す", cover: &openbd, wantDropped: false},
+		{name: "書影なしは何もしない", cover: nil, wantDropped: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			b := mustBook(t)
+			b.Cover = tt.cover
+
+			dropped := b.DropExpiredCover(now)
+
+			if dropped != tt.wantDropped {
+				t.Fatalf("dropped = %v, want %v", dropped, tt.wantDropped)
+			}
+			if tt.wantDropped && b.Cover != nil {
+				t.Fatalf("Cover = %+v, want nil after dropping", b.Cover)
+			}
+			if !tt.wantDropped && b.Cover != tt.cover {
+				t.Fatal("Cover changed although it was not dropped")
+			}
+		})
 	}
 }
 

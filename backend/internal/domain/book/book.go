@@ -2,6 +2,7 @@ package book
 
 import (
 	"context"
+	"time"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
@@ -47,6 +48,15 @@ func (b *Book) OverrideTitle(title *Title) {
 func (b *Book) RefreshCatalog(bibliography Bibliography, cover *Cover) {
 	b.Bibliography = bibliography
 	b.Cover = copyOf(cover)
+}
+
+// DropExpiredCover は楽天の書影が保持期限を過ぎていれば外し、外したかを返す。
+func (b *Book) DropExpiredCover(now time.Time) bool {
+	if b.Cover == nil || !b.Cover.IsExpired(now) {
+		return false
+	}
+	b.Cover = nil
+	return true
 }
 
 // copyOf は呼び出し側の変数を後から変えても本が変わらないよう、値をコピーして持つ。
