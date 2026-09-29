@@ -50,11 +50,12 @@ func NewRepository(db *gorm.DB) domainbook.Repository {
 	return &repository{db: db}
 }
 
-// FindCoverRefreshTargets は楽天の書影の取得日時が fetchedBefore 以前の行を ID 順に取得する。
-func (r *repository) FindCoverRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*domainbook.Book, error) {
+// FindCoverRefreshTargets は楽天の書影の取得日時が rakutenFetchedBefore 以前の行と、楽天を止めていない書影なしの行を ID 順に取得する。
+func (r *repository) FindCoverRefreshTargets(ctx context.Context, rakutenFetchedBefore time.Time) ([]*domainbook.Book, error) {
 	var rows []model
 	err := r.db.WithContext(ctx).
-		Where("cover_source = ? AND cover_fetched_at <= ?", string(domainbook.CoverSourceRakuten), fetchedBefore).
+		Where("(cover_source = ? AND cover_fetched_at <= ?) OR (cover_source IS NULL AND NOT rakuten_disabled)",
+			string(domainbook.CoverSourceRakuten), rakutenFetchedBefore).
 		Order("id").Find(&rows).Error
 	if err != nil {
 		return nil, err
@@ -66,12 +67,12 @@ func (r *repository) FindCoverRefreshTargets(ctx context.Context, fetchedBefore 
 	for _, row := range rows {
 		tagIDs, err := findBookTagIDs(ctx, r.db, row.ID)
 		if err != nil {
-			slog.WarnContext(ctx, "failed to load tags for a rakuten refresh target; skipping this book", "book_id", row.ID, "error", err)
+			slog.WarnContext(ctx, "failed to load tags for a cover refresh target; skipping this book", "book_id", row.ID, "error", err)
 			continue
 		}
 		b, err := adapt(row, tagIDs)
 		if err != nil {
-			slog.WarnContext(ctx, "failed to adapt a rakuten refresh target; skipping this book", "book_id", row.ID, "error", err)
+			slog.WarnContext(ctx, "failed to adapt a cover refresh target; skipping this book", "book_id", row.ID, "error", err)
 			continue
 		}
 		books = append(books, b)

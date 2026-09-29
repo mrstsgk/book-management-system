@@ -3,6 +3,8 @@ package book_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -454,6 +456,9 @@ func TestRepository_FindCoverRefreshTargets(t *testing.T) {
 	createBook(t, db, oldOpenBD)
 	noCover := newBook(t, "9780000003645", "refresh-test-書影なし", nil, 4)
 	createBook(t, db, noCover)
+	disabledNoCover := newBook(t, coverRefreshTestISBN(t), "refresh-test-楽天の削除指示で書影なし", nil, 4)
+	disabledNoCover.DisableRakuten()
+	createBook(t, db, disabledNoCover)
 
 	got, err := repo.FindCoverRefreshTargets(context.Background(), fetchedBefore)
 	if err != nil {
@@ -464,12 +469,12 @@ func TestRepository_FindCoverRefreshTargets(t *testing.T) {
 	for _, b := range got {
 		byID[b.ID] = b
 	}
-	for _, want := range []*domainbook.Book{atBoundary, expired} {
+	for _, want := range []*domainbook.Book{atBoundary, expired, noCover} {
 		if byID[want.ID] == nil {
 			t.Errorf("book %q is not returned, want it as a refresh target", want.Bibliography.Title())
 		}
 	}
-	for _, notWant := range []*domainbook.Book{fresh, oldOpenBD, noCover} {
+	for _, notWant := range []*domainbook.Book{fresh, oldOpenBD, disabledNoCover} {
 		if byID[notWant.ID] != nil {
 			t.Errorf("book %q is returned, want it excluded", notWant.Bibliography.Title())
 		}
@@ -506,6 +511,22 @@ func TestRepository_FindCoverRefreshTargets(t *testing.T) {
 			t.Error("the broken book is returned, want it skipped")
 		}
 	})
+}
+
+// coverRefreshTestISBN は 9780000005000〜9780000005099 の範囲で実行ごとに変わる、チェックディジットが正しい ISBN-13 を返す。
+// 固定値だと、前回の実行で後始末できなかった行が共有の開発用DBに残っていたとき、作成が一意制約で落ちるため。
+func coverRefreshTestISBN(t *testing.T) string {
+	t.Helper()
+	first12 := fmt.Sprintf("97800000050%d", time.Now().UnixNano()%10)
+	sum := 0
+	for i, r := range first12 {
+		d := int(r - '0')
+		if i%2 == 1 {
+			d *= 3
+		}
+		sum += d
+	}
+	return first12 + strconv.Itoa((10-sum%10)%10)
 }
 
 func TestRepository_CreateAll(t *testing.T) {
