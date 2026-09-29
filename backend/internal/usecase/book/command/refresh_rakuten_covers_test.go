@@ -242,3 +242,80 @@ func TestRefreshRakutenCoversUsecase_Execute(t *testing.T) {
 		}
 	})
 }
+
+func TestRefreshRakutenCoversUsecase_Execute_CoverlessBook(t *testing.T) {
+	t.Parallel()
+	const isbn = "9780000005007"
+	coverless := func(t *testing.T) *book.Book {
+		b := rakutenBook(t, 1, isbn, refreshNow)
+		b.Cover = nil
+		return b
+	}
+	openBDCover, err := book.NewCover("https://cover.openbd.jp/"+isbn+".jpg", book.CoverSourceOpenBD)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range []struct {
+		name  string
+		cover *book.Cover
+	}{
+		{name: "openBDの書影", cover: &openBDCover},
+		{name: "楽天の書影", cover: newRakutenCover(t, refreshNow)},
+	} {
+		t.Run("書影なしの本に"+tt.name+"が取れたら、その書影で保存する", func(t *testing.T) {
+			t.Parallel()
+			books := &fakeRefreshBooks{targets: []*book.Book{coverless(t)}}
+			catalog := &fakeCatalogByISBN{entries: map[string]*book.CatalogEntry{isbn: catalogEntry(t, "書名", tt.cover)}}
+			uc := &command.RefreshRakutenCoversUsecaseImpl{Books: books, Catalog: catalog, Now: func() time.Time { return refreshNow }}
+
+			if err := uc.Execute(context.Background()); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(books.updated) != 1 || books.updated[0].Cover == nil || *books.updated[0].Cover != *tt.cover {
+				t.Fatalf("updated %+v, want the book saved with the found cover", books.updated)
+			}
+		})
+	}
+
+	for _, tt := range []struct {
+		name    string
+		catalog *fakeCatalogByISBN
+	}{
+		{name: "該当はあるが書影が無い", catalog: &fakeCatalogByISBN{entries: map[string]*book.CatalogEntry{isbn: catalogEntry(t, "書名", nil)}}},
+		{name: "カタログに該当なし", catalog: &fakeCatalogByISBN{}},
+		{name: "カタログの障害", catalog: &fakeCatalogByISBN{err: errors.New("openbd: timeout")}},
+	} {
+		t.Run("書影なしの本で"+tt.name+"なら保存しない", func(t *testing.T) {
+			t.Parallel()
+			b := coverless(t)
+			books := &fakeRefreshBooks{targets: []*book.Book{b}}
+			uc := &command.RefreshRakutenCoversUsecaseImpl{Books: books, Catalog: tt.catalog, Now: func() time.Time { return refreshNow }}
+
+			if err := uc.Execute(context.Background()); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(books.updated) != 0 || b.Cover != nil || b.Version != 1 {
+				t.Fatalf("updated=%d cover=%+v version=%d, want the book left unchanged", len(books.updated), b.Cover, b.Version)
+			}
+		})
+	}
+
+	t.Run("楽天の削除指示を受けた本に楽天の書影が来ても付けない", func(t *testing.T) {
+		t.Parallel()
+		b := coverless(t)
+		b.DisableRakuten()
+		books := &fakeRefreshBooks{targets: []*book.Book{b}}
+		catalog := &fakeCatalogByISBN{entries: map[string]*book.CatalogEntry{isbn: catalogEntry(t, "書名", newRakutenCover(t, refreshNow))}}
+		uc := &command.RefreshRakutenCoversUsecaseImpl{Books: books, Catalog: catalog, Now: func() time.Time { return refreshNow }}
+
+		if err := uc.Execute(context.Background()); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, u := range books.updated {
+			if u.Cover != nil {
+				t.Fatalf("saved cover %+v, want no Rakuten cover on a Rakuten-disabled book", u.Cover)
+			}
+		}
+	})
+}
