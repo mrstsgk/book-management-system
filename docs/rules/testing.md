@@ -77,6 +77,16 @@ Storybook は表示バリエーションのカタログであり、テストの�
   取得できること・Read Model の各フィールドへ正しくマッピングされることに加えて、**更新系の
   Domain Model（Entity・VO）に依存していないこと**（例: Read Model の `Title` が `string` であり
   書き込み側の `Title` VO 型を返していないこと）を確認する
+- **Presentation → Infrastructure の結合テスト**: 各 Handler につき、`httptest` + `common.NewEcho()` +
+  実際の DI 配線（`registerRoutes` 相当）+ 実際の PostgreSQL を通した実 HTTP リクエストで、その Handler が
+  **返しうる HTTP ステータスごとに最低 1 件**のテストを書く（200 のハッピーパス＋実際に返しうる 4xx/5xx を
+  それぞれ 1 件ずつ）。狙いは内部の分岐網羅ではなく、Handler→UseCase→Repository/Query→DB の配線が
+  実物同士で噛み合っていることの確認であり、既存の Fake ベースの Handler／UseCase テストと契約テストを
+  代替しない（分岐網羅・境界値はそれらに任せる）。外部 API（openBD・楽天など）に依存する Handler は、
+  その依存だけ Fake の Gateway に差し替え、DB は実物のままにする（外部ゲートウェイ自体は
+  `infrastructure/gateway/<name>` の単体テストで別途検証済みのため、ここで実ネットワークに頼る必要はない）。
+  ファイルは対象と同じディレクトリに `<handler>_integration_test.go` として置き、DB に繋がらなければ
+  契約テストと同じ理由（`docs/rules/testing.md` の Repository／Query の項を参照）で skip する
 - 実行: `cd backend && make test`（= `go test ./...`）
 
 ### frontend（React + Vite）
