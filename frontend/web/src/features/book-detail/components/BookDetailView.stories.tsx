@@ -42,6 +42,17 @@ type Story = StoryObj<typeof meta>
 
 export const OpenBD: Story = {}
 
+// Google Books の書影は、規約上「Powered by Google」とその本の Google Books へのリンクを一緒に出す
+export const GoogleBooks: Story = {
+  args: {
+    book: {
+      ...meta.args.book,
+      coverSource: 'googlebooks',
+      coverPageUrl: 'https://books.google.co.jp/books?id=example',
+    },
+  },
+}
+
 export const NoCover: Story = {
   args: {
     book: { ...meta.args.book, coverSource: undefined, amazonUrl: undefined },

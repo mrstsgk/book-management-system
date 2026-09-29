@@ -257,7 +257,7 @@ export const getPostApiBooksUrl = () => {
 }
 
 /**
- * 書誌と書影は ISBN で openBD から取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409
+ * 書誌は ISBN で openBD から、書影は Google Books → openBD の順で取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409
  * @summary 読んだ本を登録する（自分だけ）
  */
 export const postApiBooks = async (registerBookRequest: RegisterBookRequest, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
@@ -611,7 +611,7 @@ export const getGetApiCatalogIsbnUrl = (isbn: string,) => {
 }
 
 /**
- * 登録前の確認用。書誌と書影は openBD から取得する
+ * 登録前の確認用。書誌は openBD から、書影は Google Books → openBD の順で取得する
  * @summary ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
  */
 export const getApiCatalogIsbn = async (isbn: string, options?: Parameters<typeof apiMutator>[1]): Promise<CatalogResponse> => {

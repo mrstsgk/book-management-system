@@ -74,6 +74,21 @@ export const Filtered: Story = {
   args: { query: '設計', tagId: 2, hasFilter: true, total: 2, hasMore: false },
 }
 
+// Google Books の書影の本は、カードの外にその本の Google Books へのリンクと「Powered by Google」が出る
+export const GoogleBooksCover: Story = {
+  args: {
+    books: books.map((b, i) =>
+      i === 0
+        ? {
+            ...b,
+            coverSource: 'googlebooks' as const,
+            coverPageUrl: 'https://books.google.co.jp/books?id=example',
+          }
+        : b,
+    ),
+  },
+}
+
 export const LoadingMore: Story = { args: { isLoadingMore: true } }
 
 export const Loading: Story = { args: { books: [], isLoading: true } }

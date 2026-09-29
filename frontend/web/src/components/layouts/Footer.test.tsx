@@ -6,6 +6,8 @@ describe('Footer', () => {
   it('書誌・書影の入手元を表示する', () => {
     render(<Footer />)
 
-    expect(screen.getByText('書誌・書影: openBD')).toBeVisible()
+    expect(
+      screen.getByText('書誌: openBD ／ 書影: Google Books・openBD'),
+    ).toBeVisible()
   })
 })

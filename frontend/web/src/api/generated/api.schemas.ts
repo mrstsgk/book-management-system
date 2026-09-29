@@ -9,11 +9,14 @@ export type BookListItemResponseCoverSource = typeof BookListItemResponseCoverSo
 
 export const BookListItemResponseCoverSource = {
   openbd: 'openbd',
+  googlebooks: 'googlebooks',
 } as const;
 
 export interface BookListItemResponse {
   amazonUrl?: string;
   authors?: string;
+  /** CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ）。 */
+  coverPageUrl?: string;
   coverSource?: BookListItemResponseCoverSource;
   coverUrl?: string;
   id?: number;
@@ -37,6 +40,7 @@ export type BookResponseCoverSource = typeof BookResponseCoverSource[keyof typeo
 
 export const BookResponseCoverSource = {
   openbd: 'openbd',
+  googlebooks: 'googlebooks',
 } as const;
 
 export interface BookResponse {
@@ -44,6 +48,11 @@ export interface BookResponse {
   amazonUrl?: string;
   authors?: string;
   comment?: string;
+  /**
+     * CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ）。Google Books の書影は、画面でこのリンクと
+     * 「Powered by Google」と一緒に見せる必要がある。
+     */
+  coverPageUrl?: string;
   coverSource?: BookResponseCoverSource;
   /** CoverURL は提供元がホストする画像。 */
   coverUrl?: string;
@@ -66,11 +75,14 @@ export type CatalogResponseCoverSource = typeof CatalogResponseCoverSource[keyof
 
 export const CatalogResponseCoverSource = {
   openbd: 'openbd',
+  googlebooks: 'googlebooks',
 } as const;
 
 export interface CatalogResponse {
   amazonUrl?: string;
   authors?: string;
+  /** CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ。画面は書影と一緒にリンクする）。 */
+  coverPageUrl?: string;
   coverSource?: CatalogResponseCoverSource;
   coverUrl?: string;
   isbn?: string;

@@ -66,6 +66,40 @@ describe('BooksListView', () => {
     )
   })
 
+  it('Google Books の書影の本は、カードの外にその本の Google Books へのリンクを出し、「Powered by Google」を添える', () => {
+    setupView({
+      books: [
+        {
+          ...book,
+          coverUrl: 'https://books.google.com/books/content?id=a',
+          coverSource: 'googlebooks',
+          coverPageUrl: 'https://books.google.co.jp/books?id=a',
+        },
+      ],
+    })
+
+    const google = screen.getByRole('link', { name: /Google Books/ })
+    expect(google).toHaveAttribute(
+      'href',
+      'https://books.google.co.jp/books?id=a',
+    )
+    expect(google).toHaveAttribute('target', '_blank')
+    expect(google).toHaveAttribute('rel', 'noopener noreferrer')
+    // リンクの入れ子にしない（カードのリンクの中に置くと、どちらに移るか定まらないため）
+    const card = screen.getByRole('link', { name: /データ指向/ })
+    expect(card).not.toContainElement(google)
+    expect(screen.getByText('Powered by Google')).toBeVisible()
+  })
+
+  it('openBD の書影だけなら Google の表示を出さない', () => {
+    setupView()
+
+    expect(
+      screen.queryByRole('link', { name: /Google Books/ }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Powered by Google')).not.toBeInTheDocument()
+  })
+
   it('書影が無い本は「書影なし」の枠を出す', () => {
     setupView({ books: [{ ...book, coverUrl: undefined }] })
 

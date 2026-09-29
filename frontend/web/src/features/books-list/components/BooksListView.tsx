@@ -182,10 +182,25 @@ function BooksListBody({
 
   return (
     <>
+      {/* Google Books の規約では、その書影を出す結果の近くに「Powered by Google」が要る */}
+      {books.some(isGoogleBooksCover) && (
+        <p className="text-right text-xs text-ink-600">Powered by Google</p>
+      )}
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-5">
         {books.map((book) => (
-          <li key={book.id}>
+          <li key={book.id} className="flex flex-col gap-1">
             <BookCard book={book} />
+            {/* カードのリンクの中に入れるとリンクの入れ子になるので、カードの外に置く */}
+            {isGoogleBooksCover(book) && (
+              <a
+                href={book.coverPageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-fit px-1 text-xs text-brand-700 hover:underline"
+              >
+                Google Books <span aria-hidden="true">↗</span>
+              </a>
+            )}
           </li>
         ))}
       </ul>
@@ -211,6 +226,10 @@ function BooksListBody({
       </div>
     </>
   )
+}
+
+function isGoogleBooksCover(book: BookListItemResponse): boolean {
+  return book.coverSource === 'googlebooks' && Boolean(book.coverPageUrl)
 }
 
 function BookCard({ book }: { book: BookListItemResponse }) {

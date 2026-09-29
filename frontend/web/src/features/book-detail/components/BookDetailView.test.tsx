@@ -98,6 +98,37 @@ describe('BookDetailView', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('Google Books の書影なら「Powered by Google」とその本の Google Books へのリンクを出す', () => {
+    renderWithProviders(
+      <BookDetailView
+        book={{
+          ...openbdBook,
+          coverUrl: 'https://books.google.com/books/content?id=a',
+          coverSource: 'googlebooks',
+          coverPageUrl: 'https://books.google.co.jp/books?id=a',
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Powered by Google')).toBeVisible()
+    const link = screen.getByRole('link', { name: /Google Books で見る/ })
+    expect(link).toHaveAttribute(
+      'href',
+      'https://books.google.co.jp/books?id=a',
+    )
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('openBD の書影なら Google の表示を出さない', () => {
+    renderWithProviders(<BookDetailView book={openbdBook} />)
+
+    expect(screen.queryByText('Powered by Google')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: /Google Books で見る/ }),
+    ).not.toBeInTheDocument()
+  })
+
   it('一覧へ戻るリンクを出す', () => {
     renderWithProviders(<BookDetailView book={openbdBook} />)
 

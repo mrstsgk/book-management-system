@@ -23,6 +23,20 @@ function BookCover({ book }: BookDetailViewProps) {
           書影なし
         </div>
       )}
+      {/* Google Books の規約では、書影と一緒に「Powered by Google」とその本の Google Books へのリンクが要る */}
+      {book.coverSource === 'googlebooks' && book.coverPageUrl && (
+        <p className="flex flex-col gap-1 text-xs text-ink-600">
+          <span>Powered by Google</span>
+          <a
+            href={book.coverPageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-700 hover:underline"
+          >
+            Google Books で見る <span aria-hidden="true">↗</span>
+          </a>
+        </p>
+      )}
     </div>
   )
 }
