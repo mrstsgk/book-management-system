@@ -1,7 +1,7 @@
 # 楽天ブックスは書影を補う用途だけに使い、書誌は openBD だけから取る
 
 **日付:** 2026-09-28
-**状態:** 採用
+**状態:** 撤去（2026-09-29 に [書影は Google Books → openBD の順で取り、楽天ブックスは撤去する](./2026-09-29-cover-from-google-books-and-openbd.md) で置き換え）
 **カテゴリ:** architecture
 **参照:** 一部を置き換え: [書影は外部カタログ（openBD・楽天ブックス）の URL を表示し、自前の画像アップロードをやめる](./2026-09-28-book-cover-from-external-catalogs.md)、[要件定義](../specifications.md) §1.1・§1.2
 
