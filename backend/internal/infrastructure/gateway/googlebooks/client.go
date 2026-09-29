@@ -39,7 +39,8 @@ func (c *Client) FindCover(ctx context.Context, isbn string) (*Cover, error) {
 	q := url.Values{"q": {"isbn:" + isbn}, "key": {c.apiKey}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/books/v1/volumes?"+q.Encode(), nil)
 	if err != nil {
-		return nil, err
+		// 解析エラーはキー入りの URL をそのまま含むので、元のエラーは包まない
+		return nil, errors.New("googlebooks: invalid request URL")
 	}
 	res, err := c.client.Do(req)
 	if err != nil {

@@ -104,6 +104,13 @@ func TestClient_FindCover(t *testing.T) {
 		}
 	})
 
+	t.Run("要求を組み立てられなくてもエラーにAPIキーを含めない", func(t *testing.T) {
+		_, err := googlebooks.NewClient("https://[::1", "secret-key", http.DefaultClient).FindCover(context.Background(), "9784297146221")
+		if err == nil || strings.Contains(err.Error(), "secret-key") {
+			t.Fatalf("err = %v, want an error without the key", err)
+		}
+	})
+
 	t.Run("キャンセルされたctxならエラー", func(t *testing.T) {
 		srv, _ := serve(t, http.StatusOK, withCover)
 		ctx, cancel := context.WithCancel(context.Background())
