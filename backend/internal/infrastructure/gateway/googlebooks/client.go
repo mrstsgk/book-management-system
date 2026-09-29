@@ -31,11 +31,31 @@ func NewClient(baseURL, apiKey string, httpClient *http.Client) *Client {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
-	return &Client{baseURL: baseURL, apiKey: apiKey, client: httpClient}
+	// 呼び出し側の http.Client は他の Gateway と共有しているので、書き換えずに写しへリダイレクトの制限を付ける
+	c := *httpClient
+	next := httpClient.CheckRedirect
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		// リダイレクト先の URL にもキーが付いたまま送られるので、https 以外へは追わない
+		if req.URL.Scheme != "https" {
+			return errors.New("googlebooks: refused redirect to non-https URL")
+		}
+		if next != nil {
+			return next(req, via)
+		}
+		if len(via) >= 10 {
+			return errors.New("googlebooks: stopped after 10 redirects")
+		}
+		return nil
+	}
+	return &Client{baseURL: baseURL, apiKey: apiKey, client: &c}
 }
 
 // FindCover は ISBN の書影を返す。該当なし・imageLinks なしは (nil, nil)。通信・HTTP の失敗は error。
 func (c *Client) FindCover(ctx context.Context, isbn string) (*Cover, error) {
+	// API キーはクエリで送るため、平文の HTTP では問い合わせない
+	if !strings.HasPrefix(c.baseURL, "https://") {
+		return nil, errors.New("googlebooks: base URL must be https")
+	}
 	q := url.Values{"q": {"isbn:" + isbn}, "key": {c.apiKey}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/books/v1/volumes?"+q.Encode(), nil)
 	if err != nil {

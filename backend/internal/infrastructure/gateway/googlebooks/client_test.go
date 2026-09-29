@@ -23,7 +23,7 @@ const withCover = `{"kind":"books#volumes","totalItems":1,"items":[{"id":"abc123
 func serve(t *testing.T, status int, body string) (*httptest.Server, *url.Values) {
 	t.Helper()
 	var got url.Values
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/books/v1/volumes" {
 			http.NotFound(w, r)
 			return
@@ -130,6 +130,44 @@ func TestClient_FindCover(t *testing.T) {
 		_, err := googlebooks.NewClient(srv.URL, "k", srv.Client()).FindCover(ctx, "9784297146221")
 		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("err = %v, want context.Canceled", err)
+		}
+	})
+}
+
+// APIキーはクエリで送るため、平文の HTTP には一度も出さない
+func TestClient_FindCover_RefusesPlainHTTP(t *testing.T) {
+	plainHits := 0
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		plainHits++
+		_, _ = w.Write([]byte(withCover))
+	}))
+	t.Cleanup(plain.Close)
+
+	t.Run("baseURLがhttpsでなければ問い合わせずにエラー", func(t *testing.T) {
+		plainHits = 0
+		_, err := googlebooks.NewClient(plain.URL, "secret-key", plain.Client()).FindCover(context.Background(), "9784297146221")
+		if err == nil || plainHits != 0 {
+			t.Fatalf("err = %v, hits = %d, want an error and no request", err, plainHits)
+		}
+	})
+
+	t.Run("httpへのリダイレクトは追わずにエラー", func(t *testing.T) {
+		plainHits = 0
+		redirecting := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, plain.URL+r.URL.RequestURI(), http.StatusFound)
+		}))
+		t.Cleanup(redirecting.Close)
+		_, err := googlebooks.NewClient(redirecting.URL, "secret-key", redirecting.Client()).FindCover(context.Background(), "9784297146221")
+		if err == nil || plainHits != 0 {
+			t.Fatalf("err = %v, hits = %d, want an error and no request to the http server", err, plainHits)
+		}
+	})
+
+	t.Run("渡したhttp.Clientの設定は書き換えない", func(t *testing.T) {
+		httpClient := &http.Client{}
+		googlebooks.NewClient("", "k", httpClient)
+		if httpClient.CheckRedirect != nil {
+			t.Fatal("NewClient must not mutate the caller's http.Client")
 		}
 	})
 }
