@@ -32,7 +32,7 @@
 ### PR-M0: 管理画面の土台（`feat/admin-screens-foundation`、すぐ着手）
 
 **Files:**
-- Create: `web/src/lib/admin-auth.ts`（`adminToken(): string`、`adminRequest(): RequestInit`）+ test、`web/.env.development`（`VITE_ADMIN_TOKEN=local-admin-token`）、`web/src/vite-env.d.ts` に型
+- Create: `web/src/lib/admin-auth.ts`（`adminToken(): string`、`adminRequest(): RequestInit`）+ test、`frontend/README.md` に `web/.env.development.local`（git 管理外）へ `VITE_ADMIN_TOKEN` を書く手順、`web/src/vite-env.d.ts` に型
 - Modify: `web/src/api/mutator.ts`（`ApiError.fieldErrors`）+ test
 - Create: `web/src/components/layouts/AdminLayout.tsx`（+ test。トークン未設定の注意を含む）、`web/src/components/ui/ConfirmDialog.tsx`、`web/src/components/form/{FormField,ErrorSummary}.tsx`（+ tests、stories）
 - Modify: `web/src/app/router.tsx`（`/admin`・`/admin/books/new`・`/admin/books/:id/edit`・`/admin/tags` に仮置きの route。各 PR がその route ファイルだけを差し替える）、`web/src/app/routes/Admin*Route.tsx`（+ 同名の仮テスト）

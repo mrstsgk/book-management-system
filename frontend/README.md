@@ -24,6 +24,16 @@ pnpm storybook        # :6006
 pnpm build-storybook
 ```
 
+## 管理画面の管理者トークン
+
+管理画面（`/admin`）から書き込むには、バックエンドの `ADMIN_TOKEN` と同じ値を `web/.env.development.local`（git 管理外）に書いてから `pnpm dev` を起動する。
+
+```bash
+echo 'VITE_ADMIN_TOKEN=local-admin-token' > web/.env.development.local   # バックエンドの既定値
+```
+
+値は画面のコードに埋め込まれるので、この設定でビルドしたものを公開しない（[ADR](../docs/adr/2026-09-30-admin-token-from-env.md)）。
+
 ## 構成
 
 - `web/` … 読んだ本の紹介画面と、自分用の登録・編集画面
