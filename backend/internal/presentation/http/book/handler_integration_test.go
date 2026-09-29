@@ -9,8 +9,10 @@ package book_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -113,9 +115,31 @@ func mustCreateIntegrationBook(t *testing.T, db *gorm.DB, isbn string) *domainbo
 
 func itoa(v int64) string { return strconv.FormatInt(v, 10) }
 
+// integrationISBNSeq は nextIntegrationISBN の一意性を同一プロセス内の複数呼び出しでも保証するための連番。
+var integrationISBNSeq int64
+
+// nextIntegrationISBN は結合テストごとに一意な、チェックディジットが正しい ISBN-13 を生成する。
+// 固定リテラルだと、前回実行のクリーンアップ漏れ（プロセスの強制終了など）で同じ ISBN の行が
+// 開発用 DB に残っていた場合、Repository がユニーク制約違反を ErrConflict に変換してしまい、
+// Handler の検証（本テストの目的）に届く前にテストが落ちてしまうため。
+func nextIntegrationISBN(t *testing.T) string {
+	t.Helper()
+	n := time.Now().UnixNano() + atomic.AddInt64(&integrationISBNSeq, 1)
+	first12 := fmt.Sprintf("978%09d", n%1_000_000_000)
+	sum := 0
+	for i, r := range first12 {
+		d := int(r - '0')
+		if i%2 == 1 {
+			d *= 3
+		}
+		sum += d
+	}
+	return first12 + strconv.Itoa((10-sum%10)%10)
+}
+
 func TestBookHandlerIntegration_List(t *testing.T) {
 	db := connectIntegrationDB(t)
-	mustCreateIntegrationBook(t, db, "9780000004000")
+	mustCreateIntegrationBook(t, db, nextIntegrationISBN(t))
 	h := newIntegrationHandler(db, &integrationFakeCatalog{})
 
 	t.Run("200: ハッピーパス", func(t *testing.T) {
@@ -139,7 +163,8 @@ func TestBookHandlerIntegration_List(t *testing.T) {
 
 func TestBookHandlerIntegration_Get(t *testing.T) {
 	db := connectIntegrationDB(t)
-	b := mustCreateIntegrationBook(t, db, "9780000004017")
+	isbn := nextIntegrationISBN(t)
+	b := mustCreateIntegrationBook(t, db, isbn)
 	h := newIntegrationHandler(db, &integrationFakeCatalog{})
 
 	t.Run("200: ハッピーパス", func(t *testing.T) {
@@ -148,8 +173,8 @@ func TestBookHandlerIntegration_Get(t *testing.T) {
 			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 		}
 		got := decode[httpbook.Response](t, rec)
-		if got.ISBN != "9780000004017" {
-			t.Fatalf("isbn = %q, want 9780000004017", got.ISBN)
+		if got.ISBN != isbn {
+			t.Fatalf("isbn = %q, want %s", got.ISBN, isbn)
 		}
 	})
 
@@ -165,7 +190,7 @@ func TestBookHandlerIntegration_Register(t *testing.T) {
 	db := connectIntegrationDB(t)
 
 	t.Run("200: ハッピーパス", func(t *testing.T) {
-		const isbn = "9780000004024"
+		isbn := nextIntegrationISBN(t)
 		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
 		body := `{"isbn":"` + isbn + `","summary":"要約","comment":"良書","rating":5}`
 		rec := serve(t, h, http.MethodPost, "/api/books", body, true)
@@ -189,14 +214,14 @@ func TestBookHandlerIntegration_Register(t *testing.T) {
 
 	t.Run("401: トークン無し", func(t *testing.T) {
 		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"9780000004031","summary":"要約","comment":"良書","rating":5}`, false)
+		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+nextIntegrationISBN(t)+`","summary":"要約","comment":"良書","rating":5}`, false)
 		if rec.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
 		}
 	})
 
 	t.Run("409: 同じISBNの登録済み", func(t *testing.T) {
-		const isbn = "9780000004048"
+		isbn := nextIntegrationISBN(t)
 		mustCreateIntegrationBook(t, db, isbn)
 		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
 		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+isbn+`","summary":"要約","comment":"良書","rating":5}`, true)
@@ -210,8 +235,9 @@ func TestBookHandlerIntegration_Update(t *testing.T) {
 	db := connectIntegrationDB(t)
 
 	t.Run("200: ハッピーパス", func(t *testing.T) {
-		b := mustCreateIntegrationBook(t, db, "9780000004055")
-		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, "9780000004055")})
+		isbn := nextIntegrationISBN(t)
+		b := mustCreateIntegrationBook(t, db, isbn)
+		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
 		body := `{"summary":"読み返した要約","comment":"読み返した感想","rating":3,"version":` + itoa(int64(b.Version)) + `}`
 		rec := serve(t, h, http.MethodPut, "/api/books/"+itoa(int64(b.ID)), body, true)
 		if rec.Code != http.StatusOK {
@@ -224,8 +250,9 @@ func TestBookHandlerIntegration_Update(t *testing.T) {
 	})
 
 	t.Run("400: バリデーション不正", func(t *testing.T) {
-		b := mustCreateIntegrationBook(t, db, "9780000004062")
-		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, "9780000004062")})
+		isbn := nextIntegrationISBN(t)
+		b := mustCreateIntegrationBook(t, db, isbn)
+		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
 		body := `{"summary":"要約","comment":"","rating":3,"version":` + itoa(int64(b.Version)) + `}`
 		rec := serve(t, h, http.MethodPut, "/api/books/"+itoa(int64(b.ID)), body, true)
 		if rec.Code != http.StatusBadRequest {
@@ -250,8 +277,9 @@ func TestBookHandlerIntegration_Update(t *testing.T) {
 	})
 
 	t.Run("409: バージョン不一致", func(t *testing.T) {
-		b := mustCreateIntegrationBook(t, db, "9780000004079")
-		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, "9780000004079")})
+		isbn := nextIntegrationISBN(t)
+		b := mustCreateIntegrationBook(t, db, isbn)
+		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
 		body := `{"summary":"要約","comment":"良書","rating":3,"version":` + itoa(int64(b.Version)+1) + `}`
 		rec := serve(t, h, http.MethodPut, "/api/books/"+itoa(int64(b.ID)), body, true)
 		if rec.Code != http.StatusConflict {
@@ -264,7 +292,7 @@ func TestBookHandlerIntegration_Delete(t *testing.T) {
 	db := connectIntegrationDB(t)
 
 	t.Run("204: ハッピーパス", func(t *testing.T) {
-		b := mustCreateIntegrationBook(t, db, "9780000004086")
+		b := mustCreateIntegrationBook(t, db, nextIntegrationISBN(t))
 		h := newIntegrationHandler(db, &integrationFakeCatalog{})
 		rec := serve(t, h, http.MethodDelete, "/api/books/"+itoa(int64(b.ID)), "", true)
 		if rec.Code != http.StatusNoContent {
@@ -293,7 +321,7 @@ func TestBookHandlerIntegration_DisableRakuten(t *testing.T) {
 	db := connectIntegrationDB(t)
 
 	t.Run("204: ハッピーパス", func(t *testing.T) {
-		b := mustCreateIntegrationBook(t, db, "9780000004093")
+		b := mustCreateIntegrationBook(t, db, nextIntegrationISBN(t))
 		h := newIntegrationHandler(db, &integrationFakeCatalog{})
 		rec := serve(t, h, http.MethodDelete, "/api/books/"+itoa(int64(b.ID))+"/rakuten", "", true)
 		if rec.Code != http.StatusNoContent {
