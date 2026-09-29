@@ -122,7 +122,7 @@ ALTER TABLE book ADD CONSTRAINT ck_book_rakuten_cover CHECK (
 | `Cover` | 楽天は商品ページ・取得日時が必須、openBD に楽天を渡すとエラー、`IsExpired` の境界（88日台・89日）、`NeedsRefresh` の境界（81日台・82日）、openBD は期限切れにならない |
 | `Book` | `DropExpiredCover`、`DisableRakuten` の後は `RefreshCatalog` で楽天の書影が付かない（openBD の書影は付く） |
 | 楽天のゲートウェイ | `itemUrl` を読む、`itemUrl` が空なら書影なし |
-| `book.Repository`（契約テスト） | 商品ページ・取得日時・`rakuten_disabled` を保存して読める、`FindRakutenRefreshTargets` の境界 |
+| `book.Repository`（契約テスト） | 商品ページ・取得日時・`rakuten_disabled` を保存して読める、`FindCoverRefreshTargets` の境界 |
 | `book.Query`（契約テスト） | 期限切れの楽天の書影を返さない（詳細・一覧）、期限前は返す、openBD の書影は古くても返す |
 | `RefreshRakutenCoversUsecase`（Fake） | 取り直せたら更新、取り直せず期限切れなら外す、期限前なら触らない、`ErrConflict` を飛ばす、1冊の失敗で止まらない |
 | `UpdateUsecase`（Fake） | 取り直せず期限切れなら外して保存する |
@@ -136,3 +136,12 @@ ALTER TABLE book ADD CONSTRAINT ck_book_rakuten_cover CHECK (
 3. 楽天からの削除指示への対応（§7。`RakutenDisabled`・`DELETE` API）
 
 1 の後に 2・3 を並行して進められる。1 は[見本データ投入](./2026-09-28-sample-data-design.md)（起動時に書影を取る）・[一覧の検索](./2026-09-28-book-list-search-design.md)（`book.Query` を変える）と触る箇所が重なるので、それらの後にマージする側が合わせる。
+
+## 追記（2026-09-29）: 書影なしの本も取り直しの対象にする
+
+楽天のキーを設定せずに見本データを入れると、見本の本は書影なしで保存される。取り直しの対象が「楽天の書影を持ち期限が近い本」だけだったため、後からキーを設定しても書影が付かず、[要件定義 §1.2](../../specifications.md#12-楽天由来の情報の持ち方)の「見本データの書影はキーを設定して起動したときに楽天から取得する」を満たしていなかった。
+
+- 起動時と1日1回の取り直しの対象に、書影なしの本（`cover_source IS NULL`）を加える。楽天から削除の指示を受けた本（`rakuten_disabled`）は含めない
+- 取り直し対象を探す `book.Repository` のメソッドは `FindRakutenRefreshTargets` から `FindCoverRefreshTargets` に改めた（楽天に限らなくなったため）
+- 書影なしの本で書影が見つからない・取れないときは保存しない（`version` を進めず、同時に編集している画面と無駄に競合させないため）
+- openBD の書影を持つ本は対象にしない（openBD の書影に保持期限は無い）
