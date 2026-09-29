@@ -14,7 +14,10 @@ export function Header() {
         <Link to="/" className="text-lg font-bold hover:text-brand-700">
           読んだ本
         </Link>
-        <nav aria-label="メイン" className="flex h-full gap-5 text-sm md:gap-7 md:text-[15px]">
+        <nav
+          aria-label="メイン"
+          className="flex h-full gap-5 text-sm md:gap-7 md:text-[15px]"
+        >
           {/* end: 詳細（/books/:id）を開いているときに「一覧」を今いる画面にしない */}
           <NavLink to="/" end className={navLinkClass}>
             一覧
