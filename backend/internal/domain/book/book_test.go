@@ -149,6 +149,24 @@ func TestBook_RefreshCatalog_ReplacesCover(t *testing.T) {
 	}
 }
 
+func TestBook_RefreshCatalog_KeepsGoogleBooksPage(t *testing.T) {
+	t.Parallel()
+	b := mustBook(t)
+	bib, _ := book.NewBibliography("データ指向アプリケーションデザイン", "Kleppmann,Martin", "オーム社", "201907")
+	gc, err := book.NewGoogleBooksCover("https://books.google.com/books/content?id=a", "https://books.google.co.jp/books?id=a")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b.RefreshCatalog(bib, &gc)
+	gc = book.Cover{}
+
+	// ページを失うと、規約上必要な Google Books へのリンクを画面に出せなくなる
+	if b.Cover == nil || b.Cover.Source() != book.CoverSourceGoogleBooks || b.Cover.PageURL() != "https://books.google.co.jp/books?id=a" {
+		t.Fatalf("cover=%+v, want the Google Books cover with its page, independent of the caller's variable", b.Cover)
+	}
+}
+
 // Read Model は書き込み側の VO・Entity に依存しない（docs/rules/testing.md）。
 func TestReadModels_UsePlainFieldTypes(t *testing.T) {
 	t.Parallel()
