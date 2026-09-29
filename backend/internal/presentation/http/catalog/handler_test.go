@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -63,7 +62,7 @@ func strPtr(s string) *string { return &s }
 
 func TestHandlerLookup(t *testing.T) {
 	t.Run("書誌・書影・Amazonリンクを返し、入力はそのままusecaseに渡す", func(t *testing.T) {
-		cover, err := domainbook.NewRakutenCover("https://thumbnail.image.rakuten.co.jp/1.jpg", "https://books.rakuten.co.jp/rb/1/", time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC))
+		cover, err := domainbook.NewCover("https://cover.openbd.jp/9784873118703.jpg", domainbook.CoverSourceOpenBD)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -87,8 +86,7 @@ func TestHandlerLookup(t *testing.T) {
 		want := httpcatalog.Response{
 			ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
 			Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
-			CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"),
-			CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"),
+			CoverURL: strPtr("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: strPtr("openbd"),
 		}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("body = %+v\nwant %+v", got, want)

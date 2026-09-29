@@ -58,7 +58,6 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 		"POST /api/books",
 		"PUT /api/books/:id",
 		"DELETE /api/books/:id",
-		"DELETE /api/books/:id/rakuten",
 		"GET /api/catalog/:isbn",
 		"GET /api/tags",
 		"GET /api/tags/counts",
@@ -69,6 +68,10 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 		if !got[want] {
 			t.Errorf("route %q is not registered (got %v)", want, got)
 		}
+	}
+	// 楽天は撤去した（書影は openBD から取る）ので、楽天由来の情報を消す API も残さない
+	if got["DELETE /api/books/:id/rakuten"] {
+		t.Error("the Rakuten removal route must no longer be registered")
 	}
 }
 
@@ -123,104 +126,9 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 	}
 }
 
-// blockingRefresh は Execute のたびに呼ばれたことを知らせ、release が閉じられるまで返らない
-// （ctx がキャンセルされても、外部カタログの応答待ちのように実行中の1回はすぐには終わらないことを模す）。
-type blockingRefresh struct {
-	calls   chan struct{}
-	release chan struct{}
-}
-
-func (f *blockingRefresh) Execute(_ context.Context) error {
-	f.calls <- struct{}{}
-	<-f.release
-	return nil
-}
-
-func TestStartRakutenRefresh(t *testing.T) {
-	t.Run("取り直しが終わるのを待たずに返り、起動直後に1回呼ぶ", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		uc := &blockingRefresh{calls: make(chan struct{}, 10), release: make(chan struct{})}
-		defer close(uc.release) // 実行中のままリークさせない
-
-		returned := make(chan struct{})
-		go func() {
-			startRakutenRefresh(ctx, uc, time.Hour)
-			close(returned)
-		}()
-
-		select {
-		case <-returned:
-		case <-time.After(time.Second):
-			t.Fatal("startRakutenRefresh blocked; the server must not wait for the refresh")
-		}
-		select {
-		case <-uc.calls:
-		case <-time.After(time.Second):
-			t.Fatal("refresh was not run at startup")
-		}
-	})
-
-	t.Run("間隔ごとに呼び、止めたらそれ以上呼ばない", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		uc := &blockingRefresh{calls: make(chan struct{}, 100), release: make(chan struct{})}
-		close(uc.release)
-
-		startRakutenRefresh(ctx, uc, 10*time.Millisecond)
-		for range 2 {
-			select {
-			case <-uc.calls:
-			case <-time.After(time.Second):
-				t.Fatal("refresh was not repeated at the interval")
-			}
-		}
-		cancel()
-		time.Sleep(30 * time.Millisecond) // 止まる前に走っていた1回を捨てる
-		for len(uc.calls) > 0 {
-			<-uc.calls
-		}
-		time.Sleep(50 * time.Millisecond)
-		if n := len(uc.calls); n != 0 {
-			t.Fatalf("refresh ran %d times after cancel, want it stopped", n)
-		}
-	})
-
-	t.Run("実行中にキャンセルしても、その回が終わるまで完了を知らせない", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		uc := &blockingRefresh{calls: make(chan struct{}, 10), release: make(chan struct{})}
-
-		done := startRakutenRefresh(ctx, uc, time.Hour)
-		select {
-		case <-uc.calls:
-		case <-time.After(time.Second):
-			t.Fatal("refresh was not run at startup")
-		}
-		cancel()
-
-		select {
-		case <-done:
-			t.Fatal("done closed before the in-flight refresh returned; DB close could race with it")
-		case <-time.After(50 * time.Millisecond):
-		}
-
-		close(uc.release) // 実行中の1回を終わらせる
-
-		select {
-		case <-done:
-		case <-time.After(time.Second):
-			t.Fatal("done was not closed after the in-flight refresh returned")
-		}
-	})
-}
-
-func TestNewCatalog_WorksWithAndWithoutRakutenKeys(t *testing.T) {
-	for _, cfg := range []config.CatalogConfig{
-		{OpenBDBaseURL: "http://openbd.test"},
-		{OpenBDBaseURL: "http://openbd.test", RakutenBaseURL: "http://rakuten.test", RakutenApplicationID: "app", RakutenAccessKey: "key"},
-	} {
-		if newCatalog(cfg) == nil {
-			t.Fatalf("newCatalog(%+v) returned nil", cfg)
-		}
+func TestNewCatalog_ReturnsTheOpenBDCatalog(t *testing.T) {
+	if newCatalog(config.CatalogConfig{OpenBDBaseURL: "http://openbd.test"}) == nil {
+		t.Fatal("newCatalog returned nil")
 	}
 }
 
@@ -269,7 +177,7 @@ func migratedTempDB(t *testing.T) *gorm.DB {
 func TestSeedIfEmpty_OnAnEmptyDatabaseSeedsOnceAcrossRestarts(t *testing.T) {
 	db := migratedTempDB(t)
 	ctx := context.Background()
-	books, query := pgbook.NewRepository(db), pgbook.NewQuery(db, time.Now)
+	books, query := pgbook.NewRepository(db), pgbook.NewQuery(db)
 	offline := &fakeSeedCatalog{err: fmt.Errorf("offline")}
 
 	for start := 1; start <= 2; start++ {

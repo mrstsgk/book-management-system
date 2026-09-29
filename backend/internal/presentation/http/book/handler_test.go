@@ -85,14 +85,14 @@ func strPtr(s string) *string { return &s }
 var detail = &domainbook.BookDetail{
 	ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
 	Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
-	CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"), CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"),
+	CoverURL: strPtr("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: strPtr("openbd"),
 	Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Comment: "良書\n2行目", Rating: 5, Version: 1,
 }
 
 var detailResponse = httpbook.Response{
 	ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
 	Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
-	CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"), CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"),
+	CoverURL: strPtr("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: strPtr("openbd"),
 	Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Comment: "良書\n2行目", Rating: 5, Version: 1,
 }
 
@@ -103,7 +103,7 @@ func mustNotCall(t *testing.T) func() {
 func TestHandlerList(t *testing.T) {
 	list := &domainbook.BookList{Total: 21, Items: []*domainbook.BookListItem{{
 		ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Authors: "Kleppmann,Martin",
-		AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"), CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"), Rating: 5,
+		AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), CoverURL: strPtr("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: strPtr("openbd"), Rating: 5,
 	}}}
 
 	for _, tt := range []struct {
@@ -130,7 +130,7 @@ func TestHandlerList(t *testing.T) {
 			}
 			want := httpbook.ListResponse{Total: 21, Limit: tt.wantLimit, Offset: tt.wantOffset, Items: []httpbook.ListItemResponse{{
 				ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Authors: "Kleppmann,Martin",
-				AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), CoverURL: strPtr("https://thumbnail.image.rakuten.co.jp/1.jpg"), CoverSource: strPtr("rakuten"), CoverProductURL: strPtr("https://books.rakuten.co.jp/rb/1/"), Rating: 5,
+				AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"), CoverURL: strPtr("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: strPtr("openbd"), Rating: 5,
 			}}}
 			if got := decode[httpbook.ListResponse](t, rec); !reflect.DeepEqual(got, want) {
 				t.Fatalf("body = %+v, want %+v", got, want)
@@ -453,51 +453,4 @@ func TestHandlerDelete(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestHandlerDisableRakuten(t *testing.T) {
-	t.Run("トークンがあればパスのIDで楽天由来の情報を消して204", func(t *testing.T) {
-		var gotID int64
-		h := &httpbook.Handler{DisableRakutenUC: fakeDelete(func(_ context.Context, id int64) error { gotID = id; return nil })}
-		rec := serve(t, h, http.MethodDelete, "/api/books/5/rakuten", "", true)
-		if rec.Code != http.StatusNoContent || gotID != 5 {
-			t.Fatalf("status = %d id = %d, want 204 for id 5", rec.Code, gotID)
-		}
-	})
-
-	for _, tt := range []struct {
-		name      string
-		path      string
-		withToken bool
-		err       error
-		want      int
-	}{
-		{name: "トークンが無ければ401", path: "/api/books/5/rakuten", withToken: false, want: http.StatusUnauthorized},
-		{name: "不正なIDは400", path: "/api/books/abc/rakuten", withToken: true, want: http.StatusBadRequest},
-		{name: "存在しない本は404", path: "/api/books/5/rakuten", withToken: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
-		{name: "2回続けて競合したら409", path: "/api/books/5/rakuten", withToken: true, err: domaincommon.ErrConflict, want: http.StatusConflict},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			h := &httpbook.Handler{DisableRakutenUC: fakeDelete(func(context.Context, int64) error {
-				if tt.err == nil {
-					t.Error("usecase must not be called")
-				}
-				return tt.err
-			})}
-			if rec := serve(t, h, http.MethodDelete, tt.path, "", tt.withToken); rec.Code != tt.want {
-				t.Fatalf("status = %d, want %d", rec.Code, tt.want)
-			}
-		})
-	}
-
-	t.Run("詳細の応答で楽天の情報を消した本だと分かる", func(t *testing.T) {
-		d := *detail
-		d.CoverURL, d.CoverSource, d.CoverProductURL = nil, nil, nil
-		d.RakutenDisabled = true
-		h := &httpbook.Handler{GetUC: fakeGet(func(context.Context, int64) (*domainbook.BookDetail, error) { return &d, nil })}
-		rec := serve(t, h, http.MethodGet, "/api/books/1", "", false)
-		if got := decode[httpbook.Response](t, rec); !got.RakutenDisabled {
-			t.Fatalf("rakutenDisabled = %v, want true (body=%s)", got.RakutenDisabled, rec.Body.String())
-		}
-	})
 }

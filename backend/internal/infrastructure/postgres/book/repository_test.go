@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"gorm.io/gorm"
 
@@ -51,91 +50,6 @@ func mustCover(t *testing.T, url string) *domainbook.Cover {
 		t.Fatal(err)
 	}
 	return &c
-}
-
-// mustRakutenCover は取得日時 fetchedAt の楽天の書影を作る。DB の TIMESTAMPTZ はマイクロ秒までなので、渡す時刻もそこで丸める。
-func mustRakutenCover(t *testing.T, url, productURL string, fetchedAt time.Time) *domainbook.Cover {
-	t.Helper()
-	c, err := domainbook.NewRakutenCover(url, productURL, fetchedAt.Truncate(time.Microsecond))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return &c
-}
-
-func TestRepository_RakutenCover(t *testing.T) {
-	db := connectTestDB(t)
-	repo := pgbook.NewRepository(db)
-	// 日本時間で渡しても、読み直した時刻が同じ瞬間を指すこと（タイムゾーンでずれないこと）を確かめる
-	fetchedAt := time.Date(2026, 9, 1, 12, 34, 56, 123456000, time.FixedZone("JST", 9*60*60))
-	b := newBook(t, "9780000003409", "rakuten-test-楽天の書影", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/rakuten-test.jpg", "https://books.rakuten.co.jp/rb/15949390/", fetchedAt), 4)
-	createBook(t, db, b)
-
-	t.Run("楽天の書影は商品ページと取得日時ごと保存して読める", func(t *testing.T) {
-		got, err := repo.FindByID(context.Background(), b.ID)
-		if err != nil {
-			t.Fatalf("FindByID: %v", err)
-		}
-		c := got.Cover
-		if c == nil || c.Source() != domainbook.CoverSourceRakuten || c.URL() != "https://thumbnail.image.rakuten.co.jp/rakuten-test.jpg" ||
-			c.ProductURL() != "https://books.rakuten.co.jp/rb/15949390/" || !c.FetchedAt().Equal(fetchedAt) {
-			t.Fatalf("Cover = %+v, want the rakuten cover fetched at %v", c, fetchedAt)
-		}
-	})
-
-	t.Run("openBDの書影に差し替えると商品ページと取得日時が消える", func(t *testing.T) {
-		got, err := repo.FindByID(context.Background(), b.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got.RefreshCatalog(got.Bibliography, mustCover(t, "https://cover.openbd.jp/rakuten-test.jpg"))
-		if err := repo.Update(context.Background(), got); err != nil {
-			t.Fatalf("Update: %v", err)
-		}
-		reread, err := repo.FindByID(context.Background(), b.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		c := reread.Cover
-		if c == nil || c.Source() != domainbook.CoverSourceOpenBD || c.ProductURL() != "" || !c.FetchedAt().IsZero() {
-			t.Fatalf("Cover = %+v, want the openBD cover without rakuten info", c)
-		}
-	})
-}
-
-func TestRepository_RakutenDisabled(t *testing.T) {
-	db := connectTestDB(t)
-	repo := pgbook.NewRepository(db)
-	b := newBook(t, "9780000003706", "disable-test-削除指示", mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/disable-test.jpg", "https://books.rakuten.co.jp/rb/1/", time.Now()), 4)
-	createBook(t, db, b)
-
-	t.Run("登録直後は無効化されていない", func(t *testing.T) {
-		got, err := repo.FindByID(context.Background(), b.ID)
-		if err != nil {
-			t.Fatalf("FindByID: %v", err)
-		}
-		if got.RakutenDisabled {
-			t.Fatal("RakutenDisabled = true, want false for a new book")
-		}
-	})
-
-	t.Run("無効化して保存すると楽天の書影が消え、無効化が残る", func(t *testing.T) {
-		got, err := repo.FindByID(context.Background(), b.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got.DisableRakuten()
-		if err := repo.Update(context.Background(), got); err != nil {
-			t.Fatalf("Update: %v", err)
-		}
-		reread, err := repo.FindByID(context.Background(), b.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reread.RakutenDisabled || reread.Cover != nil {
-			t.Fatalf("RakutenDisabled=%v Cover=%+v, want disabled with no cover", reread.RakutenDisabled, reread.Cover)
-		}
-	})
 }
 
 func createBook(t *testing.T, db *gorm.DB, b *domainbook.Book) {
@@ -433,79 +347,37 @@ func TestRepository_Tags(t *testing.T) {
 	})
 }
 
-func TestRepository_FindRakutenRefreshTargets(t *testing.T) {
+func TestRepository_Update_ReplacesCover(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgbook.NewRepository(db)
-	now := time.Now().Truncate(time.Microsecond)
-	fetchedBefore := now.Add(-domainbook.RakutenRefreshAfter)
-	rakuten := func(fetchedAt time.Time) *domainbook.Cover {
-		return mustRakutenCover(t, "https://thumbnail.image.rakuten.co.jp/refresh.jpg", "https://books.rakuten.co.jp/rb/refresh/", fetchedAt)
-	}
-	tagID := mustCreateTag(t, db, "refresh-test-タグ")
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'refresh-test-%'") })
+	b := newBook(t, "9780000006004", "remove-rakuten-test-書影の差し替え", mustCover(t, "https://cover.openbd.jp/old.jpg"), 4)
+	createBook(t, db, b)
 
-	atBoundary := newBook(t, "9780000003607", "refresh-test-取り直し開始ちょうど", rakuten(fetchedBefore), 4, domaintag.ID(tagID))
-	createBook(t, db, atBoundary)
-	expired := newBook(t, "9780000003614", "refresh-test-期限切れ", rakuten(now.Add(-domainbook.RakutenRetention-time.Hour)), 4)
-	createBook(t, db, expired)
-	fresh := newBook(t, "9780000003621", "refresh-test-取り直し前", rakuten(fetchedBefore.Add(time.Second)), 4)
-	createBook(t, db, fresh)
-	oldOpenBD := newBook(t, "9780000003638", "refresh-test-openBD", mustCover(t, "https://cover.openbd.jp/refresh.jpg"), 4)
-	createBook(t, db, oldOpenBD)
-	noCover := newBook(t, "9780000003645", "refresh-test-書影なし", nil, 4)
-	createBook(t, db, noCover)
-
-	got, err := repo.FindRakutenRefreshTargets(context.Background(), fetchedBefore)
-	if err != nil {
-		t.Fatalf("FindRakutenRefreshTargets: %v", err)
+	for _, tt := range []struct {
+		name  string
+		cover *domainbook.Cover
+	}{
+		{name: "書影を別のものに差し替えて保存できる", cover: mustCover(t, "https://cover.openbd.jp/new.jpg")},
+		{name: "書影を外して保存できる", cover: nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := repo.FindByID(context.Background(), b.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got.RefreshCatalog(got.Bibliography, tt.cover)
+			if err := repo.Update(context.Background(), got); err != nil {
+				t.Fatalf("Update: %v", err)
+			}
+			reread, err := repo.FindByID(context.Background(), b.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (reread.Cover == nil) != (tt.cover == nil) || (tt.cover != nil && *reread.Cover != *tt.cover) {
+				t.Fatalf("Cover = %+v, want %+v", reread.Cover, tt.cover)
+			}
+		})
 	}
-	// 共有DBに他のテストの行が残っていても判定できるよう、自分が作った本だけを見る
-	byID := map[domainbook.ID]*domainbook.Book{}
-	for _, b := range got {
-		byID[b.ID] = b
-	}
-	for _, want := range []*domainbook.Book{atBoundary, expired} {
-		if byID[want.ID] == nil {
-			t.Errorf("book %q is not returned, want it as a refresh target", want.Bibliography.Title())
-		}
-	}
-	for _, notWant := range []*domainbook.Book{fresh, oldOpenBD, noCover} {
-		if byID[notWant.ID] != nil {
-			t.Errorf("book %q is returned, want it excluded", notWant.Bibliography.Title())
-		}
-	}
-	if b := byID[atBoundary.ID]; b != nil {
-		if ids := b.Tags.IDs(); len(ids) != 1 || ids[0] != domaintag.ID(tagID) {
-			t.Errorf("Tags = %v, want the book's tag to be loaded", ids)
-		}
-		if b.Cover == nil || !b.Cover.FetchedAt().Equal(fetchedBefore) || b.Version != atBoundary.Version {
-			t.Errorf("got cover=%+v version=%d, want the stored Rakuten cover and version", b.Cover, b.Version)
-		}
-	}
-
-	t.Run("1冊が壊れていても他の対象は返す", func(t *testing.T) {
-		ok := newBook(t, "9780000003652", "refresh-test-正常", rakuten(fetchedBefore), 4)
-		createBook(t, db, ok)
-		broken := newBook(t, "9780000003669", "refresh-test-壊れている", rakuten(fetchedBefore), 4)
-		createBook(t, db, broken)
-		// ISBNのチェックディジットを崩し、adaptで再検証に失敗する行を作る（書き込み後にDBが壊れた想定）
-		db.Exec("UPDATE book SET isbn = '9780000003668' WHERE id = ?", int64(broken.ID))
-
-		got, err := repo.FindRakutenRefreshTargets(context.Background(), fetchedBefore)
-		if err != nil {
-			t.Fatalf("FindRakutenRefreshTargets: %v", err)
-		}
-		byID := map[domainbook.ID]*domainbook.Book{}
-		for _, b := range got {
-			byID[b.ID] = b
-		}
-		if byID[ok.ID] == nil {
-			t.Error("the adaptable book is not returned, want the broken book skipped instead")
-		}
-		if byID[broken.ID] != nil {
-			t.Error("the broken book is returned, want it skipped")
-		}
-	})
 }
 
 func TestRepository_CreateAll(t *testing.T) {

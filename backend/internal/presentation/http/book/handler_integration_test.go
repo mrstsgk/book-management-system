@@ -4,7 +4,7 @@ package book_test
 // Handler → UseCase → Repository/Query → 実 PostgreSQL の配線が噛み合っていることを、
 // 各エンドポイントが返しうる HTTP ステータスごとに確認する（内部の分岐網羅は目的にしない。
 // 分岐網羅・境界値は既存の Fake ベースの handler_test.go・usecase の Fake テスト・
-// postgres/book の契約テストが担う）。外部カタログ（openBD・楽天）だけは Fake に差し替える
+// postgres/book の契約テストが担う）。外部カタログ（openBD）だけは Fake に差し替える
 // （gateway パッケージで別途検証済みのため、ここで実ネットワークに頼る必要はない）。
 
 import (
@@ -44,8 +44,8 @@ func connectIntegrationDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// integrationFakeCatalog は外部カタログ（openBD・楽天）を差し替える手書き Fake。
-// gateway/openbd・gateway/rakuten 自体は別途検証済みのため、ここでは実ネットワークに頼らない。
+// integrationFakeCatalog は外部カタログ（openBD）を差し替える手書き Fake。
+// gateway/openbd 自体は別途検証済みのため、ここでは実ネットワークに頼らない。
 type integrationFakeCatalog struct {
 	entry *domainbook.CatalogEntry
 	err   error
@@ -58,15 +58,14 @@ func (f *integrationFakeCatalog) Lookup(context.Context, domainbook.ISBN) (*doma
 // newIntegrationHandler は本物の Repository/Query/UseCase を実DBに配線した Handler を返す（AdminOnly は serve() が付ける）。
 func newIntegrationHandler(db *gorm.DB, catalog domainbook.BookCatalog) *httpbook.Handler {
 	books := pgbook.NewRepository(db)
-	bookQuery := pgbook.NewQuery(db, time.Now)
+	bookQuery := pgbook.NewQuery(db)
 	tagQuery := pgtag.NewQuery(db)
 	return &httpbook.Handler{
-		RegisterUC:       &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery},
-		UpdateUC:         &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery, Now: time.Now},
-		DeleteUC:         &bookcmd.DeleteUsecaseImpl{Books: books},
-		DisableRakutenUC: &bookcmd.DisableRakutenUsecaseImpl{Books: books},
-		GetUC:            &bookqry.GetUsecaseImpl{Books: bookQuery},
-		ListUC:           &bookqry.ListUsecaseImpl{Books: bookQuery},
+		RegisterUC: &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery},
+		UpdateUC:   &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery},
+		DeleteUC:   &bookcmd.DeleteUsecaseImpl{Books: books},
+		GetUC:      &bookqry.GetUsecaseImpl{Books: bookQuery},
+		ListUC:     &bookqry.ListUsecaseImpl{Books: bookQuery},
 	}
 }
 
@@ -329,35 +328,6 @@ func TestBookHandlerIntegration_Delete(t *testing.T) {
 	t.Run("404: 存在しないID", func(t *testing.T) {
 		h := newIntegrationHandler(db, &integrationFakeCatalog{})
 		rec := serve(t, h, http.MethodDelete, "/api/books/999999999", "", true)
-		if rec.Code != http.StatusNotFound {
-			t.Fatalf("status = %d, want 404 (body=%s)", rec.Code, rec.Body.String())
-		}
-	})
-}
-
-func TestBookHandlerIntegration_DisableRakuten(t *testing.T) {
-	db := connectIntegrationDB(t)
-
-	t.Run("204: ハッピーパス", func(t *testing.T) {
-		b := mustCreateIntegrationBook(t, db, nextIntegrationISBN(t))
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodDelete, "/api/books/"+itoa(int64(b.ID))+"/rakuten", "", true)
-		if rec.Code != http.StatusNoContent {
-			t.Fatalf("status = %d, want 204 (body=%s)", rec.Code, rec.Body.String())
-		}
-	})
-
-	t.Run("401: トークン無し", func(t *testing.T) {
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodDelete, "/api/books/1/rakuten", "", false)
-		if rec.Code != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
-		}
-	})
-
-	t.Run("404: 存在しないID", func(t *testing.T) {
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodDelete, "/api/books/999999999/rakuten", "", true)
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status = %d, want 404 (body=%s)", rec.Code, rec.Body.String())
 		}

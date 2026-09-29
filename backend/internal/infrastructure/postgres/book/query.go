@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"gorm.io/gorm"
 
@@ -14,22 +13,11 @@ import (
 )
 
 type query struct {
-	db  *gorm.DB
-	now func() time.Time
+	db *gorm.DB
 }
 
-func NewQuery(db *gorm.DB, now func() time.Time) domainbook.Query {
-	return &query{db: db, now: now}
-}
-
-// visibleCover は画面に出してよい書影（URL・提供元・楽天の商品ページ）を返す。楽天の書影が保持期限を過ぎていれば
-// 3つとも nil にする（取り直し・消去が走る前でも、期限切れの楽天由来の情報を返さないため）。
-func visibleCover(row model, now time.Time) (url, source, productURL *string) {
-	if row.CoverSource != nil && domainbook.CoverSource(*row.CoverSource) == domainbook.CoverSourceRakuten &&
-		(row.CoverFetchedAt == nil || domainbook.RakutenExpired(*row.CoverFetchedAt, now)) {
-		return nil, nil, nil
-	}
-	return row.CoverURL, row.CoverSource, row.CoverProductURL
+func NewQuery(db *gorm.DB) domainbook.Query {
+	return &query{db: db}
 }
 
 func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbook.BookDetail, error) {
@@ -44,12 +32,11 @@ func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbo
 	if err != nil {
 		return nil, err
 	}
-	coverURL, coverSource, coverProductURL := visibleCover(row, q.now())
 	return &domainbook.BookDetail{
 		ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: displayTitle(row.TitleOverride, row.Title), Authors: row.Authors,
 		Publisher: row.Publisher, PublishedOn: row.PublishedOn, AmazonURL: amazonURLOf(row.ISBN),
-		CoverURL: coverURL, CoverSource: coverSource, CoverProductURL: coverProductURL, TitleOverride: row.TitleOverride, Summary: row.Summary,
-		Tags: orEmpty(tagNames[row.ID]), Comment: row.Comment, Rating: row.Rating, RakutenDisabled: row.RakutenDisabled, Version: row.Version,
+		CoverURL: row.CoverURL, CoverSource: row.CoverSource, TitleOverride: row.TitleOverride, Summary: row.Summary,
+		Tags: orEmpty(tagNames[row.ID]), Comment: row.Comment, Rating: row.Rating, Version: row.Version,
 	}, nil
 }
 
@@ -108,7 +95,7 @@ func (q *query) FindList(ctx context.Context, c domainbook.ListCondition, r comm
 	}
 	var rows []model
 	err := applyCondition(db.Model(&model{}), c).
-		Select("id, isbn, title, title_override, authors, cover_url, cover_source, cover_product_url, cover_fetched_at, summary, rating").
+		Select("id, isbn, title, title_override, authors, cover_url, cover_source, summary, rating").
 		Order("created_at DESC, id DESC").Limit(r.Limit()).Offset(r.Offset()).
 		Find(&rows).Error
 	if err != nil {
@@ -123,12 +110,10 @@ func (q *query) FindList(ctx context.Context, c domainbook.ListCondition, r comm
 		return nil, err
 	}
 	list := &domainbook.BookList{Items: make([]*domainbook.BookListItem, 0, len(rows)), Total: int(total)}
-	now := q.now()
 	for _, row := range rows {
-		coverURL, coverSource, coverProductURL := visibleCover(row, now)
 		list.Items = append(list.Items, &domainbook.BookListItem{
 			ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: displayTitle(row.TitleOverride, row.Title), Summary: row.Summary,
-			Authors: row.Authors, AmazonURL: amazonURLOf(row.ISBN), CoverURL: coverURL, CoverSource: coverSource, CoverProductURL: coverProductURL,
+			Authors: row.Authors, AmazonURL: amazonURLOf(row.ISBN), CoverURL: row.CoverURL, CoverSource: row.CoverSource,
 			Rating: row.Rating, Tags: orEmpty(tagNames[row.ID]),
 		})
 	}
