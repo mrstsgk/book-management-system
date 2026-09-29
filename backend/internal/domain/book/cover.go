@@ -11,7 +11,8 @@ import (
 type CoverSource string
 
 const (
-	CoverSourceOpenBD CoverSource = "openbd"
+	CoverSourceOpenBD      CoverSource = "openbd"
+	CoverSourceGoogleBooks CoverSource = "googlebooks"
 )
 
 const coverURLMaxLength = 2048
@@ -21,9 +22,11 @@ const coverURLMaxLength = 2048
 type Cover struct {
 	url    string
 	source CoverSource
+	// pageURL は提供元にあるその本のページ。Google Books は規約上、書影と一緒にこのページへのリンクが要る。
+	pageURL string
 }
 
-// NewCover は提供元の書影を作る。
+// NewCover は openBD の書影を作る。Google Books の書影は本のページが要るので NewGoogleBooksCover で作る。
 func NewCover(rawURL string, source CoverSource) (Cover, error) {
 	if source != CoverSourceOpenBD {
 		return Cover{}, fmt.Errorf("%w: 書影の提供元が不正です", common.ErrInvalid)
@@ -32,6 +35,17 @@ func NewCover(rawURL string, source CoverSource) (Cover, error) {
 		return Cover{}, fmt.Errorf("%w: 書影のURLが不正です", common.ErrInvalid)
 	}
 	return Cover{url: rawURL, source: source}, nil
+}
+
+// NewGoogleBooksCover は Google Books の書影を、画像とその本の Google Books のページが揃ったときだけ作る。
+func NewGoogleBooksCover(imageURL, pageURL string) (Cover, error) {
+	if !validCoverURL(imageURL) {
+		return Cover{}, fmt.Errorf("%w: 書影のURLが不正です", common.ErrInvalid)
+	}
+	if !validCoverURL(pageURL) {
+		return Cover{}, fmt.Errorf("%w: Google Books のページのURLが不正です", common.ErrInvalid)
+	}
+	return Cover{url: imageURL, source: CoverSourceGoogleBooks, pageURL: pageURL}, nil
 }
 
 func validCoverURL(raw string) bool {
@@ -45,4 +59,9 @@ func (c Cover) URL() string {
 
 func (c Cover) Source() CoverSource {
 	return c.source
+}
+
+// PageURL は提供元にあるその本のページ。openBD の書影なら空。
+func (c Cover) PageURL() string {
+	return c.pageURL
 }
