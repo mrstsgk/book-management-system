@@ -18,11 +18,11 @@ cd backend
 make tools          # swag / migrate / golangci-lint / govulncheck を版固定で導入
 make db-up
 make migrate-up
-make run
+make run            # 本が1冊も無ければ、起動時に見本データ（5冊）が入る
 # http://localhost:8080/health
 # http://localhost:8080/api/books
 # 登録: curl -H "Authorization: Bearer local-admin-token" -H "Content-Type: application/json" \
-#   -d '{"isbn":"9784873118703","summary":"要約","comment":"感想","rating":5}' http://localhost:8080/api/books
+#   -d '{"isbn":"9784873118703","summary":"要約","tagIds":[],"comment":"感想","rating":5}' http://localhost:8080/api/books
 
 # OpenAPI 再排出（DTO/Handler 変更後）
 make swagger
@@ -30,7 +30,7 @@ make swagger
 
 ## 現状
 
-- 読んだ本の API（一覧・詳細・登録・更新・削除）とカタログの確認 API（範囲は `architecture.md` §4）
+- 読んだ本の API（一覧・詳細・登録・更新・削除）とカタログの確認 API、分野タグの API（一覧・追加・改名・削除）（範囲は `architecture.md` §4）
 - 書誌は ISBN で openBD から取得し、書影が無ければ楽天ブックスで補う（楽天は任意。書誌は楽天から取らない）
 - 書き込み系は管理者トークンが必要（`Authorization: Bearer <ADMIN_TOKEN>`）
 - Repository／Query の契約テストはローカルの PostgreSQL（`make db-up migrate-up`）に対して実行し、起動していなければ skip する。外部カタログのゲートウェイは偽の HTTP サーバに対してテストする

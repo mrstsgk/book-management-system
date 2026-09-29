@@ -18,22 +18,30 @@ type RegisterRequest struct {
 	Summary string `json:"summary" validate:"required,max=100" example:"分散データの設計を体系的に学べる"`
 	// TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
 	TitleOverride string `json:"titleOverride" validate:"max=255" example:""`
-	Comment       string `json:"comment" validate:"required,max=5000" example:"分散システムの設計を体系的に学べた"`
-	Rating        *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
+	// TagIDs は分野タグのID。0〜10個、実在するIDのみ指定できる。
+	TagIDs  []int64 `json:"tagIds" validate:"max=10" example:"1,2"`
+	Comment string  `json:"comment" validate:"required,max=5000" example:"分散システムの設計を体系的に学べた"`
+	Rating  *int    `json:"rating" validate:"required,min=1,max=5" example:"5"`
 } // @name RegisterBookRequest
 
 type UpdateRequest struct {
 	Summary string `json:"summary" validate:"required,max=100" example:"読み返して理解が深まった"`
 	// TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
 	TitleOverride string `json:"titleOverride" validate:"max=255" example:""`
-	Comment       string `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
-	Rating        *int   `json:"rating" validate:"required,min=1,max=5" example:"5"`
-	Version       *int   `json:"version" validate:"required" example:"1"`
+	// TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。
+	TagIDs  []int64 `json:"tagIds" validate:"max=10" example:"1,2"`
+	Comment string  `json:"comment" validate:"required,max=5000" example:"読み返して理解が深まった"`
+	Rating  *int    `json:"rating" validate:"required,min=1,max=5" example:"5"`
+	Version *int    `json:"version" validate:"required" example:"1"`
 } // @name UpdateBookRequest
 
 type ListRequest struct {
 	Limit  *int `json:"limit" query:"limit" validate:"omitempty,min=1,max=100"`
 	Offset *int `json:"offset" query:"offset" validate:"omitempty,min=0"`
+	// Q は書名・著者の部分一致。前後の空白を除いて空なら検索しない。
+	// 文字数の上限は HTTP 層で見ない（トリム前の長さで弾くと、前後に空白の付いた100文字が400になるため）。VO が判定する。
+	Q     string `json:"q" query:"q"`
+	TagID *int64 `json:"tagId" query:"tagId" validate:"omitempty,min=1"`
 }
 
 type Response struct {
@@ -49,25 +57,33 @@ type Response struct {
 	// CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。
 	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
 	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
+	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。楽天の書影は画面でこのリンクと一緒に見せる必要がある。
+	CoverProductURL *string `json:"coverProductUrl" example:"https://books.rakuten.co.jp/rb/15949390/"`
 	// TitleOverride は自分で上書きした書名。上書きしていなければ null。
-	TitleOverride *string `json:"titleOverride" example:"徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版"`
-	Summary       string  `json:"summary" example:"分散データの設計を体系的に学べる"`
-	Comment       string  `json:"comment" example:"分散システムの設計を体系的に学べた"`
-	Rating        int     `json:"rating" example:"5"`
-	Version       int     `json:"version" example:"1"`
+	TitleOverride *string  `json:"titleOverride" example:"徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版"`
+	Summary       string   `json:"summary" example:"分散データの設計を体系的に学べる"`
+	Tags          []string `json:"tags" example:"データベース,分散システム"`
+	Comment       string   `json:"comment" example:"分散システムの設計を体系的に学べた"`
+	Rating        int      `json:"rating" example:"5"`
+	// RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（以後、楽天の書影は付かない）。
+	RakutenDisabled bool `json:"rakutenDisabled" example:"false"`
+	Version         int  `json:"version" example:"1"`
 } // @name BookResponse
 
 type ListItemResponse struct {
 	ID   int64  `json:"id" example:"1"`
 	ISBN string `json:"isbn" example:"9784873118703"`
 	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
-	Title       string  `json:"title" example:"データ指向アプリケーションデザイン"`
-	Summary     string  `json:"summary" example:"分散データの設計を体系的に学べる"`
-	Authors     string  `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
-	AmazonURL   *string `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
-	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
-	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
-	Rating      int     `json:"rating" example:"5"`
+	Title       string   `json:"title" example:"データ指向アプリケーションデザイン"`
+	Summary     string   `json:"summary" example:"分散データの設計を体系的に学べる"`
+	Tags        []string `json:"tags" example:"データベース,分散システム"`
+	Authors     string   `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
+	AmazonURL   *string  `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
+	CoverURL    *string  `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
+	CoverSource *string  `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
+	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
+	CoverProductURL *string `json:"coverProductUrl" example:"https://books.rakuten.co.jp/rb/15949390/"`
+	Rating          int     `json:"rating" example:"5"`
 } // @name BookListItemResponse
 
 type ListResponse struct {
@@ -82,8 +98,10 @@ type Handler struct {
 	RegisterUC bookcmd.RegisterUsecase
 	UpdateUC   bookcmd.UpdateUsecase
 	DeleteUC   bookcmd.DeleteUsecase
-	GetUC      bookqry.GetUsecase
-	ListUC     bookqry.ListUsecase
+	// DisableRakutenUC は楽天から削除の指示を受けた本の楽天由来の情報を消す。
+	DisableRakutenUC bookcmd.DisableRakutenUsecase
+	GetUC            bookqry.GetUsecase
+	ListUC           bookqry.ListUsecase
 	// AdminOnly は登録・更新・削除に掛ける認証（閲覧は誰でもできる）。
 	AdminOnly echo.MiddlewareFunc
 }
@@ -94,15 +112,18 @@ func (h *Handler) Register(g *echo.Group) {
 	g.POST("", h.RegisterBook, h.AdminOnly)
 	g.PUT("/:id", h.Update, h.AdminOnly)
 	g.DELETE("/:id", h.Delete, h.AdminOnly)
+	g.DELETE("/:id/rakuten", h.DisableRakuten, h.AdminOnly)
 }
 
 // List godoc
 // @Summary      読んだ本の一覧を取得する
-// @Description  新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す
+// @Description  新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は0件
 // @Tags         books
 // @Produce      json
-// @Param        limit  query int false "取得件数（1〜100、既定20）"
-// @Param        offset query int false "取得開始位置（0以上、既定0）"
+// @Param        limit  query int    false "取得件数（1〜100、既定20）"
+// @Param        offset query int    false "取得開始位置（0以上、既定0）"
+// @Param        q      query string false "書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）"
+// @Param        tagId  query int    false "この分野タグが付いた本だけにする（1以上）"
 // @Success      200 {object} ListResponse
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
@@ -119,15 +140,15 @@ func (h *Handler) List(c echo.Context) error {
 	if req.Offset != nil {
 		offset = *req.Offset
 	}
-	out, err := h.ListUC.Execute(c.Request().Context(), limit, offset)
+	out, err := h.ListUC.Execute(c.Request().Context(), bookqry.ListInput{Keyword: req.Q, TagID: req.TagID, Limit: limit, Offset: offset})
 	if err != nil {
 		return err
 	}
 	items := make([]ListItemResponse, 0, len(out.Items))
 	for _, it := range out.Items {
 		items = append(items, ListItemResponse{
-			ID: int64(it.ID), ISBN: it.ISBN, Title: it.Title, Summary: it.Summary, Authors: it.Authors,
-			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: it.CoverSource, Rating: it.Rating,
+			ID: int64(it.ID), ISBN: it.ISBN, Title: it.Title, Summary: it.Summary, Tags: it.Tags, Authors: it.Authors,
+			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: it.CoverSource, CoverProductURL: it.CoverProductURL, Rating: it.Rating,
 		})
 	}
 	return c.JSON(http.StatusOK, ListResponse{Items: items, Total: out.Total, Limit: limit, Offset: offset})
@@ -175,7 +196,7 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 		return err
 	}
 	out, err := h.RegisterUC.Execute(c.Request().Context(), bookcmd.RegisterCommand{
-		ISBN: req.ISBN, Summary: req.Summary, TitleOverride: req.TitleOverride, Comment: req.Comment, Rating: *req.Rating,
+		ISBN: req.ISBN, Summary: req.Summary, TitleOverride: req.TitleOverride, TagIDs: req.TagIDs, Comment: req.Comment, Rating: *req.Rating,
 	})
 	if err != nil {
 		return err
@@ -209,7 +230,7 @@ func (h *Handler) Update(c echo.Context) error {
 		return err
 	}
 	out, err := h.UpdateUC.Execute(c.Request().Context(), bookcmd.UpdateCommand{
-		ID: id, Summary: req.Summary, TitleOverride: req.TitleOverride, Comment: req.Comment, Rating: *req.Rating, Version: *req.Version,
+		ID: id, Summary: req.Summary, TitleOverride: req.TitleOverride, TagIDs: req.TagIDs, Comment: req.Comment, Rating: *req.Rating, Version: *req.Version,
 	})
 	if err != nil {
 		return err
@@ -239,10 +260,34 @@ func (h *Handler) Delete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// DisableRakuten godoc
+// @Summary      楽天由来の情報を消す（自分だけ）
+// @Description  楽天から削除の指示を受けた本の楽天の書影・商品ページを消し、以後この本には楽天の書影を付けない。楽天の情報を持たない本でも 204。version は受け取らない（削除の指示には最後に読んだ内容に関係なく従うため）
+// @Tags         books
+// @Security     AdminToken
+// @Param        id path int true "読んだ本のID"
+// @Success      204
+// @Failure      400 {object} common.ErrorResponse
+// @Failure      401 {object} common.ErrorResponse
+// @Failure      404 {object} common.ErrorResponse
+// @Failure      409 {object} common.ErrorResponse
+// @Failure      500 {object} common.ErrorResponse
+// @Router       /api/books/{id}/rakuten [delete]
+func (h *Handler) DisableRakuten(c echo.Context) error {
+	id, err := common.ParseID(c, "id")
+	if err != nil {
+		return err
+	}
+	if err := h.DisableRakutenUC.Execute(c.Request().Context(), id); err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
 func toResponse(d *domainbook.BookDetail) Response {
 	return Response{
 		ID: int64(d.ID), ISBN: d.ISBN, Title: d.Title, Authors: d.Authors, Publisher: d.Publisher,
-		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource,
-		TitleOverride: d.TitleOverride, Summary: d.Summary, Comment: d.Comment, Rating: d.Rating, Version: d.Version,
+		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource, CoverProductURL: d.CoverProductURL,
+		TitleOverride: d.TitleOverride, Summary: d.Summary, Tags: d.Tags, Comment: d.Comment, Rating: d.Rating, RakutenDisabled: d.RakutenDisabled, Version: d.Version,
 	}
 }

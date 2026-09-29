@@ -8,6 +8,10 @@ definitions:
       authors:
         example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
         type: string
+      coverProductUrl:
+        description: CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
+        example: https://books.rakuten.co.jp/rb/15949390/
+        type: string
       coverSource:
         enum:
         - openbd
@@ -29,6 +33,13 @@ definitions:
       summary:
         example: 分散データの設計を体系的に学べる
         type: string
+      tags:
+        example:
+        - データベース
+        - 分散システム
+        items:
+          type: string
+        type: array
       title:
         description: Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
         example: データ指向アプリケーションデザイン
@@ -62,6 +73,10 @@ definitions:
       comment:
         example: 分散システムの設計を体系的に学べた
         type: string
+      coverProductUrl:
+        description: CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。楽天の書影は画面でこのリンクと一緒に見せる必要がある。
+        example: https://books.rakuten.co.jp/rb/15949390/
+        type: string
       coverSource:
         enum:
         - openbd
@@ -84,12 +99,23 @@ definitions:
       publisher:
         example: オーム社
         type: string
+      rakutenDisabled:
+        description: RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（以後、楽天の書影は付かない）。
+        example: false
+        type: boolean
       rating:
         example: 5
         type: integer
       summary:
         example: 分散データの設計を体系的に学べる
         type: string
+      tags:
+        example:
+        - データベース
+        - 分散システム
+        items:
+          type: string
+        type: array
       title:
         description: Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
         example: データ指向アプリケーションデザイン
@@ -109,6 +135,10 @@ definitions:
         type: string
       authors:
         example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        type: string
+      coverProductUrl:
+        description: CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
+        example: https://books.rakuten.co.jp/rb/15949390/
         type: string
       coverSource:
         enum:
@@ -172,6 +202,15 @@ definitions:
         example: 分散データの設計を体系的に学べる
         maxLength: 100
         type: string
+      tagIds:
+        description: TagIDs は分野タグのID。0〜10個、実在するIDのみ指定できる。
+        example:
+        - 1
+        - 2
+        items:
+          type: integer
+        maxItems: 10
+        type: array
       titleOverride:
         description: TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
         example: ""
@@ -182,6 +221,66 @@ definitions:
     - isbn
     - rating
     - summary
+    type: object
+  RegisterTagRequest:
+    properties:
+      name:
+        example: データベース
+        maxLength: 30
+        type: string
+    required:
+    - name
+    type: object
+  RenameTagRequest:
+    properties:
+      name:
+        example: 分散システム
+        maxLength: 30
+        type: string
+      version:
+        example: 1
+        type: integer
+    required:
+    - name
+    - version
+    type: object
+  TagBookCountListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/TagBookCountResponse'
+        type: array
+    type: object
+  TagBookCountResponse:
+    properties:
+      bookCount:
+        example: 3
+        type: integer
+      id:
+        example: 1
+        type: integer
+      name:
+        example: データベース
+        type: string
+    type: object
+  TagListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/TagResponse'
+        type: array
+    type: object
+  TagResponse:
+    properties:
+      id:
+        example: 1
+        type: integer
+      name:
+        example: データベース
+        type: string
+      version:
+        example: 1
+        type: integer
     type: object
   UpdateBookRequest:
     properties:
@@ -198,6 +297,15 @@ definitions:
         example: 読み返して理解が深まった
         maxLength: 100
         type: string
+      tagIds:
+        description: TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。
+        example:
+        - 1
+        - 2
+        items:
+          type: integer
+        maxItems: 10
+        type: array
       titleOverride:
         description: TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
         example: ""
@@ -219,7 +327,8 @@ info:
 paths:
   /api/books:
     get:
-      description: 新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す
+      description: 新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない
+        tagId は0件
       parameters:
       - description: 取得件数（1〜100、既定20）
         in: query
@@ -228,6 +337,14 @@ paths:
       - description: 取得開始位置（0以上、既定0）
         in: query
         name: offset
+        type: integer
+      - description: 書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）
+        in: query
+        name: q
+        type: string
+      - description: この分野タグが付いた本だけにする（1以上）
+        in: query
+        name: tagId
         type: integer
       produces:
       - application/json
@@ -397,6 +514,44 @@ paths:
       summary: 感想と評価を更新する（自分だけ）
       tags:
       - books
+  /api/books/{id}/rakuten:
+    delete:
+      description: 楽天から削除の指示を受けた本の楽天の書影・商品ページを消し、以後この本には楽天の書影を付けない。楽天の情報を持たない本でも 204。version
+        は受け取らない（削除の指示には最後に読んだ内容に関係なく従うため）
+      parameters:
+      - description: 読んだ本のID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 楽天由来の情報を消す（自分だけ）
+      tags:
+      - books
   /api/catalog/{isbn}:
     get:
       description: 登録前の確認用。書誌は openBD から取得し、書影が無ければ楽天ブックスで補う
@@ -434,6 +589,159 @@ paths:
       summary: ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
       tags:
       - catalog
+  /api/tags:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TagListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: 分野タグの一覧を取得する
+      tags:
+      - tags
+    post:
+      consumes:
+      - application/json
+      description: 同じ名前のタグは登録できない（409）
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/RegisterTagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TagResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 分野タグを追加する（自分だけ）
+      tags:
+      - tags
+  /api/tags/{id}:
+    delete:
+      description: 付いていた本からは自動で外れる
+      parameters:
+      - description: タグのID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 分野タグを削除する（自分だけ）
+      tags:
+      - tags
+    put:
+      consumes:
+      - application/json
+      description: version が一致しない場合は 409
+      parameters:
+      - description: タグのID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/RenameTagRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TagResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - AdminToken: []
+      summary: 分野タグの名前を変更する（自分だけ）
+      tags:
+      - tags
+  /api/tags/counts:
+    get:
+      description: 本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TagBookCountListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: 分野タグごとの冊数を取得する
+      tags:
+      - tags
 securityDefinitions:
   AdminToken:
     description: 登録・更新・削除とカタログの確認に必要。「Bearer <ADMIN_TOKEN>」の形式で指定する

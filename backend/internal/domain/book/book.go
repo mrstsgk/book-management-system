@@ -2,6 +2,7 @@ package book
 
 import (
 	"context"
+	"time"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
@@ -20,19 +21,23 @@ type Book struct {
 	Summary       Summary
 	Comment       Comment
 	Rating        Rating
-	Version       int
+	Tags          TagSelection
+	// RakutenDisabled は楽天から削除の指示を受けた本。以後、この本には楽天の書影を付けない（取り直しで元に戻さないため）。
+	RakutenDisabled bool
+	Version         int
 }
 
 // New は登録前の読んだ本を作る（ID とバージョンは保存時に採番する）。
-func New(isbn ISBN, bibliography Bibliography, cover *Cover, summary Summary, comment Comment, rating Rating) *Book {
-	return &Book{ISBN: isbn, Bibliography: bibliography, Cover: copyOf(cover), Summary: summary, Comment: comment, Rating: rating}
+func New(isbn ISBN, bibliography Bibliography, cover *Cover, summary Summary, comment Comment, rating Rating, tags TagSelection) *Book {
+	return &Book{ISBN: isbn, Bibliography: bibliography, Cover: copyOf(cover), Summary: summary, Comment: comment, Rating: rating, Tags: tags}
 }
 
-// ChangeReview は一言まとめ・感想・評価を差し替える。version は更新元が読んだバージョン（楽観的ロックに使う）。
-func (b *Book) ChangeReview(summary Summary, comment Comment, rating Rating, version int) {
+// ChangeReview は一言まとめ・感想・評価・分野タグを差し替える。version は更新元が読んだバージョン（楽観的ロックに使う）。
+func (b *Book) ChangeReview(summary Summary, comment Comment, rating Rating, tags TagSelection, version int) {
 	b.Summary = summary
 	b.Comment = comment
 	b.Rating = rating
+	b.Tags = tags
 	b.Version = version
 }
 
@@ -42,9 +47,30 @@ func (b *Book) OverrideTitle(title *Title) {
 }
 
 // RefreshCatalog は外部カタログから取り直した書誌と書影に差し替える（提供元の変更を反映するため）。
+// 楽天から削除の指示を受けた本に楽天の書影が来たら、書影なしとして扱う。
 func (b *Book) RefreshCatalog(bibliography Bibliography, cover *Cover) {
 	b.Bibliography = bibliography
+	if b.RakutenDisabled && cover != nil && cover.Source() == CoverSourceRakuten {
+		cover = nil
+	}
 	b.Cover = copyOf(cover)
+}
+
+// DropExpiredCover は楽天の書影が保持期限を過ぎていれば外し、外したかを返す。
+func (b *Book) DropExpiredCover(now time.Time) bool {
+	if b.Cover == nil || !b.Cover.IsExpired(now) {
+		return false
+	}
+	b.Cover = nil
+	return true
+}
+
+// DisableRakuten は楽天由来の情報（楽天の書影）を外し、以後この本に付けないようにする。
+func (b *Book) DisableRakuten() {
+	if b.Cover != nil && b.Cover.Source() == CoverSourceRakuten {
+		b.Cover = nil
+	}
+	b.RakutenDisabled = true
 }
 
 // copyOf は呼び出し側の変数を後から変えても本が変わらないよう、値をコピーして持つ。
@@ -62,10 +88,14 @@ type Repository interface {
 	FindByID(ctx context.Context, id ID) (*Book, error)
 	// Create は b を新規作成し、採番した ID と初期バージョンを b に設定する。同じ ISBN の本があれば ErrConflict を返す。
 	Create(ctx context.Context, b *Book) error
+	// CreateAll は books を1つのトランザクションで全冊作成する。1冊でも同じ ISBN があれば1冊も残さず ErrConflict を返す。
+	CreateAll(ctx context.Context, books []*Book) error
 	// Update は b.Version が一致する行を更新し、b.Version を進める。不一致なら ErrConflict を返す。
 	Update(ctx context.Context, b *Book) error
 	// Delete は id の本を削除する。存在しなければ ErrNotFound を返す。
 	Delete(ctx context.Context, id ID) error
+	// FindRakutenRefreshTargets は楽天の書影を fetchedBefore 以前に取得した本を ID 順に返す。
+	FindRakutenRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*Book, error)
 }
 
 // BookDetail は読んだ本1冊の Read Model。
@@ -78,15 +108,21 @@ type BookDetail struct {
 	Publisher   string
 	PublishedOn string
 	// AmazonURL は ISBN から導出する（保存しない）。ISBN-10 の形式が無ければ nil。
-	AmazonURL   *string
+	AmazonURL *string
+	// CoverURL・CoverSource・CoverProductURL は、書影が無いか楽天の書影が保持期限を過ぎていれば nil。
 	CoverURL    *string
 	CoverSource *string
+	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ。画面は書影と一緒にリンクする）。
+	CoverProductURL *string
 	// TitleOverride は自分で上書きした書名。上書きしていなければ nil（編集画面が今の上書きを送り直すのに使う）。
 	TitleOverride *string
 	Summary       string
+	Tags          []string
 	Comment       string
 	Rating        int
-	Version       int
+	// RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（管理画面で見分けるため）。
+	RakutenDisabled bool
+	Version         int
 }
 
 // BookListItem は読んだ本の一覧の1行分の Read Model。感想の本文は詳細でだけ返す。
@@ -96,11 +132,14 @@ type BookListItem struct {
 	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
 	Title       string
 	Summary     string
+	Tags        []string
 	Authors     string
 	AmazonURL   *string
 	CoverURL    *string
 	CoverSource *string
-	Rating      int
+	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
+	CoverProductURL *string
+	Rating          int
 }
 
 // BookList は一覧のうち取得範囲の分と、全体の総件数。
@@ -113,8 +152,8 @@ type BookList struct {
 type Query interface {
 	// FindDetailByID は存在しなければ ErrNotFound を返す。
 	FindDetailByID(ctx context.Context, id ID) (*BookDetail, error)
-	// FindList は新しく登録した順に、取得範囲 r の分だけ返す。
-	FindList(ctx context.Context, r common.ListRange) (*BookList, error)
+	// FindList は条件 c に合う本を新しく登録した順に、取得範囲 r の分だけ返す。総件数も c に合う件数。
+	FindList(ctx context.Context, c ListCondition, r common.ListRange) (*BookList, error)
 }
 
 // CatalogEntry は外部カタログが ISBN について持っている書誌と書影。

@@ -15,12 +15,15 @@ export const BookListItemResponseCoverSource = {
 export interface BookListItemResponse {
   amazonUrl?: string;
   authors?: string;
+  /** CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。 */
+  coverProductUrl?: string;
   coverSource?: BookListItemResponseCoverSource;
   coverUrl?: string;
   id?: number;
   isbn?: string;
   rating?: number;
   summary?: string;
+  tags?: string[];
   /** Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。 */
   title?: string;
 }
@@ -45,6 +48,8 @@ export interface BookResponse {
   amazonUrl?: string;
   authors?: string;
   comment?: string;
+  /** CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。楽天の書影は画面でこのリンクと一緒に見せる必要がある。 */
+  coverProductUrl?: string;
   coverSource?: BookResponseCoverSource;
   /** CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。 */
   coverUrl?: string;
@@ -52,8 +57,11 @@ export interface BookResponse {
   isbn?: string;
   publishedOn?: string;
   publisher?: string;
+  /** RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（以後、楽天の書影は付かない）。 */
+  rakutenDisabled?: boolean;
   rating?: number;
   summary?: string;
+  tags?: string[];
   /** Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。 */
   title?: string;
   /** TitleOverride は自分で上書きした書名。上書きしていなければ null。 */
@@ -72,6 +80,8 @@ export const CatalogResponseCoverSource = {
 export interface CatalogResponse {
   amazonUrl?: string;
   authors?: string;
+  /** CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。 */
+  coverProductUrl?: string;
   coverSource?: CatalogResponseCoverSource;
   coverUrl?: string;
   isbn?: string;
@@ -107,10 +117,46 @@ export interface RegisterBookRequest {
   /** @maxLength 100 */
   summary: string;
   /**
+     * TagIDs は分野タグのID。0〜10個、実在するIDのみ指定できる。
+     * @maxItems 10
+     */
+  tagIds?: number[];
+  /**
      * TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。
      * @maxLength 255
      */
   titleOverride?: string;
+}
+
+export interface RegisterTagRequest {
+  /** @maxLength 30 */
+  name: string;
+}
+
+export interface RenameTagRequest {
+  /** @maxLength 30 */
+  name: string;
+  version: number;
+}
+
+export interface TagBookCountResponse {
+  bookCount?: number;
+  id?: number;
+  name?: string;
+}
+
+export interface TagBookCountListResponse {
+  items?: TagBookCountResponse[];
+}
+
+export interface TagResponse {
+  id?: number;
+  name?: string;
+  version?: number;
+}
+
+export interface TagListResponse {
+  items?: TagResponse[];
 }
 
 export interface UpdateBookRequest {
@@ -123,6 +169,11 @@ export interface UpdateBookRequest {
   rating: number;
   /** @maxLength 100 */
   summary: string;
+  /**
+     * TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。
+     * @maxItems 10
+     */
+  tagIds?: number[];
   /**
      * TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。
      * @maxLength 255
@@ -140,5 +191,13 @@ limit?: number;
  * 取得開始位置（0以上、既定0）
  */
 offset?: number;
+/**
+ * 書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）
+ */
+q?: string;
+/**
+ * この分野タグが付いた本だけにする（1以上）
+ */
+tagId?: number;
 };
 

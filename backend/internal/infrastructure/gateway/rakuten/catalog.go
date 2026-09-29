@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
@@ -23,10 +24,12 @@ type catalog struct {
 	applicationID string
 	accessKey     string
 	client        *http.Client
+	// now は書影の取得日時（保持期限の起点）に使う。テストで固定できるよう注入する。
+	now func() time.Time
 }
 
-func NewCatalog(baseURL, applicationID, accessKey string, client *http.Client) domainbook.BookCatalog {
-	return &catalog{baseURL: baseURL, applicationID: applicationID, accessKey: accessKey, client: client}
+func NewCatalog(baseURL, applicationID, accessKey string, client *http.Client, now func() time.Time) domainbook.BookCatalog {
+	return &catalog{baseURL: baseURL, applicationID: applicationID, accessKey: accessKey, client: client, now: now}
 }
 
 type response struct {
@@ -36,6 +39,7 @@ type response struct {
 		PublisherName string `json:"publisherName"`
 		SalesDate     string `json:"salesDate"`
 		LargeImageURL string `json:"largeImageUrl"`
+		ItemURL       string `json:"itemUrl"`
 	} `json:"Items"`
 }
 
@@ -73,8 +77,9 @@ func (c *catalog) Lookup(ctx context.Context, isbn domainbook.ISBN) (*domainbook
 		return nil, fmt.Errorf("rakuten: bibliography: %w", err)
 	}
 	entry := &domainbook.CatalogEntry{ISBN: isbn, Bibliography: bib}
-	if it.LargeImageURL != "" {
-		cover, err := domainbook.NewCover(it.LargeImageURL, domainbook.CoverSourceRakuten)
+	// 商品ページへリンクできない楽天の書影は規約上使えないので、商品ページが無ければ書影なしにする
+	if it.LargeImageURL != "" && it.ItemURL != "" {
+		cover, err := domainbook.NewRakutenCover(it.LargeImageURL, it.ItemURL, c.now())
 		if err != nil {
 			return nil, fmt.Errorf("rakuten: cover: %w", err)
 		}

@@ -3,8 +3,10 @@ package book_test
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
+	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
 func mustBook(t *testing.T) *book.Book {
@@ -33,7 +35,7 @@ func mustBook(t *testing.T) *book.Book {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := book.New(isbn, bib, &cover, summary, comment, rating)
+	b := book.New(isbn, bib, &cover, summary, comment, rating, book.TagSelection{})
 	cover = book.Cover{} // 呼び出し側の変数を変えても本には影響しないこと
 	return b
 }
@@ -55,6 +57,9 @@ func TestNew_SetsFieldsCopiesCoverAndLeavesIdentityUnassigned(t *testing.T) {
 	if b.TitleOverride != nil {
 		t.Fatalf("TitleOverride = %v, want nil for a newly created book", b.TitleOverride)
 	}
+	if len(b.Tags.IDs()) != 0 {
+		t.Fatalf("Tags = %v, want empty for a newly created book", b.Tags.IDs())
+	}
 }
 
 func TestBook_ChangeReview(t *testing.T) {
@@ -63,11 +68,15 @@ func TestBook_ChangeReview(t *testing.T) {
 	summary, _ := book.NewSummary("読み返して見方が変わった")
 	comment, _ := book.NewComment("読み返して評価が変わった")
 	rating, _ := book.NewRating(4)
+	tags, _ := book.NewTagSelection([]tag.ID{1, 2})
 
-	b.ChangeReview(summary, comment, rating, 3)
+	b.ChangeReview(summary, comment, rating, tags, 3)
 
 	if b.Summary != summary || b.Comment != comment || b.Rating != rating || b.Version != 3 {
 		t.Fatalf("got summary=%q comment=%q rating=%d version=%d", b.Summary.String(), b.Comment.String(), b.Rating.Int(), b.Version)
+	}
+	if got := b.Tags.IDs(); len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Fatalf("Tags = %v, want [1 2]", got)
 	}
 	if b.Bibliography.Title() != "データ指向アプリケーションデザイン" || b.Cover == nil {
 		t.Fatal("changing the review must not touch the catalog data")
@@ -127,6 +136,129 @@ func TestBook_RefreshCatalog(t *testing.T) {
 	}
 }
 
+func TestBook_DropExpiredCover(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
+	rakuten := func(t *testing.T, fetchedAt time.Time) *book.Cover {
+		t.Helper()
+		c, err := book.NewRakutenCover("https://thumbnail.image.rakuten.co.jp/1.jpg", "https://books.rakuten.co.jp/rb/1/", fetchedAt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &c
+	}
+	openbd, err := book.NewCover("https://cover.openbd.jp/9784873118703.jpg", book.CoverSourceOpenBD)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name        string
+		cover       *book.Cover
+		wantDropped bool
+	}{
+		{name: "楽天の書影は保持期限ちょうどで外す", cover: rakuten(t, now.Add(-book.RakutenRetention)), wantDropped: true},
+		{name: "楽天の書影は保持期限の1秒前なら残す", cover: rakuten(t, now.Add(-book.RakutenRetention+time.Second)), wantDropped: false},
+		{name: "openBDの書影は古くても残す", cover: &openbd, wantDropped: false},
+		{name: "書影なしは何もしない", cover: nil, wantDropped: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			b := mustBook(t)
+			b.Cover = tt.cover
+
+			dropped := b.DropExpiredCover(now)
+
+			if dropped != tt.wantDropped {
+				t.Fatalf("dropped = %v, want %v", dropped, tt.wantDropped)
+			}
+			if tt.wantDropped && b.Cover != nil {
+				t.Fatalf("Cover = %+v, want nil after dropping", b.Cover)
+			}
+			if !tt.wantDropped && b.Cover != tt.cover {
+				t.Fatal("Cover changed although it was not dropped")
+			}
+		})
+	}
+}
+
+func mustRakutenCover(t *testing.T) book.Cover {
+	t.Helper()
+	c, err := book.NewRakutenCover("https://thumbnail.image.rakuten.co.jp/1.jpg", "https://books.rakuten.co.jp/rb/1/", time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func TestBook_DisableRakuten(t *testing.T) {
+	t.Parallel()
+	bib, _ := book.NewBibliography("データ指向アプリケーションデザイン", "Kleppmann,Martin", "オーム社", "201907")
+
+	t.Run("楽天の書影を外して無効化する", func(t *testing.T) {
+		t.Parallel()
+		b := mustBook(t)
+		rc := mustRakutenCover(t)
+		b.RefreshCatalog(bib, &rc)
+
+		b.DisableRakuten()
+
+		if b.Cover != nil || !b.RakutenDisabled {
+			t.Fatalf("cover=%v disabled=%v, want no cover and disabled", b.Cover, b.RakutenDisabled)
+		}
+	})
+
+	t.Run("openBDの書影は残す", func(t *testing.T) {
+		t.Parallel()
+		b := mustBook(t)
+
+		b.DisableRakuten()
+
+		if b.Cover == nil || b.Cover.Source() != book.CoverSourceOpenBD || !b.RakutenDisabled {
+			t.Fatalf("cover=%v disabled=%v, want the openBD cover kept and disabled", b.Cover, b.RakutenDisabled)
+		}
+	})
+
+	t.Run("無効化した本には取り直しでも楽天の書影を付けない", func(t *testing.T) {
+		t.Parallel()
+		b := mustBook(t)
+		b.DisableRakuten()
+		rc := mustRakutenCover(t)
+
+		b.RefreshCatalog(bib, &rc)
+
+		if b.Cover != nil || b.Bibliography != bib {
+			t.Fatalf("cover=%v bibliography=%+v, want no cover and the refreshed bibliography", b.Cover, b.Bibliography)
+		}
+	})
+
+	t.Run("無効化した本でもopenBDの書影は取り直しで付く", func(t *testing.T) {
+		t.Parallel()
+		b := mustBook(t)
+		b.DisableRakuten()
+		oc, _ := book.NewCover("https://cover.openbd.jp/new.jpg", book.CoverSourceOpenBD)
+
+		b.RefreshCatalog(bib, &oc)
+
+		if b.Cover == nil || b.Cover.URL() != "https://cover.openbd.jp/new.jpg" {
+			t.Fatalf("cover=%v, want the openBD cover", b.Cover)
+		}
+	})
+
+	t.Run("無効化していない本には楽天の書影を付ける", func(t *testing.T) {
+		t.Parallel()
+		b := mustBook(t)
+		rc := mustRakutenCover(t)
+
+		b.RefreshCatalog(bib, &rc)
+
+		if b.Cover == nil || b.Cover.Source() != book.CoverSourceRakuten {
+			t.Fatalf("cover=%v, want the Rakuten cover", b.Cover)
+		}
+	})
+}
+
 // Read Model は書き込み側の VO・Entity に依存しない（docs/rules/testing.md）。
 func TestReadModels_UsePlainFieldTypes(t *testing.T) {
 	t.Parallel()
@@ -139,6 +271,7 @@ func TestReadModels_UsePlainFieldTypes(t *testing.T) {
 		reflect.TypeOf(book.Summary{}):       true,
 		reflect.TypeOf(book.Comment{}):       true,
 		reflect.TypeOf(book.Rating{}):        true,
+		reflect.TypeOf(book.TagSelection{}):  true,
 		reflect.TypeOf(book.Book{}):          true,
 	}
 	for _, typ := range []reflect.Type{reflect.TypeOf(book.BookDetail{}), reflect.TypeOf(book.BookListItem{})} {

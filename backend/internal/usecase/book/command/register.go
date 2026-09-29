@@ -7,6 +7,7 @@ import (
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
 // RegisterCommand は RegisterUsecase の入力（Presentation から渡る境界）。データだけを持ち、ロジックは持たない。
@@ -15,6 +16,7 @@ type RegisterCommand struct {
 	Summary string
 	// TitleOverride は自分で上書きする書名。前後の空白を除いて空なら上書きしない。
 	TitleOverride string
+	TagIDs        []int64
 	Comment       string
 	Rating        int
 }
@@ -27,6 +29,7 @@ type RegisterUsecaseImpl struct {
 	Books   book.Repository
 	Catalog book.BookCatalog
 	Details book.Query
+	Tags    tag.Query
 }
 
 // Execute は入力を検証してから ISBN で外部カタログの書誌・書影を取得し、感想・評価と合わせて登録する。
@@ -51,6 +54,10 @@ func (u *RegisterUsecaseImpl) Execute(ctx context.Context, cmd RegisterCommand) 
 	if err != nil {
 		return nil, err
 	}
+	tags, err := parseTagSelection(ctx, u.Tags, cmd.TagIDs)
+	if err != nil {
+		return nil, err
+	}
 	// 入力が不正なときに外部カタログを呼ばないよう、検証を先に済ませてから問い合わせる
 	entry, err := u.Catalog.Lookup(ctx, isbn)
 	if errors.Is(err, common.ErrNotFound) {
@@ -60,7 +67,7 @@ func (u *RegisterUsecaseImpl) Execute(ctx context.Context, cmd RegisterCommand) 
 	if err != nil {
 		return nil, err
 	}
-	b := book.New(isbn, entry.Bibliography, entry.Cover, summary, comment, rating)
+	b := book.New(isbn, entry.Bibliography, entry.Cover, summary, comment, rating, tags)
 	b.OverrideTitle(override)
 	if err := u.Books.Create(ctx, b); err != nil {
 		return nil, err

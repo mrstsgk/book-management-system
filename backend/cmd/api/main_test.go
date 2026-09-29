@@ -1,11 +1,25 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
+	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
+	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
+	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 )
 
 // run は非公開なので、このテストは package main に置く。
@@ -44,12 +58,159 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 		"POST /api/books",
 		"PUT /api/books/:id",
 		"DELETE /api/books/:id",
+		"DELETE /api/books/:id/rakuten",
 		"GET /api/catalog/:isbn",
+		"GET /api/tags",
+		"GET /api/tags/counts",
+		"POST /api/tags",
+		"PUT /api/tags/:id",
+		"DELETE /api/tags/:id",
 	} {
 		if !got[want] {
 			t.Errorf("route %q is not registered (got %v)", want, got)
 		}
 	}
+}
+
+// TestRegisterRoutes_WiresTagQueryIntoBookUsecases は main.go が RegisterUsecaseImpl と UpdateUsecaseImpl の両方の
+// Tags に本物の tag.Query を渡していることを、実際のリクエストで確かめる（配線漏れなら nil interface の
+// メソッド呼び出しでパニックする）。実DBが要るため繋がらなければ skip する。
+func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
+	db, err := pgcommon.Connect(pgcommon.Config{
+		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
+		DBName: "book_management", SSLMode: "disable",
+	})
+	if err != nil {
+		t.Skipf("skipping: local Postgres not reachable (run `make db-up migrate-up` first): %v", err)
+	}
+
+	e := httpcommon.NewEcho()
+	registerRoutes(e, db, nil, "token")
+
+	body := `{"isbn":"4873118700","summary":"要約","tagIds":[999999999],"comment":"良書","rating":5}`
+	req := httptest.NewRequest(http.MethodPost, "/api/books", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	// 存在しないタグIDは400（実在確認までTagsの配線が届いていないとここでpanicする）。
+	// タグ検証はカタログ問い合わせより前に行われるため、bookCatalog（nil）には到達しない。
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
+	}
+
+	// 更新経路（UpdateUsecaseImpl.Tags）も同様に配線されていることを確かめる。
+	// 更新はまず対象の本を読むので、実在する本の行を1件作っておく。
+	var bookID int64
+	if err := db.Raw(
+		"INSERT INTO book (isbn, title, summary, comment, rating, version) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+		"9780000099990", "main-test-書名", "main-test-まとめ", "main-test-感想", 5, 1,
+	).Scan(&bookID).Error; err != nil {
+		t.Fatalf("insert book: %v", err)
+	}
+	t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", bookID) })
+
+	updateBody := `{"summary":"main-test-まとめ","tagIds":[999999999],"comment":"main-test-感想","rating":4,"version":1}`
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/books/"+strconv.FormatInt(bookID, 10), strings.NewReader(updateBody))
+	updateReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	updateReq.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	updateRec := httptest.NewRecorder()
+	e.ServeHTTP(updateRec, updateReq)
+
+	if updateRec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT status = %d, want 400 (body=%s)", updateRec.Code, updateRec.Body.String())
+	}
+}
+
+// blockingRefresh は Execute のたびに呼ばれたことを知らせ、release が閉じられるまで返らない
+// （ctx がキャンセルされても、外部カタログの応答待ちのように実行中の1回はすぐには終わらないことを模す）。
+type blockingRefresh struct {
+	calls   chan struct{}
+	release chan struct{}
+}
+
+func (f *blockingRefresh) Execute(_ context.Context) error {
+	f.calls <- struct{}{}
+	<-f.release
+	return nil
+}
+
+func TestStartRakutenRefresh(t *testing.T) {
+	t.Run("取り直しが終わるのを待たずに返り、起動直後に1回呼ぶ", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		uc := &blockingRefresh{calls: make(chan struct{}, 10), release: make(chan struct{})}
+		defer close(uc.release) // 実行中のままリークさせない
+
+		returned := make(chan struct{})
+		go func() {
+			startRakutenRefresh(ctx, uc, time.Hour)
+			close(returned)
+		}()
+
+		select {
+		case <-returned:
+		case <-time.After(time.Second):
+			t.Fatal("startRakutenRefresh blocked; the server must not wait for the refresh")
+		}
+		select {
+		case <-uc.calls:
+		case <-time.After(time.Second):
+			t.Fatal("refresh was not run at startup")
+		}
+	})
+
+	t.Run("間隔ごとに呼び、止めたらそれ以上呼ばない", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		uc := &blockingRefresh{calls: make(chan struct{}, 100), release: make(chan struct{})}
+		close(uc.release)
+
+		startRakutenRefresh(ctx, uc, 10*time.Millisecond)
+		for range 2 {
+			select {
+			case <-uc.calls:
+			case <-time.After(time.Second):
+				t.Fatal("refresh was not repeated at the interval")
+			}
+		}
+		cancel()
+		time.Sleep(30 * time.Millisecond) // 止まる前に走っていた1回を捨てる
+		for len(uc.calls) > 0 {
+			<-uc.calls
+		}
+		time.Sleep(50 * time.Millisecond)
+		if n := len(uc.calls); n != 0 {
+			t.Fatalf("refresh ran %d times after cancel, want it stopped", n)
+		}
+	})
+
+	t.Run("実行中にキャンセルしても、その回が終わるまで完了を知らせない", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		uc := &blockingRefresh{calls: make(chan struct{}, 10), release: make(chan struct{})}
+
+		done := startRakutenRefresh(ctx, uc, time.Hour)
+		select {
+		case <-uc.calls:
+		case <-time.After(time.Second):
+			t.Fatal("refresh was not run at startup")
+		}
+		cancel()
+
+		select {
+		case <-done:
+			t.Fatal("done closed before the in-flight refresh returned; DB close could race with it")
+		case <-time.After(50 * time.Millisecond):
+		}
+
+		close(uc.release) // 実行中の1回を終わらせる
+
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("done was not closed after the in-flight refresh returned")
+		}
+	})
 }
 
 func TestNewCatalog_WorksWithAndWithoutRakutenKeys(t *testing.T) {
@@ -59,6 +220,68 @@ func TestNewCatalog_WorksWithAndWithoutRakutenKeys(t *testing.T) {
 	} {
 		if newCatalog(cfg) == nil {
 			t.Fatalf("newCatalog(%+v) returned nil", cfg)
+		}
+	}
+}
+
+// migratedTempDB は共有の開発 DB を空にせずに「空の DB での起動」を試すため、一時的なデータベースを作って
+// backend/migrations の up を順に流す。ローカルの PostgreSQL に繋がらなければ skip する。
+func migratedTempDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	base := pgcommon.Config{Host: "localhost", Port: "5432", User: "postgres", Password: "postgres", DBName: "book_management", SSLMode: "disable"}
+	admin, err := pgcommon.Connect(base)
+	if err != nil {
+		t.Skipf("skipping: local Postgres not reachable (run `make db-up` first): %v", err)
+	}
+	t.Cleanup(func() { _ = pgcommon.Close(admin) })
+
+	name := fmt.Sprintf("book_management_seedtest_%d", time.Now().UnixNano())
+	if err := admin.Exec("CREATE DATABASE " + name).Error; err != nil {
+		t.Skipf("skipping: cannot create a temporary database: %v", err)
+	}
+	t.Cleanup(func() { admin.Exec("DROP DATABASE IF EXISTS " + name + " WITH (FORCE)") })
+
+	cfg := base
+	cfg.DBName = name
+	db, err := pgcommon.Connect(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = pgcommon.Close(db) })
+
+	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no migrations found: %v", err)
+	}
+	sort.Strings(files)
+	for _, f := range files {
+		sql, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec(string(sql)).Error; err != nil {
+			t.Fatalf("migrate %s: %v", filepath.Base(f), err)
+		}
+	}
+	return db
+}
+
+func TestSeedIfEmpty_OnAnEmptyDatabaseSeedsOnceAcrossRestarts(t *testing.T) {
+	db := migratedTempDB(t)
+	ctx := context.Background()
+	books, query := pgbook.NewRepository(db), pgbook.NewQuery(db, time.Now)
+	offline := &fakeSeedCatalog{err: fmt.Errorf("offline")}
+
+	for start := 1; start <= 2; start++ {
+		if err := seedIfEmpty(ctx, books, query, offline); err != nil {
+			t.Fatalf("start %d: %v", start, err)
+		}
+		var count int64
+		if err := db.Raw("SELECT COUNT(*) FROM book").Scan(&count).Error; err != nil {
+			t.Fatal(err)
+		}
+		if count != int64(len(sampleBooks)) {
+			t.Fatalf("start %d: %d books, want %d", start, count, len(sampleBooks))
 		}
 	}
 }

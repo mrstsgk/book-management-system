@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -11,24 +12,29 @@ import (
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+	domaintag "github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
 type model struct {
-	ID            int64     `gorm:"column:id;primaryKey;autoIncrement"`
-	ISBN          string    `gorm:"column:isbn;size:13;not null"`
-	Title         string    `gorm:"column:title;size:255;not null"`
-	TitleOverride *string   `gorm:"column:title_override;size:255"`
-	Authors       string    `gorm:"column:authors;size:500;not null"`
-	Publisher     string    `gorm:"column:publisher;size:255;not null"`
-	PublishedOn   string    `gorm:"column:published_on;size:32;not null"`
-	CoverURL      *string   `gorm:"column:cover_url;size:2048"`
-	CoverSource   *string   `gorm:"column:cover_source;size:16"`
-	Summary       string    `gorm:"column:summary;size:100;not null"`
-	Comment       string    `gorm:"column:comment;not null"`
-	Rating        int       `gorm:"column:rating;not null"`
-	Version       int       `gorm:"column:version;not null"`
-	CreatedAt     time.Time `gorm:"column:created_at;not null"`
-	UpdatedAt     time.Time `gorm:"column:updated_at;not null"`
+	ID            int64   `gorm:"column:id;primaryKey;autoIncrement"`
+	ISBN          string  `gorm:"column:isbn;size:13;not null"`
+	Title         string  `gorm:"column:title;size:255;not null"`
+	TitleOverride *string `gorm:"column:title_override;size:255"`
+	Authors       string  `gorm:"column:authors;size:500;not null"`
+	Publisher     string  `gorm:"column:publisher;size:255;not null"`
+	PublishedOn   string  `gorm:"column:published_on;size:32;not null"`
+	CoverURL      *string `gorm:"column:cover_url;size:2048"`
+	CoverSource   *string `gorm:"column:cover_source;size:16"`
+	// CoverProductURL・CoverFetchedAt は楽天の書影のときだけ入る（CHECK 制約 ck_book_rakuten_cover）。
+	CoverProductURL *string    `gorm:"column:cover_product_url;size:2048"`
+	CoverFetchedAt  *time.Time `gorm:"column:cover_fetched_at"`
+	RakutenDisabled bool       `gorm:"column:rakuten_disabled;not null"`
+	Summary         string     `gorm:"column:summary;size:100;not null"`
+	Comment         string     `gorm:"column:comment;not null"`
+	Rating          int        `gorm:"column:rating;not null"`
+	Version         int        `gorm:"column:version;not null"`
+	CreatedAt       time.Time  `gorm:"column:created_at;not null"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at;not null"`
 }
 
 func (model) TableName() string {
@@ -44,6 +50,35 @@ func NewRepository(db *gorm.DB) domainbook.Repository {
 	return &repository{db: db}
 }
 
+// FindRakutenRefreshTargets は楽天の書影の取得日時が fetchedBefore 以前の行を ID 順に取得する。
+func (r *repository) FindRakutenRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*domainbook.Book, error) {
+	var rows []model
+	err := r.db.WithContext(ctx).
+		Where("cover_source = ? AND cover_fetched_at <= ?", string(domainbook.CoverSourceRakuten), fetchedBefore).
+		Order("id").Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	// ponytail: 1冊ずつタグを読む（N+1）。対象は取り直しの時期に入った数冊だけなので、まとめて読む仕組みは要らない
+	// 1冊の読み込み・組み立てに失敗しても、他の対象の取り直しを止めない（呼び出し側の「1冊の失敗で残りを止めない」方針を、
+	// ここで取りこぼすと崩してしまうため）。失敗は warn ログに残し、その冊だけ結果から外す。
+	books := make([]*domainbook.Book, 0, len(rows))
+	for _, row := range rows {
+		tagIDs, err := findBookTagIDs(ctx, r.db, row.ID)
+		if err != nil {
+			slog.WarnContext(ctx, "failed to load tags for a rakuten refresh target; skipping this book", "book_id", row.ID, "error", err)
+			continue
+		}
+		b, err := adapt(row, tagIDs)
+		if err != nil {
+			slog.WarnContext(ctx, "failed to adapt a rakuten refresh target; skipping this book", "book_id", row.ID, "error", err)
+			continue
+		}
+		books = append(books, b)
+	}
+	return books, nil
+}
+
 // FindByID は id の行を取得する。存在しなければ common.ErrNotFound を返す。
 func (r *repository) FindByID(ctx context.Context, id domainbook.ID) (*domainbook.Book, error) {
 	var row model
@@ -53,42 +88,123 @@ func (r *repository) FindByID(ctx context.Context, id domainbook.ID) (*domainboo
 		}
 		return nil, err
 	}
-	return adapt(row)
+	tagIDs, err := findBookTagIDs(ctx, r.db, row.ID)
+	if err != nil {
+		return nil, err
+	}
+	return adapt(row, tagIDs)
 }
 
 // Create は行を初期バージョン 1 で挿入し、採番した ID とバージョンを b に設定する。同じ ISBN があれば common.ErrConflict を返す。
+// 本の行と book_tag の挿入は同一トランザクションで行う。
 func (r *repository) Create(ctx context.Context, b *domainbook.Book) error {
-	row := toModel(b)
-	row.Version = 1
-	if err := r.db.WithContext(ctx).Create(&row).Error; err != nil {
-		return translateDuplicateISBN(err)
+	return r.CreateAll(ctx, []*domainbook.Book{b})
+}
+
+// CreateAll は books を1つのトランザクションで挿入する。1冊でも失敗すれば全冊をロールバックする。
+// ロールバックした行の ID を本に残さないよう、採番した ID はコミットの後で設定する。
+func (r *repository) CreateAll(ctx context.Context, books []*domainbook.Book) error {
+	ids := make([]int64, len(books))
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for i, b := range books {
+			id, err := insertBook(tx, b)
+			if err != nil {
+				return err
+			}
+			ids[i] = id
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
-	b.ID = domainbook.ID(row.ID)
-	b.Version = row.Version
+	for i, b := range books {
+		b.ID = domainbook.ID(ids[i])
+		b.Version = 1
+	}
 	return nil
 }
 
-// Update は ID とバージョンが一致する行を更新してバージョンを進める。一致しなければ common.ErrConflict を返す。
-func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
+// insertBook は本の行（初期バージョン 1）と book_tag を tx で挿入し、採番した ID を返す。
+func insertBook(tx *gorm.DB, b *domainbook.Book) (int64, error) {
 	row := toModel(b)
-	next := b.Version + 1
-	res := r.db.WithContext(ctx).Model(&model{}).
-		Where("id = ? AND version = ?", int64(b.ID), b.Version).
-		Updates(map[string]any{
-			"title": row.Title, "title_override": row.TitleOverride, "authors": row.Authors,
-			"publisher": row.Publisher, "published_on": row.PublishedOn,
-			"cover_url": row.CoverURL, "cover_source": row.CoverSource,
-			"summary": row.Summary, "comment": row.Comment, "rating": row.Rating,
-			"version": next, "updated_at": gorm.Expr("NOW()"),
-		})
-	if res.Error != nil {
-		return res.Error
+	row.Version = 1
+	if err := tx.Create(&row).Error; err != nil {
+		return 0, translateDuplicateISBN(err)
 	}
-	if res.RowsAffected == 0 {
-		return fmt.Errorf("%w: 読んだ本の更新に失敗しました（他の更新と競合しました）", common.ErrConflict)
+	if err := insertBookTags(tx, row.ID, b.Tags.IDs()); err != nil {
+		return 0, err
 	}
-	b.Version = next
-	return nil
+	return row.ID, nil
+}
+
+// Update は ID とバージョンが一致する行を更新してバージョンを進める。一致しなければ common.ErrConflict を返す。
+// book_tag はいったん全削除して入れ直す（付け外しの両方を単純な形で扱うため）。
+func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		row := toModel(b)
+		next := b.Version + 1
+		res := tx.Model(&model{}).
+			Where("id = ? AND version = ?", int64(b.ID), b.Version).
+			Updates(map[string]any{
+				"title": row.Title, "title_override": row.TitleOverride, "authors": row.Authors,
+				"publisher": row.Publisher, "published_on": row.PublishedOn,
+				"cover_url": row.CoverURL, "cover_source": row.CoverSource,
+				"cover_product_url": row.CoverProductURL, "cover_fetched_at": row.CoverFetchedAt,
+				"rakuten_disabled": row.RakutenDisabled,
+				"summary":          row.Summary, "comment": row.Comment, "rating": row.Rating,
+				"version": next, "updated_at": gorm.Expr("NOW()"),
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return fmt.Errorf("%w: 読んだ本の更新に失敗しました（他の更新と競合しました）", common.ErrConflict)
+		}
+		if err := tx.Where("book_id = ?", int64(b.ID)).Delete(&bookTagModel{}).Error; err != nil {
+			return err
+		}
+		if err := insertBookTags(tx, int64(b.ID), b.Tags.IDs()); err != nil {
+			return err
+		}
+		b.Version = next
+		return nil
+	})
+}
+
+// bookTagModel は book_tag テーブルの1行。
+type bookTagModel struct {
+	BookID int64 `gorm:"column:book_id;primaryKey"`
+	TagID  int64 `gorm:"column:tag_id;primaryKey"`
+}
+
+func (bookTagModel) TableName() string {
+	return "book_tag"
+}
+
+// insertBookTags は bookID に tagIDs を付ける行を挿入する。tagIDs が空なら何もしない。
+func insertBookTags(tx *gorm.DB, bookID int64, tagIDs []domaintag.ID) error {
+	if len(tagIDs) == 0 {
+		return nil
+	}
+	rows := make([]bookTagModel, len(tagIDs))
+	for i, id := range tagIDs {
+		rows[i] = bookTagModel{BookID: bookID, TagID: int64(id)}
+	}
+	return tx.Create(&rows).Error
+}
+
+// findBookTagIDs は bookID に付いているタグIDを返す。
+func findBookTagIDs(ctx context.Context, db *gorm.DB, bookID int64) ([]domaintag.ID, error) {
+	var rows []bookTagModel
+	if err := db.WithContext(ctx).Where("book_id = ?", bookID).Order("tag_id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	ids := make([]domaintag.ID, len(rows))
+	for i, row := range rows {
+		ids[i] = domaintag.ID(row.TagID)
+	}
+	return ids, nil
 }
 
 // Delete は id の行を削除する。存在しなければ common.ErrNotFound を返す。
@@ -127,10 +243,16 @@ func toModel(b *domainbook.Book) model {
 		Comment:     b.Comment.String(),
 		Rating:      b.Rating.Int(),
 		Version:     b.Version,
+		// 楽天から削除の指示を受けたことは取り直しでも消さないため、書影とは別に持つ
+		RakutenDisabled: b.RakutenDisabled,
 	}
 	if b.Cover != nil {
 		u, s := b.Cover.URL(), string(b.Cover.Source())
 		row.CoverURL, row.CoverSource = &u, &s
+		if b.Cover.Source() == domainbook.CoverSourceRakuten {
+			p, f := b.Cover.ProductURL(), b.Cover.FetchedAt()
+			row.CoverProductURL, row.CoverFetchedAt = &p, &f
+		}
 	}
 	if b.TitleOverride != nil {
 		v := b.TitleOverride.String()
@@ -140,7 +262,7 @@ func toModel(b *domainbook.Book) model {
 }
 
 // adapt は行を VO で検証し直して Book に戻す。書き込み時に検証済みの値なので、失敗はデータの破損を意味する。
-func adapt(row model) (*domainbook.Book, error) {
+func adapt(row model, tagIDs []domaintag.ID) (*domainbook.Book, error) {
 	isbn, err := domainbook.NewISBN(row.ISBN)
 	if err != nil {
 		return nil, err
@@ -161,23 +283,42 @@ func adapt(row model) (*domainbook.Book, error) {
 	if err != nil {
 		return nil, err
 	}
-	var cover *domainbook.Cover
-	if row.CoverURL != nil && row.CoverSource != nil {
-		c, err := domainbook.NewCover(*row.CoverURL, domainbook.CoverSource(*row.CoverSource))
-		if err != nil {
-			return nil, err
-		}
-		cover = &c
+	cover, err := adaptCover(row)
+	if err != nil {
+		return nil, err
 	}
 	override, err := adaptTitleOverride(row.TitleOverride)
 	if err != nil {
 		return nil, err
 	}
-	b := domainbook.New(isbn, bib, cover, summary, comment, rating)
+	tags, err := domainbook.NewTagSelection(tagIDs)
+	if err != nil {
+		return nil, err
+	}
+	b := domainbook.New(isbn, bib, cover, summary, comment, rating, tags)
 	b.OverrideTitle(override)
+	b.RakutenDisabled = row.RakutenDisabled
 	b.ID = domainbook.ID(row.ID)
 	b.Version = row.Version
 	return b, nil
+}
+
+// adaptCover は保存済みの書影を VO で検証し直す。URL か提供元が NULL なら書影なし。
+func adaptCover(row model) (*domainbook.Cover, error) {
+	if row.CoverURL == nil || row.CoverSource == nil {
+		return nil, nil
+	}
+	var c domainbook.Cover
+	var err error
+	if domainbook.CoverSource(*row.CoverSource) == domainbook.CoverSourceRakuten && row.CoverProductURL != nil && row.CoverFetchedAt != nil {
+		c, err = domainbook.NewRakutenCover(*row.CoverURL, *row.CoverProductURL, *row.CoverFetchedAt)
+	} else {
+		c, err = domainbook.NewCover(*row.CoverURL, domainbook.CoverSource(*row.CoverSource))
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
 }
 
 // adaptTitleOverride は保存済みの上書きを VO で検証し直す。NULL なら上書きなし。

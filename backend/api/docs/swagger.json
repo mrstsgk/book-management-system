@@ -9,7 +9,7 @@
     "paths": {
         "/api/books": {
             "get": {
-                "description": "新しく登録した順。total は取得範囲外も含む総件数。感想の本文は詳細で返す",
+                "description": "新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は0件",
                 "produces": [
                     "application/json"
                 ],
@@ -28,6 +28,18 @@
                         "type": "integer",
                         "description": "取得開始位置（0以上、既定0）",
                         "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "この分野タグが付いた本だけにする（1以上）",
+                        "name": "tagId",
                         "in": "query"
                     }
                 ],
@@ -283,6 +295,64 @@
                 }
             }
         },
+        "/api/books/{id}/rakuten": {
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "楽天から削除の指示を受けた本の楽天の書影・商品ページを消し、以後この本には楽天の書影を付けない。楽天の情報を持たない本でも 204。version は受け取らない（削除の指示には最後に読んだ内容に関係なく従うため）",
+                "tags": [
+                    "books"
+                ],
+                "summary": "楽天由来の情報を消す（自分だけ）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "読んだ本のID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/catalog/{isbn}": {
             "get": {
                 "security": [
@@ -340,6 +410,244 @@
                     }
                 }
             }
+        },
+        "/api/tags": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tags"
+                ],
+                "summary": "分野タグの一覧を取得する",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TagListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "同じ名前のタグは登録できない（409）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tags"
+                ],
+                "summary": "分野タグを追加する（自分だけ）",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RegisterTagRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TagResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tags/counts": {
+            "get": {
+                "description": "本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tags"
+                ],
+                "summary": "分野タグごとの冊数を取得する",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TagBookCountListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tags/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "version が一致しない場合は 409",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tags"
+                ],
+                "summary": "分野タグの名前を変更する（自分だけ）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "タグのID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RenameTagRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TagResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "AdminToken": []
+                    }
+                ],
+                "description": "付いていた本からは自動で外れる",
+                "tags": [
+                    "tags"
+                ],
+                "summary": "分野タグを削除する（自分だけ）",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "タグのID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -353,6 +661,11 @@
                 "authors": {
                     "type": "string",
                     "example": "Kleppmann,Martin 斉藤,太郎 玉川,竜司"
+                },
+                "coverProductUrl": {
+                    "description": "CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。",
+                    "type": "string",
+                    "example": "https://books.rakuten.co.jp/rb/15949390/"
                 },
                 "coverSource": {
                     "type": "string",
@@ -381,6 +694,16 @@
                 "summary": {
                     "type": "string",
                     "example": "分散データの設計を体系的に学べる"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "データベース",
+                        "分散システム"
+                    ]
                 },
                 "title": {
                     "description": "Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。",
@@ -428,6 +751,11 @@
                     "type": "string",
                     "example": "分散システムの設計を体系的に学べた"
                 },
+                "coverProductUrl": {
+                    "description": "CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。楽天の書影は画面でこのリンクと一緒に見せる必要がある。",
+                    "type": "string",
+                    "example": "https://books.rakuten.co.jp/rb/15949390/"
+                },
                 "coverSource": {
                     "type": "string",
                     "enum": [
@@ -457,6 +785,11 @@
                     "type": "string",
                     "example": "オーム社"
                 },
+                "rakutenDisabled": {
+                    "description": "RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（以後、楽天の書影は付かない）。",
+                    "type": "boolean",
+                    "example": false
+                },
                 "rating": {
                     "type": "integer",
                     "example": 5
@@ -464,6 +797,16 @@
                 "summary": {
                     "type": "string",
                     "example": "分散データの設計を体系的に学べる"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "データベース",
+                        "分散システム"
+                    ]
                 },
                 "title": {
                     "description": "Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。",
@@ -491,6 +834,11 @@
                 "authors": {
                     "type": "string",
                     "example": "Kleppmann,Martin 斉藤,太郎 玉川,竜司"
+                },
+                "coverProductUrl": {
+                    "description": "CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。",
+                    "type": "string",
+                    "example": "https://books.rakuten.co.jp/rb/15949390/"
                 },
                 "coverSource": {
                     "type": "string",
@@ -582,11 +930,110 @@
                     "maxLength": 100,
                     "example": "分散データの設計を体系的に学べる"
                 },
+                "tagIds": {
+                    "description": "TagIDs は分野タグのID。0〜10個、実在するIDのみ指定できる。",
+                    "type": "array",
+                    "maxItems": 10,
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2
+                    ]
+                },
                 "titleOverride": {
                     "description": "TitleOverride は外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない。",
                     "type": "string",
                     "maxLength": 255,
                     "example": ""
+                }
+            }
+        },
+        "RegisterTagRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 30,
+                    "example": "データベース"
+                }
+            }
+        },
+        "RenameTagRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "version"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "maxLength": 30,
+                    "example": "分散システム"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "TagBookCountListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/TagBookCountResponse"
+                    }
+                }
+            }
+        },
+        "TagBookCountResponse": {
+            "type": "object",
+            "properties": {
+                "bookCount": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "データベース"
+                }
+            }
+        },
+        "TagListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/TagResponse"
+                    }
+                }
+            }
+        },
+        "TagResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "データベース"
+                },
+                "version": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
@@ -614,6 +1061,18 @@
                     "type": "string",
                     "maxLength": 100,
                     "example": "読み返して理解が深まった"
+                },
+                "tagIds": {
+                    "description": "TagIDs は全体の置き換えなので、省略・空なら分野タグをすべて外す。",
+                    "type": "array",
+                    "maxItems": 10,
+                    "items": {
+                        "type": "integer"
+                    },
+                    "example": [
+                        1,
+                        2
+                    ]
                 },
                 "titleOverride": {
                     "description": "TitleOverride は全体の置き換えなので、省略・空（空白だけも）なら上書きを外す。",
