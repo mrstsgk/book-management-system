@@ -24,18 +24,9 @@ type DBConfig struct {
 	SSLMode  string
 }
 
-// CatalogConfig は外部の書籍カタログの接続先。楽天のキーは任意で、無ければ openBD だけを使う
-// （openBD に書影が無い本は書影なしになる）。
+// CatalogConfig は外部の書籍カタログの接続先。
 type CatalogConfig struct {
-	OpenBDBaseURL        string
-	RakutenBaseURL       string
-	RakutenApplicationID string
-	RakutenAccessKey     string
-}
-
-// RakutenEnabled は楽天のアプリ ID とアクセスキーが両方設定されているかを返す。
-func (c CatalogConfig) RakutenEnabled() bool {
-	return c.RakutenApplicationID != "" && c.RakutenAccessKey != ""
+	OpenBDBaseURL string
 }
 
 // Load は環境変数から Config を読み込む。既定値はローカルの docker compose の DB と開発用の管理者トークン
@@ -57,10 +48,7 @@ func Load() (Config, error) {
 			SSLMode:  getenv("DB_SSLMODE", "disable"),
 		},
 		Catalog: CatalogConfig{
-			OpenBDBaseURL:        getenv("OPENBD_BASE_URL", "https://api.openbd.jp"),
-			RakutenBaseURL:       getenv("RAKUTEN_BASE_URL", "https://openapi.rakuten.co.jp"),
-			RakutenApplicationID: getenv("RAKUTEN_APPLICATION_ID", ""),
-			RakutenAccessKey:     getenv("RAKUTEN_ACCESS_KEY", ""),
+			OpenBDBaseURL: getenv("OPENBD_BASE_URL", "https://api.openbd.jp"),
 		},
 		AdminToken: getenv("ADMIN_TOKEN", "local-admin-token"),
 	}, nil

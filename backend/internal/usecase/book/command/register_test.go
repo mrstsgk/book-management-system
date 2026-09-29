@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
@@ -55,10 +54,6 @@ func (f *fakeBooks) Update(_ context.Context, b *book.Book) error {
 func (f *fakeBooks) Delete(_ context.Context, id book.ID) error {
 	f.deletedID = id
 	return f.deleteErr
-}
-
-func (f *fakeBooks) FindRakutenRefreshTargets(context.Context, time.Time) ([]*book.Book, error) {
-	return nil, nil
 }
 
 // fakeCatalog は book.BookCatalog の手書き Fake。

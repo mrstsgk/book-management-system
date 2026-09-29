@@ -12,9 +12,9 @@
 
 ![一覧（PC）](./images/list.png)
 
-## 詳細（楽天の書影を使う本）
+## 詳細
 
-[detail.html](./detail.html) — 楽天のクレジット・商品ページへのリンク・注記を出す場合。Amazon と楽天のリンクは文言で区別する。
+[detail.html](./detail.html) — 書誌・書影・評価・分野タグ・一言まとめ・感想と、Amazon へのリンク。
 
 ![詳細](./images/detail.png)
 

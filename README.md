@@ -15,7 +15,7 @@
 
 | 対象 | できること | 状況 |
 |---|---|---|
-| API | 本の登録・更新・削除（ISBN から書誌を openBD、書影を openBD／楽天ブックスで取得）。一覧のキーワード検索と分野タグでの絞り込み、分野タグごとの冊数、楽天由来の情報の期限管理、起動時の見本データ投入 | 実装済み（API の一覧は [`backend/architecture.md`](./backend/architecture.md#プロダクト-api-範囲)） |
+| API | 本の登録・更新・削除（ISBN から書誌と書影を openBD で取得）。一覧のキーワード検索と分野タグでの絞り込み、分野タグごとの冊数、起動時の見本データ投入 | 実装済み（API の一覧は [`backend/architecture.md`](./backend/architecture.md#プロダクト-api-範囲)） |
 | 公開画面 | 一覧（検索・絞り込み・ページング）、詳細、分野別の集計。誰でも見られる | 実装中 |
 | 管理画面 | ログイン、本の登録・編集・削除、タグの管理。自分だけが使う | 未着手 |
 
@@ -28,7 +28,7 @@
 | バックエンドの層 | オニオンアーキテクチャ（Presentation → UseCase → Domain ← Infrastructure）。Domain は Echo・GORM・SQL・外部 API に依存しない | [`backend/architecture.md` §2](./backend/architecture.md#2-層と依存) |
 | 読み書きの分離 | CQRS。書き込みは Repository と Command DTO、読み取りは Read Model を返す Query に分ける（DB は1つ） | [`backend/architecture.md` §2](./backend/architecture.md#cqrsrepository-と-query) |
 | API の契約 | Go の DTO と Handler を正とし、swag で OpenAPI を出力。フロントは Orval で TypeScript の型とクライアントを生成する。生成物は手で直さず、CI で再生成してずれがあれば落とす | [`docs/architecture.md` §4](./docs/architecture.md#4-openapi--型契約境界) |
-| 外部カタログ | 書誌は openBD だけから取る。書影は openBD に無ければ楽天で補い、楽天の規約（保持は最長3か月）に合わせて期限を管理する | [ADR](./docs/adr/2026-09-28-rakuten-for-cover-only.md)・[設計](./docs/superpowers/specs/2026-09-28-rakuten-expiry-design.md) |
+| 外部カタログ | 書誌と書影は openBD から取り、提供元の URL をそのまま表示する（画像は保存しない）。取得元ごとの期限管理は持たない | [ADR](./docs/adr/2026-09-29-cover-from-google-books-and-openbd.md)・[設計](./docs/superpowers/specs/2026-09-29-cover-sources-design.md) |
 | フロントエンド | React + Vite + TypeScript。UI はデジタル庁デザインシステム。サーバー状態は TanStack Query、表示とロジックは hooks とコンポーネントに分ける | [`frontend/architecture.md`](./frontend/architecture.md) |
 
 ## AI との協業とハーネス
@@ -91,7 +91,7 @@ make tools
 make db-up                # PostgreSQL
 make migrate-up
 make run                  # http://localhost:8080/health
-# 書き込み系 API は Authorization: Bearer local-admin-token（ローカルの既定値）。書影を楽天で補う場合は RAKUTEN_APPLICATION_ID / RAKUTEN_ACCESS_KEY を設定（backend/README.md）
+# 書き込み系 API は Authorization: Bearer local-admin-token（ローカルの既定値）
 
 # フロントエンド（別ターミナル）
 cd frontend
@@ -102,7 +102,7 @@ pnpm dev                  # http://localhost:3000
 詳細は [`backend/README.md`](./backend/README.md) / [`frontend/README.md`](./frontend/README.md)。
 
 ```
-backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag。書誌・書影は openBD / 楽天ブックス API）
+backend/    # Go / Echo API（PostgreSQL + GORM / golang-migrate / swag。書誌・書影は openBD）
 frontend/   # React + Vite + TypeScript（pnpm workspace: web, packages/ui）
 docs/       # 方針・ルール・ADR
 ```

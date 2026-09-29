@@ -23,54 +23,23 @@ function BookCover({ book }: BookDetailViewProps) {
           書影なし
         </div>
       )}
-      {book.coverSource === 'rakuten' && (
-        <p className="text-xs leading-relaxed text-ink-600">
-          <a
-            href="https://webservice.rakuten.co.jp/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-brand-700 hover:underline"
-          >
-            Supported by Rakuten Developers
-          </a>
-        </p>
-      )}
     </div>
   )
 }
 
 function ExternalLinks({ book }: BookDetailViewProps) {
-  const isRakuten = book.coverSource === 'rakuten'
+  if (!book.amazonUrl) return null
   return (
-    <>
-      <div className="mt-2 flex flex-wrap gap-3">
-        {book.amazonUrl && (
-          <a
-            href={book.amazonUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={externalLinkClass}
-          >
-            Amazonで見る <span aria-hidden="true">↗</span>
-          </a>
-        )}
-        {isRakuten && book.coverProductUrl && (
-          <a
-            href={book.coverProductUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={externalLinkClass}
-          >
-            楽天ブックスの商品ページ <span aria-hidden="true">↗</span>
-          </a>
-        )}
-      </div>
-      {isRakuten && (
-        <p className="text-xs leading-relaxed text-ink-600">
-          楽天ブックスの掲載情報は、このサイトの作成者が運営しています。購入時の価格は楽天ブックスの店舗の表示が適用されます。
-        </p>
-      )}
-    </>
+    <div className="mt-2 flex flex-wrap gap-3">
+      <a
+        href={book.amazonUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={externalLinkClass}
+      >
+        Amazonで見る <span aria-hidden="true">↗</span>
+      </a>
+    </div>
   )
 }
 

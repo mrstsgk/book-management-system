@@ -82,7 +82,7 @@ Storybook は表示バリエーションのカタログであり、テストの�
   **返しうる HTTP ステータスごとに最低 1 件**のテストを書く（200 のハッピーパス＋実際に返しうる 4xx/5xx を
   それぞれ 1 件ずつ）。狙いは内部の分岐網羅ではなく、Handler→UseCase→Repository/Query→DB の配線が
   実物同士で噛み合っていることの確認であり、既存の Fake ベースの Handler／UseCase テストと契約テストを
-  代替しない（分岐網羅・境界値はそれらに任せる）。外部 API（openBD・楽天など）に依存する Handler は、
+  代替しない（分岐網羅・境界値はそれらに任せる）。外部 API（openBD など）に依存する Handler は、
   その依存だけ Fake の Gateway に差し替え、DB は実物のままにする（外部ゲートウェイ自体は
   `infrastructure/gateway/<name>` の単体テストで別途検証済みのため、ここで実ネットワークに頼る必要はない）。
   ファイルは対象と同じディレクトリに `<handler>_integration_test.go` として置き、DB に繋がらなければ
