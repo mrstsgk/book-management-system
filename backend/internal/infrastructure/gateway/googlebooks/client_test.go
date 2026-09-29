@@ -3,6 +3,7 @@ package googlebooks_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -176,6 +177,29 @@ func TestClient_FindCover_RefusesPlainHTTP(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestClient_FindCover_TransportErrorHidesKey(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		cause error
+	}{
+		{name: "通信のエラー", cause: errors.New("boom")},
+		{name: "タイムアウト", cause: context.DeadlineExceeded},
+	} {
+		t.Run(tt.name+"の文言がURLを含んでもエラーにAPIキーを含めず、原因はerrors.Isで辿れる", func(t *testing.T) {
+			httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				return nil, fmt.Errorf("dial %s: %w", r.URL, tt.cause)
+			})}
+			_, err := googlebooks.NewClient("", "secret-key", httpClient).FindCover(context.Background(), "9784297146221")
+			if err == nil || strings.Contains(err.Error(), "secret-key") {
+				t.Fatalf("err = %v, want an error without the key", err)
+			}
+			if !errors.Is(err, tt.cause) {
+				t.Fatalf("errors.Is(err, %v) = false; err = %v", tt.cause, err)
+			}
+		})
+	}
+}
 
 func TestNewClient_DefaultBaseURL(t *testing.T) {
 	t.Run("baseURLが空なら既定のGoogle Books APIに問い合わせる", func(t *testing.T) {

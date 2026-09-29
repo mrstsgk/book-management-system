@@ -64,12 +64,7 @@ func (c *Client) FindCover(ctx context.Context, isbn string) (*Cover, error) {
 	}
 	res, err := c.client.Do(req)
 	if err != nil {
-		// url.Error はキーを含む URL を持つので、エラーメッセージにキーを出さないよう中身だけ包む
-		var uerr *url.Error
-		if errors.As(err, &uerr) {
-			err = uerr.Err
-		}
-		return nil, fmt.Errorf("googlebooks: %w", err)
+		return nil, requestError{cause: err}
 	}
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
@@ -88,6 +83,13 @@ func (c *Client) FindCover(ctx context.Context, isbn string) (*Cover, error) {
 	}
 	return nil, nil
 }
+
+// requestError は通信の失敗を、原因の文言を出さずに伝える。url.Error だけでなく Transport が返すエラーの文言にも
+// キー入りの URL が入りうるため、中身を剥がすのでは足りない。原因は Unwrap で辿れる（context のキャンセル等の判定用）。
+type requestError struct{ cause error }
+
+func (e requestError) Error() string { return "googlebooks: request failed" }
+func (e requestError) Unwrap() error { return e.cause }
 
 type volumes struct {
 	Items []struct {
