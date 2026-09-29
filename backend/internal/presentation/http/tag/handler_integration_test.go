@@ -88,11 +88,20 @@ func mustUniqueISBN(t *testing.T) string {
 	return twelve + string(isbn13CheckDigit(twelve))
 }
 
+// uniqueTagName は実行のたびに異なるタグ名を返す（固定名だと、共有DBに前回のテスト行が
+// 残っている場合や同時実行で一意制約に落ちるため）。タグ名の上限（30文字）に収まるよう、
+// 接頭辞と連番を短くしている。
+func uniqueTagName(t *testing.T, label string) string {
+	t.Helper()
+	return fmt.Sprintf("pt-%s-%06d", label, time.Now().UnixNano()%1_000_000)
+}
+
 func TestIntegration_List_200(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-一覧"}`, true)
+	name := uniqueTagName(t, "一覧")
+	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, name), true)
 	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
@@ -100,7 +109,7 @@ func TestIntegration_List_200(t *testing.T) {
 	got := decodeOK[httptag.ListResponse](t, rec, http.StatusOK)
 	found := false
 	for _, it := range got.Items {
-		if it.Name == "pres-tag-test-一覧" {
+		if it.Name == name {
 			found = true
 		}
 	}
@@ -113,11 +122,11 @@ func TestIntegration_CountBooks_200(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-集計あり"}`, true)
+	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "集計あり")), true)
 	tagged := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", tagged.ID) })
 
-	rec = serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-0冊"}`, true)
+	rec = serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "0冊")), true)
 	untagged := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", untagged.ID) })
 
@@ -152,10 +161,11 @@ func TestIntegration_RegisterTag_200(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-登録"}`, true)
+	name := uniqueTagName(t, "登録")
+	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, name), true)
 	got := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", got.ID) })
-	if got.Name != "pres-tag-test-登録" || got.ID == 0 || got.Version != 1 {
+	if got.Name != name || got.ID == 0 || got.Version != 1 {
 		t.Fatalf("got %+v", got)
 	}
 }
@@ -174,7 +184,7 @@ func TestIntegration_RegisterTag_401(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-無認証"}`, false)
+	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "無認証")), false)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
 	}
@@ -184,7 +194,7 @@ func TestIntegration_RegisterTag_409(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	body := `{"name":"pres-tag-test-重複"}`
+	body := fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "重複"))
 	first := serve(t, h, http.MethodPost, "/api/tags", body, true)
 	firstTag := decodeOK[httptag.Response](t, first, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", firstTag.ID) })
@@ -199,14 +209,15 @@ func TestIntegration_Rename_200(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-改名前"}`, true)
+	afterName := uniqueTagName(t, "改名後")
+	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "改名前")), true)
 	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
-		fmt.Sprintf(`{"name":"pres-tag-test-改名後","version":%d}`, created.Version), true)
+		fmt.Sprintf(`{"name":%q,"version":%d}`, afterName, created.Version), true)
 	got := decodeOK[httptag.Response](t, rec, http.StatusOK)
-	if got.Name != "pres-tag-test-改名後" || got.Version != created.Version+1 {
+	if got.Name != afterName || got.Version != created.Version+1 {
 		t.Fatalf("got %+v", got)
 	}
 }
@@ -215,7 +226,7 @@ func TestIntegration_Rename_400(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-不正入力対象"}`, true)
+	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "不正入力対象")), true)
 	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
@@ -229,7 +240,7 @@ func TestIntegration_Rename_401(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPut, "/api/tags/1", `{"name":"pres-tag-test-無認証改名","version":1}`, false)
+	rec := serve(t, h, http.MethodPut, "/api/tags/1", fmt.Sprintf(`{"name":%q,"version":1}`, uniqueTagName(t, "無認証改名")), false)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
 	}
@@ -239,7 +250,7 @@ func TestIntegration_Rename_404(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPut, "/api/tags/999999999", `{"name":"pres-tag-test-存在しない","version":1}`, true)
+	rec := serve(t, h, http.MethodPut, "/api/tags/999999999", fmt.Sprintf(`{"name":%q,"version":1}`, uniqueTagName(t, "存在しない")), true)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404 (body=%s)", rec.Code, rec.Body.String())
 	}
@@ -249,12 +260,12 @@ func TestIntegration_Rename_409(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-競合対象"}`, true)
+	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "競合対象")), true)
 	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
-		fmt.Sprintf(`{"name":"pres-tag-test-競合後","version":%d}`, created.Version+1), true)
+		fmt.Sprintf(`{"name":%q,"version":%d}`, uniqueTagName(t, "競合後"), created.Version+1), true)
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want 409 (body=%s)", rec.Code, rec.Body.String())
 	}
@@ -264,7 +275,7 @@ func TestIntegration_Delete_204(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-削除対象"}`, true)
+	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "削除対象")), true)
 	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 
 	rec = serve(t, h, http.MethodDelete, fmt.Sprintf("/api/tags/%d", created.ID), "", true)
