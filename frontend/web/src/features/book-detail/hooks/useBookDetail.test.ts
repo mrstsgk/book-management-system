@@ -1,18 +1,19 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import type { ReactNode } from 'react'
+import { createElement, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { getGetApiBooksIdMockHandler } from '@/api/generated/api.msw'
 import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
 import { useBookDetail } from './useBookDetail'
 
+// hook と同名の .test.ts に置くため JSX を使わない
 function wrapper({ children }: { children: ReactNode }) {
-  return (
-    <QueryClientProvider client={createQueryClient()}>
-      {children}
-    </QueryClientProvider>
+  return createElement(
+    QueryClientProvider,
+    { client: createQueryClient() },
+    children,
   )
 }
 
