@@ -9,12 +9,25 @@ describe('parseTagParam', () => {
     expect(parseTagParam(input)).toBe(want)
   })
 
-  it.each([['0'], ['-1'], ['abc'], ['1.5'], [''], [' 3'], [null]])(
-    '%j は絞り込みなし（undefined）にする',
-    (input) => {
-      expect(parseTagParam(input)).toBeUndefined()
-    },
-  )
+  it('安全な整数の上限ちょうどはタグIDにする', () => {
+    expect(parseTagParam(String(Number.MAX_SAFE_INTEGER))).toBe(
+      Number.MAX_SAFE_INTEGER,
+    )
+  })
+
+  it.each([
+    ['0'],
+    ['-1'],
+    ['abc'],
+    ['1.5'],
+    [''],
+    [' 3'],
+    [null],
+    [String(Number.MAX_SAFE_INTEGER + 1)],
+    ['99999999999999999999'],
+  ])('%j は絞り込みなし（undefined）にする', (input) => {
+    expect(parseTagParam(input)).toBeUndefined()
+  })
 })
 
 describe('normalizeQuery', () => {
