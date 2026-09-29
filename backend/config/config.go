@@ -26,7 +26,15 @@ type DBConfig struct {
 
 // CatalogConfig は外部の書籍カタログの接続先。
 type CatalogConfig struct {
-	OpenBDBaseURL string
+	OpenBDBaseURL      string
+	GoogleBooksBaseURL string
+	// GoogleBooksAPIKey が空なら Google Books には問い合わせない（キー無しの呼び出しは全員で共有する日次枠を使い切られているため）。
+	GoogleBooksAPIKey string
+}
+
+// GoogleBooksEnabled は Google Books に書影を問い合わせるかを返す。
+func (c CatalogConfig) GoogleBooksEnabled() bool {
+	return c.GoogleBooksAPIKey != ""
 }
 
 // Load は環境変数から Config を読み込む。既定値はローカルの docker compose の DB と開発用の管理者トークン
@@ -48,7 +56,9 @@ func Load() (Config, error) {
 			SSLMode:  getenv("DB_SSLMODE", "disable"),
 		},
 		Catalog: CatalogConfig{
-			OpenBDBaseURL: getenv("OPENBD_BASE_URL", "https://api.openbd.jp"),
+			OpenBDBaseURL:      getenv("OPENBD_BASE_URL", "https://api.openbd.jp"),
+			GoogleBooksBaseURL: getenv("GOOGLE_BOOKS_BASE_URL", "https://www.googleapis.com"),
+			GoogleBooksAPIKey:  os.Getenv("GOOGLE_BOOKS_API_KEY"),
 		},
 		AdminToken: getenv("ADMIN_TOKEN", "local-admin-token"),
 	}, nil

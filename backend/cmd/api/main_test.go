@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
+	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
 	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
@@ -126,9 +128,90 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 	}
 }
 
-func TestNewCatalog_ReturnsTheOpenBDCatalog(t *testing.T) {
-	if newCatalog(config.CatalogConfig{OpenBDBaseURL: "http://openbd.test"}) == nil {
-		t.Fatal("newCatalog returned nil")
+func TestNewCatalog(t *testing.T) {
+	// openBD と Google Books の両方の役を1つの TLS サーバーで受ける（Google Books は https でないと問い合わせないため）
+	var googleCalls atomic.Int32
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/get":
+			_, _ = w.Write([]byte(`[{"summary":{"title":"配線テストの本","cover":"https://cover.openbd.jp/1.jpg"}}]`))
+		case "/books/v1/volumes":
+			googleCalls.Add(1)
+			_, _ = w.Write([]byte(`{"totalItems":1,"items":[{"volumeInfo":{"imageLinks":{"thumbnail":"http://books.google.com/books/content?id=w"},"infoLink":"http://books.google.co.jp/books?id=w"}}]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	isbn, err := domainbook.NewISBN("9784873118703")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("Google BooksのキーがあればGoogle Booksの書影を使う", func(t *testing.T) {
+		googleCalls.Store(0)
+		cfg := config.CatalogConfig{OpenBDBaseURL: srv.URL, GoogleBooksBaseURL: srv.URL, GoogleBooksAPIKey: "test-key"}
+		entry, err := newCatalog(cfg, srv.Client()).Lookup(context.Background(), isbn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if entry.Cover == nil || entry.Cover.Source() != domainbook.CoverSourceGoogleBooks || googleCalls.Load() != 1 {
+			t.Fatalf("cover = %+v (Google Books calls: %d), want the Google Books cover", entry.Cover, googleCalls.Load())
+		}
+	})
+
+	t.Run("キーが無ければGoogle Booksに問い合わせずopenBDの書影を使う", func(t *testing.T) {
+		googleCalls.Store(0)
+		cfg := config.CatalogConfig{OpenBDBaseURL: srv.URL, GoogleBooksBaseURL: srv.URL}
+		entry, err := newCatalog(cfg, srv.Client()).Lookup(context.Background(), isbn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if entry.Cover == nil || entry.Cover.Source() != domainbook.CoverSourceOpenBD || googleCalls.Load() != 0 {
+			t.Fatalf("cover = %+v (Google Books calls: %d), want the openBD cover without asking Google Books", entry.Cover, googleCalls.Load())
+		}
+	})
+}
+
+// blockingFill は Execute が release まで返らない FillMissingCoversUsecase の Fake。
+type blockingFill struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (f *blockingFill) Execute(context.Context) error {
+	close(f.started)
+	<-f.release
+	return nil
+}
+
+func TestStartFillMissingCovers(t *testing.T) {
+	uc := &blockingFill{started: make(chan struct{}), release: make(chan struct{})}
+	returned := make(chan (<-chan struct{}))
+	go func() { returned <- startFillMissingCovers(context.Background(), uc) }()
+
+	var done <-chan struct{}
+	select {
+	case done = <-returned:
+	case <-time.After(time.Second):
+		close(uc.release)
+		t.Fatal("startFillMissingCovers blocked; the server must not wait for the external catalogs")
+	}
+	select {
+	case <-uc.started:
+	case <-time.After(time.Second):
+		t.Fatal("filling missing covers was not started")
+	}
+	select {
+	case <-done:
+		t.Fatal("done closed while filling is still running; the DB could be closed under it")
+	default:
+	}
+	close(uc.release)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("done was not closed after filling finished")
 	}
 }
 
