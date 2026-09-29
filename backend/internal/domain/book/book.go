@@ -70,6 +70,8 @@ type Repository interface {
 	Update(ctx context.Context, b *Book) error
 	// Delete は id の本を削除する。存在しなければ ErrNotFound を返す。
 	Delete(ctx context.Context, id ID) error
+	// FindCoverless は書影の無い本を ID 順に返す。
+	FindCoverless(ctx context.Context) ([]*Book, error)
 }
 
 // BookDetail は読んだ本1冊の Read Model。
@@ -86,6 +88,8 @@ type BookDetail struct {
 	// CoverURL・CoverSource は書影が無ければ nil。
 	CoverURL    *string
 	CoverSource *string
+	// CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ。画面は書影と一緒にリンクする）。
+	CoverPageURL *string
 	// TitleOverride は自分で上書きした書名。上書きしていなければ nil（編集画面が今の上書きを送り直すのに使う）。
 	TitleOverride *string
 	Summary       string
@@ -107,7 +111,9 @@ type BookListItem struct {
 	AmazonURL   *string
 	CoverURL    *string
 	CoverSource *string
-	Rating      int
+	// CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ）。
+	CoverPageURL *string
+	Rating       int
 }
 
 // BookList は一覧のうち取得範囲の分と、全体の総件数。

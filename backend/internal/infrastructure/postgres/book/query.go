@@ -35,7 +35,7 @@ func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbo
 	return &domainbook.BookDetail{
 		ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: displayTitle(row.TitleOverride, row.Title), Authors: row.Authors,
 		Publisher: row.Publisher, PublishedOn: row.PublishedOn, AmazonURL: amazonURLOf(row.ISBN),
-		CoverURL: row.CoverURL, CoverSource: row.CoverSource, TitleOverride: row.TitleOverride, Summary: row.Summary,
+		CoverURL: row.CoverURL, CoverSource: row.CoverSource, CoverPageURL: row.CoverPageURL, TitleOverride: row.TitleOverride, Summary: row.Summary,
 		Tags: orEmpty(tagNames[row.ID]), Comment: row.Comment, Rating: row.Rating, Version: row.Version,
 	}, nil
 }
@@ -95,7 +95,7 @@ func (q *query) FindList(ctx context.Context, c domainbook.ListCondition, r comm
 	}
 	var rows []model
 	err := applyCondition(db.Model(&model{}), c).
-		Select("id, isbn, title, title_override, authors, cover_url, cover_source, summary, rating").
+		Select("id, isbn, title, title_override, authors, cover_url, cover_source, cover_page_url, summary, rating").
 		Order("created_at DESC, id DESC").Limit(r.Limit()).Offset(r.Offset()).
 		Find(&rows).Error
 	if err != nil {
@@ -113,7 +113,7 @@ func (q *query) FindList(ctx context.Context, c domainbook.ListCondition, r comm
 	for _, row := range rows {
 		list.Items = append(list.Items, &domainbook.BookListItem{
 			ID: domainbook.ID(row.ID), ISBN: row.ISBN, Title: displayTitle(row.TitleOverride, row.Title), Summary: row.Summary,
-			Authors: row.Authors, AmazonURL: amazonURLOf(row.ISBN), CoverURL: row.CoverURL, CoverSource: row.CoverSource,
+			Authors: row.Authors, AmazonURL: amazonURLOf(row.ISBN), CoverURL: row.CoverURL, CoverSource: row.CoverSource, CoverPageURL: row.CoverPageURL,
 			Rating: row.Rating, Tags: orEmpty(tagNames[row.ID]),
 		})
 	}

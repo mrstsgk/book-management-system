@@ -325,3 +325,37 @@ func TestQuery_FindList_Condition(t *testing.T) {
 		})
 	}
 }
+
+func TestQuery_GoogleBooksCoverPage(t *testing.T) {
+	db := connectTestDB(t)
+	qry := pgbook.NewQuery(db)
+	ctx := context.Background()
+	cover := mustGoogleBooksCover(t, "query")
+	b := newBook(t, uniqueCoverTestISBN(t, db), "cover-sources-test-参照", cover, 4)
+	createBook(t, db, b)
+
+	t.Run("詳細はGoogle Booksの書影と本のページを返す", func(t *testing.T) {
+		got, err := qry.FindDetailByID(ctx, b.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.CoverURL == nil || *got.CoverURL != cover.URL() || got.CoverSource == nil || *got.CoverSource != "googlebooks" ||
+			got.CoverPageURL == nil || *got.CoverPageURL != cover.PageURL() {
+			t.Fatalf("cover = (%v, %v, %v), want the Google Books cover and its page", got.CoverURL, got.CoverSource, got.CoverPageURL)
+		}
+	})
+
+	t.Run("一覧もGoogle Booksの本のページを返す", func(t *testing.T) {
+		r, err := domaincommon.NewListRange(1, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		list, err := qry.FindList(ctx, domainbook.ListCondition{}, r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(list.Items) != 1 || list.Items[0].ID != b.ID || list.Items[0].CoverPageURL == nil || *list.Items[0].CoverPageURL != cover.PageURL() {
+			t.Fatalf("items = %+v, want the newest book with its Google Books page", list.Items)
+		}
+	})
+}

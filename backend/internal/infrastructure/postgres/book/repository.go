@@ -24,6 +24,7 @@ type model struct {
 	PublishedOn   string    `gorm:"column:published_on;size:32;not null"`
 	CoverURL      *string   `gorm:"column:cover_url;size:2048"`
 	CoverSource   *string   `gorm:"column:cover_source;size:16"`
+	CoverPageURL  *string   `gorm:"column:cover_page_url;size:2048"`
 	Summary       string    `gorm:"column:summary;size:100;not null"`
 	Comment       string    `gorm:"column:comment;not null"`
 	Rating        int       `gorm:"column:rating;not null"`
@@ -115,7 +116,7 @@ func (r *repository) Update(ctx context.Context, b *domainbook.Book) error {
 			Updates(map[string]any{
 				"title": row.Title, "title_override": row.TitleOverride, "authors": row.Authors,
 				"publisher": row.Publisher, "published_on": row.PublishedOn,
-				"cover_url": row.CoverURL, "cover_source": row.CoverSource,
+				"cover_url": row.CoverURL, "cover_source": row.CoverSource, "cover_page_url": row.CoverPageURL,
 				"summary": row.Summary, "comment": row.Comment, "rating": row.Rating,
 				"version": next, "updated_at": gorm.Expr("NOW()"),
 			})
@@ -183,6 +184,28 @@ func (r *repository) Delete(ctx context.Context, id domainbook.ID) error {
 	return nil
 }
 
+// FindCoverless は書影の無い行を ID 順に取得する。
+func (r *repository) FindCoverless(ctx context.Context) ([]*domainbook.Book, error) {
+	var rows []model
+	if err := r.db.WithContext(ctx).Where("cover_url IS NULL").Order("id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	books := make([]*domainbook.Book, 0, len(rows))
+	for _, row := range rows {
+		// ponytail: タグを1冊ずつ引く N+1。起動時に1回だけ、書影の無い本（数冊）が対象なので許容。冊数が増えたら IN でまとめる
+		tagIDs, err := findBookTagIDs(ctx, r.db, row.ID)
+		if err != nil {
+			return nil, err
+		}
+		b, err := adapt(row, tagIDs)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, b)
+	}
+	return books, nil
+}
+
 // uniqueViolation は PostgreSQL の一意制約違反の SQLSTATE。
 const uniqueViolation = "23505"
 
@@ -211,6 +234,9 @@ func toModel(b *domainbook.Book) model {
 	if b.Cover != nil {
 		u, s := b.Cover.URL(), string(b.Cover.Source())
 		row.CoverURL, row.CoverSource = &u, &s
+		if p := b.Cover.PageURL(); p != "" {
+			row.CoverPageURL = &p
+		}
 	}
 	if b.TitleOverride != nil {
 		v := b.TitleOverride.String()
@@ -266,10 +292,20 @@ func adaptCover(row model) (*domainbook.Cover, error) {
 		return nil, nil
 	}
 	c, err := domainbook.NewCover(*row.CoverURL, domainbook.CoverSource(*row.CoverSource))
+	if domainbook.CoverSource(*row.CoverSource) == domainbook.CoverSourceGoogleBooks {
+		c, err = domainbook.NewGoogleBooksCover(*row.CoverURL, derefOrEmpty(row.CoverPageURL))
+	}
 	if err != nil {
 		return nil, err
 	}
 	return &c, nil
+}
+
+func derefOrEmpty(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
 }
 
 // adaptTitleOverride は保存済みの上書きを VO で検証し直す。NULL なら上書きなし。

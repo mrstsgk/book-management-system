@@ -25,6 +25,16 @@ type fakeBooks struct {
 
 	deletedID book.ID
 	deleteErr error
+
+	coverless    []*book.Book
+	coverlessErr error
+	// updateErrs は ISBN ごとの Update の失敗（1冊の失敗で残りを止めないことの確認用）。
+	updateErrs map[string]error
+	updatedAll []*book.Book
+}
+
+func (f *fakeBooks) FindCoverless(context.Context) ([]*book.Book, error) {
+	return f.coverless, f.coverlessErr
 }
 
 func (f *fakeBooks) FindByID(context.Context, book.ID) (*book.Book, error) {
@@ -46,8 +56,12 @@ func (f *fakeBooks) Update(_ context.Context, b *book.Book) error {
 	if f.updateErr != nil {
 		return f.updateErr
 	}
+	if err := f.updateErrs[b.ISBN.String()]; err != nil {
+		return err
+	}
 	b.Version++
 	f.updated = b
+	f.updatedAll = append(f.updatedAll, b)
 	return nil
 }
 

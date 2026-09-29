@@ -433,3 +433,65 @@ func TestRepository_CreateAll(t *testing.T) {
 		}
 	})
 }
+
+func TestRepository_GoogleBooksCover(t *testing.T) {
+	db := connectTestDB(t)
+	repo := pgbook.NewRepository(db)
+	ctx := context.Background()
+
+	t.Run("Google Booksの書影を本のページごと保存して読み戻せる", func(t *testing.T) {
+		cover := mustGoogleBooksCover(t, "create")
+		b := newBook(t, uniqueCoverTestISBN(t, db), "cover-sources-test-作成", cover, 4)
+		createBook(t, db, b)
+		got, err := repo.FindByID(ctx, b.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Cover == nil || *got.Cover != *cover {
+			t.Fatalf("Cover = %+v, want %+v", got.Cover, cover)
+		}
+	})
+
+	t.Run("openBDの書影からGoogle Booksの書影へ差し替えて保存できる", func(t *testing.T) {
+		b := newBook(t, uniqueCoverTestISBN(t, db), "cover-sources-test-差し替え", mustCover(t, "https://cover.openbd.jp/old.jpg"), 4)
+		createBook(t, db, b)
+		cover := mustGoogleBooksCover(t, "update")
+		b.RefreshCatalog(b.Bibliography, cover)
+		if err := repo.Update(ctx, b); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+		got, err := repo.FindByID(ctx, b.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Cover == nil || *got.Cover != *cover {
+			t.Fatalf("Cover = %+v, want %+v", got.Cover, cover)
+		}
+	})
+}
+
+func TestRepository_FindCoverless(t *testing.T) {
+	db := connectTestDB(t)
+	coverless := newBook(t, uniqueCoverTestISBN(t, db), "cover-sources-test-書影なし", nil, 3)
+	createBook(t, db, coverless)
+	withCover := newBook(t, uniqueCoverTestISBN(t, db), "cover-sources-test-書影あり", mustCover(t, "https://cover.openbd.jp/has.jpg"), 3)
+	createBook(t, db, withCover)
+
+	got, err := pgbook.NewRepository(db).FindCoverless(context.Background())
+	if err != nil {
+		t.Fatalf("FindCoverless: %v", err)
+	}
+	found := map[domainbook.ID]bool{}
+	for i, b := range got {
+		if b.Cover != nil {
+			t.Fatalf("book %d has a cover, want only coverless books", b.ID)
+		}
+		if i > 0 && got[i-1].ID >= b.ID {
+			t.Fatalf("not in ID order: %d before %d", got[i-1].ID, b.ID)
+		}
+		found[b.ID] = true
+	}
+	if !found[coverless.ID] || found[withCover.ID] {
+		t.Fatalf("coverless found=%v, with cover found=%v; want true/false", found[coverless.ID], found[withCover.ID])
+	}
+}
