@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -59,6 +60,28 @@ func decodeIntegration[T any](t *testing.T, body []byte) T {
 	return v
 }
 
+// isbn13CheckDigit は internal/domain/book.isbn13CheckDigit と同じ計算（重み1/3の交互和）。
+// 非公開なのでこのテストからは呼べず、同じアルゴリズムをここに複製している。
+func isbn13CheckDigit(twelve string) byte {
+	sum := 0
+	for i, d := range twelve {
+		w := 1
+		if i%2 == 1 {
+			w = 3
+		}
+		sum += int(d-'0') * w
+	}
+	return byte((10-sum%10)%10) + '0'
+}
+
+// mustUniqueISBN は実行のたびに異なる、チェックディジットの正しい ISBN-13 を返す
+// （固定のISBN文字列だと、共有DBに前回のテスト行が残っている場合や同時実行で一意制約に落ちるため）。
+func mustUniqueISBN(t *testing.T) string {
+	t.Helper()
+	twelve := fmt.Sprintf("978%09d", time.Now().UnixNano()%1_000_000_000)
+	return twelve + string(isbn13CheckDigit(twelve))
+}
+
 func TestIntegration_List_200(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
@@ -104,7 +127,7 @@ func TestIntegration_CountBooks_200(t *testing.T) {
 	untagged := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", untagged.ID) })
 
-	const bookISBN = "9780000004505"
+	bookISBN := mustUniqueISBN(t)
 	var bookID int64
 	if err := db.Raw(
 		"INSERT INTO book (isbn, title, summary, comment, rating, version) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
