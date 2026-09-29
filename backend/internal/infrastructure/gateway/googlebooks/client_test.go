@@ -58,6 +58,18 @@ func TestClient_FindCover(t *testing.T) {
 		}
 	})
 
+	t.Run("先頭の結果に書影が無ければ、書影とページが揃った次の結果を返す", func(t *testing.T) {
+		srv, _ := serve(t, http.StatusOK, `{"totalItems":3,"items":[
+{"volumeInfo":{"infoLink":"http://books.google.com/books?id=first"}},
+{"volumeInfo":{"imageLinks":{"thumbnail":"http://books.google.com/books/content?id=second"}}},
+{"volumeInfo":{"imageLinks":{"thumbnail":"http://books.google.com/books/content?id=third"},"infoLink":"http://books.google.com/books?id=third"}}]}`)
+		got, err := googlebooks.NewClient(srv.URL, "k", srv.Client()).FindCover(context.Background(), "9784297146221")
+		want := googlebooks.Cover{ImageURL: "https://books.google.com/books/content?id=third", PageURL: "https://books.google.com/books?id=third"}
+		if err != nil || got == nil || *got != want {
+			t.Fatalf("got (%+v, %v), want %+v", got, err, want)
+		}
+	})
+
 	for _, tt := range []struct {
 		name string
 		body string

@@ -59,15 +59,14 @@ func (c *Client) FindCover(ctx context.Context, isbn string) (*Cover, error) {
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("googlebooks: decode: %w", err)
 	}
-	if len(body.Items) == 0 {
-		return nil, nil
+	for _, item := range body.Items {
+		v := item.VolumeInfo
+		// Google の規約では書影と一緒に本ごとの Google Books へのリンクが要るので、リンクが無ければ書影として使わない
+		if v.ImageLinks.Thumbnail != "" && v.InfoLink != "" {
+			return &Cover{ImageURL: toHTTPS(v.ImageLinks.Thumbnail), PageURL: toHTTPS(v.InfoLink)}, nil
+		}
 	}
-	v := body.Items[0].VolumeInfo
-	// Google の規約では書影と一緒に本ごとの Google Books へのリンクが要るので、リンクが無ければ書影として使わない
-	if v.ImageLinks.Thumbnail == "" || v.InfoLink == "" {
-		return nil, nil
-	}
-	return &Cover{ImageURL: toHTTPS(v.ImageLinks.Thumbnail), PageURL: toHTTPS(v.InfoLink)}, nil
+	return nil, nil
 }
 
 type volumes struct {
