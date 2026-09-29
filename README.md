@@ -48,7 +48,7 @@
 | `require-tests-on-change.sh` | Stop（ブロック） | ソースを変えたのに、同じ場所に同名のテストの変更が無い |
 | `require-adr-on-decision.sh` | Stop（ブロック） | 依存・インフラのファイル（`go.mod`・`package.json`・CI 設定など）を変えたのに ADR が無い |
 | `require-db-docs-on-migration.sh` | Stop（ブロック） | マイグレーションを変えたのに DB の資料（AI 向け JSON・人向け ER 図）が更新されていない |
-| `adr-reminder.sh` | デバッグ・レビュー系スキルの完了後（ブロックなし） | 根本原因の判断や見送ったレビュー指摘を ADR に残すよう促す |
+| `adr-reminder.sh` | Stop（ブロックなし） | 直前にデバッグ・レビュー系のスキルを使っていたら、根本原因の判断や見送ったレビュー指摘を ADR に残すよう促す |
 | `precompact-save-evidence.sh` / `postcompact-load-evidence.sh` | 会話の圧縮の前後 | 圧縮前の作業ツリーの状態を保存し、圧縮後に読み戻す |
 
 **進め方**
