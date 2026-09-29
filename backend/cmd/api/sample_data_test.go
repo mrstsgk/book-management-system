@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
@@ -55,6 +56,10 @@ func (f *fakeSeedBooks) CreateAll(_ context.Context, books []*domainbook.Book) e
 
 func (f *fakeSeedBooks) Update(context.Context, *domainbook.Book) error { return nil }
 func (f *fakeSeedBooks) Delete(context.Context, domainbook.ID) error    { return nil }
+
+func (f *fakeSeedBooks) FindRakutenRefreshTargets(context.Context, time.Time) ([]*domainbook.Book, error) {
+	return nil, nil
+}
 
 // fakeSeedQuery は book.Query の手書き Fake。total 冊の本がある DB を表す。
 type fakeSeedQuery struct {

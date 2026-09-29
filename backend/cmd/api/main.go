@@ -76,7 +76,45 @@ func run() error {
 	e := httpcommon.NewEcho()
 	registerRoutes(e, db, bookCatalog, cfg.AdminToken)
 
+	// run はグレースフルシャットダウンの後に返るので、そこで取り直しも止める。
+	// defer は後入れ先出しなので、この defer は DB クローズの defer より先（実行中の1回が終わるまで待ってから）走る。
+	ctx, cancel := context.WithCancel(context.Background())
+	refreshDone := startRakutenRefresh(ctx, &bookcmd.RefreshRakutenCoversUsecaseImpl{
+		Books: pgbook.NewRepository(db), Catalog: bookCatalog, Now: time.Now,
+	}, rakutenRefreshInterval)
+	defer func() {
+		cancel()
+		<-refreshDone
+	}()
+
 	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
+}
+
+// rakutenRefreshInterval は楽天の書影を取り直す間隔（要件定義 §1.2「稼働中は1日1回」）。
+const rakutenRefreshInterval = 24 * time.Hour
+
+// startRakutenRefresh は起動直後に1回、その後 interval ごとに楽天の書影を取り直す goroutine を起動してすぐ返す。
+// 外部カタログが遅くても起動を待たせないため、別の goroutine で回す。ctx が終わっても、実行中の1回は
+// 中断せず最後まで走らせてから止まる（DB のクローズと競合しないよう、呼び出し側は返り値の channel が
+// 閉じるまで待ってからクローズすること）。
+func startRakutenRefresh(ctx context.Context, uc bookcmd.RefreshRakutenCoversUsecase, interval time.Duration) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			if err := uc.Execute(ctx); err != nil {
+				slog.WarnContext(ctx, "rakuten cover refresh failed", "error", err)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+	return done
 }
 
 // catalogTimeout は外部カタログ1回の問い合わせの上限。遅い提供元にリクエストを長く占有させないため。
@@ -106,7 +144,7 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 	api := e.Group("/api")
 	(&httpbook.Handler{
 		RegisterUC:       &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
-		UpdateUC:         &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
+		UpdateUC:         &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery, Now: time.Now},
 		DeleteUC:         &bookcmd.DeleteUsecaseImpl{Books: books},
 		DisableRakutenUC: &bookcmd.DisableRakutenUsecaseImpl{Books: books},
 		GetUC:            &bookqry.GetUsecaseImpl{Books: bookQuery},

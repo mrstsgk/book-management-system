@@ -2,6 +2,7 @@ package book
 
 import (
 	"context"
+	"time"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
@@ -55,6 +56,15 @@ func (b *Book) RefreshCatalog(bibliography Bibliography, cover *Cover) {
 	b.Cover = copyOf(cover)
 }
 
+// DropExpiredCover は楽天の書影が保持期限を過ぎていれば外し、外したかを返す。
+func (b *Book) DropExpiredCover(now time.Time) bool {
+	if b.Cover == nil || !b.Cover.IsExpired(now) {
+		return false
+	}
+	b.Cover = nil
+	return true
+}
+
 // DisableRakuten は楽天由来の情報（楽天の書影）を外し、以後この本に付けないようにする。
 func (b *Book) DisableRakuten() {
 	if b.Cover != nil && b.Cover.Source() == CoverSourceRakuten {
@@ -84,6 +94,8 @@ type Repository interface {
 	Update(ctx context.Context, b *Book) error
 	// Delete は id の本を削除する。存在しなければ ErrNotFound を返す。
 	Delete(ctx context.Context, id ID) error
+	// FindRakutenRefreshTargets は楽天の書影を fetchedBefore 以前に取得した本を ID 順に返す。
+	FindRakutenRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*Book, error)
 }
 
 // BookDetail は読んだ本1冊の Read Model。
