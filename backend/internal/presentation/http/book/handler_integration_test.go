@@ -258,6 +258,7 @@ func TestBookHandlerIntegration_Update(t *testing.T) {
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
 		}
+		assertIntegrationBookUnchanged(t, db, b)
 	})
 
 	t.Run("401: トークン無し", func(t *testing.T) {
@@ -285,7 +286,24 @@ func TestBookHandlerIntegration_Update(t *testing.T) {
 		if rec.Code != http.StatusConflict {
 			t.Fatalf("status = %d, want 409 (body=%s)", rec.Code, rec.Body.String())
 		}
+		assertIntegrationBookUnchanged(t, db, b)
 	})
+}
+
+// assertIntegrationBookUnchanged は、失敗したはずの更新リクエストの後で本の内容・バージョンが
+// 呼び出し前のまま変わっていないことを確認する（docs/rules/testing.md の「失敗時の非変化」）。
+func assertIntegrationBookUnchanged(t *testing.T, db *gorm.DB, before *domainbook.Book) {
+	t.Helper()
+	after, err := pgbook.NewRepository(db).FindByID(context.Background(), before.ID)
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+	if after.Comment.String() != before.Comment.String() || after.Summary.String() != before.Summary.String() ||
+		after.Rating.Int() != before.Rating.Int() || after.Version != before.Version {
+		t.Fatalf("book changed on a failed update: got comment=%q summary=%q rating=%d version=%d, want comment=%q summary=%q rating=%d version=%d",
+			after.Comment.String(), after.Summary.String(), after.Rating.Int(), after.Version,
+			before.Comment.String(), before.Summary.String(), before.Rating.Int(), before.Version)
+	}
 }
 
 func TestBookHandlerIntegration_Delete(t *testing.T) {
