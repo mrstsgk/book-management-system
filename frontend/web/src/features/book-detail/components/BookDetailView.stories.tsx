@@ -31,7 +31,7 @@ const meta = {
     docs: {
       description: {
         component:
-          '読んだ本の詳細。楽天の書影（coverSource が rakuten）のときだけ、楽天のクレジット・商品ページのリンク・注記を出す。',
+          '読んだ本の詳細。書誌・書影・評価・分野タグ・一言まとめ・感想と、Amazon へのリンクを出す。',
       },
     },
   },
@@ -41,16 +41,6 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const OpenBD: Story = {}
-
-export const Rakuten: Story = {
-  args: {
-    book: {
-      ...meta.args.book,
-      coverSource: 'rakuten',
-      coverProductUrl: 'https://books.rakuten.co.jp/',
-    },
-  },
-}
 
 export const NoCover: Story = {
   args: {
