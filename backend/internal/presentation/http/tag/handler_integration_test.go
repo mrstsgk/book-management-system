@@ -277,6 +277,8 @@ func TestIntegration_Delete_204(t *testing.T) {
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "削除対象")), true)
 	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
+	// 本題のDELETEアサーションが失敗して先に t.Fatalf で止まっても、この行は残さない。
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodDelete, fmt.Sprintf("/api/tags/%d", created.ID), "", true)
 	if rec.Code != http.StatusNoContent {
