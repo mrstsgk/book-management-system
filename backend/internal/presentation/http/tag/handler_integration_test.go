@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -51,11 +52,16 @@ func newIntegrationHandler(db *gorm.DB) *httptag.Handler {
 	}
 }
 
-func decodeIntegration[T any](t *testing.T, body []byte) T {
+// decodeOK はステータスを先に確かめてからデコードする（エラー応答はレスポンスの形が違うため、
+// ステータスを見ずにデコードすると想定外のエラーを見逃して成功したかのように扱ってしまう）。
+func decodeOK[T any](t *testing.T, rec *httptest.ResponseRecorder, want int) T {
 	t.Helper()
+	if rec.Code != want {
+		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, want, rec.Body.String())
+	}
 	var v T
-	if err := json.Unmarshal(body, &v); err != nil {
-		t.Fatalf("decode %s: %v", body, err)
+	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil {
+		t.Fatalf("decode %s: %v", rec.Body.Bytes(), err)
 	}
 	return v
 }
@@ -87,17 +93,11 @@ func TestIntegration_List_200(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-一覧"}`, true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("setup: register status = %d, body=%s", rec.Code, rec.Body.String())
-	}
-	created := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
+	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodGet, "/api/tags", "", false)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
-	}
-	got := decodeIntegration[httptag.ListResponse](t, rec.Body.Bytes())
+	got := decodeOK[httptag.ListResponse](t, rec, http.StatusOK)
 	found := false
 	for _, it := range got.Items {
 		if it.Name == "pres-tag-test-一覧" {
@@ -114,17 +114,11 @@ func TestIntegration_CountBooks_200(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-集計あり"}`, true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("setup: register (tagged) status = %d, body=%s", rec.Code, rec.Body.String())
-	}
-	tagged := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
+	tagged := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", tagged.ID) })
 
 	rec = serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-0冊"}`, true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("setup: register (untagged) status = %d, body=%s", rec.Code, rec.Body.String())
-	}
-	untagged := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
+	untagged := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", untagged.ID) })
 
 	bookISBN := mustUniqueISBN(t)
@@ -141,10 +135,7 @@ func TestIntegration_CountBooks_200(t *testing.T) {
 	}
 
 	rec = serve(t, h, http.MethodGet, "/api/tags/counts", "", false)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
-	}
-	got := decodeIntegration[httptag.BookCountListResponse](t, rec.Body.Bytes())
+	got := decodeOK[httptag.BookCountListResponse](t, rec, http.StatusOK)
 	byID := map[int64]httptag.BookCountResponse{}
 	for _, it := range got.Items {
 		byID[it.ID] = it
@@ -162,10 +153,7 @@ func TestIntegration_RegisterTag_200(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-登録"}`, true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
-	}
-	got := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
+	got := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", got.ID) })
 	if got.Name != "pres-tag-test-登録" || got.ID == 0 || got.Version != 1 {
 		t.Fatalf("got %+v", got)
@@ -198,10 +186,7 @@ func TestIntegration_RegisterTag_409(t *testing.T) {
 
 	body := `{"name":"pres-tag-test-重複"}`
 	first := serve(t, h, http.MethodPost, "/api/tags", body, true)
-	if first.Code != http.StatusOK {
-		t.Fatalf("setup: first register status = %d, body=%s", first.Code, first.Body.String())
-	}
-	firstTag := decodeIntegration[httptag.Response](t, first.Body.Bytes())
+	firstTag := decodeOK[httptag.Response](t, first, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", firstTag.ID) })
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", body, true)
@@ -215,15 +200,12 @@ func TestIntegration_Rename_200(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-改名前"}`, true)
-	created := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
+	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
 		fmt.Sprintf(`{"name":"pres-tag-test-改名後","version":%d}`, created.Version), true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
-	}
-	got := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
+	got := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	if got.Name != "pres-tag-test-改名後" || got.Version != created.Version+1 {
 		t.Fatalf("got %+v", got)
 	}
@@ -234,7 +216,7 @@ func TestIntegration_Rename_400(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-不正入力対象"}`, true)
-	created := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
+	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID), `{"name":""}`, true)
@@ -268,7 +250,7 @@ func TestIntegration_Rename_409(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-競合対象"}`, true)
-	created := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
+	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
@@ -283,7 +265,7 @@ func TestIntegration_Delete_204(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"pres-tag-test-削除対象"}`, true)
-	created := decodeIntegration[httptag.Response](t, rec.Body.Bytes())
+	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
 
 	rec = serve(t, h, http.MethodDelete, fmt.Sprintf("/api/tags/%d", created.ID), "", true)
 	if rec.Code != http.StatusNoContent {
@@ -291,7 +273,7 @@ func TestIntegration_Delete_204(t *testing.T) {
 	}
 
 	rec = serve(t, h, http.MethodGet, "/api/tags", "", false)
-	got := decodeIntegration[httptag.ListResponse](t, rec.Body.Bytes())
+	got := decodeOK[httptag.ListResponse](t, rec, http.StatusOK)
 	for _, it := range got.Items {
 		if it.ID == created.ID {
 			t.Fatalf("tag %d still present after delete", created.ID)
