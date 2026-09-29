@@ -93,6 +93,23 @@ func TestHandlerLookup(t *testing.T) {
 		}
 	})
 
+	t.Run("Google Booksの書影なら本のページも返す", func(t *testing.T) {
+		cover, err := domainbook.NewGoogleBooksCover("https://books.google.com/books/content?id=a", "https://books.google.co.jp/books?id=a")
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := &httpcatalog.Handler{LookupUC: fakeLookup(func(context.Context, string) (*domainbook.CatalogEntry, error) {
+			return entry(t, "9784873118703", &cover), nil
+		})}
+		var got httpcatalog.Response
+		if err := json.Unmarshal(serve(t, h, "/api/catalog/9784873118703", true).Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.CoverSource == nil || *got.CoverSource != "googlebooks" || got.CoverPageURL == nil || *got.CoverPageURL != "https://books.google.co.jp/books?id=a" {
+			t.Fatalf("got %+v, want the Google Books cover with its page", got)
+		}
+	})
+
 	t.Run("書影が無く979のISBNなら書影もAmazonリンクもnull", func(t *testing.T) {
 		h := &httpcatalog.Handler{LookupUC: fakeLookup(func(context.Context, string) (*domainbook.CatalogEntry, error) {
 			return entry(t, "9791032305690", nil), nil
@@ -101,7 +118,7 @@ func TestHandlerLookup(t *testing.T) {
 		if err := json.Unmarshal(serve(t, h, "/api/catalog/9791032305690", true).Body.Bytes(), &got); err != nil {
 			t.Fatal(err)
 		}
-		if got.CoverURL != nil || got.CoverSource != nil || got.AmazonURL != nil {
+		if got.CoverURL != nil || got.CoverSource != nil || got.CoverPageURL != nil || got.AmazonURL != nil {
 			t.Fatalf("got %+v", got)
 		}
 	})

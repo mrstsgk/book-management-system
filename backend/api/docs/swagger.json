@@ -70,7 +70,7 @@
                         "AdminToken": []
                     }
                 ],
-                "description": "書誌と書影は ISBN で openBD から取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409",
+                "description": "書誌は ISBN で openBD から、書影は Google Books → openBD の順で取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409",
                 "consumes": [
                     "application/json"
                 ],
@@ -302,7 +302,7 @@
                         "AdminToken": []
                     }
                 ],
-                "description": "登録前の確認用。書誌と書影は openBD から取得する",
+                "description": "登録前の確認用。書誌は openBD から、書影は Google Books → openBD の順で取得する",
                 "produces": [
                     "application/json"
                 ],
@@ -604,10 +604,16 @@
                     "type": "string",
                     "example": "Kleppmann,Martin 斉藤,太郎 玉川,竜司"
                 },
+                "coverPageUrl": {
+                    "description": "CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ）。",
+                    "type": "string",
+                    "example": "https://books.google.co.jp/books?id=abc"
+                },
                 "coverSource": {
                     "type": "string",
                     "enum": [
-                        "openbd"
+                        "openbd",
+                        "googlebooks"
                     ],
                     "example": "openbd"
                 },
@@ -687,10 +693,16 @@
                     "type": "string",
                     "example": "分散システムの設計を体系的に学べた"
                 },
+                "coverPageUrl": {
+                    "description": "CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ）。Google Books の書影は、画面でこのリンクと\n「Powered by Google」と一緒に見せる必要がある。",
+                    "type": "string",
+                    "example": "https://books.google.co.jp/books?id=abc"
+                },
                 "coverSource": {
                     "type": "string",
                     "enum": [
-                        "openbd"
+                        "openbd",
+                        "googlebooks"
                     ],
                     "example": "openbd"
                 },
@@ -760,10 +772,16 @@
                     "type": "string",
                     "example": "Kleppmann,Martin 斉藤,太郎 玉川,竜司"
                 },
+                "coverPageUrl": {
+                    "description": "CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ。画面は書影と一緒にリンクする）。",
+                    "type": "string",
+                    "example": "https://books.google.co.jp/books?id=abc"
+                },
                 "coverSource": {
                     "type": "string",
                     "enum": [
-                        "openbd"
+                        "openbd",
+                        "googlebooks"
                     ],
                     "example": "openbd"
                 },

@@ -56,7 +56,10 @@ type Response struct {
 	AmazonURL *string `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
 	// CoverURL は提供元がホストする画像。
 	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
-	CoverSource *string `json:"coverSource" enums:"openbd" example:"openbd"`
+	CoverSource *string `json:"coverSource" enums:"openbd,googlebooks" example:"openbd"`
+	// CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ）。Google Books の書影は、画面でこのリンクと
+	// 「Powered by Google」と一緒に見せる必要がある。
+	CoverPageURL *string `json:"coverPageUrl" example:"https://books.google.co.jp/books?id=abc"`
 	// TitleOverride は自分で上書きした書名。上書きしていなければ null。
 	TitleOverride *string  `json:"titleOverride" example:"徹底攻略 AWS認定 ソリューションアーキテクト アソシエイト教科書 第3版"`
 	Summary       string   `json:"summary" example:"分散データの設計を体系的に学べる"`
@@ -76,8 +79,10 @@ type ListItemResponse struct {
 	Authors     string   `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
 	AmazonURL   *string  `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
 	CoverURL    *string  `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
-	CoverSource *string  `json:"coverSource" enums:"openbd" example:"openbd"`
-	Rating      int      `json:"rating" example:"5"`
+	CoverSource *string  `json:"coverSource" enums:"openbd,googlebooks" example:"openbd"`
+	// CoverPageURL は書影の提供元にあるその本のページ（Google Books の書影のときだけ）。
+	CoverPageURL *string `json:"coverPageUrl" example:"https://books.google.co.jp/books?id=abc"`
+	Rating       int     `json:"rating" example:"5"`
 } // @name BookListItemResponse
 
 type ListResponse struct {
@@ -139,7 +144,7 @@ func (h *Handler) List(c echo.Context) error {
 	for _, it := range out.Items {
 		items = append(items, ListItemResponse{
 			ID: int64(it.ID), ISBN: it.ISBN, Title: it.Title, Summary: it.Summary, Tags: it.Tags, Authors: it.Authors,
-			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: it.CoverSource, Rating: it.Rating,
+			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: it.CoverSource, CoverPageURL: it.CoverPageURL, Rating: it.Rating,
 		})
 	}
 	return c.JSON(http.StatusOK, ListResponse{Items: items, Total: out.Total, Limit: limit, Offset: offset})
@@ -169,7 +174,7 @@ func (h *Handler) Get(c echo.Context) error {
 
 // RegisterBook godoc
 // @Summary      読んだ本を登録する（自分だけ）
-// @Description  書誌と書影は ISBN で openBD から取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409
+// @Description  書誌は ISBN で openBD から、書影は Google Books → openBD の順で取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409
 // @Tags         books
 // @Accept       json
 // @Produce      json
@@ -254,7 +259,7 @@ func (h *Handler) Delete(c echo.Context) error {
 func toResponse(d *domainbook.BookDetail) Response {
 	return Response{
 		ID: int64(d.ID), ISBN: d.ISBN, Title: d.Title, Authors: d.Authors, Publisher: d.Publisher,
-		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource,
+		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource, CoverPageURL: d.CoverPageURL,
 		TitleOverride: d.TitleOverride, Summary: d.Summary, Tags: d.Tags, Comment: d.Comment, Rating: d.Rating, Version: d.Version,
 	}
 }
