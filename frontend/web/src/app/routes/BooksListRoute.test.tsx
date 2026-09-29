@@ -100,16 +100,19 @@ describe('BooksListRoute', () => {
     await waitFor(() => expect(requests.at(-1)?.has('tagId')).toBe(false))
   })
 
-  it('分野別からのリンク（?tag=<id>）で開くとそのタグで絞り込み、不正な tag なら絞り込まない', async () => {
-    const requests = serveBooks()
-    renderWithProviders(<AppRoutes />, { route: '/?tag=1' })
-    await waitFor(() => expect(requests[0]?.get('tagId')).toBe('1'))
+  it.each([
+    ['/?tag=1', '1'],
+    ['/?tag=abc', null],
+  ])(
+    '%s で開くと tagId=%s で読む（分野別からのリンクは絞り込み、不正な tag は絞り込まない）',
+    async (route, want) => {
+      const requests = serveBooks()
+      renderWithProviders(<AppRoutes />, { route })
 
-    const invalid = serveBooks()
-    renderWithProviders(<AppRoutes />, { route: '/?tag=abc' })
-    await waitFor(() => expect(invalid).not.toHaveLength(0))
-    expect(invalid[0].has('tagId')).toBe(false)
-  })
+      await waitFor(() => expect(requests).not.toHaveLength(0))
+      expect(requests[0].get('tagId')).toBe(want)
+    },
+  )
 
   it('タグ一覧の取得に失敗しても本の一覧は表示する', async () => {
     serveBooks()
