@@ -28,6 +28,9 @@ type Client struct {
 
 // NewClient は baseURL（既定 https://www.googleapis.com）と API キーで作る。
 func NewClient(baseURL, apiKey string, httpClient *http.Client) *Client {
+	if baseURL == "" {
+		baseURL = DefaultBaseURL
+	}
 	return &Client{baseURL: baseURL, apiKey: apiKey, client: httpClient}
 }
 

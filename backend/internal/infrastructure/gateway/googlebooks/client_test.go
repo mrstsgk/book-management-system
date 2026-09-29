@@ -3,6 +3,7 @@ package googlebooks_test
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -110,6 +111,27 @@ func TestClient_FindCover(t *testing.T) {
 		_, err := googlebooks.NewClient(srv.URL, "k", srv.Client()).FindCover(ctx, "9784297146221")
 		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("err = %v, want context.Canceled", err)
+		}
+	})
+}
+
+// roundTripFunc は実際に通信せずに要求を受け取り、決めた応答を返す http.RoundTripper。
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestNewClient_DefaultBaseURL(t *testing.T) {
+	t.Run("baseURLが空なら既定のGoogle Books APIに問い合わせる", func(t *testing.T) {
+		var gotURL *url.URL
+		httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			gotURL = r.URL
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"totalItems":0}`)), Header: http.Header{}}, nil
+		})}
+		if _, err := googlebooks.NewClient("", "k", httpClient).FindCover(context.Background(), "9784297146221"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if gotURL == nil || gotURL.Scheme+"://"+gotURL.Host != googlebooks.DefaultBaseURL || gotURL.Path != "/books/v1/volumes" {
+			t.Fatalf("requested %v, want %s/books/v1/volumes", gotURL, googlebooks.DefaultBaseURL)
 		}
 	})
 }
