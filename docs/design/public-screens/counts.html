@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分野別の集計</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:'Noto Sans JP',sans-serif;background:#f2f2f4;color:#1a1a1a}
+a{color:#bf3f1f}a:hover{color:#922d15}
+</style>
+</head>
+<body>
+<div style="width: 1280px; height: 900px; box-sizing: border-box; background: #f2f2f4; display: flex; flex-direction: column">
+  <header style="height: 64px; background: #ffffff; box-shadow: 0 6px 24px rgba(20,20,28,0.10); display: flex; align-items: center; padding: 0 48px; gap: 40px">
+    <a href="list.html" style="font-size: 18px; font-weight: 700; color: #1a1a1a; text-decoration: none">読んだ本</a>
+    <nav aria-label="メイン" style="display: flex; gap: 28px; font-size: 15px">
+      <a href="list.html" style="color: #48484a; text-decoration: none; padding: 20px 0">一覧</a>
+      <a href="counts.html" aria-current="page" style="color: #1a1a1a; font-weight: 700; text-decoration: none; border-bottom: 2px solid #e6552f; padding: 20px 0">分野別</a>
+    </nav>
+  </header>
+
+  <main style="flex-grow: 1; padding: 40px 48px; display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">分野別</h1>
+      <p style="margin: 0; font-size: 14px; color: #48484a">分野を選ぶと、その分野の本の一覧へ移ります。</p>
+    </div>
+
+    <ul style="list-style: none; margin: 0; padding: 12px 0; background: #ffffff; border-radius: 12px; box-shadow: 0 2px 12px rgba(20,20,28,0.08); display: flex; flex-direction: column; max-width: 880px">
+      
+        <li>
+          <a href="list.html?tag=設計" style="display: grid; grid-template-columns: 180px minmax(0, 1fr) 64px; align-items: center; gap: 20px; padding: 14px 28px; min-height: 56px; box-sizing: border-box; text-decoration: none; color: #1a1a1a">
+            <span style="font-size: 16px; font-weight: 700">設計</span>
+            <span aria-hidden="true" style="height: 12px; background: #f2f2f4; border-radius: 9999px; overflow: hidden; display: flex">
+              <span style="display:block;height:12px;background:#e6552f;border-radius:9999px;width:100%"></span>
+            </span>
+            <span style="font-size: 16px; text-align: right">5冊</span>
+          </a>
+        </li>
+      
+        <li>
+          <a href="list.html?tag=クラウド" style="display: grid; grid-template-columns: 180px minmax(0, 1fr) 64px; align-items: center; gap: 20px; padding: 14px 28px; min-height: 56px; box-sizing: border-box; text-decoration: none; color: #1a1a1a">
+            <span style="font-size: 16px; font-weight: 700">クラウド</span>
+            <span aria-hidden="true" style="height: 12px; background: #f2f2f4; border-radius: 9999px; overflow: hidden; display: flex">
+              <span style="display:block;height:12px;background:#e6552f;border-radius:9999px;width:60%"></span>
+            </span>
+            <span style="font-size: 16px; text-align: right">3冊</span>
+          </a>
+        </li>
+      
+        <li>
+          <a href="list.html?tag=データ" style="display: grid; grid-template-columns: 180px minmax(0, 1fr) 64px; align-items: center; gap: 20px; padding: 14px 28px; min-height: 56px; box-sizing: border-box; text-decoration: none; color: #1a1a1a">
+            <span style="font-size: 16px; font-weight: 700">データ</span>
+            <span aria-hidden="true" style="height: 12px; background: #f2f2f4; border-radius: 9999px; overflow: hidden; display: flex">
+              <span style="display:block;height:12px;background:#e6552f;border-radius:9999px;width:40%"></span>
+            </span>
+            <span style="font-size: 16px; text-align: right">2冊</span>
+          </a>
+        </li>
+      
+        <li>
+          <a href="list.html?tag=ネットワーク" style="display: grid; grid-template-columns: 180px minmax(0, 1fr) 64px; align-items: center; gap: 20px; padding: 14px 28px; min-height: 56px; box-sizing: border-box; text-decoration: none; color: #1a1a1a">
+            <span style="font-size: 16px; font-weight: 700">ネットワーク</span>
+            <span aria-hidden="true" style="height: 12px; background: #f2f2f4; border-radius: 9999px; overflow: hidden; display: flex">
+              <span style="display:block;height:12px;background:#e6552f;border-radius:9999px;width:20%"></span>
+            </span>
+            <span style="font-size: 16px; text-align: right">1冊</span>
+          </a>
+        </li>
+      
+        <li>
+          <a href="list.html?tag=プロダクト" style="display: grid; grid-template-columns: 180px minmax(0, 1fr) 64px; align-items: center; gap: 20px; padding: 14px 28px; min-height: 56px; box-sizing: border-box; text-decoration: none; color: #1a1a1a">
+            <span style="font-size: 16px; font-weight: 700">プロダクト</span>
+            <span aria-hidden="true" style="height: 12px; background: #f2f2f4; border-radius: 9999px; overflow: hidden; display: flex">
+              <span style="display:block;height:12px;background:#e6552f;border-radius:9999px;width:20%"></span>
+            </span>
+            <span style="font-size: 16px; text-align: right">1冊</span>
+          </a>
+        </li>
+      
+    </ul>
+    <p style="margin: 0; font-size: 13px; color: #48484a">冊数の多い順。本が付いていない分野は表示しません。</p>
+  </main>
+
+  <footer style="padding: 24px 48px; font-size: 12px; color: #6e6e73; border-top: 1px solid #e5e5ea; background: #ffffff">書誌: openBD ／ 書影: openBD・楽天ブックス</footer>
+</div>
+</body>
+</html>

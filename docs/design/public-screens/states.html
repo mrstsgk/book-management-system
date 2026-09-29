@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画面の状態</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:'Noto Sans JP',sans-serif;background:#f2f2f4;color:#1a1a1a}
+a{color:#bf3f1f}a:hover{color:#922d15}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div style="width: 1280px; height: 1100px; box-sizing: border-box; background: #f2f2f4; padding: 48px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px">
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <h2 style="margin: 0; font-size: 15px; color: #48484a">最初の読み込み中</h2>
+    <div role="status" style="background: #ffffff; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 16px; height: 420px; box-sizing: border-box">
+      <p style="margin: 0; font-size: 15px">読み込み中…</p>
+      
+        <div style="display: flex; gap: 20px; animation: pulse 1.6s ease-in-out infinite">
+          <div style="width: 96px; height: 136px; background: #e5e5ea; border-radius: 4px"></div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 10px">
+            <div style="height: 18px; width: 80%; background: #e5e5ea; border-radius: 4px"></div>
+            <div style="height: 14px; width: 40%; background: #e5e5ea; border-radius: 4px"></div>
+            <div style="height: 14px; width: 90%; background: #e5e5ea; border-radius: 4px"></div>
+          </div>
+        </div>
+      
+        <div style="display: flex; gap: 20px; animation: pulse 1.6s ease-in-out infinite">
+          <div style="width: 96px; height: 136px; background: #e5e5ea; border-radius: 4px"></div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 10px">
+            <div style="height: 18px; width: 80%; background: #e5e5ea; border-radius: 4px"></div>
+            <div style="height: 14px; width: 40%; background: #e5e5ea; border-radius: 4px"></div>
+            <div style="height: 14px; width: 90%; background: #e5e5ea; border-radius: 4px"></div>
+          </div>
+        </div>
+      
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <h2 style="margin: 0; font-size: 15px; color: #48484a">追加の読み込み中（一覧の末尾）</h2>
+    <div style="background: #ffffff; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; height: 420px; box-sizing: border-box">
+      <div style="width: 100%; flex-grow: 1; border-bottom: 1px dashed #d2d2d7; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #6e6e73">（読み込み済みの本）</div>
+      <p role="status" style="margin: 0; font-size: 14px">続きを読み込み中…</p>
+      <button type="button" disabled style="height: 48px; padding: 0 40px; border-radius: 8px; border: 1px solid #9b9ba2; background: #f2f2f4; color: #6e6e73; font-size: 16px; font-weight: 700; font-family: inherit">もっと見る</button>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <h2 style="margin: 0; font-size: 15px; color: #48484a">0件（検索・絞り込みの結果なし／本が無い）</h2>
+    <div style="background: #ffffff; border-radius: 12px; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; height: 420px; box-sizing: border-box; text-align: center">
+      <p style="margin: 0; font-size: 18px; font-weight: 700">「Kubernetes」に当てはまる本はありません</p>
+      <p style="margin: 0; font-size: 14px; color: #48484a">キーワードを変えるか、分野タグを「すべて」に戻してください。</p>
+      <button type="button" style="height: 44px; padding: 0 24px; border-radius: 8px; border: 1px solid #bf3f1f; background: #ffffff; color: #bf3f1f; font-size: 15px; font-weight: 700; font-family: inherit">検索と絞り込みを外す</button>
+      <p style="margin: 16px 0 0; font-size: 13px; color: #6e6e73">本が1冊も無いとき: 「まだ本が登録されていません」</p>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <h2 style="margin: 0; font-size: 15px; color: #48484a">エラー（API に届かない・エラーを返した）</h2>
+    <div role="alert" style="background: #ffffff; border-radius: 12px; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; height: 420px; box-sizing: border-box; text-align: center; border: 1px solid #bf3f1f">
+      <p style="margin: 0; font-size: 18px; font-weight: 700">本の一覧を読み込めませんでした</p>
+      <p style="margin: 0; font-size: 14px; color: #48484a">サーバーに接続できません。時間をおいてもう一度お試しください。</p>
+      <button type="button" style="height: 48px; padding: 0 32px; border: none; border-radius: 8px; background: #bf3f1f; color: #ffffff; font-size: 16px; font-weight: 700; font-family: inherit">再試行</button>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px; grid-column: span 2">
+    <h2 style="margin: 0; font-size: 15px; color: #48484a">詳細：存在しない本</h2>
+    <div style="background: #ffffff; border-radius: 12px; padding: 32px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <p style="margin: 0; font-size: 18px; font-weight: 700">この本は見つかりませんでした</p>
+        <p style="margin: 0; font-size: 14px; color: #48484a">削除されたか、URL が間違っている可能性があります。</p>
+      </div>
+      <a href="list.html" style="font-size: 15px; font-weight: 700">一覧へ戻る</a>
+    </div>
+  </section>
+</div>
+</body>
+</html>

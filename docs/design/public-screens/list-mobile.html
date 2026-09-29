@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>読んだ本の一覧（スマホ）</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:'Noto Sans JP',sans-serif;background:#f2f2f4;color:#1a1a1a}
+a{color:#bf3f1f}a:hover{color:#922d15}
+</style>
+</head>
+<body>
+<div style="width: 390px; height: 1500px; box-sizing: border-box; background: #f2f2f4; display: flex; flex-direction: column">
+  <header style="height: 56px; background: #ffffff; box-shadow: 0 6px 24px rgba(20,20,28,0.10); display: flex; align-items: center; justify-content: space-between; padding: 0 16px">
+    <a href="list-mobile.html" style="font-size: 17px; font-weight: 700; color: #1a1a1a; text-decoration: none">読んだ本</a>
+    <nav aria-label="メイン" style="display: flex; gap: 20px; font-size: 14px">
+      <a href="list-mobile.html" aria-current="page" style="color: #1a1a1a; font-weight: 700; text-decoration: none">一覧</a>
+      <a href="counts.html" style="color: #48484a; text-decoration: none">分野別</a>
+    </nav>
+  </header>
+  <main style="padding: 20px 16px; display: flex; flex-direction: column; gap: 16px">
+    <h1 style="margin: 0; font-size: 24px; font-weight: 800">読んだ本</h1>
+    <form role="search" style="display: flex; flex-direction: column; gap: 12px">
+      <label for="qm" style="font-size: 13px; font-weight: 700">キーワード（書名・著者）</label>
+      <div style="display: flex; gap: 8px">
+        <input id="qm" type="search" style="flex-grow: 1; min-width: 0; height: 48px; box-sizing: border-box; border: 1px solid #6e6e73; border-radius: 8px; padding: 0 12px; font-size: 16px; font-family: inherit">
+        <button type="submit" style="height: 48px; padding: 0 18px; border: none; border-radius: 8px; background: #bf3f1f; color: #ffffff; font-size: 15px; font-weight: 700; font-family: inherit">検索</button>
+      </div>
+      <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px">
+        <button type="button" aria-pressed="true" style="height: 44px; flex-shrink: 0; padding: 0 16px; border-radius: 9999px; border: 1px solid #1a1a1a; background: #1a1a1a; color: #ffffff; font-size: 14px; font-family: inherit">すべて</button>
+        
+          <button type="button" aria-pressed="false" style="height: 44px; flex-shrink: 0; padding: 0 16px; border-radius: 9999px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a; font-size: 14px; font-family: inherit">クラウド</button>
+        
+          <button type="button" aria-pressed="false" style="height: 44px; flex-shrink: 0; padding: 0 16px; border-radius: 9999px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a; font-size: 14px; font-family: inherit">設計</button>
+        
+          <button type="button" aria-pressed="false" style="height: 44px; flex-shrink: 0; padding: 0 16px; border-radius: 9999px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a; font-size: 14px; font-family: inherit">プロダクト</button>
+        
+          <button type="button" aria-pressed="false" style="height: 44px; flex-shrink: 0; padding: 0 16px; border-radius: 9999px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a; font-size: 14px; font-family: inherit">データ</button>
+        
+          <button type="button" aria-pressed="false" style="height: 44px; flex-shrink: 0; padding: 0 16px; border-radius: 9999px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a; font-size: 14px; font-family: inherit">ネットワーク</button>
+        
+      </div>
+    </form>
+    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px">
+      
+        <li>
+          <a href="detail.html" style="display: flex; gap: 14px; background: #ffffff; border-radius: 12px; padding: 14px; text-decoration: none; color: #1a1a1a">
+            <div style="width: 72px; height: 102px; flex-shrink: 0; background: #e5e5ea; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #48484a">書影</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 700; line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">徹底攻略 AWS認定 ソリューションアーキテクト − アソシエイト教科書 第3版</h2>
+              <p style="margin: 0; font-size: 12px; color: #48484a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">鳥谷部昭寛 ほか</p>
+              <p style="margin: 0; font-size: 13px; line-height: 1.55; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">[一言まとめ]</p>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span aria-label="評価 4 / 5" style="font-size: 13px; color: #bf3f1f">★★★★☆</span>
+                <span style="font-size: 11px; color: #48484a; background: #f2f2f4; border-radius: 9999px; padding: 1px 8px">クラウド</span>
+              </div>
+            </div>
+          </a>
+        </li>
+      
+        <li>
+          <a href="detail.html" style="display: flex; gap: 14px; background: #ffffff; border-radius: 12px; padding: 14px; text-decoration: none; color: #1a1a1a">
+            <div style="width: 72px; height: 102px; flex-shrink: 0; background: #e5e5ea; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #48484a">書影</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 700; line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">改訂新版　良いコード／悪いコードで学ぶ設計入門</h2>
+              <p style="margin: 0; font-size: 12px; color: #48484a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">仙塲大也</p>
+              <p style="margin: 0; font-size: 13px; line-height: 1.55; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">[一言まとめ]</p>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span aria-label="評価 5 / 5" style="font-size: 13px; color: #bf3f1f">★★★★★</span>
+                <span style="font-size: 11px; color: #48484a; background: #f2f2f4; border-radius: 9999px; padding: 1px 8px">設計</span>
+              </div>
+            </div>
+          </a>
+        </li>
+      
+        <li>
+          <a href="detail.html" style="display: flex; gap: 14px; background: #ffffff; border-radius: 12px; padding: 14px; text-decoration: none; color: #1a1a1a">
+            <div style="width: 72px; height: 102px; flex-shrink: 0; background: #e5e5ea; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #48484a">書影</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 700; line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">プロダクトマネジメントのすべて</h2>
+              <p style="margin: 0; font-size: 12px; color: #48484a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">及川卓也 ほか</p>
+              <p style="margin: 0; font-size: 13px; line-height: 1.55; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">[一言まとめ]</p>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span aria-label="評価 4 / 5" style="font-size: 13px; color: #bf3f1f">★★★★☆</span>
+                <span style="font-size: 11px; color: #48484a; background: #f2f2f4; border-radius: 9999px; padding: 1px 8px">プロダクト</span>
+              </div>
+            </div>
+          </a>
+        </li>
+      
+        <li>
+          <a href="detail.html" style="display: flex; gap: 14px; background: #ffffff; border-radius: 12px; padding: 14px; text-decoration: none; color: #1a1a1a">
+            <div style="width: 72px; height: 102px; flex-shrink: 0; background: #e5e5ea; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #48484a">書影</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 700; line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">データ指向アプリケーションデザイン 第2版</h2>
+              <p style="margin: 0; font-size: 12px; color: #48484a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Martin Kleppmann</p>
+              <p style="margin: 0; font-size: 13px; line-height: 1.55; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">[一言まとめ]</p>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span aria-label="評価 5 / 5" style="font-size: 13px; color: #bf3f1f">★★★★★</span>
+                <span style="font-size: 11px; color: #48484a; background: #f2f2f4; border-radius: 9999px; padding: 1px 8px">データ</span>
+              </div>
+            </div>
+          </a>
+        </li>
+      
+        <li>
+          <a href="detail.html" style="display: flex; gap: 14px; background: #ffffff; border-radius: 12px; padding: 14px; text-decoration: none; color: #1a1a1a">
+            <div style="width: 72px; height: 102px; flex-shrink: 0; background: #e5e5ea; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #48484a">書影</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 700; line-height: 1.45; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">ネットワークはなぜつながるのか</h2>
+              <p style="margin: 0; font-size: 12px; color: #48484a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">戸根勤</p>
+              <p style="margin: 0; font-size: 13px; line-height: 1.55; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical">[一言まとめ]</p>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span aria-label="評価 3 / 5" style="font-size: 13px; color: #bf3f1f">★★★☆☆</span>
+                <span style="font-size: 11px; color: #48484a; background: #f2f2f4; border-radius: 9999px; padding: 1px 8px">ネットワーク</span>
+              </div>
+            </div>
+          </a>
+        </li>
+      
+    </ul>
+    <button type="button" style="height: 48px; border-radius: 8px; border: 1px solid #bf3f1f; background: #ffffff; color: #bf3f1f; font-size: 16px; font-weight: 700; font-family: inherit">もっと見る</button>
+  </main>
+</div>
+</body>
+</html>
