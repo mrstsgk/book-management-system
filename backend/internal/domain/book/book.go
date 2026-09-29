@@ -94,8 +94,8 @@ type Repository interface {
 	Update(ctx context.Context, b *Book) error
 	// Delete は id の本を削除する。存在しなければ ErrNotFound を返す。
 	Delete(ctx context.Context, id ID) error
-	// FindRakutenRefreshTargets は楽天の書影を fetchedBefore 以前に取得した本を ID 順に返す。
-	FindRakutenRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*Book, error)
+	// FindCoverRefreshTargets は楽天の書影を fetchedBefore 以前に取得した本を ID 順に返す。
+	FindCoverRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*Book, error)
 }
 
 // BookDetail は読んだ本1冊の Read Model。

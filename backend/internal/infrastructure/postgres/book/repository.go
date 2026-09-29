@@ -50,8 +50,8 @@ func NewRepository(db *gorm.DB) domainbook.Repository {
 	return &repository{db: db}
 }
 
-// FindRakutenRefreshTargets は楽天の書影の取得日時が fetchedBefore 以前の行を ID 順に取得する。
-func (r *repository) FindRakutenRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*domainbook.Book, error) {
+// FindCoverRefreshTargets は楽天の書影の取得日時が fetchedBefore 以前の行を ID 順に取得する。
+func (r *repository) FindCoverRefreshTargets(ctx context.Context, fetchedBefore time.Time) ([]*domainbook.Book, error) {
 	var rows []model
 	err := r.db.WithContext(ctx).
 		Where("cover_source = ? AND cover_fetched_at <= ?", string(domainbook.CoverSourceRakuten), fetchedBefore).

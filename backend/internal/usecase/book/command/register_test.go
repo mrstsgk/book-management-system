@@ -57,7 +57,7 @@ func (f *fakeBooks) Delete(_ context.Context, id book.ID) error {
 	return f.deleteErr
 }
 
-func (f *fakeBooks) FindRakutenRefreshTargets(context.Context, time.Time) ([]*book.Book, error) {
+func (f *fakeBooks) FindCoverRefreshTargets(context.Context, time.Time) ([]*book.Book, error) {
 	return nil, nil
 }
 

@@ -23,7 +23,7 @@ type fakeRefreshBooks struct {
 	updated       []*book.Book
 }
 
-func (f *fakeRefreshBooks) FindRakutenRefreshTargets(_ context.Context, fetchedBefore time.Time) ([]*book.Book, error) {
+func (f *fakeRefreshBooks) FindCoverRefreshTargets(_ context.Context, fetchedBefore time.Time) ([]*book.Book, error) {
 	f.gotBefore = fetchedBefore
 	return f.targets, f.targetsErr
 }

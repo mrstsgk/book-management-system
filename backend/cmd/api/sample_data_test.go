@@ -57,7 +57,7 @@ func (f *fakeSeedBooks) CreateAll(_ context.Context, books []*domainbook.Book) e
 func (f *fakeSeedBooks) Update(context.Context, *domainbook.Book) error { return nil }
 func (f *fakeSeedBooks) Delete(context.Context, domainbook.ID) error    { return nil }
 
-func (f *fakeSeedBooks) FindRakutenRefreshTargets(context.Context, time.Time) ([]*domainbook.Book, error) {
+func (f *fakeSeedBooks) FindCoverRefreshTargets(context.Context, time.Time) ([]*domainbook.Book, error) {
 	return nil, nil
 }
 

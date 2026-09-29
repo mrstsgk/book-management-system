@@ -433,7 +433,7 @@ func TestRepository_Tags(t *testing.T) {
 	})
 }
 
-func TestRepository_FindRakutenRefreshTargets(t *testing.T) {
+func TestRepository_FindCoverRefreshTargets(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgbook.NewRepository(db)
 	now := time.Now().Truncate(time.Microsecond)
@@ -455,9 +455,9 @@ func TestRepository_FindRakutenRefreshTargets(t *testing.T) {
 	noCover := newBook(t, "9780000003645", "refresh-test-書影なし", nil, 4)
 	createBook(t, db, noCover)
 
-	got, err := repo.FindRakutenRefreshTargets(context.Background(), fetchedBefore)
+	got, err := repo.FindCoverRefreshTargets(context.Background(), fetchedBefore)
 	if err != nil {
-		t.Fatalf("FindRakutenRefreshTargets: %v", err)
+		t.Fatalf("FindCoverRefreshTargets: %v", err)
 	}
 	// 共有DBに他のテストの行が残っていても判定できるよう、自分が作った本だけを見る
 	byID := map[domainbook.ID]*domainbook.Book{}
@@ -491,9 +491,9 @@ func TestRepository_FindRakutenRefreshTargets(t *testing.T) {
 		// ISBNのチェックディジットを崩し、adaptで再検証に失敗する行を作る（書き込み後にDBが壊れた想定）
 		db.Exec("UPDATE book SET isbn = '9780000003668' WHERE id = ?", int64(broken.ID))
 
-		got, err := repo.FindRakutenRefreshTargets(context.Background(), fetchedBefore)
+		got, err := repo.FindCoverRefreshTargets(context.Background(), fetchedBefore)
 		if err != nil {
-			t.Fatalf("FindRakutenRefreshTargets: %v", err)
+			t.Fatalf("FindCoverRefreshTargets: %v", err)
 		}
 		byID := map[domainbook.ID]*domainbook.Book{}
 		for _, b := range got {

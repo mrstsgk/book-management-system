@@ -24,7 +24,7 @@ type RefreshRakutenCoversUsecaseImpl struct {
 // 1冊の失敗で残りを止めない（楽天の規約上、期限を過ぎた本を放置しないことを優先するため）。
 func (u *RefreshRakutenCoversUsecaseImpl) Execute(ctx context.Context) error {
 	now := u.Now()
-	targets, err := u.Books.FindRakutenRefreshTargets(ctx, now.Add(-book.RakutenRefreshAfter))
+	targets, err := u.Books.FindCoverRefreshTargets(ctx, now.Add(-book.RakutenRefreshAfter))
 	if err != nil {
 		return err
 	}
