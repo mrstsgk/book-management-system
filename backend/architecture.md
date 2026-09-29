@@ -21,7 +21,7 @@
 | マイグレーション | **golang-migrate**（`backend/migrations/` が SQL の正。アプリ起動時 migrate しない） |
 | HTTP / OpenAPI | Echo + validator + swag。**Go の DTO／Handler が BE の正** |
 | FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
-| 書誌・書影 | 外部カタログ。Domain の `book.BookCatalog`（ExternalGateway）を `infrastructure/gateway/openbd` が実装する。画像は保存しない（[ADR](../docs/adr/2026-09-29-cover-from-google-books-and-openbd.md)） |
+| 書誌・書影 | 外部カタログ。Domain の `book.BookCatalog`（ExternalGateway）を、`infrastructure/gateway/catalog` が `openbd`（書誌と書影）と `googlebooks`（書影だけ）を組み合わせて実装する。書誌は openBD、書影は Google Books → openBD の順（順番はこの1か所にだけ書く）。画像は保存しない（[ADR](../docs/adr/2026-09-29-cover-from-google-books-and-openbd.md)） |
 | 認証 | 書き込み系だけ管理者トークン（`presentation/http/common.RequireAdminToken`）。閲覧は認証なし |
 | ツールチェーン | **mise で Go 版を固定**（リポジトリ直下 `.mise.toml`。`go.mod` と揃える） |
 | ローカル開発 | API は**ホストの Go**、DB は **Docker Compose**。Dev Container なし |
@@ -187,7 +187,8 @@ backend/
 | `DELETE` | `/api/tags/{id}` | 分野タグを削除する（付いていた本からは自動で外れる） | 必要 |
 
 - 認証は `Authorization: Bearer <ADMIN_TOKEN>`。自分だけが書き込めればよいので、ユーザー管理は持たない
-- 書影は提供元の URL をそのまま返す（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）。登録と更新のたびに取り直す
+- 書影は提供元の URL をそのまま返す（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）。登録と更新のたびに取り直し、API の起動時に1回、書影の無い本の書影を探す
+- `coverSource` が `googlebooks` なら `coverPageUrl`（その本の Google Books のページ）も返す。画面は Google の規約に従い、書影と一緒に「Powered by Google」とこのリンクを出す
 
 ## 5. やらないこと（全体）
 

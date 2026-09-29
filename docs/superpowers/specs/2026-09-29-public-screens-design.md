@@ -27,13 +27,14 @@
 - 読み込みは Orval の **infinite query 生成**（`getApiBooks` だけ `useInfinite: true`、`useInfiniteQueryParam: 'offset'`）を使う。Query フックを手書きしない方針（`frontend/architecture.md` §5）を守るため。次の offset は feature の hook で `offset + items.length`、`total` 以上なら `undefined`
 - `q`・`tag` が変わると Query のキーが変わり、先頭から読み直す（要件「結果の先頭から表示し直す」）
 - カード全体を詳細へのリンクにする
+- Google Books の書影の本は、カードの外（下）に小さく「Google Books」リンク（`coverPageUrl`）を出す（リンクを入れ子にしない）。その書影が1冊でもあれば、一覧の上に「Powered by Google」を出す
 
 ## 詳細
 
 - 書名・著者・出版社・出版日・ISBN・書影・評価・分野タグ・一言まとめ・感想（改行を保つ）
 - 値が無い項目（出版社・出版日）は行ごと出さない。書影は `coverUrl` があればその画像、無ければ「書影なし」の枠を出す
 - Amazon リンクは `amazonUrl` があるときだけ「Amazonで見る」
-- Google Books の書影のときの表示（「Powered by Google」と、その本の Google Books のページへのリンク）は、[書影の取得元の見直しの設計](./2026-09-29-cover-sources-design.md) の PR-C で足す
+- `coverSource === 'googlebooks'` のときだけ、書影の下に「Powered by Google」と「Google Books で見る」リンク（`coverPageUrl`）を出す（Google の規約。[書影の取得元の見直しの設計](./2026-09-29-cover-sources-design.md)）
 - 外部リンクは `target="_blank" rel="noopener noreferrer"`
 - API が 404 なら「この本は見つかりませんでした」と一覧へのリンク。ほかのエラーは共通のエラー表示（再試行つき）
 
@@ -46,7 +47,7 @@
 ## 共通
 
 - ヘッダー: サイト名「読んだ本」（`/` へ）と、ナビ「一覧」「分野別」（今いる画面に `aria-current="page"`）
-- フッター: 「書誌・書影: openBD」
+- フッター: 「書誌: openBD ／ 書影: Google Books・openBD」
 - 画面の状態（要件 §2.4）は `components/` の共通部品にする（3画面で同じ見た目・同じ理由で変わるため）
   - `LoadingState`: `role="status"` で「読み込み中…」
   - `EmptyState`: 見出しと次にすべきことの文言、任意の操作ボタン
@@ -69,7 +70,8 @@
 - 純関数は単体（次の offset の計算、`tag` クエリの解釈、`q` の正規化、棒の割合）
 - 画面ごとに: 読み込み中 / 成功 / 0件 / エラー→再試行で取り直す
 - 一覧: 検索の送信で `q` 付きの API が呼ばれる、空白だけの送信で `q` が消える、タグを押すと `tagId` 付きで呼ばれ「すべて」で外れる、「もっと見る」で offset 20 が呼ばれ最後まで読むとボタンが消える、タグ一覧が失敗しても本は出る
-- 詳細: 書影の有無（画像か「書影なし」の枠か）、Amazon リンクの有無、404 で見つからない表示
+- 詳細: 書影の有無（画像か「書影なし」の枠か）、Google Books の書影のときだけ「Powered by Google」とリンク、Amazon リンクの有無、404 で見つからない表示
+- 一覧: Google Books の書影の本だけ、カードの外に Google Books へのリンクが出る
 - 分野別: 各行のリンク先が `/?tag=<id>`、0件の文言
 - 共通: ナビの `aria-current`
 
