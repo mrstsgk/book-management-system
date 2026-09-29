@@ -36,7 +36,8 @@ export function useBooksList() {
     loadMore: () => void books.fetchNextPage(),
     // タグ一覧が取れなくても本の一覧は出す（タグのボタンだけ出さない）
     tags: tags.data?.items,
-    setQuery: (value: string) => update({ q: normalizeQuery(value), tag: tagId }),
+    setQuery: (value: string) =>
+      update({ q: normalizeQuery(value), tag: tagId }),
     setTag: (tag: number | undefined) => update({ q, tag }),
     clear: () => update({}),
   }
