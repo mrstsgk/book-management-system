@@ -5,6 +5,7 @@
 - 正は各 HTML（依存なしの静的 HTML。ブラウザで直接開ける）。PNG は GitHub 上で見るための書き出し
 - `[ ]` で囲んだ文字（`[一言まとめ]`・`[感想の本文]`・`[出版社]` など）は仮置き。書名・著者・ISBN は実際の見本データ、分野タグの名前と冊数は例
 - 1枚に「エラーのとき」「確認ダイアログを開いたとき」など、実装で確かめたい状態を重ねて描いている
+- ログイン画面は後回しにした（管理者トークンは環境変数 `VITE_ADMIN_TOKEN` から読む。`docs/superpowers/specs/2026-09-30-admin-screens-design.md`）ため、モックにも無い
 - 採用の経緯は [ADR](../../adr/2026-09-29-design-mockups-as-html.md)
 
 ## 本の一覧（管理）
@@ -12,12 +13,6 @@
 [books.html](./books.html) — 登録済みの本を表で並べ、各行から編集へ。削除したあとの完了メッセージを上に出す。
 
 ![本の一覧（管理）](./images/books.png)
-
-## ログイン
-
-[login.html](./login.html) — 管理者トークンを入れて入る。トークンが違うときの表示。
-
-![ログイン](./images/login.png)
 
 ## 本の登録
 
@@ -43,7 +38,7 @@ HTML を変えたら、同じ PR で PNG も書き出し直す。
 
 1. このディレクトリで `python3 -m http.server 8766 --bind 127.0.0.1` を起動する
 2. ヘッドレス Chrome で、幅 1280・次の高さで撮り、`images/<名前>.png` に保存する（例: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars --force-device-scale-factor=1 --virtual-time-budget=5000 --window-size=1280,900 --screenshot=images/books.png http://127.0.0.1:8766/books.html`）
-   - `books`・`login`・`tags`: 高さ 900
+   - `books`・`tags`: 高さ 900
    - `book-edit`: 高さ 1500
    - `book-new`: 高さ 1790（中身が画面の枠より長いため、下まで入る高さにする）
 3. 保存した PNG を開き、フォント（Noto Sans JP）が読み込まれて崩れていないことを確かめる
