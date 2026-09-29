@@ -14,7 +14,7 @@
 
 ## 詳細
 
-[detail.html](./detail.html) — 書誌・書影・評価・分野タグ・一言まとめ・感想と、Amazon へのリンク。
+[detail.html](./detail.html) — 書誌・書影・評価・分野タグ・一言まとめ・感想と、Amazon へのリンク。Google Books の書影の例で、書影の下に「Powered by Google」と Google Books へのリンクを出す。
 
 ![詳細](./images/detail.png)
 
