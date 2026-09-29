@@ -5,18 +5,23 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery
 } from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
+  DefinedUseInfiniteQueryResult,
   DefinedUseQueryResult,
+  InfiniteData,
   MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseInfiniteQueryOptions,
+  UseInfiniteQueryResult,
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
@@ -95,11 +100,84 @@ export const getApiBooks = async (params?: GetApiBooksParams, options?: Paramete
 
 
 
+export const getGetApiBooksInfiniteQueryKey = (params?: GetApiBooksParams,) => {
+    return [
+    'infinite', `/api/books`, ...(params ? [params] : [])
+    ] as const;
+    }
+
 export const getGetApiBooksQueryKey = (params?: GetApiBooksParams,) => {
     return [
     `/api/books`, ...(params ? [params] : [])
     ] as const;
     }
+
+
+export const getGetApiBooksInfiniteQueryOptions = <TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(params?: GetApiBooksParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>>, request?: SecondParameter<typeof apiMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiBooksInfiniteQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiBooks>>, QueryKey, GetApiBooksParams['offset']> = ({ signal, pageParam }) => getApiBooks({...params, 'offset': pageParam ?? params?.['offset']}, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiBooksInfiniteQueryResult = NonNullable<Awaited<ReturnType<typeof getApiBooks>>>
+export type GetApiBooksInfiniteQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetApiBooksInfinite<TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(
+ params: undefined |  GetApiBooksParams, options: { query:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiBooks>>,
+          TError,
+          Awaited<ReturnType<typeof getApiBooks>>, QueryKey
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiBooksInfinite<TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiBooks>>,
+          TError,
+          Awaited<ReturnType<typeof getApiBooks>>, QueryKey
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiBooksInfinite<TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 読んだ本の一覧を取得する
+ */
+
+export function useGetApiBooksInfinite<TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+ ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiBooksInfiniteQueryOptions(params,options)
+
+  const query = useInfiniteQuery(queryOptions, queryClient) as  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
 
 
 export const getGetApiBooksQueryOptions = <TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
