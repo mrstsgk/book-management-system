@@ -31,7 +31,7 @@
 - 書名・著者・出版社・出版日・ISBN・書影・評価・分野タグ・一言まとめ・感想（改行を保つ）
 - 値が無い項目（出版社・出版日）は行ごと出さない。書影が無ければ「書影なし」の枠を出す
 - Amazon リンクは `amazonUrl` があるときだけ「Amazonで見る」
-- `coverSource === 'rakuten'` のときだけ、次をすべて出す: 楽天ウェブサービスのクレジット（`https://webservice.rakuten.co.jp/` へのリンク）、「楽天ブックスの商品ページ」リンク（`coverProductUrl`）、運営者と価格の注記。文言は画面イメージのとおり
+- `coverSource === 'rakuten'` のときだけ、次をすべて出す: 楽天ウェブサービスのクレジット（`https://webservice.rakuten.co.jp/` へのリンク）、「楽天ブックスの商品ページ」リンク（`coverProductUrl`）、運営者と価格の注記。文言は画面イメージのとおり。`coverProductUrl` が空なら商品ページのリンクだけを出さない（空の href のリンクを作らない。クレジットと注記は出す）
 - 外部リンクは `target="_blank" rel="noopener noreferrer"`
 - API が 404 なら「この本は見つかりませんでした」と一覧へのリンク。ほかのエラーは共通のエラー表示（再試行つき）
 
