@@ -26,4 +26,15 @@ describe('AppRoutes', () => {
       screen.getByRole('navigation', { name: '管理メニュー' }),
     ).toBeVisible()
   })
+
+  it('/admin/login は管理画面のレイアウトの外でログイン画面を出す', () => {
+    renderWithProviders(<AppRoutes />, { route: '/admin/login' })
+
+    expect(
+      screen.getByRole('heading', { name: '管理画面にログイン' }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('navigation', { name: '管理メニュー' }),
+    ).not.toBeInTheDocument()
+  })
 })
