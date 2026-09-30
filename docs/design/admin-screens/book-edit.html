@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>本の編集</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:'Noto Sans JP',sans-serif;background:#f2f2f4;color:#1a1a1a}
+a{color:#bf3f1f}a:hover{color:#922d15}
+</style>
+</head>
+<body>
+<div style="width: 1280px; height: 1500px; box-sizing: border-box; background: #f2f2f4; display: flex; flex-direction: column; position: relative">
+  <header style="height: 64px; background: #1a1a1a; color: #ffffff; display: flex; align-items: center; padding: 0 48px; gap: 40px">
+    <a href="books.html" style="font-size: 18px; font-weight: 700; color: #ffffff; text-decoration: none; display: flex; align-items: center; gap: 10px">読んだ本 <span style="font-size: 12px; font-weight: 700; background: #ffffff; color: #1a1a1a; border-radius: 4px; padding: 2px 8px">管理</span></a>
+    <nav aria-label="管理メニュー" style="display: flex; gap: 28px; font-size: 15px; flex-grow: 1">
+      <a href="books.html" aria-current="page" style="color: #ffffff; font-weight: 700; text-decoration: none; border-bottom: 2px solid #ff7e5e; padding: 20px 0">本</a>
+      <a href="tags.html" style="color: #d2d2d7; text-decoration: none; padding: 20px 0">タグ</a>
+    </nav>
+    <a href="#" style="color: #d2d2d7; font-size: 14px">公開画面を見る ↗</a>
+  </header>
+
+  <main style="padding: 32px 48px; display: flex; flex-direction: column; gap: 20px; max-width: 920px">
+    <a href="books.html" style="font-size: 14px; width: fit-content">← 本の一覧へ戻る</a>
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">本を編集</h1>
+      <button type="button" style="height: 44px; padding: 0 20px; border: 1px solid #bf3f1f; border-radius: 8px; background: #ffffff; color: #bf3f1f; font-size: 15px; font-weight: 700; font-family: inherit">この本を削除</button>
+    </div>
+
+    <div role="alert" style="border: 1px solid #bf3f1f; background: #fff4f1; border-radius: 8px; padding: 14px 18px; font-size: 14px; color: #922d15; display: flex; align-items: center; justify-content: space-between; gap: 16px">
+      <span>この本は、ほかの画面で先に更新されていたため保存しませんでした。最新の内容を読み込んでから、もう一度編集してください。</span>
+      <button type="button" style="height: 40px; flex-shrink: 0; padding: 0 16px; border: none; border-radius: 8px; background: #bf3f1f; color: #ffffff; font-size: 14px; font-weight: 700; font-family: inherit">最新を読み込む</button>
+    </div>
+
+    <section style="background: #ffffff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(20,20,28,0.08); display: flex; gap: 20px">
+      <div style="width: 96px; height: 136px; flex-shrink: 0; background: #e5e5ea; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #48484a">書影</div>
+      <dl style="margin: 0; display: grid; grid-template-columns: 80px minmax(0, 1fr); row-gap: 6px; font-size: 14px">
+        <dt style="color: #48484a">書名</dt><dd style="margin: 0; font-weight: 700">データ指向アプリケーションデザイン 第2版</dd>
+        <dt style="color: #48484a">著者</dt><dd style="margin: 0">Martin Kleppmann</dd>
+        <dt style="color: #48484a">ISBN</dt><dd style="margin: 0">9784814401802</dd>
+      </dl>
+    </section>
+
+    <section style="background: #ffffff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(20,20,28,0.08); display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="title" style="font-size: 14px; font-weight: 700">書名の上書き <span style="color: #48484a; font-weight: 400">（任意。空にすると外部カタログの書名に戻る）</span></label>
+        <input id="title" style="height: 48px; box-sizing: border-box; border: 1px solid #6e6e73; border-radius: 8px; padding: 0 16px; font-size: 16px; font-family: inherit">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="summary" style="font-size: 14px; font-weight: 700">一言まとめ <span style="color: #bf3f1f">（必須）</span></label>
+        <input id="summary" value="[一言まとめ]" style="height: 48px; box-sizing: border-box; border: 1px solid #6e6e73; border-radius: 8px; padding: 0 16px; font-size: 16px; font-family: inherit">
+        <span style="font-size: 13px; color: #48484a; align-self: flex-end">14 / 100</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="comment" style="font-size: 14px; font-weight: 700">感想 <span style="color: #bf3f1f">（必須）</span></label>
+        <textarea id="comment" rows="8" style="box-sizing: border-box; border: 1px solid #6e6e73; border-radius: 8px; padding: 12px 16px; font-size: 16px; line-height: 1.8; font-family: inherit">[感想の本文]</textarea>
+        <span style="font-size: 13px; color: #48484a; align-self: flex-end">820 / 5000</span>
+      </div>
+      <div style="display: flex; gap: 12px; padding-top: 8px">
+        <button type="submit" style="height: 48px; padding: 0 32px; border: none; border-radius: 8px; background: #bf3f1f; color: #ffffff; font-size: 16px; font-weight: 700; font-family: inherit">保存する</button>
+        <a href="books.html" style="height: 48px; display: inline-flex; align-items: center; padding: 0 20px; font-size: 16px">キャンセル</a>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #48484a">評価・分野タグの入力は「本を登録」と同じ。</p>
+    </section>
+  </main>
+
+  <div style="position: absolute; left: 0; top: 0; width: 1280px; height: 1500px; background: rgba(20,20,28,0.45); display: flex; align-items: flex-start; justify-content: center; padding-top: 320px; box-sizing: border-box">
+    <div role="dialog" aria-modal="true" aria-labelledby="del-title" style="width: 480px; box-sizing: border-box; background: #ffffff; border-radius: 12px; padding: 32px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 6px 24px rgba(20,20,28,0.25)">
+      <h2 id="del-title" style="margin: 0; font-size: 20px; font-weight: 800">この本を削除しますか？</h2>
+      <p style="margin: 0; font-size: 15px; line-height: 1.8">「データ指向アプリケーションデザイン 第2版」と、その一言まとめ・感想・評価を削除します。元に戻せません。</p>
+      <div style="display: flex; justify-content: flex-end; gap: 12px">
+        <button type="button" style="height: 44px; padding: 0 20px; border: 1px solid #9b9ba2; border-radius: 8px; background: #ffffff; color: #1a1a1a; font-size: 15px; font-family: inherit">キャンセル</button>
+        <button type="button" style="height: 44px; padding: 0 20px; border: none; border-radius: 8px; background: #bf3f1f; color: #ffffff; font-size: 15px; font-weight: 700; font-family: inherit">削除する</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

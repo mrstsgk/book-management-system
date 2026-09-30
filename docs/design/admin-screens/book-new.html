@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>本の登録</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:'Noto Sans JP',sans-serif;background:#f2f2f4;color:#1a1a1a}
+a{color:#bf3f1f}a:hover{color:#922d15}
+</style>
+</head>
+<body>
+<div style="width: 1280px; height: 1500px; box-sizing: border-box; background: #f2f2f4; display: flex; flex-direction: column">
+  <header style="height: 64px; background: #1a1a1a; color: #ffffff; display: flex; align-items: center; padding: 0 48px; gap: 40px">
+    <a href="books.html" style="font-size: 18px; font-weight: 700; color: #ffffff; text-decoration: none; display: flex; align-items: center; gap: 10px">読んだ本 <span style="font-size: 12px; font-weight: 700; background: #ffffff; color: #1a1a1a; border-radius: 4px; padding: 2px 8px">管理</span></a>
+    <nav aria-label="管理メニュー" style="display: flex; gap: 28px; font-size: 15px; flex-grow: 1">
+      <a href="books.html" aria-current="page" style="color: #ffffff; font-weight: 700; text-decoration: none; border-bottom: 2px solid #ff7e5e; padding: 20px 0">本</a>
+      <a href="tags.html" style="color: #d2d2d7; text-decoration: none; padding: 20px 0">タグ</a>
+    </nav>
+    <a href="#" style="color: #d2d2d7; font-size: 14px">公開画面を見る ↗</a>
+  </header>
+
+  <main style="padding: 32px 48px; display: flex; flex-direction: column; gap: 20px; max-width: 920px">
+    <a href="books.html" style="font-size: 14px; width: fit-content">← 本の一覧へ戻る</a>
+    <h1 style="margin: 0; font-size: 28px; font-weight: 800">本を登録</h1>
+
+    <div role="alert" style="border: 1px solid #bf3f1f; background: #fff4f1; border-radius: 8px; padding: 14px 18px; font-size: 14px; color: #922d15; display: flex; flex-direction: column; gap: 4px">
+      <strong>2か所の入力を直してください。</strong>
+      <a href="#summary" style="color: #922d15">一言まとめ: 入力してください</a>
+      <a href="#comment" style="color: #922d15">感想: 5000文字以内にしてください</a>
+    </div>
+
+    <section style="background: #ffffff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(20,20,28,0.08); display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 700">1. ISBN で本を確かめる</h2>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="isbn" style="font-size: 14px; font-weight: 700">ISBN <span style="color: #bf3f1f">（必須）</span></label>
+        <div style="display: flex; gap: 8px">
+          <input id="isbn" value="978-4-8144-0180-2" style="width: 320px; height: 48px; box-sizing: border-box; border: 1px solid #6e6e73; border-radius: 8px; padding: 0 16px; font-size: 16px; font-family: inherit">
+          <button type="button" style="height: 48px; padding: 0 24px; border: 1px solid #bf3f1f; border-radius: 8px; background: #ffffff; color: #bf3f1f; font-size: 16px; font-weight: 700; font-family: inherit">確かめる</button>
+        </div>
+        <p style="margin: 0; font-size: 13px; color: #48484a">13桁または10桁。ハイフンはあってもなくても構いません。</p>
+      </div>
+      <div style="display: flex; gap: 20px; background: #fafafa; border-radius: 8px; padding: 16px">
+        <div style="width: 96px; height: 136px; flex-shrink: 0; background: #e5e5ea; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #48484a">書影</div>
+        <dl style="margin: 0; display: grid; grid-template-columns: 80px minmax(0, 1fr); row-gap: 6px; font-size: 14px">
+          <dt style="color: #48484a">書名</dt><dd style="margin: 0; font-weight: 700">データ指向アプリケーションデザイン 第2版</dd>
+          <dt style="color: #48484a">著者</dt><dd style="margin: 0">Martin Kleppmann</dd>
+          <dt style="color: #48484a">出版社</dt><dd style="margin: 0">[出版社]</dd>
+          <dt style="color: #48484a">出版日</dt><dd style="margin: 0">[出版日]</dd>
+        </dl>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #48484a">
+        <span>ISBN のエラー表示の例:</span>
+        <span style="color: #922d15">この ISBN の本は外部カタログに見つかりませんでした。ISBN を確かめてください。</span>
+        <span style="color: #922d15">この ISBN の本はすでに登録されています。<a href="book-edit.html">登録済みの本を編集する</a></span>
+      </div>
+    </section>
+
+    <section style="background: #ffffff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(20,20,28,0.08); display: flex; flex-direction: column; gap: 20px">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 700">2. 一言まとめと感想を書く</h2>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="title" style="font-size: 14px; font-weight: 700">書名の上書き <span style="color: #48484a; font-weight: 400">（任意）</span></label>
+        <input id="title" placeholder="外部カタログの書名が違うときだけ入力" style="height: 48px; box-sizing: border-box; border: 1px solid #6e6e73; border-radius: 8px; padding: 0 16px; font-size: 16px; font-family: inherit">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="summary" style="font-size: 14px; font-weight: 700">一言まとめ <span style="color: #bf3f1f">（必須）</span></label>
+        <input id="summary" aria-invalid="true" aria-describedby="summary-err" style="height: 48px; box-sizing: border-box; border: 2px solid #bf3f1f; border-radius: 8px; padding: 0 16px; font-size: 16px; font-family: inherit">
+        <div style="display: flex; justify-content: space-between; font-size: 13px"><span id="summary-err" style="color: #922d15">入力してください</span><span style="color: #48484a">0 / 100</span></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="comment" style="font-size: 14px; font-weight: 700">感想 <span style="color: #bf3f1f">（必須）</span></label>
+        <textarea id="comment" aria-invalid="true" rows="8" style="box-sizing: border-box; border: 2px solid #bf3f1f; border-radius: 8px; padding: 12px 16px; font-size: 16px; line-height: 1.8; font-family: inherit">[感想の本文]</textarea>
+        <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #922d15">5000文字以内にしてください</span><span style="color: #922d15; font-weight: 700">5012 / 5000</span></div>
+      </div>
+      <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+        <legend style="font-size: 14px; font-weight: 700; padding: 0; margin-bottom: 8px">評価 <span style="color: #bf3f1f">（必須）</span></legend>
+        <div style="display: flex; gap: 8px">
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a"><input type="radio" name="rating" style="margin: 0"> ★</label>
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a"><input type="radio" name="rating" style="margin: 0"> ★★</label>
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a"><input type="radio" name="rating" style="margin: 0"> ★★★</label>
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a"><input type="radio" name="rating" style="margin: 0"> ★★★★</label>
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #1a1a1a; background: #1a1a1a; color: #ffffff"><input type="radio" name="rating" style="margin: 0"> ★★★★★</label>
+        </div>
+      </fieldset>
+      <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+        <legend style="font-size: 14px; font-weight: 700; padding: 0; margin-bottom: 8px">分野タグ <span style="color: #48484a; font-weight: 400">（任意・10個まで）</span></legend>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #1a1a1a; background: #1a1a1a; color: #ffffff"><input type="checkbox" style="margin: 0"> 設計</label>
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #1a1a1a; background: #1a1a1a; color: #ffffff"><input type="checkbox" style="margin: 0"> データ</label>
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a"><input type="checkbox" style="margin: 0"> クラウド</label>
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a"><input type="checkbox" style="margin: 0"> プロダクト</label>
+            <label style="height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 9999px; font-size: 14px; border: 1px solid #9b9ba2; background: #ffffff; color: #1a1a1a"><input type="checkbox" style="margin: 0"> ネットワーク</label>
+        </div>
+        <a href="tags.html" style="font-size: 13px; width: fit-content">タグを追加・編集する</a>
+      </fieldset>
+      <div style="display: flex; gap: 12px; padding-top: 8px">
+        <button type="submit" style="height: 48px; padding: 0 32px; border: none; border-radius: 8px; background: #bf3f1f; color: #ffffff; font-size: 16px; font-weight: 700; font-family: inherit">登録する</button>
+        <a href="books.html" style="height: 48px; display: inline-flex; align-items: center; padding: 0 20px; font-size: 16px">キャンセル</a>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

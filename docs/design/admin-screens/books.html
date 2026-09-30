@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>本の一覧（管理）</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0;font-family:'Noto Sans JP',sans-serif;background:#f2f2f4;color:#1a1a1a}
+a{color:#bf3f1f}a:hover{color:#922d15}
+</style>
+</head>
+<body>
+<div style="width: 1280px; height: 900px; box-sizing: border-box; background: #f2f2f4; display: flex; flex-direction: column">
+  <header style="height: 64px; background: #1a1a1a; color: #ffffff; display: flex; align-items: center; padding: 0 48px; gap: 40px">
+    <a href="books.html" style="font-size: 18px; font-weight: 700; color: #ffffff; text-decoration: none; display: flex; align-items: center; gap: 10px">読んだ本 <span style="font-size: 12px; font-weight: 700; background: #ffffff; color: #1a1a1a; border-radius: 4px; padding: 2px 8px">管理</span></a>
+    <nav aria-label="管理メニュー" style="display: flex; gap: 28px; font-size: 15px; flex-grow: 1">
+      <a href="books.html" aria-current="page" style="color: #ffffff; font-weight: 700; text-decoration: none; border-bottom: 2px solid #ff7e5e; padding: 20px 0">本</a>
+      <a href="tags.html" style="color: #d2d2d7; text-decoration: none; padding: 20px 0">タグ</a>
+    </nav>
+    <a href="#" style="color: #d2d2d7; font-size: 14px">公開画面を見る ↗</a>
+  </header>
+
+  <main style="flex-grow: 1; padding: 40px 48px; display: flex; flex-direction: column; gap: 20px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800">本</h1>
+      <a href="book-new.html" style="height: 48px; display: inline-flex; align-items: center; padding: 0 24px; border-radius: 8px; background: #bf3f1f; color: #ffffff; font-size: 16px; font-weight: 700; text-decoration: none">＋ 本を登録</a>
+    </div>
+
+    <div role="status" style="background: #ffffff; border-radius: 8px; padding: 14px 20px; font-size: 14px; box-shadow: 0 2px 12px rgba(20,20,28,0.08)">「ネットワークはなぜつながるのか」を削除しました。</div>
+
+    <table style="width: 100%; border-collapse: collapse; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(20,20,28,0.08); font-size: 14px">
+      <thead>
+        <tr style="background: #fafafa; text-align: left; color: #48484a">
+          <th scope="col" style="padding: 14px 20px; font-weight: 700">書名</th>
+          <th scope="col" style="padding: 14px 20px; font-weight: 700; width: 120px">評価</th>
+          <th scope="col" style="padding: 14px 20px; font-weight: 700; width: 220px">分野タグ</th>
+          <th scope="col" style="padding: 14px 20px; font-weight: 700; width: 140px">一言まとめ</th>
+          <th scope="col" style="padding: 14px 20px; width: 100px"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">操作</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr style="border-top: 1px solid #e5e5ea">
+            <td style="padding: 16px 20px; font-weight: 700">データ指向アプリケーションデザイン 第2版</td>
+            <td style="padding: 16px 20px; color: #bf3f1f">★★★★★</td>
+            <td style="padding: 16px 20px; color: #48484a">データ・設計</td>
+            <td style="padding: 16px 20px; color: #48484a">記入済み</td>
+            <td style="padding: 16px 20px; text-align: right"><a href="book-edit.html" style="font-weight: 700">編集</a></td>
+          </tr>
+          <tr style="border-top: 1px solid #e5e5ea">
+            <td style="padding: 16px 20px; font-weight: 700">プロダクトマネジメントのすべて</td>
+            <td style="padding: 16px 20px; color: #bf3f1f">★★★★☆</td>
+            <td style="padding: 16px 20px; color: #48484a">プロダクト</td>
+            <td style="padding: 16px 20px; color: #48484a">記入済み</td>
+            <td style="padding: 16px 20px; text-align: right"><a href="book-edit.html" style="font-weight: 700">編集</a></td>
+          </tr>
+          <tr style="border-top: 1px solid #e5e5ea">
+            <td style="padding: 16px 20px; font-weight: 700">改訂新版　良いコード／悪いコードで学ぶ設計入門</td>
+            <td style="padding: 16px 20px; color: #bf3f1f">★★★☆☆</td>
+            <td style="padding: 16px 20px; color: #48484a">—</td>
+            <td style="padding: 16px 20px; color: #48484a">（準備中）</td>
+            <td style="padding: 16px 20px; text-align: right"><a href="book-edit.html" style="font-weight: 700">編集</a></td>
+          </tr>
+          <tr style="border-top: 1px solid #e5e5ea">
+            <td style="padding: 16px 20px; font-weight: 700">徹底攻略 AWS認定 ソリューションアーキテクト − アソシエイト教科書 第3版</td>
+            <td style="padding: 16px 20px; color: #bf3f1f">★★★☆☆</td>
+            <td style="padding: 16px 20px; color: #48484a">—</td>
+            <td style="padding: 16px 20px; color: #48484a">（準備中）</td>
+            <td style="padding: 16px 20px; text-align: right"><a href="book-edit.html" style="font-weight: 700">編集</a></td>
+          </tr>
+      </tbody>
+    </table>
+    <p style="margin: 0; font-size: 13px; color: #48484a; text-align: center">4冊中 4冊を表示</p>
+  </main>
+</div>
+</body>
+</html>
