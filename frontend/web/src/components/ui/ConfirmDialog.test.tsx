@@ -37,6 +37,14 @@ describe('ConfirmDialog', () => {
     expect(screen.getByRole('button', { name: 'キャンセル' })).toHaveFocus()
   })
 
+  it('説明文を aria-describedby で結び、開いたときに読み上げられるようにする', () => {
+    renderDialog({})
+
+    expect(
+      screen.getByRole('dialog', { name: 'この本を削除しますか？' }),
+    ).toHaveAccessibleDescription('元に戻せません。')
+  })
+
   it('確定を押すと onConfirm だけが呼ばれる', async () => {
     const { onConfirm, onCancel } = renderDialog({})
 
