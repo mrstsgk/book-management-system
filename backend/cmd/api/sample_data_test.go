@@ -29,6 +29,29 @@ func TestSampleBooks_AreValidAndDistinct(t *testing.T) {
 	}
 }
 
+// 一言まとめ・感想は仮の下書き文言（ADR: 2026-09-30-sample-book-comments-as-drafts）だが、
+// それぞれ書誌に沿った内容にする方針のため、旧仮文言や本同士の使い回しへの回帰を防ぐ。
+func TestSampleBooks_SummaryAndCommentAreDistinctPerBook(t *testing.T) {
+	seenSummary := map[string]string{}
+	seenComment := map[string]string{}
+	for _, s := range sampleBooks {
+		if s.summary == "" || s.summary == "（準備中）" {
+			t.Fatalf("%s: summary is a placeholder (%q)", s.isbn, s.summary)
+		}
+		if s.comment == "" || s.comment == "（準備中）" {
+			t.Fatalf("%s: comment is a placeholder (%q)", s.isbn, s.comment)
+		}
+		if prev, ok := seenSummary[s.summary]; ok {
+			t.Fatalf("%s: summary reused from %s", s.isbn, prev)
+		}
+		if prev, ok := seenComment[s.comment]; ok {
+			t.Fatalf("%s: comment reused from %s", s.isbn, prev)
+		}
+		seenSummary[s.summary] = s.isbn
+		seenComment[s.comment] = s.isbn
+	}
+}
+
 // fakeSeedBooks は book.Repository の手書き Fake。CreateAll は createAllErr を返すか、渡された全冊を保存する。
 type fakeSeedBooks struct {
 	created      []*domainbook.Book
