@@ -13,6 +13,7 @@ import { parseBookId } from '../utils/parseBookId'
 import { toFieldMessages } from '../utils/serverFieldErrors'
 import { tagIdsByName } from '../utils/tagIds'
 import { validateBookForm } from '../utils/validateBookForm'
+import { visibleLocalErrors } from '../utils/visibleErrors'
 
 // 取得した本とタグ一覧から、フォームの初期値を作る（タグは名前からIDに引き直す）
 function buildFormValues(
@@ -165,7 +166,10 @@ export function useBookEditor(rawId: string | undefined) {
   }
 
   const serverErrors = serverFieldErrorsOf(updateMutation.error)
-  const errors: BookFormErrors = { ...serverErrors, ...localErrors }
+  const errors: BookFormErrors = {
+    ...serverErrors,
+    ...(values ? visibleLocalErrors(localErrors, values) : localErrors),
+  }
 
   const retry = () => {
     void bookQuery.refetch()
