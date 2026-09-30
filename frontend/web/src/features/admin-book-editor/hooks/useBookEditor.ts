@@ -6,6 +6,7 @@ import {
   useGetApiTags,
   usePutApiBooksId,
 } from '@/api/generated/api'
+import type { BookResponse, TagResponse } from '@/api/generated/api.schemas'
 import { adminRequest } from '@/lib/admin-auth'
 import type { BookFormErrors, BookFormValues } from '../types'
 import { toFieldMessages } from '../utils/serverFieldErrors'
@@ -17,6 +18,40 @@ function parseId(raw: string | undefined): number | undefined {
   if (raw === undefined || !/^\d+$/.test(raw)) return undefined
   const id = Number(raw)
   return Number.isSafeInteger(id) && id >= 1 ? id : undefined
+}
+
+// 取得した本とタグ一覧から、フォームの初期値を作る（タグは名前からIDに引き直す）
+function buildFormValues(
+  book: BookResponse,
+  tags: TagResponse[],
+): BookFormValues {
+  return {
+    titleOverride: book.titleOverride ?? '',
+    summary: book.summary ?? '',
+    comment: book.comment ?? '',
+    rating: book.rating ?? 0,
+    tagIds: tagIdsByName(book.tags ?? [], tags),
+  }
+}
+
+// ID が無い、または 404 なら見つからない扱い
+function isNotFound(
+  id: number | undefined,
+  bookStatus: number | undefined,
+): boolean {
+  return id === undefined || bookStatus === 404
+}
+
+// 見つからない扱いでないときだけ、本とタグ一覧のどちらかの状態を見る
+function isBusyState(notFound: boolean, a: boolean, b: boolean): boolean {
+  return !notFound && (a || b)
+}
+
+// 保存の 400 のフィールドエラーを画面の文言に変える。エラーが無ければ空
+function serverFieldErrorsOf(
+  error: { fieldErrors: Parameters<typeof toFieldMessages>[0] } | null,
+): BookFormErrors {
+  return error ? toFieldMessages(error.fieldErrors) : {}
 }
 
 export function useBookEditor(rawId: string | undefined) {
@@ -46,17 +81,11 @@ export function useBookEditor(rawId: string | undefined) {
   useEffect(() => {
     if (values !== null) return
     if (!bookQuery.data || !tagsQuery.data) return
-    setValues({
-      titleOverride: bookQuery.data.titleOverride ?? '',
-      summary: bookQuery.data.summary ?? '',
-      comment: bookQuery.data.comment ?? '',
-      rating: bookQuery.data.rating ?? 0,
-      tagIds: tagIdsByName(bookQuery.data.tags ?? [], tags),
-    })
+    setValues(buildFormValues(bookQuery.data, tags))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookQuery.data, tagsQuery.data, values])
 
-  const notFound = id === undefined || bookQuery.error?.status === 404
+  const notFound = isNotFound(id, bookQuery.error?.status)
 
   const submit = () => {
     if (submitting.current || !values || id === undefined) return
@@ -100,13 +129,7 @@ export function useBookEditor(rawId: string | undefined) {
     setConflict(false)
     const { data: latest } = await bookQuery.refetch()
     if (!latest) return
-    setValues({
-      titleOverride: latest.titleOverride ?? '',
-      summary: latest.summary ?? '',
-      comment: latest.comment ?? '',
-      rating: latest.rating ?? 0,
-      tagIds: tagIdsByName(latest.tags ?? [], tags),
-    })
+    setValues(buildFormValues(latest, tags))
   }
 
   const openDelete = () => setDeleteOpen(true)
@@ -123,25 +146,27 @@ export function useBookEditor(rawId: string | undefined) {
           deleting.current = false
         },
         onSuccess: () => {
-          navigate('/admin', { state: { notice: `『${title}』を削除しました` } })
+          navigate('/admin', {
+            state: { notice: `『${title}』を削除しました` },
+          })
         },
       },
     )
   }
 
-  const serverErrors = updateMutation.error
-    ? toFieldMessages(updateMutation.error.fieldErrors)
-    : {}
+  const serverErrors = serverFieldErrorsOf(updateMutation.error)
   const errors: BookFormErrors = { ...serverErrors, ...localErrors }
+
+  const retry = () => {
+    void bookQuery.refetch()
+    void tagsQuery.refetch()
+  }
 
   return {
     notFound,
-    isLoading: !notFound && (bookQuery.isPending || tagsQuery.isPending),
-    isError: !notFound && (bookQuery.isError || tagsQuery.isError),
-    retry: () => {
-      void bookQuery.refetch()
-      void tagsQuery.refetch()
-    },
+    isLoading: isBusyState(notFound, bookQuery.isPending, tagsQuery.isPending),
+    isError: isBusyState(notFound, bookQuery.isError, tagsQuery.isError),
+    retry,
     book: bookQuery.data,
     values,
     setValues,
