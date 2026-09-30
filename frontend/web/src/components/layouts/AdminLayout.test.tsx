@@ -1,15 +1,22 @@
 import { screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { getGetApiBooksMockHandler } from '@/api/generated/api.msw'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
+import { server } from '@/testing/server'
 
-function adminNav() {
-  return within(screen.getByRole('navigation', { name: '管理メニュー' }))
+async function findAdminNav() {
+  return await screen.findByRole('navigation', { name: '管理メニュー' })
 }
 
 describe('AdminLayout', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
+  // /admin の本一覧は faker の乱数データに頼らず、空の一覧に固定する
+  beforeEach(() => {
+    server.use(
+      getGetApiBooksMockHandler({ items: [], total: 0, limit: 20, offset: 0 }),
+    )
   })
 
   it.each([
@@ -17,27 +24,29 @@ describe('AdminLayout', () => {
     ['/admin/books/new', '本'],
     ['/admin/books/1/edit', '本'],
     ['/admin/tags', 'タグ'],
-  ])('%s では「%s」を今いる画面にする', (route, current) => {
+  ])('%s では「%s」を今いる画面にする', async (route, current) => {
     renderWithProviders(<AppRoutes />, { route })
 
     const other = current === '本' ? 'タグ' : '本'
-    expect(adminNav().getByRole('link', { name: current })).toHaveAttribute(
+    const nav = within(await findAdminNav())
+    expect(nav.getByRole('link', { name: current })).toHaveAttribute(
       'aria-current',
       'page',
     )
-    expect(adminNav().getByRole('link', { name: other })).not.toHaveAttribute(
+    expect(nav.getByRole('link', { name: other })).not.toHaveAttribute(
       'aria-current',
     )
   })
 
-  it('管理画面の印と、公開画面へのリンクを出し、公開画面のナビは出さない', () => {
+  it('管理画面の印と、公開画面へのリンクを出し、公開画面のナビは出さない', async () => {
     renderWithProviders(<AppRoutes />, { route: '/admin' })
 
-    expect(adminNav().getByRole('link', { name: '本' })).toHaveAttribute(
+    const nav = within(await findAdminNav())
+    expect(nav.getByRole('link', { name: '本' })).toHaveAttribute(
       'href',
       '/admin',
     )
-    expect(adminNav().getByRole('link', { name: 'タグ' })).toHaveAttribute(
+    expect(nav.getByRole('link', { name: 'タグ' })).toHaveAttribute(
       'href',
       '/admin/tags',
     )
@@ -50,22 +59,43 @@ describe('AdminLayout', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('管理者トークンが設定されていれば注意を出さない', () => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', 'secret')
-
+  it('ログアウトを押すと POST /api/auth/logout を呼び、ログイン画面へ移る', async () => {
+    let called = false
+    server.use(
+      http.post('*/api/auth/logout', () => {
+        called = true
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
     renderWithProviders(<AppRoutes />, { route: '/admin' })
-
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'ログアウト' }),
+    )
+    expect(
+      await screen.findByRole('heading', { name: '管理画面にログイン' }),
+    ).toBeVisible()
+    expect(called).toBe(true)
   })
 
-  it('管理者トークンが空なら、設定のしかたを添えて注意を出す', () => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', '')
-
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      '管理者トークンが設定されていません',
+  it('ログアウトに失敗したら管理画面に留まり、失敗を伝える（サーバー側のセッションが残っているため）', async () => {
+    server.use(
+      http.post('*/api/auth/logout', () =>
+        HttpResponse.json({ message: 'internal' }, { status: 500 }),
+      ),
     )
-    expect(screen.getByRole('alert')).toHaveTextContent('VITE_ADMIN_TOKEN')
+    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'ログアウト' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'ログアウトできませんでした',
+    )
+    expect(
+      within(await findAdminNav()).getByRole('link', { name: '本' }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('heading', { name: '管理画面にログイン' }),
+    ).not.toBeInTheDocument()
   })
 })

@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   getGetApiTagsCountsMockHandler,
   getGetApiTagsMockHandler,
@@ -21,13 +21,6 @@ function serveList(
 }
 
 describe('AdminTagsRoute', () => {
-  beforeEach(() => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', 'local-admin-token')
-  })
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
   it('/admin/tags を開くと、読み込み中を出したあとタグの一覧を表示する', async () => {
     serveList(
       [{ id: 1, name: '設計', version: 1 }],
@@ -36,7 +29,9 @@ describe('AdminTagsRoute', () => {
 
     renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
 
-    expect(screen.getByRole('heading', { name: '分野タグ' })).toBeVisible()
+    expect(
+      await screen.findByRole('heading', { name: '分野タグ' }),
+    ).toBeVisible()
     expect(screen.getByRole('status')).toHaveTextContent('読み込み中…')
     expect(await screen.findByText('設計')).toBeVisible()
     expect(screen.getByText('3冊')).toBeVisible()

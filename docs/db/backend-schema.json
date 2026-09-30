@@ -59,6 +59,18 @@
         "book_id REFERENCES book(id) ON DELETE CASCADE",
         "tag_id REFERENCES tag(id) ON DELETE CASCADE"
       ]
+    },
+    "admin_session": {
+      "description": "管理画面のログイン済みセッション。利用者は自分 1 人なので誰のセッションかは持たない。パスワードもハッシュも入れない。",
+      "source": "backend/migrations/000008_create_admin_session.up.sql",
+      "columns": [
+        { "name": "id", "type": "VARCHAR(64)", "nullable": false, "pk": true, "description": "セッションID（32 byte の乱数を base64url にした 43 文字）。ブラウザには httpOnly Cookie でこれだけを渡す" },
+        { "name": "expires_at", "type": "TIMESTAMPTZ", "nullable": false, "description": "アイドル期限。管理者向け API（セッション確認を含む）を通るたびに「今 + 1 時間」に延びる（絶対期限は超えない）" },
+        { "name": "absolute_expires_at", "type": "TIMESTAMPTZ", "nullable": false, "description": "絶対期限。ログイン時刻 + 24 時間で固定" },
+        { "name": "created_at", "type": "TIMESTAMPTZ", "nullable": false, "default": "NOW()", "description": "ログイン日時" }
+      ],
+      "indexes": [],
+      "constraints": []
     }
   }
 }

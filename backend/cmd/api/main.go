@@ -13,14 +13,19 @@ import (
 
 	"github.com/mrstsgk/book-management-system/backend/config"
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
+	infraauth "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/auth"
 	"github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/openbd"
+	pgauth "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/auth"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/tag"
+	httpauth "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/auth"
 	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
 	httpcatalog "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/catalog"
 	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
+	authcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/command"
+	authqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/query"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
 	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
@@ -30,10 +35,7 @@ import (
 // @title Book Management System API
 // @version 0.1.0
 // @BasePath /
-// @securityDefinitions.apikey AdminToken
-// @in header
-// @name Authorization
-// @description 登録・更新・削除とカタログの確認に必要。「Bearer <ADMIN_TOKEN>」の形式で指定する
+// @description 書き込み系 API は POST /api/auth/login で得た httpOnly Cookie（admin_session）が要る
 func main() {
 	if err := run(); err != nil {
 		slog.Error("server exited with error", "error", err)
@@ -72,7 +74,7 @@ func run() error {
 	}
 
 	e := httpcommon.NewEcho()
-	registerRoutes(e, db, bookCatalog, cfg.AdminToken)
+	registerRoutes(e, db, bookCatalog, cfg)
 
 	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
 }
@@ -86,14 +88,31 @@ func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
 }
 
 // registerRoutes は手書きの DI（infra → usecase → presentation）で各ハンドラを組み立てて登録する。
-func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalog, adminToken string) {
+func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalog, cfg config.Config) {
 	books := pgbook.NewRepository(db)
 	bookQuery := pgbook.NewQuery(db)
 	tags := pgtag.NewRepository(db)
 	tagQuery := pgtag.NewQuery(db)
-	adminOnly := httpcommon.RequireAdminToken(adminToken)
+	sessions := pgauth.NewRepository(db)
+
+	checkSession := &authqry.CheckSessionUsecaseImpl{Sessions: sessions, Now: time.Now}
+	// 書き込み系はセッションの検証と Origin の検証を両方通す
+	adminOnly := func(next echo.HandlerFunc) echo.HandlerFunc {
+		return httpcommon.RequireSameOrigin()(httpcommon.RequireAdminSession(checkSession)(next))
+	}
 
 	api := e.Group("/api")
+	(&httpauth.Handler{
+		LoginUC: &authcmd.LoginUsecaseImpl{
+			Admin:    authcmd.AdminAccount{ID: cfg.Admin.ID, PasswordHash: cfg.Admin.PasswordHash},
+			Verifier: infraauth.NewBcryptVerifier(),
+			Sessions: sessions,
+			Now:      time.Now,
+		},
+		LogoutUC:   &authcmd.LogoutUsecaseImpl{Sessions: sessions},
+		CheckUC:    checkSession,
+		SameOrigin: httpcommon.RequireSameOrigin(),
+	}).Register(api.Group("/auth"))
 	(&httpbook.Handler{
 		RegisterUC: &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
 		UpdateUC:   &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
@@ -104,7 +123,7 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 	}).Register(api.Group("/books"))
 	(&httpcatalog.Handler{
 		LookupUC:  &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},
-		AdminOnly: adminOnly,
+		AdminOnly: httpcommon.RequireAdminSession(checkSession), // GET なので Origin 検証は要らない
 	}).Register(api.Group("/catalog"))
 
 	(&httptag.Handler{

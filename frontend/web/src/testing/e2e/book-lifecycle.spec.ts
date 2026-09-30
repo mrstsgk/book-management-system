@@ -3,6 +3,7 @@ import {
   bookRow,
   deleteBookById,
   deleteBookIfPresent,
+  login,
   registerBook,
 } from './helpers'
 
@@ -16,6 +17,7 @@ const TITLE = '［E2Eテスト］本のライフサイクル'
 test.describe('本のライフサイクル', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage()
+    await login(page)
     await deleteBookIfPresent(page, TITLE)
     await page.close()
   })
@@ -23,6 +25,7 @@ test.describe('本のライフサイクル', () => {
   test('登録が公開一覧・詳細に反映され、編集・削除まで一気通貫で動く', async ({
     page,
   }) => {
+    await login(page)
     let bookId: string | undefined
 
     try {

@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import {
   getDeleteApiBooksIdMockHandler,
@@ -13,10 +13,23 @@ import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
 import { useBookEditor } from './useBookEditor'
 
+let current: { pathname: string; state: unknown } = {
+  pathname: '',
+  state: null,
+}
+function Probe() {
+  const loc = useLocation()
+  current = { pathname: loc.pathname, state: loc.state }
+  return null
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter>{children}</MemoryRouter>
+      <MemoryRouter initialEntries={['/admin/x']}>
+        <Probe />
+        {children}
+      </MemoryRouter>
     </QueryClientProvider>
   )
 }
@@ -222,6 +235,49 @@ describe('useBookEditor', () => {
     expect(result.current.values?.summary).toBe('まとめ')
   })
 
+  it('保存が401ならログイン画面へ送り、競合扱いにしない', async () => {
+    server.use(
+      getGetApiBooksIdMockHandler({
+        id: 1,
+        title: '本',
+        summary: 'まとめ',
+        comment: '感想',
+        rating: 4,
+        version: 1,
+      }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.put('*/api/books/:id', () =>
+        HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
+      ),
+    )
+    const { result } = renderUseBookEditor('1')
+    await waitFor(() => expect(result.current.values).not.toBeNull())
+
+    act(() => result.current.submit())
+
+    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
+    expect(current.state).toEqual({ from: '/admin/x' })
+  })
+
+  it('削除が401ならログイン画面へ送り、削除エラーを出さない', async () => {
+    server.use(
+      getGetApiBooksIdMockHandler({ id: 1, title: '本', version: 1 }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.delete('*/api/books/:id', () =>
+        HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
+      ),
+    )
+    const { result } = renderUseBookEditor('1')
+    await waitFor(() => expect(result.current.values).not.toBeNull())
+
+    act(() => result.current.openDelete())
+    act(() => result.current.confirmDelete())
+
+    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
+    expect(current.state).toEqual({ from: '/admin/x' })
+    expect(result.current.deleteError).toBeUndefined()
+  })
+
   it('削除に失敗したら、ダイアログにエラーを出し確定を押し直せる', async () => {
     server.use(
       getGetApiBooksIdMockHandler({ id: 1, title: '本', version: 1 }),
@@ -276,5 +332,41 @@ describe('useBookEditor', () => {
 
     expect(result.current.errors.summary).toBeUndefined()
     expect(result.current.errors.comment).toBeDefined()
+  })
+
+  it('取得・保存・削除の要求にAuthorizationヘッダを付けない（認証はCookie）', async () => {
+    const auth: Record<string, string | null> = {}
+    server.use(
+      http.get('*/api/books/:id', ({ request }) => {
+        auth.get = request.headers.get('authorization')
+        return HttpResponse.json({
+          id: 1,
+          title: '本',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 3,
+          version: 1,
+        })
+      }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.put('*/api/books/:id', ({ request }) => {
+        auth.put = request.headers.get('authorization')
+        return HttpResponse.json({ id: 1 })
+      }),
+      http.delete('*/api/books/:id', ({ request }) => {
+        auth.delete = request.headers.get('authorization')
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { result } = renderUseBookEditor('1')
+    await waitFor(() => expect(result.current.values).not.toBeNull())
+
+    act(() => result.current.submit())
+    await waitFor(() => expect(result.current.saved).toBe(true))
+    act(() => result.current.openDelete())
+    act(() => result.current.confirmDelete())
+    await waitFor(() => expect(auth.delete).toBeDefined())
+
+    expect(auth).toEqual({ get: null, put: null, delete: null })
   })
 })

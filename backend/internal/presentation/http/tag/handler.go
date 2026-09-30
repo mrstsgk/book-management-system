@@ -103,11 +103,11 @@ func (h *Handler) CountBooks(c echo.Context) error {
 // @Tags         tags
 // @Accept       json
 // @Produce      json
-// @Security     AdminToken
 // @Param        body body RegisterRequest true "body"
 // @Success      200 {object} Response
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      401 {object} common.ErrorResponse
+// @Failure      403 {object} common.ErrorResponse
 // @Failure      409 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
 // @Router       /api/tags [post]
@@ -129,12 +129,12 @@ func (h *Handler) RegisterTag(c echo.Context) error {
 // @Tags         tags
 // @Accept       json
 // @Produce      json
-// @Security     AdminToken
 // @Param        id   path int           true "タグのID"
 // @Param        body body RenameRequest true "body"
 // @Success      200 {object} Response
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      401 {object} common.ErrorResponse
+// @Failure      403 {object} common.ErrorResponse
 // @Failure      404 {object} common.ErrorResponse
 // @Failure      409 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
@@ -159,11 +159,11 @@ func (h *Handler) Rename(c echo.Context) error {
 // @Summary      分野タグを削除する（自分だけ）
 // @Description  付いていた本からは自動で外れる
 // @Tags         tags
-// @Security     AdminToken
 // @Param        id path int true "タグのID"
 // @Success      204
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      401 {object} common.ErrorResponse
+// @Failure      403 {object} common.ErrorResponse
 // @Failure      404 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
 // @Router       /api/tags/{id} [delete]

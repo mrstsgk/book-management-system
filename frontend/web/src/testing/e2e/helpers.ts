@@ -2,6 +2,23 @@ import { expect, type Page } from '@playwright/test'
 
 // 本のライフサイクル・タグのライフサイクルの両 spec で共通に使う手順。
 
+// 管理画面の操作の前に UI からログインする。資格情報は環境変数（README の手順）。
+// storageState を使わないのは、spec が 2 つで UI ログインの方が短く、ログイン画面自体の配線も毎回確かめられるため
+export async function login(page: Page) {
+  const id = process.env.E2E_ADMIN_ID
+  const password = process.env.E2E_ADMIN_PASSWORD
+  if (!id || !password) {
+    throw new Error(
+      'E2E_ADMIN_ID と E2E_ADMIN_PASSWORD を設定してください（frontend/README.md）',
+    )
+  }
+  await page.goto('/admin/login')
+  await page.getByLabel('ID （必須）').fill(id)
+  await page.getByLabel('パスワード （必須）').fill(password)
+  await page.getByRole('button', { name: 'ログイン' }).click()
+  await expect(page).toHaveURL('/admin')
+}
+
 export type NewBookInput = {
   isbn: string
   titleOverride: string

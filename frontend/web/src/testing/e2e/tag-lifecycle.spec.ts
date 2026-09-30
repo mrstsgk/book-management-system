@@ -4,6 +4,7 @@ import {
   deleteBookById,
   deleteBookIfPresent,
   deleteTagIfPresent,
+  login,
   registerBook,
   tagRow,
 } from './helpers'
@@ -19,6 +20,7 @@ const TAG_NAME_RENAMED = '［E2Eテスト］タグ（改名後）'
 test.describe('タグのライフサイクル', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage()
+    await login(page)
     await deleteBookIfPresent(page, TITLE)
     await deleteTagIfPresent(page, TAG_NAME)
     await deleteTagIfPresent(page, TAG_NAME_RENAMED)
@@ -28,6 +30,7 @@ test.describe('タグのライフサイクル', () => {
   test('追加→本への付与→分野別集計への反映→名前変更→削除まで一気通貫で動く', async ({
     page,
   }) => {
+    await login(page)
     let bookId: string | undefined
 
     try {

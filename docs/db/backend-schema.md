@@ -45,3 +45,15 @@ erDiagram
     book ||--o{ book_tag : "付く"
     tag ||--o{ book_tag : "付く"
 ```
+
+`admin_session`: 管理画面のログイン済みセッション。利用者は自分 1 人なので誰のセッションかは持たない。期限切れの行は消さずに残す（判定は期限の比較で行い、1 人利用で行数は増えない）。
+
+```mermaid
+erDiagram
+    admin_session {
+        varchar_64 id PK
+        timestamptz expires_at
+        timestamptz absolute_expires_at
+        timestamptz created_at
+    }
+```

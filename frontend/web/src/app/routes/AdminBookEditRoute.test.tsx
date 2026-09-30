@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   getDeleteApiBooksIdMockHandler,
   getGetApiBooksIdMockHandler,
@@ -12,10 +12,6 @@ import { renderWithProviders } from '@/testing/render'
 import { server } from '@/testing/server'
 
 describe('AdminBookEditRoute', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
   it('本とタグを読み込んで初期値を表示する（タグは名前からIDに引き直す）', async () => {
     server.use(
       getGetApiBooksIdMockHandler({
@@ -168,21 +164,5 @@ describe('AdminBookEditRoute', () => {
       await screen.findByText('『削除対象の本』を削除しました'),
     ).toBeVisible()
     expect(deleteCalled).toBe(true)
-  })
-
-  it('要求に Authorization が付く', async () => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', 'secret')
-    let authHeader: string | null = null
-    server.use(
-      http.get('*/api/books/:id', ({ request }) => {
-        authHeader = request.headers.get('authorization')
-        return HttpResponse.json({ id: 1, title: '本', version: 1 })
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-    )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/1/edit' })
-
-    await screen.findByRole('heading', { level: 1, name: '本を編集' })
-    expect(authHeader).toBe('Bearer secret')
   })
 })

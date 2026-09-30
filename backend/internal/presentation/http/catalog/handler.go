@@ -40,7 +40,6 @@ func (h *Handler) Register(g *echo.Group) {
 // @Description  登録前の確認用。書誌と書影は openBD から取得する
 // @Tags         catalog
 // @Produce      json
-// @Security     AdminToken
 // @Param        isbn path string true "ISBN（13桁または10桁。ハイフン可）"
 // @Success      200 {object} Response
 // @Failure      400 {object} common.ErrorResponse

@@ -21,7 +21,18 @@ import (
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
 )
 
-const adminToken = "test-admin-token"
+const testSession = "test-session"
+
+// fakeAdminOnly は本物の RequireAdminSession の代わり（Cookie の値が testSession なら通す）。
+// セッションの分岐は common のテストが担うので、ここでは「認証が要る経路に付いているか」だけを見る
+func fakeAdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if ck, err := c.Cookie(common.SessionCookieName); err != nil || ck.Value != testSession {
+			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+		}
+		return next(c)
+	}
+}
 
 type fakeRegister func(context.Context, tagcmd.RegisterCommand) (*tagcmd.TagView, error)
 
@@ -48,7 +59,7 @@ type fakeCountBooks func(context.Context) (*domaintag.TagBookCounts, error)
 func (f fakeCountBooks) Execute(ctx context.Context) (*domaintag.TagBookCounts, error) { return f(ctx) }
 
 func TestHandlerCountBooks(t *testing.T) {
-	t.Run("トークン無しで分野タグごとの冊数を返す", func(t *testing.T) {
+	t.Run("ログイン無しでも分野タグごとの冊数を返す", func(t *testing.T) {
 		counts := &domaintag.TagBookCounts{Items: []*domaintag.TagBookCount{{ID: 1, Name: "設計", BookCount: 3}}}
 		h := &httptag.Handler{CountBooksUC: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return counts, nil })}
 
@@ -93,19 +104,19 @@ func TestHandlerCountBooks(t *testing.T) {
 }
 
 // serve は cmd/api/main.go と同じ形（NewEcho + Register）でハンドラを組み立ててリクエストを流す。
-func serve(t *testing.T, h *httptag.Handler, method, path, body string, withToken bool) *httptest.ResponseRecorder {
+func serve(t *testing.T, h *httptag.Handler, method, path, body string, withSession bool) *httptest.ResponseRecorder {
 	t.Helper()
 	orig := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	t.Cleanup(func() { slog.SetDefault(orig) })
 
-	h.AdminOnly = common.RequireAdminToken(adminToken)
+	h.AdminOnly = fakeAdminOnly
 	e := common.NewEcho()
 	h.Register(e.Group("/api/tags"))
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	if withToken {
-		req.Header.Set(echo.HeaderAuthorization, "Bearer "+adminToken)
+	if withSession {
+		req.AddCookie(&http.Cookie{Name: common.SessionCookieName, Value: testSession})
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -135,7 +146,7 @@ func TestHandlerList(t *testing.T) {
 }
 
 func TestHandlerRegister(t *testing.T) {
-	t.Run("トークンがあれば登録して200", func(t *testing.T) {
+	t.Run("ログイン済みなら登録して200", func(t *testing.T) {
 		var got tagcmd.RegisterCommand
 		h := &httptag.Handler{RegisterUC: fakeRegister(func(_ context.Context, cmd tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
 			got = cmd
@@ -151,7 +162,7 @@ func TestHandlerRegister(t *testing.T) {
 		}
 	})
 
-	t.Run("トークンが無ければ401でusecaseを呼ばない", func(t *testing.T) {
+	t.Run("ログインしていなければ401でusecaseを呼ばない", func(t *testing.T) {
 		called := mustNotCall(t)
 		h := &httptag.Handler{RegisterUC: fakeRegister(func(context.Context, tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
 			called()
@@ -203,7 +214,7 @@ func TestHandlerRegister(t *testing.T) {
 func TestHandlerRename(t *testing.T) {
 	body := `{"name":"新名","version":2}`
 
-	t.Run("トークンがあればパスのIDとバージョンをusecaseに渡し200で返す", func(t *testing.T) {
+	t.Run("ログイン済みならパスのIDとバージョンをusecaseに渡し200で返す", func(t *testing.T) {
 		var got tagcmd.RenameCommand
 		h := &httptag.Handler{RenameUC: fakeRename(func(_ context.Context, cmd tagcmd.RenameCommand) (*tagcmd.TagView, error) {
 			got = cmd
@@ -219,18 +230,18 @@ func TestHandlerRename(t *testing.T) {
 	})
 
 	for _, tt := range []struct {
-		name      string
-		path      string
-		body      string
-		withToken bool
-		err       error
-		want      int
+		name        string
+		path        string
+		body        string
+		withSession bool
+		err         error
+		want        int
 	}{
-		{name: "トークンが無ければ401", path: "/api/tags/5", body: body, withToken: false, want: http.StatusUnauthorized},
-		{name: "不正なIDは400", path: "/api/tags/abc", body: body, withToken: true, want: http.StatusBadRequest},
-		{name: "バージョンなしは400", path: "/api/tags/5", body: `{"name":"新名"}`, withToken: true, want: http.StatusBadRequest},
-		{name: "存在しないタグは404", path: "/api/tags/5", body: body, withToken: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
-		{name: "楽観的ロックの競合は409", path: "/api/tags/5", body: body, withToken: true, err: domaincommon.ErrConflict, want: http.StatusConflict},
+		{name: "ログインしていなければ401", path: "/api/tags/5", body: body, withSession: false, want: http.StatusUnauthorized},
+		{name: "不正なIDは400", path: "/api/tags/abc", body: body, withSession: true, want: http.StatusBadRequest},
+		{name: "バージョンなしは400", path: "/api/tags/5", body: `{"name":"新名"}`, withSession: true, want: http.StatusBadRequest},
+		{name: "存在しないタグは404", path: "/api/tags/5", body: body, withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
+		{name: "楽観的ロックの競合は409", path: "/api/tags/5", body: body, withSession: true, err: domaincommon.ErrConflict, want: http.StatusConflict},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &httptag.Handler{RenameUC: fakeRename(func(context.Context, tagcmd.RenameCommand) (*tagcmd.TagView, error) {
@@ -239,7 +250,7 @@ func TestHandlerRename(t *testing.T) {
 				}
 				return nil, tt.err
 			})}
-			if rec := serve(t, h, http.MethodPut, tt.path, tt.body, tt.withToken); rec.Code != tt.want {
+			if rec := serve(t, h, http.MethodPut, tt.path, tt.body, tt.withSession); rec.Code != tt.want {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.want)
 			}
 		})
@@ -247,7 +258,7 @@ func TestHandlerRename(t *testing.T) {
 }
 
 func TestHandlerDelete(t *testing.T) {
-	t.Run("トークンがあれば削除して204", func(t *testing.T) {
+	t.Run("ログイン済みなら削除して204", func(t *testing.T) {
 		var gotID int64
 		h := &httptag.Handler{DeleteUC: fakeDelete(func(_ context.Context, id int64) error { gotID = id; return nil })}
 		rec := serve(t, h, http.MethodDelete, "/api/tags/5", "", true)
@@ -257,13 +268,13 @@ func TestHandlerDelete(t *testing.T) {
 	})
 
 	for _, tt := range []struct {
-		name      string
-		withToken bool
-		err       error
-		want      int
+		name        string
+		withSession bool
+		err         error
+		want        int
 	}{
-		{name: "トークンが無ければ401", withToken: false, want: http.StatusUnauthorized},
-		{name: "存在しないタグは404", withToken: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
+		{name: "ログインしていなければ401", withSession: false, want: http.StatusUnauthorized},
+		{name: "存在しないタグは404", withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &httptag.Handler{DeleteUC: fakeDelete(func(context.Context, int64) error {
@@ -272,7 +283,7 @@ func TestHandlerDelete(t *testing.T) {
 				}
 				return tt.err
 			})}
-			if rec := serve(t, h, http.MethodDelete, "/api/tags/5", "", tt.withToken); rec.Code != tt.want {
+			if rec := serve(t, h, http.MethodDelete, "/api/tags/5", "", tt.withSession); rec.Code != tt.want {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.want)
 			}
 		})
