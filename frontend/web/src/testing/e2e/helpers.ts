@@ -17,6 +17,14 @@ export async function clickPillOption(page: Page, exactLabelText: string) {
   await page.getByText(exactLabelText, { exact: true }).click()
 }
 
+// page.goto() は画面遷移だけを待ち、画面内のAPI取得完了までは待たない（LoadingState の
+// role="status" 表示が消えるまで待つ）。取得中に一覧の行数や詳細の見つからない表示を
+// 判定すると、まだ何も描画されていないだけなのに「無い」と誤判定するため、
+// 一覧・詳細どちらの画面に対しても goto の直後に必ず呼ぶ
+async function waitForLoaded(page: Page) {
+  await expect(page.getByText('読み込み中…')).toHaveCount(0)
+}
+
 // 管理画面の本の一覧で、指定した書名を含む行（無ければ空のロケーター）
 export function bookRow(page: Page, titleSubstring: string) {
   return page.locator('table tbody tr', { hasText: titleSubstring })
@@ -66,6 +74,7 @@ export async function registerBook(
 // 「本体で既に削除済みかどうか」を追跡せずに常に呼べるようにするため
 export async function deleteBookById(page: Page, bookId: string) {
   await page.goto(`/admin/books/${bookId}/edit`)
+  await waitForLoaded(page)
   if (await page.getByText('この本は見つかりませんでした').isVisible()) return
   await page.getByRole('button', { name: 'この本を削除' }).click()
   const dialog = page.getByRole('dialog')
@@ -76,6 +85,7 @@ export async function deleteBookById(page: Page, bookId: string) {
 // 前回の実行が途中で落ちて後片付けできなかった場合の自己修復。通常時は何もしない
 export async function deleteBookIfPresent(page: Page, titleSubstring: string) {
   await page.goto('/admin')
+  await waitForLoaded(page)
   const row = bookRow(page, titleSubstring)
   if ((await row.count()) === 0) return
   const href = await row
@@ -92,6 +102,7 @@ export function tagRow(page: Page, tagName: string) {
 // 前回の実行が途中で落ちて後片付けできなかった場合の自己修復。通常時は何もしない
 export async function deleteTagIfPresent(page: Page, tagName: string) {
   await page.goto('/admin/tags')
+  await waitForLoaded(page)
   const row = tagRow(page, tagName)
   if ((await row.count()) === 0) return
   await row.getByRole('button', { name: '削除' }).click()
