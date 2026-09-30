@@ -67,6 +67,7 @@
 | Repository／Query／外部ゲートウェイ | 実際の PostgreSQL や外部サービスの mock に対する契約テスト |
 | Presentation → Infrastructure | Handler ごとに、返しうる HTTP ステータスごとの結合テスト（実 DB。ローカルで実行し、CI では DB が無いため skip） |
 | フロントエンド | Vitest + React Testing Library。API の境界は MSW で差し替える |
+| E2E | Playwright。本の登録・編集・削除、タグの追加・改名・削除の重要導線だけを実バックエンド・実 DB に対して確認（[ADR](./docs/adr/2026-09-30-introduce-playwright-e2e.md)）。**ローカル実行のみ、CI には含めない**。手順は [`frontend/README.md`](./frontend/README.md#e2e-テストplaywrightローカル実行のみ) |
 
 **CI**（[`.github/workflows/`](./.github/workflows/)）
 
