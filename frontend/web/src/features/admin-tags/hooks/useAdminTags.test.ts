@@ -142,11 +142,17 @@ describe('useAdminTags', () => {
     )
   })
 
-  it('名前の変更が409（先に更新）なら最新を読み込んで伝える', async () => {
+  it('名前の変更が409（他の更新と競合）なら最新を読み込んで伝える', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
       http.put('*/api/tags/1', () =>
-        HttpResponse.json({ message: 'conflict' }, { status: 409 }),
+        HttpResponse.json(
+          {
+            message:
+              'conflict: タグの更新に失敗しました（他の更新と競合しました）',
+          },
+          { status: 409 },
+        ),
       ),
     )
 
@@ -168,6 +174,34 @@ describe('useAdminTags', () => {
     await waitFor(() =>
       expect(result.current.items[0].name).toBe('設計（他の人が変更）'),
     )
+  })
+
+  it('名前の変更が409（同じ名前が既にある）ならタグ名入りの文言にする', async () => {
+    serveList([
+      { id: 1, name: '設計', version: 1 },
+      { id: 2, name: 'データ', version: 1 },
+    ])
+    server.use(
+      http.put('*/api/tags/1', () =>
+        HttpResponse.json(
+          { message: 'conflict: 同じ名前のタグが既にあります' },
+          { status: 409 },
+        ),
+      ),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.renameTag(1, 1, 'データ')
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      message: '「データ」というタグはすでにあります',
+    })
   })
 
   it('削除に成功すると一覧を取り直す', async () => {

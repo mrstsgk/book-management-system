@@ -14,6 +14,11 @@ type Outcome = { ok: true } | { ok: false; message: string; stale?: boolean }
 const genericError = (action: string) =>
   `${action}できませんでした。時間をおいてもう一度お試しください。`
 
+// PUT /api/tags/:id の409は、同名衝突（登録時と同じ理由）と楽観ロックの競合の
+// どちらもConflictで返る。バックエンドのメッセージ文言で区別する
+// （backend/internal/infrastructure/postgres/tag/repository.go）
+const DUPLICATE_NAME_MESSAGE = 'conflict: 同じ名前のタグが既にあります'
+
 export function useAdminTags() {
   const tags = useGetApiTags()
   const counts = useGetApiTagsCounts()
@@ -50,6 +55,12 @@ export function useAdminTags() {
       return { ok: true }
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
+        if (e.message === DUPLICATE_NAME_MESSAGE) {
+          return {
+            ok: false,
+            message: `「${name}」というタグはすでにあります`,
+          }
+        }
         refetchList()
         return {
           ok: false,
