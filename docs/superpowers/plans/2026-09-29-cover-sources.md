@@ -49,7 +49,9 @@
 - [ ] **Step 4:** frontend: `pnpm gen:api`、詳細とフッターの楽天の表示を消し、テストを直す（楽天の表示が出ないことではなく、残る表示を確かめる）
 - [ ] **Step 5:** docs と ADR。全チェック、コミット（意味ごと）、push、PR
 
-### PR-B: Google Books の Gateway（`feat/google-books-cover-gateway`、すぐ着手できる）
+### PR-B: Google Books の Gateway（`feat/google-books-cover-gateway`）【中止済み・履歴】
+
+> #89 として実施・マージ済みだったが、2026-09-30 に Google Books を使わない判断（上の「変更」を参照）に伴い、`gateway/googlebooks` は #94 で削除した。以下は当時の記録で、実行しない。
 
 **Files:** Create `backend/internal/infrastructure/gateway/googlebooks/{client,client_test}.go` だけ（Domain・配線・config には触れない）
 
@@ -70,10 +72,12 @@ func NewClient(baseURL, apiKey string, httpClient *http.Client) *Client
 func (c *Client) FindCover(ctx context.Context, isbn string) (*Cover, error)
 ```
 
-- [ ] **Step 1:** `httptest.Server` で契約テストを先に書く: 正常（thumbnail が http → https、infoLink を PageURL に）／`totalItems: 0`／`imageLinks` なし／`infoLink` なし（書影なしとして扱う。Google の規約上リンクが要るため）／429・500（error）／壊れた JSON（error）／要求に `q=isbn:<ISBN>` と `key=<キー>` が付く／ctx のキャンセル
-- [ ] **Step 2:** 実装して通す。全チェック、コミット、push、PR
+- [x] **Step 1:** `httptest.Server` で契約テストを先に書く: 正常（thumbnail が http → https、infoLink を PageURL に）／`totalItems: 0`／`imageLinks` なし／`infoLink` なし（書影なしとして扱う。Google の規約上リンクが要るため）／429・500（error）／壊れた JSON（error）／要求に `q=isbn:<ISBN>` と `key=<キー>` が付く／ctx のキャンセル（#89 で実施。#94 でコードごと削除）
+- [x] **Step 2:** 実装して通す。全チェック、コミット、push、PR（#89 で実施。#94 でコードごと削除）
 
-### PR-C: Google Books の配線と表示（`feat/cover-from-google-books`、PR-A と PR-B のマージ後）
+### PR-C: Google Books の配線と表示（`feat/cover-from-google-books`）【中止済み・履歴】
+
+> #93 として PR を出したが、上の「変更」の判断により実装せず閉じた。以下は当時の記録で、実行しない。
 
 **Files（主なもの）:** `backend/internal/domain/book/cover.go`（`CoverSourceGoogleBooks`・`pageURL`・`NewGoogleBooksCover`）、`backend/migrations/000008_add_book_cover_page_url.{up,down}.sql`、`backend/internal/infrastructure/gateway/catalog/`（`New(openbd, googlebooks)`。Google Books の書影があれば差し替え、失敗は warn）、`backend/internal/infrastructure/postgres/book/*`、`backend/internal/usecase/book/command/fill_missing_covers{,_test}.go`（起動時に1回）、`backend/cmd/api/main.go`、`backend/config/config.go`（`GOOGLE_BOOKS_API_KEY`・`GOOGLE_BOOKS_BASE_URL`）、Presentation の `coverPageUrl`、frontend の一覧・詳細・フッター、画面イメージ、`backend/README.md`
 
