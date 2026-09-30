@@ -55,14 +55,9 @@ func (u *LoginUsecaseImpl) Execute(ctx context.Context, cmd LoginCommand) (strin
 		return "", err
 	}
 	now := u.Now()
-	if u.locked(now) {
-		return "", fmt.Errorf("%w: しばらく待ってからやり直してください", common.ErrTooManyAttempts)
+	if err := u.attempt(creds, now); err != nil {
+		return "", err
 	}
-	if !u.matches(creds) {
-		u.fail(now)
-		return "", fmt.Errorf("%w: IDかパスワードが違います", common.ErrUnauthorized)
-	}
-	u.reset()
 
 	id, err := auth.NewSessionID()
 	if err != nil {
@@ -82,25 +77,24 @@ func (u *LoginUsecaseImpl) matches(creds auth.Credentials) bool {
 	return u.Admin.ID != "" && u.Admin.PasswordHash != "" && idOK && pwOK
 }
 
-func (u *LoginUsecaseImpl) locked(now time.Time) bool {
+// attempt はロック確認 → 照合 → 失敗回数の更新を 1 つの臨界区間で行う。
+// 分けると照合中に届いた並列の試行がすべてロックをすり抜けて照合されてしまう。
+// ponytail: 全ログインを 1 つの mutex で直列化する。管理者 1 人なら問題ない。複数ユーザーにするなら見直す
+func (u *LoginUsecaseImpl) attempt(creds auth.Credentials, now time.Time) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	return now.Before(u.lockedUntil)
-}
-
-// fail は失敗を数え、maxFailures に達したら lockDuration の間ロックして回数を戻す。
-func (u *LoginUsecaseImpl) fail(now time.Time) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
+	if now.Before(u.lockedUntil) {
+		return fmt.Errorf("%w: しばらく待ってからやり直してください", common.ErrTooManyAttempts)
+	}
+	if u.matches(creds) {
+		u.failures = 0
+		return nil
+	}
+	// maxFailures に達したら lockDuration の間ロックして回数を戻す。
 	u.failures++
 	if u.failures >= maxFailures {
 		u.lockedUntil = now.Add(lockDuration)
 		u.failures = 0
 	}
-}
-
-func (u *LoginUsecaseImpl) reset() {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	u.failures = 0
+	return fmt.Errorf("%w: IDかパスワードが違います", common.ErrUnauthorized)
 }

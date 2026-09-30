@@ -3,6 +3,8 @@ package command_test
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -47,12 +49,14 @@ func (f *fakeSessions) UpdateExpiry(_ context.Context, id auth.SessionID, at tim
 
 // fakeVerifier は呼ばれた回数を数える（ID 不一致でも照合が走ることを確かめるため）。
 type fakeVerifier struct {
-	calls int
+	calls atomic.Int32
 	ok    bool
+	delay time.Duration // bcrypt の遅さを模す（並列テストで照合中に他の試行を割り込ませる）
 }
 
 func (f *fakeVerifier) Matches(string, string) bool {
-	f.calls++
+	f.calls.Add(1)
+	time.Sleep(f.delay)
 	return f.ok
 }
 
@@ -108,8 +112,8 @@ func TestLoginUsecase_Execute(t *testing.T) {
 		if sessions.saved != nil {
 			t.Fatal("must not save a session")
 		}
-		if v.calls != 1 {
-			t.Fatalf("verifier calls = %d, want 1 (constant work regardless of ID)", v.calls)
+		if v.calls.Load() != 1 {
+			t.Fatalf("verifier calls = %d, want 1 (constant work regardless of ID)", v.calls.Load())
 		}
 	})
 
@@ -134,7 +138,7 @@ func TestLoginUsecase_Execute(t *testing.T) {
 		if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: ""}); !errors.Is(err, common.ErrInvalid) {
 			t.Fatalf("err = %v, want ErrInvalid", err)
 		}
-		if v.calls != 0 {
+		if v.calls.Load() != 0 {
 			t.Fatal("verifier must not be called for empty input")
 		}
 	})
@@ -157,8 +161,8 @@ func TestLoginUsecase_Execute(t *testing.T) {
 		if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"}); !errors.Is(err, common.ErrTooManyAttempts) {
 			t.Fatalf("err = %v, want ErrTooManyAttempts", err)
 		}
-		if v.calls != 5 {
-			t.Fatalf("verifier calls = %d, want 5 (locked attempt must not verify)", v.calls)
+		if v.calls.Load() != 5 {
+			t.Fatalf("verifier calls = %d, want 5 (locked attempt must not verify)", v.calls.Load())
 		}
 	})
 
@@ -199,8 +203,39 @@ func TestLoginUsecase_Execute(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		v.ok = false
-		if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"}); !errors.Is(err, common.ErrUnauthorized) {
-			t.Fatalf("err = %v, want ErrUnauthorized (count must have been reset)", err)
+		// reset が無ければ 1 回目で 5 回目の失敗になりロックされ、2 回目が 429 になる。
+		for i := 0; i < 2; i++ {
+			if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"}); !errors.Is(err, common.ErrUnauthorized) {
+				t.Fatalf("attempt %d: err = %v, want ErrUnauthorized (count must have been reset)", i+1, err)
+			}
+		}
+	})
+
+	t.Run("並列の総当たりでも照合は5回で止まる", func(t *testing.T) {
+		t.Parallel()
+		v := &fakeVerifier{ok: false, delay: 10 * time.Millisecond}
+		uc := newLogin(&fakeSessions{}, v)
+
+		const n = 20
+		var unauthorized, tooMany atomic.Int32
+		var wg sync.WaitGroup
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"})
+				switch {
+				case errors.Is(err, common.ErrUnauthorized):
+					unauthorized.Add(1)
+				case errors.Is(err, common.ErrTooManyAttempts):
+					tooMany.Add(1)
+				}
+			}()
+		}
+		wg.Wait()
+
+		if v.calls.Load() != 5 || unauthorized.Load() != 5 || tooMany.Load() != n-5 {
+			t.Fatalf("calls=%d unauthorized=%d tooMany=%d, want 5/5/%d", v.calls.Load(), unauthorized.Load(), tooMany.Load(), n-5)
 		}
 	})
 
