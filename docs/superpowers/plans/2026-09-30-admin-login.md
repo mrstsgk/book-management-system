@@ -16,13 +16,13 @@
 - テストは対象と同じディレクトリ・同名（`*_test.go` / `*.test.ts(x)`）。Go は外部テストパッケージ（`package xxx_test`）、テーブルドリブン + `t.Parallel()`
 - Go の関数は循環的複雑度 10 以下（golangci-lint）。`gofmt` 済み
 - コミットは `<type>: <日本語 subject（50 文字以内）>`、末尾に `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`。1 タスク 1〜2 コミット。ブランチは `feat/admin-login`（作成済み）
-- Cookie: 名前 `admin_session`、`HttpOnly; SameSite=Lax; Path=/api; Max-Age=86400`。`Secure` は `COOKIE_SECURE=true` のときだけ
+- Cookie: 名前 `admin_session`、`HttpOnly; SameSite=Lax; Path=/api; Max-Age=86400`。`Secure` は付けない（http でしか動かさない）
 - セッション: アイドル 1 時間、絶対 24 時間。ID は `crypto/rand` 32 byte の base64url（43 文字）
 - 総当たり: 失敗 5 回で 1 分ロック（プロセス内メモリ）
 - 参考資料の出典・固有名を docs / コード / コミットに書かない（脅威モデルから自分で導いた判断として書く）
 - `backend/migrations/*.sql` を変えたら `docs/db/backend-schema.{json,md}` を同じ変更に含める（hook がブロックする）
 - `go.mod` を変えたら同じ変更に `docs/adr/*.md` を含める（hook がブロックする）
-- テーブル名は既存に合わせて単数形 `admin_session`（仕様書の `admin_sessions` は Task 16 で直す）
+- テーブル名は既存に合わせて単数形 `admin_session`
 - 実 DB のテストは `cd backend && make db-up migrate-up` 済みのローカル Postgres に対して走り、繋がらなければ skip
 
 ## Review Focus
@@ -259,19 +259,13 @@ func TestSession(t *testing.T) {
 		}
 	})
 
-	t.Run("延長しても絶対期限を超えない", func(t *testing.T) {
+	t.Run("延長しても絶対期限を超えない（絶対期限に達すれば無効になる）", func(t *testing.T) {
 		t.Parallel()
 		s := auth.NewSession("id", now)
 		s.Extend(now.Add(23*time.Hour + 30*time.Minute))
 		if !s.ExpiresAt.Equal(now.Add(24 * time.Hour)) {
 			t.Fatalf("ExpiresAt = %v, want the absolute limit", s.ExpiresAt)
 		}
-	})
-
-	t.Run("絶対期限を過ぎたら延長済みでも無効", func(t *testing.T) {
-		t.Parallel()
-		s := auth.NewSession("id", now)
-		s.Extend(now.Add(23 * time.Hour))
 		if s.IsValid(now.Add(24 * time.Hour)) {
 			t.Fatal("must be invalid at the absolute limit")
 		}
@@ -360,9 +354,10 @@ func NewSession(id SessionID, now time.Time) *Session {
 	return &Session{ID: id, ExpiresAt: now.Add(IdleTimeout), AbsoluteExpiresAt: now.Add(AbsoluteTimeout)}
 }
 
-// IsValid はアイドル期限・絶対期限のどちらにも達していなければ true（期限ちょうどは無効）。
+// IsValid はアイドル期限に達していなければ true（期限ちょうどは無効）。Extend が絶対期限で頭打ちにするので、
+// アイドル期限は常に絶対期限以下であり、絶対期限を別に比べる必要は無い。
 func (s *Session) IsValid(now time.Time) bool {
-	return now.Before(s.ExpiresAt) && now.Before(s.AbsoluteExpiresAt)
+	return now.Before(s.ExpiresAt)
 }
 
 // Extend はアイドル期限を今 + IdleTimeout に延ばす。絶対期限は超えない。
@@ -958,7 +953,7 @@ ID + パスワードでログインし、サーバー側セッション（Postgr
 |---|---|---|
 | 画面のコードに埋め込まれた秘密が読まれる | 秘密（パスワードの bcrypt ハッシュ）はバックエンドの環境変数にだけ置き、ブラウザには意味を持たないセッション ID しか渡さない | `postgres/auth` の契約テスト（テーブルに秘密のカラムが無い） |
 | XSS でセッションが盗まれる | Cookie を `HttpOnly` にする | `presentation/http/auth` の Handler テスト |
-| CSRF | Cookie を `SameSite=Lax` にし、状態を変える要求は `Origin`（無ければ `Referer`）が自サイトでなければ 403 | `common.RequireSameOrigin` のテスト |
+| CSRF | Cookie を `SameSite=Lax` にし、状態を変える要求は `Origin` が自サイトでなければ 403 | `common.RequireSameOrigin` のテスト |
 | セッション ID の推測 | `crypto/rand` 32 byte を base64url | `domain/auth` のテスト |
 | 盗まれたセッションが使われ続ける | アイドル 1 時間・絶対 24 時間で失効。ログアウトでサーバー側の行を消す | `domain/auth`・`usecase/auth`・結合テスト（ログアウト後の再利用が 401） |
 | パスワードの総当たり | bcrypt（コスト 12）で照合を遅くし、失敗 5 回で 1 分ロック | `infrastructure/auth`・`usecase/auth/command` のテスト |
@@ -978,7 +973,7 @@ ID + パスワードでログインし、サーバー側セッション（Postgr
 
 ## 判断基準（任意）
 
-公開するときに足すもの: `COOKIE_SECURE=true`、frontend を別オリジンに置くなら `credentials: 'include'`、ロックの永続化（多プロセス化するなら）。ユーザーが 2 人以上になったら、この方式を捨てて C を検討する。
+公開するときに足すもの: Cookie の `Secure`（https になるため）、frontend を別オリジンに置くなら `credentials: 'include'`、ロックの永続化（多プロセス化するなら）。ユーザーが 2 人以上になったら、この方式を捨てて C を検討する。
 ```
 
 - [ ] **Step 5: 通ることを確認**
@@ -998,8 +993,6 @@ git commit -m "feat: bcryptのPasswordVerifierとハッシュ生成コマンド�
 ### Task 6: usecase/auth（Login・Logout・CheckSession・ロック）
 
 **Files:**
-- Create: `backend/internal/usecase/auth/command/attempts.go`
-- Create: `backend/internal/usecase/auth/command/attempts_test.go`
 - Create: `backend/internal/usecase/auth/command/login.go`
 - Create: `backend/internal/usecase/auth/command/login_test.go`
 - Create: `backend/internal/usecase/auth/command/logout.go`
@@ -1011,70 +1004,11 @@ git commit -m "feat: bcryptのPasswordVerifierとハッシュ生成コマンド�
 - Consumes: `auth.*`（Task 2）、`domaincommon.ErrUnauthorized` / `ErrTooManyAttempts`（Task 1）
 - Produces:
   - `command.LoginCommand{ID, Password string}`、`command.LoginUsecase.Execute(ctx, LoginCommand) (string, error)`（セッション ID）
-  - `command.LoginUsecaseImpl{Admin AdminAccount; Verifier auth.PasswordVerifier; Sessions auth.SessionRepository; Attempts *LoginAttempts; Now func() time.Time}`、`command.AdminAccount{ID, PasswordHash string}`
-  - `command.NewLoginAttempts() *LoginAttempts`
+  - `command.LoginUsecaseImpl{Admin AdminAccount; Verifier auth.PasswordVerifier; Sessions auth.SessionRepository; Now func() time.Time}`（失敗回数とロック期限は非公開フィールド。1 インスタンスを全リクエストで共有する）、`command.AdminAccount{ID, PasswordHash string}`
   - `command.LogoutUsecase.Execute(ctx, id string) error`、`command.LogoutUsecaseImpl{Sessions auth.SessionRepository}`
   - `query.CheckSessionUsecase.Execute(ctx, id string) error`（無効なら `ErrUnauthorized`。有効なら延長）、`query.CheckSessionUsecaseImpl{Sessions auth.SessionRepository; Now func() time.Time}`
 
-- [ ] **Step 1: LoginAttempts の失敗するテスト**
-
-`attempts_test.go`:
-
-```go
-package command_test
-
-import (
-	"testing"
-	"time"
-
-	"github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/command"
-)
-
-func TestLoginAttempts(t *testing.T) {
-	t.Parallel()
-	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
-
-	t.Run("4回失敗まではロックしない", func(t *testing.T) {
-		t.Parallel()
-		a := command.NewLoginAttempts()
-		for i := 0; i < 4; i++ {
-			a.Fail(now)
-		}
-		if a.Locked(now) {
-			t.Fatal("must not be locked after 4 failures")
-		}
-	})
-
-	t.Run("5回失敗で1分ロックし、1分後に解ける", func(t *testing.T) {
-		t.Parallel()
-		a := command.NewLoginAttempts()
-		for i := 0; i < 5; i++ {
-			a.Fail(now)
-		}
-		if !a.Locked(now) || !a.Locked(now.Add(time.Minute-time.Second)) {
-			t.Fatal("must be locked for a minute")
-		}
-		if a.Locked(now.Add(time.Minute)) {
-			t.Fatal("must unlock after a minute")
-		}
-	})
-
-	t.Run("成功で回数が戻る", func(t *testing.T) {
-		t.Parallel()
-		a := command.NewLoginAttempts()
-		for i := 0; i < 4; i++ {
-			a.Fail(now)
-		}
-		a.Reset()
-		a.Fail(now)
-		if a.Locked(now) {
-			t.Fatal("reset must clear the count")
-		}
-	})
-}
-```
-
-- [ ] **Step 2: LoginUsecase の失敗するテスト**
+- [ ] **Step 1: LoginUsecase の失敗するテスト**
 
 `login_test.go`:
 
@@ -1137,13 +1071,22 @@ func (f *fakeVerifier) Matches(string, string) bool {
 	return f.ok
 }
 
+var fixedNow = time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+
 func newLogin(sessions *fakeSessions, v *fakeVerifier) *command.LoginUsecaseImpl {
 	return &command.LoginUsecaseImpl{
 		Admin:    command.AdminAccount{ID: "admin", PasswordHash: "$hash"},
 		Verifier: v,
 		Sessions: sessions,
-		Attempts: command.NewLoginAttempts(),
-		Now:      func() time.Time { return time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC) },
+		Now:      func() time.Time { return fixedNow },
+	}
+}
+
+// failTimes は失敗を n 回積む（ロックのテストの前提を作る）。
+func failTimes(t *testing.T, uc *command.LoginUsecaseImpl, n int) {
+	t.Helper()
+	for i := 0; i < n; i++ {
+		_, _ = uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"})
 	}
 }
 
@@ -1211,13 +1154,21 @@ func TestLoginUsecase_Execute(t *testing.T) {
 		}
 	})
 
+	t.Run("4回失敗まではロックしない", func(t *testing.T) {
+		t.Parallel()
+		v := &fakeVerifier{ok: false}
+		uc := newLogin(&fakeSessions{}, v)
+		failTimes(t, uc, 4)
+		if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"}); !errors.Is(err, common.ErrUnauthorized) {
+			t.Fatalf("err = %v, want ErrUnauthorized (not locked yet)", err)
+		}
+	})
+
 	t.Run("5回失敗すると6回目は照合せず429", func(t *testing.T) {
 		t.Parallel()
 		v := &fakeVerifier{ok: false}
 		uc := newLogin(&fakeSessions{}, v)
-		for i := 0; i < 5; i++ {
-			_, _ = uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"})
-		}
+		failTimes(t, uc, 5)
 		if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"}); !errors.Is(err, common.ErrTooManyAttempts) {
 			t.Fatalf("err = %v, want ErrTooManyAttempts", err)
 		}
@@ -1231,9 +1182,7 @@ func TestLoginUsecase_Execute(t *testing.T) {
 		sessions := &fakeSessions{}
 		v := &fakeVerifier{ok: false}
 		uc := newLogin(sessions, v)
-		for i := 0; i < 5; i++ {
-			_, _ = uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"})
-		}
+		failTimes(t, uc, 5)
 		v.ok = true
 		if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "right"}); !errors.Is(err, common.ErrTooManyAttempts) {
 			t.Fatalf("err = %v, want ErrTooManyAttempts", err)
@@ -1243,13 +1192,23 @@ func TestLoginUsecase_Execute(t *testing.T) {
 		}
 	})
 
+	t.Run("1分経てばロックが解ける", func(t *testing.T) {
+		t.Parallel()
+		v := &fakeVerifier{ok: false}
+		uc := newLogin(&fakeSessions{}, v)
+		failTimes(t, uc, 5)
+		uc.Now = func() time.Time { return fixedNow.Add(time.Minute) }
+		v.ok = true
+		if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "right"}); err != nil {
+			t.Fatalf("unexpected error after the lock expired: %v", err)
+		}
+	})
+
 	t.Run("成功すると失敗回数が戻る", func(t *testing.T) {
 		t.Parallel()
 		v := &fakeVerifier{ok: false}
 		uc := newLogin(&fakeSessions{}, v)
-		for i := 0; i < 4; i++ {
-			_, _ = uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"})
-		}
+		failTimes(t, uc, 4)
 		v.ok = true
 		if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "right"}); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1415,59 +1374,6 @@ Expected: コンパイルエラー
 
 - [ ] **Step 5: 実装**
 
-`command/attempts.go`:
-
-```go
-package command
-
-import (
-	"sync"
-	"time"
-)
-
-const (
-	maxFailures  = 5
-	lockDuration = time.Minute
-)
-
-// LoginAttempts はログインの失敗回数とロックの期限。利用者は 1 人なので ID ごとに分けない。
-// ponytail: プロセス内メモリ。再起動で消え、複数プロセスでは共有されない。公開して多プロセスにするなら DB に移す
-type LoginAttempts struct {
-	mu          sync.Mutex
-	failures    int
-	lockedUntil time.Time
-}
-
-func NewLoginAttempts() *LoginAttempts {
-	return &LoginAttempts{}
-}
-
-// Locked は now がロック期限より前なら true。
-func (a *LoginAttempts) Locked(now time.Time) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return now.Before(a.lockedUntil)
-}
-
-// Fail は失敗を 1 回数え、maxFailures に達したら lockDuration の間ロックする。
-func (a *LoginAttempts) Fail(now time.Time) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.failures++
-	if a.failures >= maxFailures {
-		a.lockedUntil = now.Add(lockDuration)
-		a.failures = 0
-	}
-}
-
-// Reset は成功時に回数を戻す。
-func (a *LoginAttempts) Reset() {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.failures = 0
-}
-```
-
 `command/login.go`:
 
 ```go
@@ -1477,10 +1383,16 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/auth"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+)
+
+const (
+	maxFailures  = 5
+	lockDuration = time.Minute
 )
 
 // LoginCommand は LoginUsecase の入力。データだけを持ち、ロジックは持たない。
@@ -1500,12 +1412,18 @@ type LoginUsecase interface {
 	Execute(ctx context.Context, cmd LoginCommand) (string, error)
 }
 
+// LoginUsecaseImpl は 1 インスタンスを全リクエストで共有する（失敗回数を持つため）。
 type LoginUsecaseImpl struct {
 	Admin    AdminAccount
 	Verifier auth.PasswordVerifier
 	Sessions auth.SessionRepository
-	Attempts *LoginAttempts
 	Now      func() time.Time
+
+	// 総当たり対策。利用者は 1 人なので ID ごとに分けない。
+	// ponytail: プロセス内メモリ。再起動で消え、複数プロセスでは共有されない。公開して多プロセスにするなら DB に移す
+	mu          sync.Mutex
+	failures    int
+	lockedUntil time.Time
 }
 
 // Execute は空欄 → ロック → ID とパスワードの照合 → セッション保存の順に進む。
@@ -1516,14 +1434,14 @@ func (u *LoginUsecaseImpl) Execute(ctx context.Context, cmd LoginCommand) (strin
 		return "", err
 	}
 	now := u.Now()
-	if u.Attempts.Locked(now) {
+	if u.locked(now) {
 		return "", fmt.Errorf("%w: しばらく待ってからやり直してください", common.ErrTooManyAttempts)
 	}
 	if !u.matches(creds) {
-		u.Attempts.Fail(now)
+		u.fail(now)
 		return "", fmt.Errorf("%w: IDかパスワードが違います", common.ErrUnauthorized)
 	}
-	u.Attempts.Reset()
+	u.reset()
 
 	id, err := auth.NewSessionID()
 	if err != nil {
@@ -1541,6 +1459,29 @@ func (u *LoginUsecaseImpl) matches(creds auth.Credentials) bool {
 	idOK := subtle.ConstantTimeCompare([]byte(creds.ID()), []byte(u.Admin.ID)) == 1
 	pwOK := u.Verifier.Matches(u.Admin.PasswordHash, creds.Password())
 	return u.Admin.ID != "" && u.Admin.PasswordHash != "" && idOK && pwOK
+}
+
+func (u *LoginUsecaseImpl) locked(now time.Time) bool {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return now.Before(u.lockedUntil)
+}
+
+// fail は失敗を数え、maxFailures に達したら lockDuration の間ロックして回数を戻す。
+func (u *LoginUsecaseImpl) fail(now time.Time) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.failures++
+	if u.failures >= maxFailures {
+		u.lockedUntil = now.Add(lockDuration)
+		u.failures = 0
+	}
+}
+
+func (u *LoginUsecaseImpl) reset() {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.failures = 0
 }
 ```
 
@@ -1639,7 +1580,7 @@ git commit -m "feat: ログイン・ログアウト・セッション確認のUs
 **Interfaces:**
 - Consumes: `authqry.CheckSessionUsecase`（Task 6）
 - Produces:
-  - `common.SessionCookieName = "admin_session"`、`common.SetSessionCookie(c echo.Context, id string, secure bool)`、`common.ClearSessionCookie(c echo.Context, secure bool)`
+  - `common.SessionCookieName = "admin_session"`、`common.SetSessionCookie(c echo.Context, id string)`、`common.ClearSessionCookie(c echo.Context)`
   - `common.RequireAdminSession(check authqry.CheckSessionUsecase) echo.MiddlewareFunc`
   - `common.RequireSameOrigin() echo.MiddlewareFunc`
 
@@ -1675,35 +1616,21 @@ func setCookieOf(t *testing.T, handler echo.HandlerFunc) *http.Cookie {
 }
 
 func TestSetSessionCookie(t *testing.T) {
-	tests := []struct {
-		name   string
-		secure bool
-	}{
-		{name: "Secureなし（ローカルのhttp）", secure: false},
-		{name: "Secureあり", secure: true},
+	ck := setCookieOf(t, func(c echo.Context) error {
+		common.SetSessionCookie(c, "sid")
+		return c.NoContent(http.StatusNoContent)
+	})
+	if ck.Name != common.SessionCookieName || ck.Value != "sid" {
+		t.Fatalf("cookie = %s=%s", ck.Name, ck.Value)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ck := setCookieOf(t, func(c echo.Context) error {
-				common.SetSessionCookie(c, "sid", tt.secure)
-				return c.NoContent(http.StatusNoContent)
-			})
-			if ck.Name != common.SessionCookieName || ck.Value != "sid" {
-				t.Fatalf("cookie = %s=%s", ck.Name, ck.Value)
-			}
-			if !ck.HttpOnly || ck.SameSite != http.SameSiteLaxMode || ck.Path != "/api" || ck.MaxAge != 86400 {
-				t.Fatalf("attributes = %+v, want HttpOnly, Lax, Path=/api, Max-Age=86400", ck)
-			}
-			if ck.Secure != tt.secure {
-				t.Fatalf("Secure = %v, want %v", ck.Secure, tt.secure)
-			}
-		})
+	if !ck.HttpOnly || ck.SameSite != http.SameSiteLaxMode || ck.Path != "/api" || ck.MaxAge != 86400 {
+		t.Fatalf("attributes = %+v, want HttpOnly, Lax, Path=/api, Max-Age=86400", ck)
 	}
 }
 
 func TestClearSessionCookie(t *testing.T) {
 	ck := setCookieOf(t, func(c echo.Context) error {
-		common.ClearSessionCookie(c, false)
+		common.ClearSessionCookie(c)
 		return c.NoContent(http.StatusNoContent)
 	})
 	if ck.Name != common.SessionCookieName || ck.Value != "" || ck.MaxAge != -1 {
@@ -1809,15 +1736,12 @@ func TestRequireSameOrigin(t *testing.T) {
 		name    string
 		method  string
 		origin  string
-		referer string
 		want    int
 	}{
 		{name: "Originが自サイトなら通す", method: http.MethodPost, origin: "http://localhost:3000", want: http.StatusOK},
 		{name: "Originが別サイトは403", method: http.MethodPost, origin: "http://evil.test", want: http.StatusForbidden},
 		{name: "Originがnullは403", method: http.MethodPost, origin: "null", want: http.StatusForbidden},
-		{name: "Originが無くRefererが自サイトなら通す", method: http.MethodPost, referer: "http://localhost:3000/admin/tags", want: http.StatusOK},
-		{name: "Originが無くRefererが別サイトは403", method: http.MethodPost, referer: "http://evil.test/x", want: http.StatusForbidden},
-		{name: "両方無ければ403", method: http.MethodPost, want: http.StatusForbidden},
+		{name: "Originが無ければ403", method: http.MethodPost, want: http.StatusForbidden},
 		{name: "ポート違いは403", method: http.MethodPost, origin: "http://localhost:8080", want: http.StatusForbidden},
 		{name: "GETには掛からない", method: http.MethodGet, origin: "http://evil.test", want: http.StatusOK},
 	}
@@ -1830,9 +1754,6 @@ func TestRequireSameOrigin(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "http://localhost:3000/w", nil)
 			if tt.origin != "" {
 				req.Header.Set("Origin", tt.origin)
-			}
-			if tt.referer != "" {
-				req.Header.Set("Referer", tt.referer)
 			}
 			rec := httptest.NewRecorder()
 			e.ServeHTTP(rec, req)
@@ -1869,18 +1790,19 @@ const sessionCookieMaxAge = 86400
 
 // SetSessionCookie はセッション ID を httpOnly Cookie で返す。Path=/api で画面のパスには送らせない。
 // SameSite=Lax で他サイトからの POST には付かない（CSRF の一段目。二段目は RequireSameOrigin）。
-func SetSessionCookie(c echo.Context, id string, secure bool) {
+// ponytail: Secure は付けない（ローカルの http でしか動かさない）。https で公開するなら Secure: true にする
+func SetSessionCookie(c echo.Context, id string) {
 	c.SetCookie(&http.Cookie{
 		Name: SessionCookieName, Value: id, Path: "/api", MaxAge: sessionCookieMaxAge,
-		HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, SameSite: http.SameSiteLaxMode,
 	})
 }
 
 // ClearSessionCookie はブラウザ側の Cookie を消す（サーバー側の行は LogoutUsecase が消す）。
-func ClearSessionCookie(c echo.Context, secure bool) {
+func ClearSessionCookie(c echo.Context) {
 	c.SetCookie(&http.Cookie{
 		Name: SessionCookieName, Value: "", Path: "/api", MaxAge: -1,
-		HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, SameSite: http.SameSiteLaxMode,
 	})
 }
 ```
@@ -1929,9 +1851,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// RequireSameOrigin は状態を変える要求（GET / HEAD 以外）の Origin が自サイトでなければ 403 にする。
-// SameSite=Lax の Cookie だけでも他サイトからの POST には付かないが、古いブラウザや将来の既定値の変更に
-// 備えて二段目として置く。Origin が無い（古い UA・一部のプライバシー設定）ときだけ Referer を見る。
+// RequireSameOrigin は状態を変える要求（GET / HEAD 以外）の Origin が「自分のスキーム://Host」と一致しなければ 403 にする。
+// SameSite=Lax の Cookie だけでも他サイトからの POST には付かないが、将来の既定値の変更に備えて二段目として置く。
+// ブラウザは POST に必ず Origin を付けるので、無ければ（または "null" なら）拒否してよい。Referer は見ない。
 func RequireSameOrigin() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -1939,27 +1861,16 @@ func RequireSameOrigin() echo.MiddlewareFunc {
 			if req.Method == http.MethodGet || req.Method == http.MethodHead {
 				return next(c)
 			}
-			if !sameOrigin(req, c.Scheme()) {
+			if req.Header.Get("Origin") != c.Scheme()+"://"+req.Host {
 				return echo.NewHTTPError(http.StatusForbidden, "forbidden")
 			}
 			return next(c)
 		}
 	}
 }
-
-// sameOrigin は Origin（無ければ Referer のスキーム + ホスト）が「自分のスキーム://Host」と一致するかを返す。
-func sameOrigin(req *http.Request, scheme string) bool {
-	self := scheme + "://" + req.Host
-	if origin := req.Header.Get("Origin"); origin != "" {
-		return origin == self
-	}
-	ref, err := url.Parse(req.Header.Get("Referer"))
-	if err != nil || ref.Scheme == "" || ref.Host == "" {
-		return false
-	}
-	return ref.Scheme+"://"+ref.Host == self
-}
 ```
+
+`same_origin.go` の import は `net/http` と `echo` だけ（`net/url` は要らない）。
 
 - [ ] **Step 4: 通ることを確認**
 
@@ -1983,7 +1894,7 @@ git commit -m "feat: セッションCookieとOrigin検証のミドルウェア�
 
 **Interfaces:**
 - Consumes: Task 6 の UseCase、Task 7 の Cookie ヘルパーとミドルウェア
-- Produces: `httpauth.Handler{LoginUC authcmd.LoginUsecase; LogoutUC authcmd.LogoutUsecase; CheckUC authqry.CheckSessionUsecase; SecureCookie bool; SameOrigin echo.MiddlewareFunc}`、`(*Handler).Register(g *echo.Group)`（`POST /login`、`POST /logout`、`GET /session`）
+- Produces: `httpauth.Handler{LoginUC authcmd.LoginUsecase; LogoutUC authcmd.LogoutUsecase; CheckUC authqry.CheckSessionUsecase; SameOrigin echo.MiddlewareFunc}`、`(*Handler).Register(g *echo.Group)`（`POST /login`、`POST /logout`、`GET /session`）
 
 - [ ] **Step 1: 失敗するテスト**
 
@@ -2216,8 +2127,6 @@ type Handler struct {
 	LoginUC  authcmd.LoginUsecase
 	LogoutUC authcmd.LogoutUsecase
 	CheckUC  authqry.CheckSessionUsecase
-	// SecureCookie は Cookie に Secure を付けるか（ローカルの http では付けない）。
-	SecureCookie bool
 	// SameOrigin は状態を変える要求（login / logout）に掛ける CSRF 対策。
 	SameOrigin echo.MiddlewareFunc
 }
@@ -2250,7 +2159,7 @@ func (h *Handler) Login(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	common.SetSessionCookie(c, id, h.SecureCookie)
+	common.SetSessionCookie(c, id)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -2268,7 +2177,7 @@ func (h *Handler) Logout(c echo.Context) error {
 			return err
 		}
 	}
-	common.ClearSessionCookie(c, h.SecureCookie)
+	common.ClearSessionCookie(c)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -2311,14 +2220,11 @@ git commit -m "feat: ログイン・ログアウト・セッション確認のHa
 
 - [ ] **Step 1: config の失敗するテスト**
 
-`config_test.go` の `clearEnv` のキーを `"ADMIN_TOKEN"` → `"ADMIN_ID", "ADMIN_PASSWORD_HASH", "COOKIE_SECURE"` に変え、`TestLoad` の既定値テストの `AdminToken` の検証を次に置き換える。`TestLoad_AdminTokenCanBeOverridden` は削除し、次を追加:
+`config_test.go` の `clearEnv` のキーを `"ADMIN_TOKEN"` → `"ADMIN_ID", "ADMIN_PASSWORD_HASH"` に変え、`TestLoad` の既定値テストの `AdminToken` の検証を次に置き換える。`TestLoad_AdminTokenCanBeOverridden` は削除し、次を追加:
 
 ```go
 	if cfg.Admin.ID != "" || cfg.Admin.PasswordHash != "" {
 		t.Errorf("Admin = %+v, want no default (a missing setting must not open write access)", cfg.Admin)
-	}
-	if cfg.CookieSecure {
-		t.Error("CookieSecure must default to false for local http")
 	}
 ```
 
@@ -2327,21 +2233,12 @@ func TestLoad_Admin(t *testing.T) {
 	clearEnv(t)
 	t.Setenv("ADMIN_ID", "me")
 	t.Setenv("ADMIN_PASSWORD_HASH", "$2a$12$x")
-	t.Setenv("COOKIE_SECURE", "true")
 	cfg, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Admin.ID != "me" || cfg.Admin.PasswordHash != "$2a$12$x" || !cfg.CookieSecure {
-		t.Fatalf("got %+v / CookieSecure=%v", cfg.Admin, cfg.CookieSecure)
-	}
-}
-
-func TestLoad_CookieSecureRejectsGarbage(t *testing.T) {
-	clearEnv(t)
-	t.Setenv("COOKIE_SECURE", "yes please")
-	if _, err := config.Load(); err == nil {
-		t.Fatal("expected error")
+	if cfg.Admin.ID != "me" || cfg.Admin.PasswordHash != "$2a$12$x" {
+		t.Fatalf("got %+v", cfg.Admin)
 	}
 }
 ```
@@ -2358,8 +2255,6 @@ type Config struct {
 	Catalog  CatalogConfig
 	// Admin は管理画面のログインに使う ID とパスワードの bcrypt ハッシュ。既定値は無い（未設定ならログインできない）。
 	Admin AdminConfig
-	// CookieSecure はセッション Cookie に Secure を付けるか。ローカルは http なので既定 false。
-	CookieSecure bool
 }
 
 // AdminConfig は管理者 1 人分の資格情報。ハッシュは `go run ./cmd/hashpw` で作る。
@@ -2369,19 +2264,13 @@ type AdminConfig struct {
 }
 ```
 
-`Load` の `AdminToken: ...` を次に置き換え、`Load` の先頭で `COOKIE_SECURE` を読む:
+`Load` の `AdminToken: ...` を次に置き換える（`getenv` ではなく `os.Getenv`。既定値を持たせないため）:
 
 ```go
-	secure, err := strconv.ParseBool(getenv("COOKIE_SECURE", "false"))
-	if err != nil {
-		return Config{}, fmt.Errorf("COOKIE_SECURE: %w", err)
-	}
-	...
 		Admin: AdminConfig{
 			ID:           os.Getenv("ADMIN_ID"),
 			PasswordHash: os.Getenv("ADMIN_PASSWORD_HASH"),
 		},
-		CookieSecure: secure,
 ```
 
 `Load` のコメントの「開発用の管理者トークン」を「管理者の ID・パスワードには既定値を置かない（設定漏れで書き込めるようにしないため）」に変える。
@@ -2417,13 +2306,11 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 			Admin:    authcmd.AdminAccount{ID: cfg.Admin.ID, PasswordHash: cfg.Admin.PasswordHash},
 			Verifier: infraauth.NewBcryptVerifier(),
 			Sessions: sessions,
-			Attempts: authcmd.NewLoginAttempts(),
 			Now:      time.Now,
 		},
-		LogoutUC:     &authcmd.LogoutUsecaseImpl{Sessions: sessions},
-		CheckUC:      checkSession,
-		SecureCookie: cfg.CookieSecure,
-		SameOrigin:   sameOrigin,
+		LogoutUC:   &authcmd.LogoutUsecaseImpl{Sessions: sessions},
+		CheckUC:    checkSession,
+		SameOrigin: sameOrigin,
 	}).Register(api.Group("/auth"))
 	(&httpbook.Handler{
 		... 既存のまま ...
@@ -2559,7 +2446,7 @@ func newIntegrationEcho(t *testing.T, db *gorm.DB) *echo.Echo {
 	(&httpauth.Handler{
 		LoginUC: &authcmd.LoginUsecaseImpl{
 			Admin: authcmd.AdminAccount{ID: "admin", PasswordHash: string(hash)}, Verifier: infraauth.NewBcryptVerifier(),
-			Sessions: sessions, Attempts: authcmd.NewLoginAttempts(), Now: time.Now,
+			Sessions: sessions, Now: time.Now,
 		},
 		LogoutUC: &authcmd.LogoutUsecaseImpl{Sessions: sessions}, CheckUC: check, SameOrigin: common.RequireSameOrigin(),
 	}).Register(api.Group("/auth"))
@@ -3257,7 +3144,7 @@ git commit -m "feat: 管理画面のログイン画面を追加"
 - Modify: `frontend/web/src/app/router.tsx`
 
 **Interfaces:**
-- Produces: `useSession()` → `{ status: 'loading' | 'ok' | 'unauthorized' | 'error', retry }`、`useLogout()` → `{ logout: () => void, pending: boolean }`、`AdminLayout` props `{ onLogout: () => void }`
+- Produces: `useSession()` → `{ status: 'loading' | 'ok' | 'unauthorized' }`、`useLogout()` → `{ logout: () => void, pending: boolean }`、`AdminLayout` props `{ onLogout: () => void }`
 
 - [ ] **Step 1: 失敗するテスト**
 
@@ -3281,8 +3168,8 @@ describe('useSession', () => {
   it.each([
     [204, 'ok'],
     [401, 'unauthorized'],
-    [500, 'error'],
-  ])('%s なら %s', async (status, expected) => {
+    [500, 'unauthorized'],
+  ])('%s なら %s（204 以外はログインし直す）', async (status, expected) => {
     server.use(
       http.get('*/api/auth/session', () =>
         status === 204 ? new HttpResponse(null, { status: 204 }) : HttpResponse.json({ message: 'x' }, { status }),
@@ -3381,26 +3268,11 @@ describe('AdminGuard', () => {
     expect(await screen.findByRole('heading', { name: '分野タグ' })).toBeVisible()
   })
 
-  it('未ログインなら /admin/login へ送る', async () => {
-    serveSession(401)
+  it.each([401, 500])('%s なら /admin/login へ送る', async (status) => {
+    serveSession(status)
     renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
     expect(await screen.findByRole('heading', { name: '管理画面にログイン' })).toBeVisible()
     expect(screen.queryByRole('navigation', { name: '管理メニュー' })).not.toBeInTheDocument()
-  })
-
-  it('確認に失敗したらエラーを出し、再試行できる', async () => {
-    let calls = 0
-    server.use(
-      http.get('*/api/auth/session', () => {
-        calls += 1
-        return calls === 1 ? HttpResponse.json({ message: 'x' }, { status: 500 }) : new HttpResponse(null, { status: 204 })
-      }),
-    )
-    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
-    expect(await screen.findByRole('alert')).toHaveTextContent('ログイン状態を確かめられませんでした')
-    const { default: userEvent } = await import('@testing-library/user-event')
-    await userEvent.click(screen.getByRole('button', { name: '再試行' }))
-    expect(await screen.findByRole('heading', { name: '分野タグ' })).toBeVisible()
   })
 })
 ```
@@ -3432,19 +3304,15 @@ describe('AdminGuard', () => {
 ```ts
 import { useGetApiAuthSession } from '@/api/generated/api'
 
-export type SessionStatus = 'loading' | 'ok' | 'unauthorized' | 'error'
+export type SessionStatus = 'loading' | 'ok' | 'unauthorized'
 
-// 管理画面を開くたびに 1 回だけ確かめる（再取得は要らない。書き込みで 401 になれば useLoginRedirect が送る）
+// 管理画面を開くたびに 1 回だけ確かめる（再取得は要らない。書き込みで 401 になれば useLoginRedirect が送る）。
+// 204 以外はすべて「ログインし直す」扱い: サーバーが落ちていればログインも失敗し、その文言で伝わるので、
+// ここにエラー表示と再試行は持たない
 export function useSession() {
   const query = useGetApiAuthSession({ query: { retry: false, staleTime: Infinity } })
-  const status: SessionStatus = query.isPending
-    ? 'loading'
-    : query.isSuccess
-      ? 'ok'
-      : query.error?.status === 401
-        ? 'unauthorized'
-        : 'error'
-  return { status, retry: () => void query.refetch() }
+  const status: SessionStatus = query.isPending ? 'loading' : query.isSuccess ? 'ok' : 'unauthorized'
+  return { status }
 }
 ```
 
@@ -3474,7 +3342,6 @@ export function useLogout() {
 
 ```tsx
 import { Navigate, useLocation } from 'react-router-dom'
-import { ErrorState } from '@/components/states/ErrorState'
 import { AdminLayout } from '@/components/layouts/AdminLayout'
 import { LoadingState } from '@/components/states/LoadingState'
 import { useLogout } from '@/features/admin-login/hooks/useLogout'
@@ -3482,21 +3349,13 @@ import { useSession } from '@/features/admin-login/hooks/useSession'
 
 // /admin/* の親。ログイン済みのときだけ AdminLayout（と子画面）を出す
 export function AdminGuard() {
-  const { status, retry } = useSession()
+  const { status } = useSession()
   const { logout } = useLogout()
   const { pathname } = useLocation()
 
   if (status === 'loading') return <LoadingState />
   if (status === 'unauthorized')
     return <Navigate to="/admin/login" replace state={{ from: pathname }} />
-  if (status === 'error')
-    return (
-      <ErrorState
-        title="ログイン状態を確かめられませんでした"
-        description="時間をおいてもう一度お試しください。"
-        onRetry={retry}
-      />
-    )
   return <AdminLayout onLogout={logout} />
 }
 ```
@@ -3586,7 +3445,6 @@ git commit -m "test: E2Eの各導線の先頭でログインする"
 - Modify: `README.md:17,92`
 - Modify: `docs/superpowers/specs/2026-09-30-admin-screens-design.md:8`
 - Modify: `docs/adr/2026-09-30-admin-token-from-env.md:4`
-- Modify: `docs/superpowers/specs/2026-09-30-admin-login-design.md`（テーブル名 `admin_sessions` → `admin_session`、`SessionQuery` → `CheckSessionUsecase`）
 
 - [ ] **Step 1: 各文書を直す**
 
@@ -3612,7 +3470,6 @@ git commit -m "test: E2Eの各導線の先頭でログインする"
 |---|---|---|
 | `ADMIN_ID` | なし | 管理画面のログイン ID。未設定ならログインできない |
 | `ADMIN_PASSWORD_HASH` | なし | パスワードの bcrypt ハッシュ。`echo -n 'password' \| go run ./cmd/hashpw` で作る |
-| `COOKIE_SECURE` | `false` | セッション Cookie に `Secure` を付ける（https で公開するとき） |
 | `OPENBD_BASE_URL` | `https://api.openbd.jp` | openBD（登録・キー不要） |
 ```
 

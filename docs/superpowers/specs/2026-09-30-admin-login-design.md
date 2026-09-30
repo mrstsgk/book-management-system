@@ -20,7 +20,7 @@
 |---|---|
 | 画面のコードに埋め込まれた秘密が読まれる（現行方式の弱点） | 秘密（パスワードのハッシュ）はバックエンドの環境変数にだけ置く。ブラウザには意味を持たないセッション ID しか渡さない |
 | XSS でセッションが盗まれる | Cookie を `HttpOnly` にし、JavaScript から読めなくする |
-| CSRF（他サイトから書き込み要求を送らされる） | Cookie を `SameSite=Lax` にし、状態を変える要求では `Origin`（無ければ `Referer`）が自サイトでなければ 403 |
+| CSRF（他サイトから書き込み要求を送らされる） | Cookie を `SameSite=Lax` にし、状態を変える要求では `Origin` が自サイトでなければ 403 |
 | セッション ID の推測 | `crypto/rand` 32 byte を base64url にする |
 | 盗まれたセッションが使われ続ける | アイドル 1 時間・絶対 24 時間で失効。ログアウトでサーバー側の行を消し、その ID は二度と通らない |
 | パスワードの総当たり | bcrypt（コスト 10 以上）で照合を遅くし、失敗 5 回で 1 分間ロック |
@@ -42,11 +42,11 @@
 
 ### Cookie
 
-`admin_session=<ID>; HttpOnly; SameSite=Lax; Path=/api; Max-Age=86400`。`Secure` は `COOKIE_SECURE`（既定 `false`。ローカルは http のため）が `true` のときだけ付ける。
+`admin_session=<ID>; HttpOnly; SameSite=Lax; Path=/api; Max-Age=86400`。`Secure` は付けない（ローカルの http でしか動かさない。公開するときに足す。§やらないこと）。
 
 ### セッションの保存
 
-Postgres に `admin_sessions` テーブルを追加する（マイグレーション `000008`、`docs/db/backend-schema.{json,md}` を同じ変更で更新）。
+Postgres に `admin_session` テーブルを追加する（マイグレーション `000008`、`docs/db/backend-schema.{json,md}` を同じ変更で更新）。
 
 | カラム | 型 | 意味 |
 |---|---|---|
@@ -62,25 +62,25 @@ Postgres に `admin_sessions` テーブルを追加する（マイグレーシ�
 - `ADMIN_ID`、`ADMIN_PASSWORD_HASH`（bcrypt）を環境変数から読む。既定値は置かない。どちらかが空なら起動時にエラーにはせず、ログインが常に 401 になる（`RequireAdminToken` が空トークンを常に拒否していたのと同じ考え）
 - ハッシュの生成は `go run ./cmd/hashpw`（標準入力からパスワードを読み、ハッシュを標準出力に出す。引数で受けると shell の履歴に残るため）。手順は `backend/README.md` に書く
 - ID は `subtle.ConstantTimeCompare`、パスワードは `bcrypt.CompareHashAndPassword`。ID が不一致でも bcrypt を実行する
-- 総当たり: プロセス内メモリで失敗回数を数え、5 回目の失敗から 1 分間は照合せずに `ErrTooManyAttempts`（429）。成功で 0 に戻す。再起動で消える・多プロセス非対応は `ponytail:` コメントと ADR に明記する
+- 総当たり: `LoginUsecase` がプロセス内メモリ（自身のフィールド）で失敗回数を数え、5 回目の失敗から 1 分間は照合せずに `ErrTooManyAttempts`（429）。成功で 0 に戻す。専用の型は作らない。再起動で消える・多プロセス非対応は `ponytail:` コメントと ADR に明記する
 
 ### 層の置き場（`backend/architecture.md` §2 に従う）
 
 | 層 | 追加・変更 |
 |---|---|
 | `domain/common` | sentinel `ErrUnauthorized`、`ErrTooManyAttempts` を追加 |
-| `domain/auth` | `Credentials` VO（ID 空・パスワード空を拒否。トリムしない）、`Session` Entity（`IsValid(now)`、`Extend(now)`。延長は絶対期限を超えない）、`SessionRepository` IF（Save / Find / Delete / UpdateExpiry）、`PasswordVerifier` IF（ExternalGateway 相当。bcrypt を Domain から隠す） |
-| `usecase/auth/command` | `LoginUsecase`（`LoginCommand{ID, Password}` → セッション ID を返す）、`LogoutUsecase`（ID を scalar で受ける） |
-| `usecase/auth/query` | `SessionQuery`（`IsValid(id, now)` で有効判定と延長） |
+| `domain/auth` | `Credentials` VO（ID 空・パスワード空を拒否。トリムしない）、`Session` Entity（`IsValid(now)` はアイドル期限との 1 比較。`Extend(now)` が絶対期限で頭打ちにするので、アイドル期限は常に絶対期限以下）、`SessionRepository` IF（Save / Find / Delete / UpdateExpiry）、`PasswordVerifier` IF（ExternalGateway 相当。bcrypt を Domain から隠す） |
+| `usecase/auth/command` | `LoginUsecase`（`LoginCommand{ID, Password}` → セッション IDを返す。失敗回数とロック期限は自身のフィールド）、`LogoutUsecase`（ID を scalar で受ける） |
+| `usecase/auth/query` | `CheckSessionUsecase`（`Execute(ctx, id)` で有効判定と延長。無効なら `ErrUnauthorized`） |
 | `infrastructure/postgres/auth` | `SessionRepository` 実装（GORM、`model.go` は永続化専用） |
 | `infrastructure/auth` | `PasswordVerifier` の bcrypt 実装 |
-| `presentation/http/common` | `RequireAdminToken` を削除し `RequireAdminSession`（Cookie → `SessionQuery`）と `RequireSameOrigin` を追加。`HTTPErrorHandler` に `ErrUnauthorized → 401`、`ErrTooManyAttempts → 429` を追加 |
-| `presentation/http/auth` | `Handler`（login / logout / session）、`dto.go`（`LoginRequest`） |
-| `config` | `ADMIN_TOKEN` を削除し `ADMIN_ID` / `ADMIN_PASSWORD_HASH` / `COOKIE_SECURE` を追加 |
+| `presentation/http/common` | `RequireAdminToken` を削除し `RequireAdminSession`（Cookie → `CheckSessionUsecase`）と `RequireSameOrigin`（`Origin` が自サイトでなければ 403）を追加。`HTTPErrorHandler` に `ErrUnauthorized → 401`、`ErrTooManyAttempts → 429` を追加 |
+| `presentation/http/auth` | `Handler`（login / logout / session）と `LoginRequest` DTO |
+| `config` | `ADMIN_TOKEN` を削除し `ADMIN_ID` / `ADMIN_PASSWORD_HASH` を追加 |
 | `cmd/api/main.go` | DI に auth を追加。`adminOnly` は `RequireAdminSession` に差し替え、書き込み系ルートには `RequireSameOrigin` も重ねる |
 | `cmd/hashpw` | ハッシュ生成の小さなコマンド |
 
-`RequireSameOrigin` は `Origin` ヘッダーが自サイト（`Host` と同じスキーム・ホスト・ポート）と一致すれば通し、無ければ `Referer` で同じ判定をする。両方無ければ 403。`GET` には掛けない。
+`RequireSameOrigin` は `Origin` ヘッダーが自サイト（`Host` と同じスキーム・ホスト・ポート）と一致すれば通し、違うか無ければ 403（ブラウザは POST に必ず `Origin` を付けるので `Referer` は見ない）。`GET` には掛けない。Vite の proxy は `changeOrigin: false` にして `Host` を書き換えない。
 
 ## 画面（frontend）
 
@@ -92,7 +92,7 @@ Postgres に `admin_sessions` テーブルを追加する（マイグレーシ�
 - ログイン画面は ID 欄・パスワード欄（`type="password"`、`autocomplete="current-password"`）・「ログイン」ボタン。空欄があれば送信しない。401 は「ID かパスワードが違います」、429 は「しばらく待ってからやり直してください」、それ以外は既存の共通エラー表示。どちらが違うかは出さない
 - 成功したら、ログイン画面に来る前にいた管理画面（無ければ `/admin`）へ戻る。行き先は `useLocation().state.from` で渡す
 - `AdminLayout` のヘッダーに「ログアウト」ボタンを置く。押すと `POST /api/auth/logout` → `/admin/login` へ。既存の「トークンが設定されていません」バナーは撤去する
-- ルートガード: `/admin/*` の親で `GET /api/auth/session` を呼ぶ。読み込み中は既存の読み込み表示、401 なら `/admin/login` へ（`state.from` に現在地）。`/admin/login` はガードの外に置く
+- ルートガード: `/admin/*` の親で `GET /api/auth/session` を呼ぶ。読み込み中は既存の読み込み表示、204 以外なら `/admin/login` へ（`state.from` に現在地）。エラー用の状態は持たない（サーバーが落ちていればログインも失敗し、その文言で伝わる）。`/admin/login` はガードの外に置く
 - `lib/admin-auth.ts`（`adminToken()` / `adminRequest()`）と `VITE_ADMIN_TOKEN` は削除する。10 箇所の hook は `request` を渡さない形に戻す。Cookie は同一オリジン（Vite のプロキシ経由）なので自動で送られる。`mutator.ts` は変えない（`credentials: 'include'` は `VITE_API_BASE_URL` を別オリジンにするときだけ要る。§やらないこと）
 - 書き込み中に 401 が返ったら（セッション切れ）、その hook の `onError` で `/admin/login` へ送る。3 hook（`useBookRegistration` / `useBookEditor` / `useAdminTags`）に各 1 行。共通の `onError` を差し込む仕組みは作らない
 - 生成物: swag を再排出し `pnpm gen:api` で `auth` の生成フック・型・MSW ハンドラを作る。ログイン・ログアウト・セッション確認はすべて生成フックを使う
@@ -106,14 +106,14 @@ Postgres に `admin_sessions` テーブルを追加する（マイグレーシ�
 | 層 | 対象 | 期待する振る舞い |
 |---|---|---|
 | domain | `Credentials` | ID 空・パスワード空はエラー。前後の空白は落とさない |
-| domain | `Session` | 有効 / アイドル期限切れ / 絶対期限切れの 3 分岐。`Extend` しても絶対期限を超えない（境界: ちょうど・+1 秒） |
-| usecase | `LoginUsecase`（Fake） | ID 不一致 → `ErrUnauthorized`、Repository は呼ばれない、`PasswordVerifier` は**呼ばれる**。パスワード不一致 → 同様。成功 → Repository に保存され ID が返る。5 回失敗 → 6 回目は照合せず `ErrTooManyAttempts`。成功で回数が戻る。Repository のエラーはそのまま伝播 |
+| domain | `Session` | 有効 / アイドル期限切れ（境界: ちょうど・+1 秒）。`Extend` しても絶対期限を超えない |
+| usecase | `LoginUsecase`（Fake） | ID 不一致 → `ErrUnauthorized`、Repository は呼ばれない、`PasswordVerifier` は**呼ばれる**。パスワード不一致 → 同様。成功 → Repository に保存され ID が返る。5 回失敗 → 6 回目は照合せず `ErrTooManyAttempts`。ロック中は正しいパスワードでも 429 でセッションを作らない。成功で回数が戻る。Repository のエラーはそのまま伝播 |
 | usecase | `LogoutUsecase` | Delete が呼ばれる。存在しない ID でもエラーにしない |
-| usecase | `SessionQuery` | 期限切れ → `ErrUnauthorized`、延長は呼ばれない。有効 → 延長される |
+| usecase | `CheckSessionUsecase` | 期限切れ → `ErrUnauthorized`、延長は呼ばれない。有効 → 延長される |
 | infrastructure | `SessionRepository` 契約テスト（実 DB） | Save / Find / Delete / UpdateExpiry。テーブルにパスワード・ハッシュのカラムが無い |
 | infrastructure | bcrypt 実装 | 正しい / 誤ったパスワード。生成したハッシュのコストが 10 以上 |
 | presentation | `RequireAdminSession` | Cookie 無し / 不正 ID / 期限切れ → 401。有効 → 通過 |
-| presentation | `RequireSameOrigin` | Origin 一致 → 通過。不一致 → 403。Origin 無し + Referer 一致 → 通過。両方無し → 403。`GET` には掛からない |
+| presentation | `RequireSameOrigin` | Origin 一致 → 通過。不一致・`null`・無し → 403。`GET` には掛からない |
 | presentation | auth `Handler`（`httptest` + `common.NewEcho()`） | login 204 の `Set-Cookie` に `HttpOnly` / `SameSite=Lax` / `Path=/api` があり、値は 43 文字の base64url。400 / 401 / 429 の変換。logout の `Set-Cookie` に `Max-Age=0` |
 | 結合（実 DB、`*_integration_test.go`） | login → 書き込み API 200 → logout → 同じ Cookie で書き込み → 401 | ログアウト後の再利用が実物同士の配線で拒否される |
 
@@ -122,7 +122,7 @@ Postgres に `admin_sessions` テーブルを追加する（マイグレーシ�
 | 対象 | 期待する振る舞い |
 |---|---|
 | `LoginPage` | 空欄で送信されない。401 / 429 の文言。成功で `state.from` へ、無ければ `/admin` へ |
-| ルートガード | `session` が 401 → `/admin/login` に遷移し `state.from` に元の path。204 → 子画面が出る。読み込み中の表示 |
+| ルートガード | `session` が 401（または 500）→ `/admin/login` に遷移し `state.from` に元の path。204 → 子画面が出る。読み込み中の表示 |
 | `AdminLayout` | ログアウト押下で `POST /api/auth/logout` が呼ばれ `/admin/login` へ |
 | 既存 hook テスト | Bearer ヘッダーの検証を削除。書き込みが 401 → `/admin/login` |
 
@@ -137,7 +137,7 @@ Postgres に `admin_sessions` テーブルを追加する（マイグレーシ�
 - `backend/README.md` / `frontend/README.md`: `ADMIN_TOKEN` / `VITE_ADMIN_TOKEN` を `ADMIN_ID` / `ADMIN_PASSWORD_HASH`（生成手順）/ E2E 用の環境変数に改める
 - `docs/superpowers/specs/2026-09-30-admin-screens-design.md`: 「ログインは後回し」節の先頭に本書で置き換えた旨を 1 行足す
 - `docs/adr/2026-09-30-admin-token-from-env.md`: 状態を「不採用（本 ADR で置き換え）」にし、新 ADR へリンク
-- 新 ADR `docs/adr/2026-09-30-admin-login-with-server-side-session.md`（カテゴリ architecture）: §脅威モデルの表、Bearer から Cookie に変えた理由、採らなかった案（外部の ID プロバイダ、外部のセッションストア、トークンを画面で入力する方式）とその理由、公開する場合の昇格パス（`Secure`、`credentials: 'include'`、ロックの永続化）
+- 新 ADR `docs/adr/2026-09-30-admin-login-with-server-side-session.md`（カテゴリ architecture）: §脅威モデルの表、Bearer から Cookie に変えた理由、採らなかった案（外部の ID プロバイダ、外部のセッションストア、トークンを画面で入力する方式）とその理由、公開する場合の昇格パス（Cookie の `Secure`、`credentials: 'include'`、ロックの永続化）
 - `README.md`（リポジトリ直下）: 設計の案内に ADR と `presentation/http/common` への導線を足す
 
 ## やらないこと
@@ -148,5 +148,8 @@ Postgres に `admin_sessions` テーブルを追加する（マイグレーシ�
 - パスワード変更の画面（環境変数を書き換えれば足りる）
 - ロックの永続化・多プロセス対応（再起動で消える。ローカル 1 プロセスの前提）
 - `mutator.ts` への `credentials: 'include'`（同一オリジンのため不要。別オリジンに置くときに足す）
+- Cookie の `Secure` とそれを切り替える設定（http でしか動かさない。https で公開するときに足す）
+- ルートガードのエラー表示と再試行（確認に失敗したらログイン画面へ送るだけ）
+- `Origin` が無いときの `Referer` フォールバック（ブラウザは POST に必ず `Origin` を付ける）
 - 期限切れセッション行の定期削除（1 人利用で行数は増えない）
 - 外部の ID プロバイダ・外部のセッションストアの導入（要求定義 §4 の「ユーザー管理なし・デプロイなし」と釣り合わない）
