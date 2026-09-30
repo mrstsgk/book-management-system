@@ -25,6 +25,18 @@ function generalRegisterMessage(error: ApiError | null): string | undefined {
   return '登録できませんでした。時間をおいてもう一度お試しください。'
 }
 
+// ISBN を確かめた結果を、画面が出し分ける状態（見つからない・形式が不正・一時的な障害）に分類する。
+// 400（形式・チェックディジットが不正）は入力の誤りであり再試行しても解消しないため、
+// 一時的な障害（500・通信断など）とは別の文言にする
+function catalogErrorState(error: ApiError | undefined) {
+  return {
+    isNotFound: error?.status === 404,
+    isInvalid: error?.status === 400,
+    isError:
+      error !== undefined && error.status !== 404 && error.status !== 400,
+  }
+}
+
 export function useBookRegistration() {
   const navigate = useNavigate()
   const [isbn, setIsbn] = useState('')
@@ -89,8 +101,7 @@ export function useBookRegistration() {
     catalog: {
       data: catalogQuery.data,
       isLoading: catalogQuery.isFetching,
-      isNotFound: catalogQuery.error?.status === 404,
-      isError: catalogQuery.isError && catalogQuery.error?.status !== 404,
+      ...catalogErrorState(catalogQuery.error ?? undefined),
       confirmed: confirmedIsbn !== '' && catalogQuery.isSuccess,
     },
     tags: tagsQuery.data?.items ?? [],
