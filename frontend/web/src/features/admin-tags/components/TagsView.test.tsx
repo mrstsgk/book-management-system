@@ -10,6 +10,19 @@ const items = [
 ]
 
 describe('TagsView', () => {
+  it('タグ名の入力欄は必須と示す', () => {
+    render(
+      <TagsView
+        items={items}
+        onAdd={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByLabelText('タグを追加 （必須）')).toBeInTheDocument()
+  })
+
   it('タグの一覧を名前と冊数で表示する', () => {
     render(
       <TagsView

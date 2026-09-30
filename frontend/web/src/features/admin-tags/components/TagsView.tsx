@@ -88,6 +88,7 @@ export function TagsView({ items, onAdd, onRename, onDelete }: TagsViewProps) {
         <FormField
           id="new-tag"
           label="タグを追加"
+          required
           error={addError}
           hint="1〜30文字"
         >
