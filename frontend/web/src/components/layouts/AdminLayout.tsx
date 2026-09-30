@@ -7,7 +7,16 @@ const navClass = (current: boolean) =>
       : 'border-transparent text-ink-300 hover:text-white'
   }`
 
-export function AdminLayout({ onLogout }: { onLogout: () => void }) {
+type AdminLayoutProps = {
+  onLogout: () => void
+  // ログアウトに失敗したとき true。サーバー側のセッションが残っているので画面は抜けず、再試行を促す
+  logoutFailed?: boolean
+}
+
+export function AdminLayout({
+  onLogout,
+  logoutFailed = false,
+}: AdminLayoutProps) {
   const { pathname } = useLocation()
   // 「本」は一覧・登録・編集のどれでも今いる画面にする（NavLink の前方一致だと /admin/tags まで当たる）
   const onBooks = pathname === '/admin' || pathname.startsWith('/admin/books')
@@ -57,6 +66,14 @@ export function AdminLayout({ onLogout }: { onLogout: () => void }) {
           </button>
         </div>
       </header>
+      {logoutFailed && (
+        <div
+          role="alert"
+          className="border-b border-brand-700 bg-brand-50 px-4 py-3 text-center text-sm text-brand-800"
+        >
+          ログアウトできませんでした。ログイン状態は残っています。もう一度「ログアウト」を押してください。
+        </div>
+      )}
       <main className="flex-1">
         <Outlet />
       </main>

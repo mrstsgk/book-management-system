@@ -76,4 +76,26 @@ describe('AdminLayout', () => {
     ).toBeVisible()
     expect(called).toBe(true)
   })
+
+  it('ログアウトに失敗したら管理画面に留まり、失敗を伝える（サーバー側のセッションが残っているため）', async () => {
+    server.use(
+      http.post('*/api/auth/logout', () =>
+        HttpResponse.json({ message: 'internal' }, { status: 500 }),
+      ),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'ログアウト' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'ログアウトできませんでした',
+    )
+    expect(
+      within(await findAdminNav()).getByRole('link', { name: '本' }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('heading', { name: '管理画面にログイン' }),
+    ).not.toBeInTheDocument()
+  })
 })

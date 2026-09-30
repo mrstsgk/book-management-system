@@ -41,14 +41,23 @@ describe('useLogout', () => {
     expect(called).toBe(true)
   })
 
-  it('失敗してもログイン画面へ送る（Cookie はサーバーが消せなくても期限で切れる）', async () => {
+  it('失敗したらその場に留まり、失敗を伝えて、再試行できる（サーバー側のセッションが残っているため）', async () => {
+    let status = 500
     server.use(
       http.post('*/api/auth/logout', () =>
-        HttpResponse.json({ message: 'x' }, { status: 500 }),
+        status === 204
+          ? new HttpResponse(null, { status: 204 })
+          : HttpResponse.json({ message: 'x' }, { status }),
       ),
     )
     const { result } = renderHook(() => useLogout(), { wrapper })
     act(() => result.current.logout())
+    await waitFor(() => expect(result.current.failed).toBe(true))
+    expect(pathname).toBe('/admin/tags')
+
+    status = 204
+    act(() => result.current.logout())
     await waitFor(() => expect(pathname).toBe('/admin/login'))
+    expect(result.current.failed).toBe(false)
   })
 })

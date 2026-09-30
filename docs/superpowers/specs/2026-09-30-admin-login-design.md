@@ -91,7 +91,7 @@ Postgres に `admin_session` テーブルを追加する（マイグレーショ
 
 - ログイン画面は ID 欄・パスワード欄（`type="password"`、`autocomplete="current-password"`）・「ログイン」ボタン。空欄があれば送信しない。401 は「ID かパスワードが違います」、429 は「しばらく待ってからやり直してください」、それ以外は既存の共通エラー表示。どちらが違うかは出さない
 - 成功したら、ログイン画面に来る前にいた管理画面（無ければ `/admin`）へ戻る。行き先は `useLocation().state.from` で渡す
-- `AdminLayout` のヘッダーに「ログアウト」ボタンを置く。押すと `POST /api/auth/logout` → `/admin/login` へ。既存の「トークンが設定されていません」バナーは撤去する
+- `AdminLayout` のヘッダーに「ログアウト」ボタンを置く。押すと `POST /api/auth/logout` を呼び、成功したら `/admin/login` へ。失敗したら（サーバー側のセッションと Cookie が残っているため）画面には留まり、ヘッダーの下にエラーを出して再試行できるようにする。既存の「トークンが設定されていません」バナーは撤去する
 - ルートガード: `/admin/*` の親で `GET /api/auth/session` を呼ぶ。読み込み中は既存の読み込み表示、204 以外なら `/admin/login` へ（`state.from` に現在地）。エラー用の状態は持たない（サーバーが落ちていればログインも失敗し、その文言で伝わる）。`/admin/login` はガードの外に置く
 - `lib/admin-auth.ts`（`adminToken()` / `adminRequest()`）と `VITE_ADMIN_TOKEN` は削除する。10 箇所の hook は `request` を渡さない形に戻す。Cookie は同一オリジン（Vite のプロキシ経由）なので自動で送られる。`mutator.ts` は変えない（`credentials: 'include'` は `VITE_API_BASE_URL` を別オリジンにするときだけ要る。§やらないこと）
 - 書き込み中に 401 が返ったら（セッション切れ）、その hook の `onError` で `/admin/login` へ送る。3 hook（`useBookRegistration` / `useBookEditor` / `useAdminTags`）に各 1 行。共通の `onError` を差し込む仕組みは作らない
@@ -123,7 +123,7 @@ Postgres に `admin_session` テーブルを追加する（マイグレーショ
 |---|---|
 | `LoginPage` | 空欄で送信されない。401 / 429 の文言。成功で `state.from` へ、無ければ `/admin` へ |
 | ルートガード | `session` が 401（または 500）→ `/admin/login` に遷移し `state.from` に元の path。204 → 子画面が出る。読み込み中の表示 |
-| `AdminLayout` | ログアウト押下で `POST /api/auth/logout` が呼ばれ `/admin/login` へ |
+| `AdminLayout` | ログアウト押下で `POST /api/auth/logout` が呼ばれ `/admin/login` へ。失敗（500）なら管理画面に留まり、エラーが出て、もう一度押せる |
 | 既存 hook テスト | Bearer ヘッダーの検証を削除。書き込みが 401 → `/admin/login` |
 
 ### E2E
