@@ -94,6 +94,20 @@ describe('ConfirmDialog', () => {
     expect(onConfirm).not.toHaveBeenCalled()
   })
 
+  it('error があれば alert として見せる。無ければ出さない', () => {
+    renderDialog({ error: '削除できませんでした。' })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '削除できませんでした。',
+    )
+  })
+
+  it('error が無ければ alert を出さない', () => {
+    renderDialog({})
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('open が true から false になると閉じる', () => {
     const { rerender, onConfirm, onCancel } = renderDialog({})
 

@@ -8,6 +8,8 @@ type ConfirmDialogProps = {
   onConfirm: () => void
   onCancel: () => void
   busy?: boolean
+  // 確定の操作（削除など）自体が失敗したときの文言。無ければ出さない
+  error?: string
 }
 
 // ネイティブの <dialog> を showModal() で開き、背景の操作とフォーカスの閉じ込めはブラウザに任せる
@@ -19,6 +21,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   busy = false,
+  error,
 }: ConfirmDialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
@@ -63,6 +66,11 @@ export function ConfirmDialog({
         <p id={descriptionId} className="leading-relaxed">
           {description}
         </p>
+        {error && (
+          <p role="alert" className="text-sm text-brand-800">
+            {error}
+          </p>
+        )}
         <div className="flex justify-end gap-3">
           <button
             ref={cancelRef}
