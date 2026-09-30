@@ -23,16 +23,24 @@ export function TagsView({ items, onAdd, onRename, onDelete }: TagsViewProps) {
   const [notice, setNotice] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<TagWithCount | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
+  const [addBusy, setAddBusy] = useState(false)
+  const [editBusy, setEditBusy] = useState(false)
 
   const submitAdd = async () => {
+    if (addBusy) return
     const trimmed = newName.trim()
     if (!trimmed) return
-    const outcome = await onAdd(trimmed)
-    if (outcome.ok) {
-      setNewName('')
-      setAddError('')
-    } else {
-      setAddError(outcome.message)
+    setAddBusy(true)
+    try {
+      const outcome = await onAdd(trimmed)
+      if (outcome.ok) {
+        setNewName('')
+        setAddError('')
+      } else {
+        setAddError(outcome.message)
+      }
+    } finally {
+      setAddBusy(false)
     }
   }
 
@@ -42,19 +50,24 @@ export function TagsView({ items, onAdd, onRename, onDelete }: TagsViewProps) {
   }
 
   const submitEdit = async (tag: TagWithCount) => {
-    if (!editing) return
+    if (!editing || editBusy) return
     const trimmed = editing.draft.trim()
     if (!trimmed) return
-    const outcome = await onRename(tag.id, tag.version, trimmed)
-    if (outcome.ok) {
-      setEditing(null)
-      setEditError('')
-    } else if (outcome.stale) {
-      setEditing(null)
-      setEditError('')
-      setNotice(outcome.message)
-    } else {
-      setEditError(outcome.message)
+    setEditBusy(true)
+    try {
+      const outcome = await onRename(tag.id, tag.version, trimmed)
+      if (outcome.ok) {
+        setEditing(null)
+        setEditError('')
+      } else if (outcome.stale) {
+        setEditing(null)
+        setEditError('')
+        setNotice(outcome.message)
+      } else {
+        setEditError(outcome.message)
+      }
+    } finally {
+      setEditBusy(false)
     }
   }
 
@@ -106,7 +119,8 @@ export function TagsView({ items, onAdd, onRename, onDelete }: TagsViewProps) {
             />
             <button
               type="submit"
-              className="h-12 rounded-lg bg-brand-700 px-6 font-bold text-white"
+              disabled={addBusy}
+              className="h-12 rounded-lg bg-brand-700 px-6 font-bold text-white disabled:cursor-not-allowed disabled:bg-ink-400"
             >
               追加
             </button>
@@ -143,17 +157,19 @@ export function TagsView({ items, onAdd, onRename, onDelete }: TagsViewProps) {
                   />
                   <button
                     type="submit"
-                    className="h-11 rounded-lg bg-brand-700 px-4 font-bold text-white"
+                    disabled={editBusy}
+                    className="h-11 rounded-lg bg-brand-700 px-4 font-bold text-white disabled:cursor-not-allowed disabled:bg-ink-400"
                   >
                     保存
                   </button>
                   <button
                     type="button"
+                    disabled={editBusy}
                     onClick={() => {
                       setEditing(null)
                       setEditError('')
                     }}
-                    className="h-11 px-3 text-ink-600"
+                    className="h-11 px-3 text-ink-600 disabled:cursor-not-allowed disabled:text-ink-300"
                   >
                     キャンセル
                   </button>

@@ -111,6 +111,59 @@ describe('TagsView', () => {
     )
   })
 
+  it('追加の送信中に連打しても onAdd は1回しか呼ばれない', async () => {
+    const user = userEvent.setup()
+    let resolveAdd!: (v: { ok: true }) => void
+    const onAdd = vi.fn(
+      () => new Promise<{ ok: true }>((r) => (resolveAdd = r)),
+    )
+    render(
+      <TagsView
+        items={items}
+        onAdd={onAdd}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    await user.type(
+      screen.getByLabelText('タグを追加', { exact: false }),
+      'データ',
+    )
+    const submit = screen.getByRole('button', { name: '追加' })
+    await user.click(submit)
+    expect(submit).toBeDisabled()
+    await user.click(submit)
+    resolveAdd({ ok: true })
+
+    expect(onAdd).toHaveBeenCalledTimes(1)
+  })
+
+  it('名前の変更の送信中に連打しても onRename は1回しか呼ばれない', async () => {
+    const user = userEvent.setup()
+    let resolveRename!: (v: { ok: true }) => void
+    const onRename = vi.fn(
+      () => new Promise<{ ok: true }>((r) => (resolveRename = r)),
+    )
+    render(
+      <TagsView
+        items={items}
+        onAdd={vi.fn()}
+        onRename={onRename}
+        onDelete={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getAllByRole('button', { name: '名前を変更' })[0])
+    const save = screen.getByRole('button', { name: '保存' })
+    await user.click(save)
+    expect(save).toBeDisabled()
+    await user.click(save)
+    resolveRename({ ok: true })
+
+    expect(onRename).toHaveBeenCalledTimes(1)
+  })
+
   it('「名前を変更」でその場の入力欄になり、保存すると onRename が呼ばれる', async () => {
     const user = userEvent.setup()
     const onRename = vi.fn().mockResolvedValue({ ok: true })
