@@ -1,7 +1,7 @@
 # 書影は Google Books → openBD の順で取り、楽天ブックスは撤去する
 
 **日付:** 2026-09-29
-**状態:** 採用
+**状態:** 一部を置き換えられた（2026-09-30。Google Books の部分は [書影は openBD だけから取り、無ければ書影なしにする](./2026-09-30-cover-from-openbd-only.md) で不採用に。楽天の撤去はそのまま有効）
 **カテゴリ:** architecture / library
 **参照:** [設計](../superpowers/specs/2026-09-29-cover-sources-design.md)、[実装計画](../superpowers/plans/2026-09-29-cover-sources.md)、置き換え: [楽天ブックスは書影を補う用途だけに使う](./2026-09-28-rakuten-for-cover-only.md)、一部を置き換え: [書影は外部カタログの URL を表示する](./2026-09-28-book-cover-from-external-catalogs.md)
 
@@ -12,6 +12,8 @@
 さらに楽天は、規約上の保持期限（最長3か月）と削除の指示への対応のために、取得日時・起動時と1日1回の取り直し・期限切れの非表示・削除指示の API・画面のクレジットと注記という、取得元1つのための重い仕組みを必要としていた。書影の取得元を見直すにあたり、キーなしで使えて規約上問題のない取得元を調べた（結果は設計の「調査の要約」）。
 
 ## 決定
+
+> **2026-09-30 追記:** 下の Google Books に関する決定は取り消した。Google Books も API キーが必要で、キーを持たない人の環境では書影が出ないため（[ADR](./2026-09-30-cover-from-openbd-only.md)）。書影は openBD だけから取る。
 
 - 書影は **Google Books API → openBD → なし（画面はプレースホルダー）** の順で、最初に見つかったものを使う。書誌は今までどおり openBD だけから取る
 - Google Books は無料の API キーを設定したときだけ問い合わせる。画面には「Powered by Google」と、本ごとの Google Books のページへのリンクを出す（Google の規約の条件）

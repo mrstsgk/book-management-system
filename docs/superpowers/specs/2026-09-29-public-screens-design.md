@@ -33,7 +33,6 @@
 - 書名・著者・出版社・出版日・ISBN・書影・評価・分野タグ・一言まとめ・感想（改行を保つ）
 - 値が無い項目（出版社・出版日）は行ごと出さない。書影は `coverUrl` があればその画像、無ければ「書影なし」の枠を出す
 - Amazon リンクは `amazonUrl` があるときだけ「Amazonで見る」
-- Google Books の書影のときの表示（「Powered by Google」と、その本の Google Books のページへのリンク）は、[書影の取得元の見直しの設計](./2026-09-29-cover-sources-design.md) の PR-C で足す
 - 外部リンクは `target="_blank" rel="noopener noreferrer"`
 - API が 404 なら「この本は見つかりませんでした」と一覧へのリンク。ほかのエラーは共通のエラー表示（再試行つき）
 
