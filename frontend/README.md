@@ -24,15 +24,11 @@ pnpm storybook        # :6006
 pnpm build-storybook
 ```
 
-## 管理画面の管理者トークン
+## 管理画面のログイン
 
-管理画面（`/admin`）から書き込むには、バックエンドの `ADMIN_TOKEN` と同じ値を `web/.env.development.local`（git 管理外）に書いてから `pnpm dev` を起動する。
+バックエンドを `ADMIN_ID` / `ADMIN_PASSWORD_HASH` を設定して起動し（手順は [`backend/README.md`](../backend/README.md)）、`http://localhost:3000/admin/login` から ID とパスワードでログインする（[ADR](../docs/adr/2026-09-30-admin-login-with-server-side-session.md)）。
 
-```bash
-echo 'VITE_ADMIN_TOKEN=local-admin-token' > web/.env.development.local   # バックエンドの既定値
-```
-
-値は画面のコードに埋め込まれるので、この設定でビルドしたものを公開しない（[ADR](../docs/adr/2026-09-30-admin-token-from-env.md)）。
+Vite のプロキシは Host を変えないので、書き込みの同一オリジン確認を通すには開発サーバーを `http://localhost:3000` で開く（`127.0.0.1` などでは 403 になる）。
 
 ## E2E テスト（Playwright、ローカル実行のみ）
 
@@ -45,7 +41,10 @@ docker compose up -d
 make migrate-up
 make run                 # :8080
 
-# 2. 管理者トークン（上の節を参照。未設定だと本の登録・タグの追加が失敗する）
+# 2. ログイン情報（バックエンドの ADMIN_ID と、ADMIN_PASSWORD_HASH の元のパスワード）。
+#    src/testing/e2e/helpers.ts の login() が読む
+export E2E_ADMIN_ID=admin
+export E2E_ADMIN_PASSWORD='...'
 
 # 3. フロントエンド開発サーバー（別ターミナル）
 cd frontend
