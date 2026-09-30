@@ -9,16 +9,10 @@ import {
 import type { BookResponse, TagResponse } from '@/api/generated/api.schemas'
 import { adminRequest } from '@/lib/admin-auth'
 import type { BookFormErrors, BookFormValues } from '../types'
+import { parseBookId } from '../utils/parseBookId'
 import { toFieldMessages } from '../utils/serverFieldErrors'
 import { tagIdsByName } from '../utils/tagIds'
 import { validateBookForm } from '../utils/validateBookForm'
-
-// 本の ID。桁あふれで別の本を指してしまわないよう安全な整数に限る（parseBookId と同じ考え方）
-function parseId(raw: string | undefined): number | undefined {
-  if (raw === undefined || !/^\d+$/.test(raw)) return undefined
-  const id = Number(raw)
-  return Number.isSafeInteger(id) && id >= 1 ? id : undefined
-}
 
 // 取得した本とタグ一覧から、フォームの初期値を作る（タグは名前からIDに引き直す）
 function buildFormValues(
@@ -56,7 +50,7 @@ function serverFieldErrorsOf(
 
 export function useBookEditor(rawId: string | undefined) {
   const navigate = useNavigate()
-  const id = parseId(rawId)
+  const id = parseBookId(rawId)
 
   const bookQuery = useGetApiBooksId(id ?? 0, {
     query: { enabled: id !== undefined },
@@ -67,10 +61,16 @@ export function useBookEditor(rawId: string | undefined) {
   const deleteMutation = useDeleteApiBooksId({ request: adminRequest() })
 
   const [values, setValues] = useState<BookFormValues | null>(null)
+  // 保存に使う version。編集開始時（またはreloadLatest時）に値とあわせて固定する。
+  // bookQuery.data.version を送信時に直接読むと、reloadLatestを経ない裏の取り直し
+  // （再接続時の自動再取得など）でversionだけ進み、古いフォーム値のまま新しいversionを
+  // 送って409にならず、他の変更を無自覚に上書きしてしまう
+  const [editingVersion, setEditingVersion] = useState<number | null>(null)
   const [localErrors, setLocalErrors] = useState<BookFormErrors>({})
   const [conflict, setConflict] = useState(false)
   const [saved, setSaved] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | undefined>(undefined)
   const submitting = useRef(false)
   const deleting = useRef(false)
 
@@ -82,6 +82,7 @@ export function useBookEditor(rawId: string | undefined) {
     if (values !== null) return
     if (!bookQuery.data || !tagsQuery.data) return
     setValues(buildFormValues(bookQuery.data, tags))
+    setEditingVersion(bookQuery.data.version ?? null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookQuery.data, tagsQuery.data, values])
 
@@ -92,8 +93,7 @@ export function useBookEditor(rawId: string | undefined) {
     const errors = validateBookForm(values)
     setLocalErrors(errors)
     if (Object.keys(errors).length > 0) return
-    const version = bookQuery.data?.version
-    if (version === undefined) return
+    if (editingVersion === null) return
 
     submitting.current = true
     updateMutation.mutate(
@@ -105,7 +105,7 @@ export function useBookEditor(rawId: string | undefined) {
           rating: values.rating,
           tagIds: values.tagIds,
           titleOverride: values.titleOverride.trim() || undefined,
-          version,
+          version: editingVersion,
         },
       },
       {
@@ -123,21 +123,26 @@ export function useBookEditor(rawId: string | undefined) {
     )
   }
 
-  // 取り直した本を直接使って値を作る。setValues(null) → useEffect の順に任せると、
-  // refetch が終わる前の古い bookQuery.data で一瞬埋め直されてしまう競合があるため
+  // 取り直した本を直接使って値とversionを作る。setValues(null) → useEffect の順に
+  // 任せると、refetch が終わる前の古い bookQuery.data で一瞬埋め直されてしまう競合があるため
   const reloadLatest = async () => {
     setConflict(false)
     const { data: latest } = await bookQuery.refetch()
     if (!latest) return
     setValues(buildFormValues(latest, tags))
+    setEditingVersion(latest.version ?? null)
   }
 
-  const openDelete = () => setDeleteOpen(true)
+  const openDelete = () => {
+    setDeleteError(undefined)
+    setDeleteOpen(true)
+  }
   const closeDelete = () => setDeleteOpen(false)
 
   const confirmDelete = () => {
     if (deleting.current || id === undefined) return
     deleting.current = true
+    setDeleteError(undefined)
     const title = bookQuery.data?.title ?? ''
     deleteMutation.mutate(
       { id },
@@ -149,6 +154,11 @@ export function useBookEditor(rawId: string | undefined) {
           navigate('/admin', {
             state: { notice: `『${title}』を削除しました` },
           })
+        },
+        onError: () => {
+          setDeleteError(
+            '削除できませんでした。時間をおいてもう一度お試しください。',
+          )
         },
       },
     )
@@ -178,6 +188,7 @@ export function useBookEditor(rawId: string | undefined) {
     submitting: updateMutation.isPending,
     saved,
     deleteOpen,
+    deleteError,
     openDelete,
     closeDelete,
     confirmDelete,

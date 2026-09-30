@@ -182,4 +182,62 @@ describe('useBookEditor', () => {
 
     await waitFor(() => expect(deleteCalled).toBe(true))
   })
+
+  it('編集中に裏で本が取り直されても、保存には編集開始時のversionを送る', async () => {
+    let getCalls = 0
+    let sentVersion: number | undefined
+    server.use(
+      http.get('*/api/books/:id', () => {
+        getCalls += 1
+        return HttpResponse.json({
+          id: 1,
+          title: '本',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 3,
+          version: getCalls === 1 ? 5 : 6,
+        })
+      }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.put('*/api/books/:id', async ({ request }) => {
+        const body = (await request.json()) as { version?: number }
+        sentVersion = body.version
+        return HttpResponse.json({ id: 1 })
+      }),
+    )
+    const { result } = renderUseBookEditor('1')
+    await waitFor(() => expect(result.current.values).not.toBeNull())
+
+    // reloadLatest を経ない裏の取り直し（例: 再接続時の自動再取得）でversionだけ進む
+    act(() => {
+      void result.current.retry()
+    })
+    await waitFor(() => expect(getCalls).toBe(2))
+
+    act(() => result.current.submit())
+
+    await waitFor(() => expect(sentVersion).toBeDefined())
+    expect(sentVersion).toBe(5)
+    // フォームの値（編集開始時の内容）は書き換わっていない
+    expect(result.current.values?.summary).toBe('まとめ')
+  })
+
+  it('削除に失敗したら、ダイアログにエラーを出し確定を押し直せる', async () => {
+    server.use(
+      getGetApiBooksIdMockHandler({ id: 1, title: '本', version: 1 }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.delete('*/api/books/:id', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    )
+    const { result } = renderUseBookEditor('1')
+    await waitFor(() => expect(result.current.values).not.toBeNull())
+
+    act(() => result.current.openDelete())
+    act(() => result.current.confirmDelete())
+
+    await waitFor(() => expect(result.current.deleteError).toBeDefined())
+    expect(result.current.deleteOpen).toBe(true)
+    expect(result.current.deleting).toBe(false)
+  })
 })
