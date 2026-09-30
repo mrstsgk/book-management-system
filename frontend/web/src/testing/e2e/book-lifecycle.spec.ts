@@ -23,15 +23,17 @@ test.describe('本のライフサイクル', () => {
   test('登録が公開一覧・詳細に反映され、編集・削除まで一気通貫で動く', async ({
     page,
   }) => {
-    const bookId = await registerBook(page, {
-      isbn: ISBN,
-      titleOverride: TITLE,
-      summary: 'E2Eで登録した検証用の一言まとめ',
-      comment: 'E2Eで登録した検証用の感想。',
-      ratingLabel: '★★★★',
-    })
+    let bookId: string | undefined
 
     try {
+      bookId = await registerBook(page, {
+        isbn: ISBN,
+        titleOverride: TITLE,
+        summary: 'E2Eで登録した検証用の一言まとめ',
+        comment: 'E2Eで登録した検証用の感想。',
+        ratingLabel: '★★★★',
+      })
+
       // 公開一覧: キーワード検索で見つかり、詳細へ遷移できる
       await page.goto('/')
       await page
@@ -82,8 +84,13 @@ test.describe('本のライフサイクル', () => {
       await page.goto(`/books/${bookId}`)
       await expect(page.getByText('この本は見つかりませんでした')).toBeVisible()
     } finally {
-      // 途中で失敗しても後片付けする（削除まで成功していれば 404 になるだけなので無視）
-      await deleteBookById(page, bookId).catch(() => {})
+      // 途中で失敗しても後片付けする（削除まで成功していれば 404 になるだけなので無視）。
+      // 登録自体が失敗して ID を取得できなかった場合は、書名で探して片付ける
+      if (bookId !== undefined) {
+        await deleteBookById(page, bookId).catch(() => {})
+      } else {
+        await deleteBookIfPresent(page, TITLE).catch(() => {})
+      }
     }
   })
 })

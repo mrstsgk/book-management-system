@@ -28,15 +28,17 @@ test.describe('タグのライフサイクル', () => {
   test('追加→本への付与→分野別集計への反映→名前変更→削除まで一気通貫で動く', async ({
     page,
   }) => {
-    const bookId = await registerBook(page, {
-      isbn: ISBN,
-      titleOverride: TITLE,
-      summary: 'E2Eタグ検証用の一言まとめ',
-      comment: 'E2Eタグ検証用の感想。',
-      ratingLabel: '★★★',
-    })
+    let bookId: string | undefined
 
     try {
+      bookId = await registerBook(page, {
+        isbn: ISBN,
+        titleOverride: TITLE,
+        summary: 'E2Eタグ検証用の一言まとめ',
+        comment: 'E2Eタグ検証用の感想。',
+        ratingLabel: '★★★',
+      })
+
       // 追加
       await page.goto('/admin/tags')
       await page.getByLabel('タグを追加 （必須）').fill(TAG_NAME)
@@ -111,8 +113,13 @@ test.describe('タグのライフサイクル', () => {
       ).toHaveCount(0)
     } finally {
       // 途中で失敗しても後片付けする（タグはどちらの名前で終わったか分からないため両方試す。
-      // 既に無ければ deleteTagIfPresent は何もしない）
-      await deleteBookById(page, bookId).catch(() => {})
+      // 既に無ければ deleteTagIfPresent は何もしない）。
+      // 登録自体が失敗して ID を取得できなかった場合は、書名で探して片付ける
+      if (bookId !== undefined) {
+        await deleteBookById(page, bookId).catch(() => {})
+      } else {
+        await deleteBookIfPresent(page, TITLE).catch(() => {})
+      }
       await deleteTagIfPresent(page, TAG_NAME).catch(() => {})
       await deleteTagIfPresent(page, TAG_NAME_RENAMED).catch(() => {})
     }
