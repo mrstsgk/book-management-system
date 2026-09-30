@@ -193,6 +193,20 @@ func TestLoginUsecase_Execute(t *testing.T) {
 		}
 	})
 
+	t.Run("ロック期間の1秒前まではロックが続く", func(t *testing.T) {
+		t.Parallel()
+		v := &fakeVerifier{ok: false}
+		uc := newLogin(&fakeSessions{}, v)
+		failTimes(t, uc, 5)
+		uc.Now = func() time.Time { return fixedNow.Add(59 * time.Second) }
+		if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"}); !errors.Is(err, common.ErrTooManyAttempts) {
+			t.Fatalf("err = %v, want ErrTooManyAttempts", err)
+		}
+		if v.calls.Load() != 5 {
+			t.Fatalf("verifier calls = %d, want 5 (locked attempt must not verify)", v.calls.Load())
+		}
+	})
+
 	t.Run("成功すると失敗回数が戻る", func(t *testing.T) {
 		t.Parallel()
 		v := &fakeVerifier{ok: false}
