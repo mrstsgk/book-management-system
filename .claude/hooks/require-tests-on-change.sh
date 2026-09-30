@@ -86,23 +86,19 @@ _check_backend() {
     _report "backend" "$uncovered"
 }
 
-# frontend: Foo.tsx → 同じディレクトリの Foo.test.tsx（bulletproof のコロケーション規約）
+# frontend: Foo.ts(x) → 同じディレクトリの Foo.test.ts または Foo.test.tsx（bulletproof のコロケーション規約）
 _check_frontend() {
-    local src_files uncovered="" f ext expected
+    local src_files uncovered="" f base
     src_files="$(printf '%s\n' "$changed" \
         | grep -E '^frontend/(web|packages/ui)/src/.*\.(ts|tsx)$' \
         | grep -vE '\.test\.(ts|tsx)$|\.stories\.(ts|tsx)$|\.d\.ts$|/src/testing/|/src/api/generated/|/src/types/api\.ts$' || true)"
     [ -n "$src_files" ] || return 0
 
+    # 実装が .ts でもテストは .test.tsx（renderHook で wrapper を使う hooks 等）になりうるため、どちらの拡張子でも対応とみなす
     while IFS= read -r f; do
         [ -n "$f" ] || continue
-        case "$f" in
-            *.tsx) ext=tsx ;;
-            *.ts)  ext=ts ;;
-            *) continue ;;
-        esac
-        expected="${f%.*}.test.${ext}"
-        printf '%s\n' "$changed" | grep -qFx "$expected" || uncovered="${uncovered}${f}"$'\n'
+        base="${f%.*}"
+        printf '%s\n' "$changed" | grep -qFx -e "${base}.test.ts" -e "${base}.test.tsx" || uncovered="${uncovered}${f}"$'\n'
     done <<< "$src_files"
 
     [ -n "$uncovered" ] || return 0
