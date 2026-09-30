@@ -15,4 +15,15 @@ describe('AppRoutes', () => {
       '/',
     )
   })
+
+  it('管理画面の知らない path では、管理画面のレイアウトのままページが見つからないことを伝える', () => {
+    renderWithProviders(<AppRoutes />, { route: '/admin/unknown' })
+
+    expect(
+      screen.getByRole('heading', { name: 'ページが見つかりませんでした' }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('navigation', { name: '管理メニュー' }),
+    ).toBeVisible()
+  })
 })
