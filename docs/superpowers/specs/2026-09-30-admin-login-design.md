@@ -37,7 +37,7 @@
 | `POST` | `/api/auth/logout` | セッション行を削除し、Cookie を消す（`Max-Age=0`） | 204（未ログインでも 204） |
 | `GET` | `/api/auth/session` | ログイン中か（画面のガード用）。有効ならアイドル期限を延長する | 204 / 401 |
 
-- 401 の本文はどちらが違うかを出さない（`message: "unauthorized"`）
+- 401 の本文はどちらが違うかを出さない（ログインは `unauthorized: IDかパスワードが違います`、未ログインは `…ログインしてください`、期限切れは `…ログインの期限が切れました`）
 - swag の `@securityDefinitions.apikey AdminToken` は削除する（Swagger 2.0 は Cookie 認証を表せない）。認証が要る API は `@Security` の代わりに `@Description` に「ログイン済みの Cookie が要る」と書く。Orval は securityDefinitions を生成に使わないので、生成物への影響は無い
 
 ### Cookie
@@ -51,7 +51,7 @@ Postgres に `admin_session` テーブルを追加する（マイグレーショ
 | カラム | 型 | 意味 |
 |---|---|---|
 | `id` | `VARCHAR(64)` PK | セッション ID（base64url、43 文字） |
-| `expires_at` | `TIMESTAMPTZ` NOT NULL | アイドル期限。書き込み系 API と `GET /session` を通るたびに「今 + 1 時間」に延ばす（絶対期限を超えない） |
+| `expires_at` | `TIMESTAMPTZ` NOT NULL | アイドル期限。管理者向け API（`GET /session` と `GET /catalog/:isbn` を含む）を通るたびに「今 + 1 時間」に延ばす（絶対期限を超えない） |
 | `absolute_expires_at` | `TIMESTAMPTZ` NOT NULL | 絶対期限。発行時刻 + 24 時間で固定 |
 | `created_at` | `TIMESTAMPTZ` NOT NULL DEFAULT `NOW()` | 発行日時 |
 
