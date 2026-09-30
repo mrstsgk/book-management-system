@@ -21,6 +21,14 @@ function CatalogPreview({ catalog }: { catalog: BookRegistration['catalog'] }) {
       </p>
     )
   }
+  if (catalog.isInvalid) {
+    return (
+      <p role="alert" className="text-sm text-brand-800">
+        この ISBN
+        は形式が正しくありません（桁数・チェックディジットを確かめてください）。
+      </p>
+    )
+  }
   if (catalog.isError) {
     return (
       <p role="alert" className="text-sm text-brand-800">

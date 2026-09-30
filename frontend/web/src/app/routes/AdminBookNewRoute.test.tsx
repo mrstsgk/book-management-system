@@ -64,6 +64,54 @@ describe('AdminBookNewRoute', () => {
     ).toBeVisible()
   })
 
+  it('ISBNの形式が不正なら、時間をおいても解消しないことが伝わる文言を出す', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('*/api/catalog/:isbn', () =>
+        HttpResponse.json(
+          { message: 'invalid: ISBNが不正です' },
+          { status: 400 },
+        ),
+      ),
+      getGetApiTagsMockHandler({ items: [] }),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+
+    await user.type(screen.getByLabelText(/ISBN/), '9784000000001')
+    await user.click(screen.getByRole('button', { name: '確かめる' }))
+
+    expect(
+      await screen.findByText(
+        'この ISBN は形式が正しくありません（桁数・チェックディジットを確かめてください）。',
+      ),
+    ).toBeVisible()
+    expect(
+      screen.queryByText(
+        '確かめられませんでした。時間をおいてもう一度お試しください。',
+      ),
+    ).not.toBeInTheDocument()
+  })
+
+  it('カタログの確認が一時的な障害で失敗したら、時間をおいての再試行を促す', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('*/api/catalog/:isbn', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+      getGetApiTagsMockHandler({ items: [] }),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+
+    await user.type(screen.getByLabelText(/ISBN/), '9784297146221')
+    await user.click(screen.getByRole('button', { name: '確かめる' }))
+
+    expect(
+      await screen.findByText(
+        '確かめられませんでした。時間をおいてもう一度お試しください。',
+      ),
+    ).toBeVisible()
+  })
+
   it('確かめる前は登録するボタンを押せない', () => {
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
