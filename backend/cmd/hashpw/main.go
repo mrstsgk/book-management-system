@@ -1,7 +1,9 @@
 // hashpw は標準入力から読んだパスワードの bcrypt ハッシュを出す。ADMIN_PASSWORD_HASH に設定する値を作るためのもの。
 // 引数で受けないのは、パスワードが shell の履歴に残らないようにするため。
 //
-//	echo -n 'password' | go run ./cmd/hashpw
+// read -s は入力を画面に出さず、履歴にも残さない（echo でパスワードを渡すと履歴に残る）。
+//
+//	read -rs PW; printf %s "$PW" | go run ./cmd/hashpw; unset PW
 package main
 
 import (

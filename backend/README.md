@@ -43,7 +43,7 @@ make swagger
 | 環境変数 | 既定値 | 内容 |
 |---|---|---|
 | `ADMIN_ID` | なし | 管理画面のログイン ID。未設定ならログインできない |
-| `ADMIN_PASSWORD_HASH` | なし | パスワードの bcrypt ハッシュ。`echo -n 'password' \| go run ./cmd/hashpw` で作る |
+| `ADMIN_PASSWORD_HASH` | なし | パスワードの bcrypt ハッシュ。`read -rs PW; printf %s "$PW" \| go run ./cmd/hashpw; unset PW` で作る（`read -s` は入力を画面に出さず、shell の履歴にも残さない） |
 | `OPENBD_BASE_URL` | `https://api.openbd.jp` | openBD（登録・キー不要） |
 
 ## スタック（要約）

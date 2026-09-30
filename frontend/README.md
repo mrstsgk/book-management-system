@@ -28,7 +28,7 @@ pnpm build-storybook
 
 バックエンドを `ADMIN_ID` / `ADMIN_PASSWORD_HASH` を設定して起動し（手順は [`backend/README.md`](../backend/README.md)）、`http://localhost:3000/admin/login` から ID とパスワードでログインする（[ADR](../docs/adr/2026-09-30-admin-login-with-server-side-session.md)）。
 
-Vite のプロキシは Host を変えないので、書き込みの同一オリジン確認を通すには開発サーバーを `http://localhost:3000` で開く（`127.0.0.1` などでは 403 になる）。
+Vite のプロキシは Host を書き換えないので、開発サーバーを普通に開けば、バックエンドの書き込み時の Origin と Host の一致確認を通る。
 
 ## E2E テスト（Playwright、ローカル実行のみ）
 
@@ -42,7 +42,7 @@ make migrate-up
 make run                 # :8080
 
 # 2. ログイン情報（バックエンドの ADMIN_ID と、ADMIN_PASSWORD_HASH の元のパスワード）。
-#    src/testing/e2e/helpers.ts の login() が読む
+#    src/testing/e2e/helpers.ts の login() が読む。ハッシュの作り方は backend/README.md
 export E2E_ADMIN_ID=admin
 export E2E_ADMIN_PASSWORD='...'
 
