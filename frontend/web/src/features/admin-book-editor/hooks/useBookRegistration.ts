@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   useGetApiCatalogIsbn,
@@ -51,6 +51,15 @@ export function useBookRegistration() {
   const catalogQuery = useGetApiCatalogIsbn(confirmedIsbn || 'x', {
     query: { enabled: confirmedIsbn !== '' },
   })
+  // ISBN の確認もログイン済みでないと通らない。画面を開いたままセッションが切れた場合、
+  // 一般エラーで止めずに登録と同じくログイン画面へ送る。
+  // redirectIfUnauthorized は現在地が変わるたびに別の関数になるため依存に入れない
+  // （入れると、遷移後の現在地で二度目の遷移が走り state.from が /admin/login になる）
+  const catalogError = catalogQuery.error
+  useEffect(() => {
+    if (catalogError) redirectIfUnauthorized(catalogError)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogError])
   const tagsQuery = useGetApiTags()
   const registerMutation = usePostApiBooks()
 

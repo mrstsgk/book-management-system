@@ -139,6 +139,21 @@ describe('useBookRegistration', () => {
     )
   })
 
+  it('ISBN を確かめる要求が401（セッション切れ）ならログイン画面へ送る', async () => {
+    server.use(
+      http.get('*/api/catalog/:isbn', () =>
+        HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
+      ),
+      getGetApiTagsMockHandler({ items: [] }),
+    )
+    const { result } = renderUseBookRegistration()
+    act(() => result.current.setIsbn('9784297146221'))
+    act(() => result.current.confirm())
+
+    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
+    expect(current.state).toEqual({ from: '/admin/x' })
+  })
+
   it('登録が401ならログイン画面へ送る', async () => {
     server.use(
       getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
