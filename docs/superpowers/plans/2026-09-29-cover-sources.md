@@ -8,6 +8,8 @@
 
 **Tech Stack:** Go / Echo / GORM / golang-migrate / swag、React / Orval
 
+> **変更（2026-09-30）:** PR-C（Google Books の配線、#93）は取りやめて閉じ、PR-B で入れた `gateway/googlebooks` は消した。Google Books も API キーが必要なため（[ADR](../../adr/2026-09-30-cover-from-openbd-only.md)）。PR-A（楽天の撤去）だけが有効。
+
 **Spec:** `docs/superpowers/specs/2026-09-29-cover-sources-design.md`
 
 ## Global Constraints

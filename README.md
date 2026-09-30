@@ -25,7 +25,7 @@
 | バックエンドの層 | オニオンアーキテクチャ（Presentation → UseCase → Domain ← Infrastructure）。Domain は Echo・GORM・SQL・外部 API に依存しない | [`backend/architecture.md` §2](./backend/architecture.md#2-層と依存) |
 | 読み書きの分離 | CQRS。書き込みは Repository と Command DTO、読み取りは Read Model を返す Query に分ける（DB は1つ） | [`backend/architecture.md` §2](./backend/architecture.md#cqrsrepository-と-query) |
 | API の契約 | Go の DTO と Handler を正とし、swag で OpenAPI を出力。フロントは Orval で TypeScript の型とクライアントを生成する。生成物は手で直さず、CI で再生成してずれがあれば落とす | [`docs/architecture.md` §4](./docs/architecture.md#4-openapi--型契約境界) |
-| 外部カタログ | 書誌と書影は openBD から取り、提供元の URL をそのまま表示する（画像は保存しない）。取得元ごとの期限管理は持たない | [ADR](./docs/adr/2026-09-29-cover-from-google-books-and-openbd.md)・[設計](./docs/superpowers/specs/2026-09-29-cover-sources-design.md) |
+| 外部カタログ | 書誌と書影は openBD から取り、提供元の URL をそのまま表示する（画像は保存しない）。取得元ごとの期限管理は持たない | [ADR](./docs/adr/2026-09-30-cover-from-openbd-only.md)・[設計](./docs/superpowers/specs/2026-09-29-cover-sources-design.md) |
 | フロントエンド | React + Vite + TypeScript。UI はデジタル庁デザインシステム。サーバー状態は TanStack Query、表示とロジックは hooks とコンポーネントに分ける | [`frontend/architecture.md`](./frontend/architecture.md) |
 
 ## AI との協業とハーネス
