@@ -163,6 +163,18 @@ definitions:
         example: required
         type: string
     type: object
+  LoginRequest:
+    properties:
+      id:
+        example: admin
+        type: string
+      password:
+        example: correct horse battery staple
+        type: string
+    required:
+    - id
+    - password
+    type: object
   RegisterBookRequest:
     properties:
       comment:
@@ -303,9 +315,83 @@ definitions:
     type: object
 info:
   contact: {}
+  description: 書き込み系 API は POST /api/auth/login で得た httpOnly Cookie（admin_session）が要る
   title: Book Management System API
   version: 0.1.0
 paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: ID とパスワードが合えばセッションを発行し、httpOnly Cookie（admin_session）で返す。どちらが違うかは返さない。失敗が続くとしばらく
+        429
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/LoginRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: 管理画面にログインする
+      tags:
+      - auth
+  /api/auth/logout:
+    post:
+      description: サーバー側のセッションを消し、Cookie も消す。ログインしていなくても 204
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: ログアウトする
+      tags:
+      - auth
+  /api/auth/session:
+    get:
+      description: ログイン済みの Cookie（admin_session）が有効なら 204。画面のガードに使う。有効ならアイドル期限が延びる
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: ログイン中かを確かめる
+      tags:
+      - auth
   /api/books:
     get:
       description: 新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない
@@ -372,6 +458,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "409":
           description: Conflict
           schema:
@@ -380,8 +470,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorResponse'
-      security:
-      - AdminToken: []
       summary: 読んだ本を登録する（自分だけ）
       tags:
       - books
@@ -404,6 +492,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -412,8 +504,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorResponse'
-      security:
-      - AdminToken: []
       summary: 読んだ本を削除する（自分だけ）
       tags:
       - books
@@ -478,6 +568,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -490,8 +584,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorResponse'
-      security:
-      - AdminToken: []
       summary: 感想と評価を更新する（自分だけ）
       tags:
       - books
@@ -527,8 +619,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorResponse'
-      security:
-      - AdminToken: []
       summary: ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
       tags:
       - catalog
@@ -574,6 +664,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "409":
           description: Conflict
           schema:
@@ -582,8 +676,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorResponse'
-      security:
-      - AdminToken: []
       summary: 分野タグを追加する（自分だけ）
       tags:
       - tags
@@ -607,6 +699,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -615,8 +711,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorResponse'
-      security:
-      - AdminToken: []
       summary: 分野タグを削除する（自分だけ）
       tags:
       - tags
@@ -651,6 +745,10 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Not Found
           schema:
@@ -663,8 +761,6 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorResponse'
-      security:
-      - AdminToken: []
       summary: 分野タグの名前を変更する（自分だけ）
       tags:
       - tags
@@ -685,10 +781,4 @@ paths:
       summary: 分野タグごとの冊数を取得する
       tags:
       - tags
-securityDefinitions:
-  AdminToken:
-    description: 登録・更新・削除とカタログの確認に必要。「Bearer <ADMIN_TOKEN>」の形式で指定する
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"

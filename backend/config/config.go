@@ -11,8 +11,14 @@ type Config struct {
 	HTTPPort string
 	DB       DBConfig
 	Catalog  CatalogConfig
-	// AdminToken は書き込み系 API（登録・更新・削除）に必要なトークン。
-	AdminToken string
+	// Admin は管理画面のログインに使う ID とパスワードの bcrypt ハッシュ。既定値は無い（未設定ならログインできない）。
+	Admin AdminConfig
+}
+
+// AdminConfig は管理者 1 人分の資格情報。ハッシュは `go run ./cmd/hashpw` で作る。
+type AdminConfig struct {
+	ID           string
+	PasswordHash string
 }
 
 type DBConfig struct {
@@ -29,8 +35,8 @@ type CatalogConfig struct {
 	OpenBDBaseURL string
 }
 
-// Load は環境変数から Config を読み込む。既定値はローカルの docker compose の DB と開発用の管理者トークン
-// （デプロイしないので、環境ごとに必須の値を変える仕組みは持たない）。
+// Load は環境変数から Config を読み込む。既定値はローカルの docker compose の DB。
+// 管理者の ID・パスワードには既定値を置かない（設定漏れで書き込めるようにしないため）。
 func Load() (Config, error) {
 	var level slog.Level
 	if err := level.UnmarshalText([]byte(getenv("LOG_LEVEL", "info"))); err != nil {
@@ -50,7 +56,10 @@ func Load() (Config, error) {
 		Catalog: CatalogConfig{
 			OpenBDBaseURL: getenv("OPENBD_BASE_URL", "https://api.openbd.jp"),
 		},
-		AdminToken: getenv("ADMIN_TOKEN", "local-admin-token"),
+		Admin: AdminConfig{
+			ID:           os.Getenv("ADMIN_ID"),
+			PasswordHash: os.Getenv("ADMIN_PASSWORD_HASH"),
+		},
 	}, nil
 }
 

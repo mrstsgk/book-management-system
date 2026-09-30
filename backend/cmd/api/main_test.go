@@ -17,6 +17,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
+	domainauth "github.com/mrstsgk/book-management-system/backend/internal/domain/auth"
+	pgauth "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/auth"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
 	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
@@ -46,7 +48,7 @@ func TestRun_FailsWhenDBIsUnreachable(t *testing.T) {
 
 func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 	e := echo.New()
-	registerRoutes(e, nil, nil, "token")
+	registerRoutes(e, nil, nil, config.Config{})
 
 	got := map[string]bool{}
 	for _, r := range e.Routes() {
@@ -59,6 +61,9 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 		"PUT /api/books/:id",
 		"DELETE /api/books/:id",
 		"GET /api/catalog/:isbn",
+		"POST /api/auth/login",
+		"POST /api/auth/logout",
+		"GET /api/auth/session",
 		"GET /api/tags",
 		"GET /api/tags/counts",
 		"POST /api/tags",
@@ -88,12 +93,24 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 	}
 
 	e := httpcommon.NewEcho()
-	registerRoutes(e, db, nil, "token")
+	registerRoutes(e, db, nil, config.Config{})
+
+	// 書き込み系はセッションと Origin が要るので、有効なセッション行を1件作って Cookie に載せる
+	sid, err := domainauth.NewSessionID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pgauth.NewRepository(db).Save(context.Background(), domainauth.NewSession(sid, time.Now())); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(sid)) })
+	cookie := &http.Cookie{Name: httpcommon.SessionCookieName, Value: string(sid)}
 
 	body := `{"isbn":"4873118700","summary":"要約","tagIds":[999999999],"comment":"良書","rating":5}`
 	req := httptest.NewRequest(http.MethodPost, "/api/books", strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	req.Header.Set("Origin", "http://example.com")
+	req.AddCookie(cookie)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -117,7 +134,8 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 	updateBody := `{"summary":"main-test-まとめ","tagIds":[999999999],"comment":"main-test-感想","rating":4,"version":1}`
 	updateReq := httptest.NewRequest(http.MethodPut, "/api/books/"+strconv.FormatInt(bookID, 10), strings.NewReader(updateBody))
 	updateReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	updateReq.Header.Set(echo.HeaderAuthorization, "Bearer token")
+	updateReq.Header.Set("Origin", "http://example.com")
+	updateReq.AddCookie(cookie)
 	updateRec := httptest.NewRecorder()
 	e.ServeHTTP(updateRec, updateReq)
 
