@@ -21,7 +21,7 @@
 | マイグレーション | **golang-migrate**（`backend/migrations/` が SQL の正。アプリ起動時 migrate しない） |
 | HTTP / OpenAPI | Echo + validator + swag。**Go の DTO／Handler が BE の正** |
 | FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
-| 書誌・書影 | 外部カタログ。Domain の `book.BookCatalog`（ExternalGateway）を `infrastructure/gateway/openbd`・`rakuten` が実装し、`gateway/catalog` が「書誌は openBD だけから取り、書影が無ければ楽天で補う」形に組み合わせる。画像は保存しない |
+| 書誌・書影 | 外部カタログ。Domain の `book.BookCatalog`（ExternalGateway）を `infrastructure/gateway/openbd` が実装する。画像は保存しない。openBD に書影が無ければ書影なし（[ADR](../docs/adr/2026-09-30-cover-from-openbd-only.md)） |
 | 認証 | 書き込み系だけ管理者トークン（`presentation/http/common.RequireAdminToken`）。閲覧は認証なし |
 | ツールチェーン | **mise で Go 版を固定**（リポジトリ直下 `.mise.toml`。`go.mod` と揃える） |
 | ローカル開発 | API は**ホストの Go**、DB は **Docker Compose**。Dev Container なし |
@@ -179,7 +179,6 @@ backend/
 | `POST` | `/api/books` | 読んだ本を登録する（`isbn`・`summary`・`comment`・`rating`、任意で `titleOverride`・分野タグ（`tagIds`）。書誌と書影は ISBN で外部カタログから取得。openBD に無ければ 400、同じ ISBN は 409） | 必要 |
 | `PUT` | `/api/books/{id}` | 一言まとめ・感想・評価・書名の上書き・分野タグ（`tagIds`）を更新する（楽観的ロック。書誌と書影を取り直す） | 必要 |
 | `DELETE` | `/api/books/{id}` | 読んだ本を削除する | 必要 |
-| `DELETE` | `/api/books/{id}/rakuten` | 楽天から削除の指示を受けた本の楽天由来の情報を消す（以後その本に楽天の書影を付けない。楽天の情報を持たない本でも204） | 必要 |
 | `GET` | `/api/catalog/{isbn}` | 登録前に、ISBN で外部カタログの書誌と書影を確かめる | 必要 |
 | `GET` | `/api/tags` | 分野タグの一覧 | 不要 |
 | `GET` | `/api/tags/counts` | 分野タグごとの冊数（本が付いていないタグは含めない。冊数の多い順、同数ならタグ名順） | 不要 |
@@ -188,9 +187,7 @@ backend/
 | `DELETE` | `/api/tags/{id}` | 分野タグを削除する（付いていた本からは自動で外れる） | 必要 |
 
 - 認証は `Authorization: Bearer <ADMIN_TOKEN>`。自分だけが書き込めればよいので、ユーザー管理は持たない
-- 書影は提供元の URL をそのまま返す。`coverSource` が `rakuten` なら画面に楽天ウェブサービスのクレジット表示が必要（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）
-- 楽天の書影は楽天の商品ページ（`coverProductUrl`）と一緒に返す。取得から89日以上経過した楽天の書影は返さない（楽天の規約の保持期限）（[設計](../docs/superpowers/specs/2026-09-28-rakuten-expiry-design.md)）
-- 楽天の書影は、API の起動時・稼働中は1日1回・本の更新時に、期限が近いものを取り直す。取り直せないまま期限を過ぎたら外す
+- 書影は提供元の URL をそのまま返す（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）。登録と更新のたびに取り直す
 
 ## 5. やらないこと（全体）
 

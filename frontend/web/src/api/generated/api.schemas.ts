@@ -9,14 +9,11 @@ export type BookListItemResponseCoverSource = typeof BookListItemResponseCoverSo
 
 export const BookListItemResponseCoverSource = {
   openbd: 'openbd',
-  rakuten: 'rakuten',
 } as const;
 
 export interface BookListItemResponse {
   amazonUrl?: string;
   authors?: string;
-  /** CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。 */
-  coverProductUrl?: string;
   coverSource?: BookListItemResponseCoverSource;
   coverUrl?: string;
   id?: number;
@@ -40,7 +37,6 @@ export type BookResponseCoverSource = typeof BookResponseCoverSource[keyof typeo
 
 export const BookResponseCoverSource = {
   openbd: 'openbd',
-  rakuten: 'rakuten',
 } as const;
 
 export interface BookResponse {
@@ -48,17 +44,13 @@ export interface BookResponse {
   amazonUrl?: string;
   authors?: string;
   comment?: string;
-  /** CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。楽天の書影は画面でこのリンクと一緒に見せる必要がある。 */
-  coverProductUrl?: string;
   coverSource?: BookResponseCoverSource;
-  /** CoverURL は提供元がホストする画像。coverSource が rakuten なら画面にクレジット表示が必要。 */
+  /** CoverURL は提供元がホストする画像。 */
   coverUrl?: string;
   id?: number;
   isbn?: string;
   publishedOn?: string;
   publisher?: string;
-  /** RakutenDisabled は楽天から削除の指示を受けて楽天由来の情報を消した本（以後、楽天の書影は付かない）。 */
-  rakutenDisabled?: boolean;
   rating?: number;
   summary?: string;
   tags?: string[];
@@ -74,14 +66,11 @@ export type CatalogResponseCoverSource = typeof CatalogResponseCoverSource[keyof
 
 export const CatalogResponseCoverSource = {
   openbd: 'openbd',
-  rakuten: 'rakuten',
 } as const;
 
 export interface CatalogResponse {
   amazonUrl?: string;
   authors?: string;
-  /** CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。 */
-  coverProductUrl?: string;
   coverSource?: CatalogResponseCoverSource;
   coverUrl?: string;
   isbn?: string;

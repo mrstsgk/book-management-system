@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "typecheck": "pnpm --filter web typecheck",
     "test": "pnpm --filter web test",
+    "test:e2e": "pnpm --filter web test:e2e",
     "build-storybook": "pnpm --filter web build-storybook",
     "storybook": "pnpm --filter web storybook",
     "gen:api": "pnpm --filter web gen:api",

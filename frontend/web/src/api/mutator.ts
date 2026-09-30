@@ -3,13 +3,22 @@
 /** Empty in local dev (Vite proxies /api). Set VITE_API_BASE_URL for deployed API. */
 const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
 
+export type FieldErrorDetail = { field: string; rule: string }
+
 export class ApiError extends Error {
   readonly status: number
+  // 入力検証の 400 のときだけ中身がある（field は JSON 名）
+  readonly fieldErrors: FieldErrorDetail[]
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    fieldErrors: FieldErrorDetail[] = [],
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.fieldErrors = fieldErrors
   }
 }
 
@@ -21,6 +30,20 @@ function extractMessage(payload: unknown): string | undefined {
   if (typeof payload !== 'object' || payload === null) return undefined
   const { message } = payload as { message?: unknown }
   return typeof message === 'string' ? message : undefined
+}
+
+// BindValidate の 400 は errors[{field, rule}] を持つ。形が崩れた要素は捨てる
+function extractFieldErrors(payload: unknown): FieldErrorDetail[] {
+  if (typeof payload !== 'object' || payload === null) return []
+  const { errors } = payload as { errors?: unknown }
+  if (!Array.isArray(errors)) return []
+  return errors.filter(
+    (e): e is FieldErrorDetail =>
+      typeof e === 'object' &&
+      e !== null &&
+      typeof (e as { field?: unknown }).field === 'string' &&
+      typeof (e as { rule?: unknown }).rule === 'string',
+  )
 }
 
 export async function apiMutator<T>(
@@ -40,6 +63,7 @@ export async function apiMutator<T>(
     throw new ApiError(
       response.status,
       extractMessage(payload) ?? `API error: ${response.status}`,
+      extractFieldErrors(payload),
     )
   }
 

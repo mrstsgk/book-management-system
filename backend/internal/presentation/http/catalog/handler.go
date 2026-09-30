@@ -21,9 +21,7 @@ type Response struct {
 	PublishedOn string  `json:"publishedOn" example:"201907"`
 	AmazonURL   *string `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
 	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
-	CoverSource *string `json:"coverSource" enums:"openbd,rakuten" example:"openbd"`
-	// CoverProductURL は楽天の商品ページ（楽天の書影のときだけ）。
-	CoverProductURL *string `json:"coverProductUrl" example:"https://books.rakuten.co.jp/rb/15949390/"`
+	CoverSource *string `json:"coverSource" enums:"openbd" example:"openbd"`
 } // @name CatalogResponse
 
 // Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
@@ -39,7 +37,7 @@ func (h *Handler) Register(g *echo.Group) {
 
 // Lookup godoc
 // @Summary      ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
-// @Description  登録前の確認用。書誌は openBD から取得し、書影が無ければ楽天ブックスで補う
+// @Description  登録前の確認用。書誌と書影は openBD から取得する
 // @Tags         catalog
 // @Produce      json
 // @Security     AdminToken
@@ -73,9 +71,6 @@ func toResponse(e *domainbook.CatalogEntry) Response {
 	if e.Cover != nil {
 		u, src := e.Cover.URL(), string(e.Cover.Source())
 		res.CoverURL, res.CoverSource = &u, &src
-		if p := e.Cover.ProductURL(); p != "" {
-			res.CoverProductURL = &p
-		}
 	}
 	return res
 }

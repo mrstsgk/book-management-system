@@ -18,7 +18,7 @@ cd backend
 make tools          # swag / migrate / golangci-lint / govulncheck を版固定で導入
 make db-up
 make migrate-up
-make run            # 本が1冊も無ければ、起動時に見本データ（5冊）が入る
+make run            # 本が1冊も無ければ、起動時に見本データ（10冊）が入る
 # http://localhost:8080/health
 # http://localhost:8080/api/books
 # 登録: curl -H "Authorization: Bearer local-admin-token" -H "Content-Type: application/json" \
@@ -31,7 +31,7 @@ make swagger
 ## 現状
 
 - 読んだ本の API（一覧・詳細・登録・更新・削除）とカタログの確認 API、分野タグの API（一覧・追加・改名・削除）（範囲は `architecture.md` §4）
-- 書誌は ISBN で openBD から取得し、書影が無ければ楽天ブックスで補う（楽天は任意。書誌は楽天から取らない）
+- 書誌と書影は ISBN で openBD から取得する
 - 書き込み系は管理者トークンが必要（`Authorization: Bearer <ADMIN_TOKEN>`）
 - Repository／Query の契約テストはローカルの PostgreSQL（`make db-up migrate-up`）に対して実行し、起動していなければ skip する。外部カタログのゲートウェイは偽の HTTP サーバに対してテストする
 - OpenAPI: `make swagger` → `backend/api/docs/`（手編集禁止。CI でドリフト検知）
@@ -42,8 +42,6 @@ make swagger
 |---|---|---|
 | `ADMIN_TOKEN` | `local-admin-token` | 書き込み系 API のトークン（既定値は開発用） |
 | `OPENBD_BASE_URL` | `https://api.openbd.jp` | openBD（登録・キー不要） |
-| `RAKUTEN_APPLICATION_ID` / `RAKUTEN_ACCESS_KEY` | なし | 楽天ウェブサービスのアプリ ID とアクセスキー（任意。両方あるときだけ書影を楽天で補う） |
-| `RAKUTEN_BASE_URL` | `https://openapi.rakuten.co.jp` | 楽天ウェブサービス |
 
 ## スタック（要約）
 
@@ -52,7 +50,7 @@ make swagger
 | HTTP | Echo + validator + swag |
 | 設計 | オニオン + DDD + CQRS（単一 DB） |
 | DB | PostgreSQL + GORM / golang-migrate |
-| 書誌・書影 | openBD（登録不要）＋楽天ブックス書籍検索 API（任意） |
+| 書誌・書影 | openBD（登録不要） |
 | FE 契約 | swag 排出 OpenAPI → TypeScript 生成（必須） |
 
 詳細は [`architecture.md`](./architecture.md)。

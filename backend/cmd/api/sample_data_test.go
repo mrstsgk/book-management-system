@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
 
 func TestSampleBooks_AreValidAndDistinct(t *testing.T) {
-	if len(sampleBooks) != 5 {
-		t.Fatalf("len(sampleBooks) = %d, want 5", len(sampleBooks))
+	if len(sampleBooks) != 10 {
+		t.Fatalf("len(sampleBooks) = %d, want 10", len(sampleBooks))
 	}
 	seen := map[string]bool{}
 	for _, s := range sampleBooks {
@@ -25,8 +24,31 @@ func TestSampleBooks_AreValidAndDistinct(t *testing.T) {
 		}
 		seen[b.ISBN.String()] = true
 		if b.Cover != nil {
-			t.Fatalf("%s: sample data must not carry a cover (楽天由来の情報を持たない)", s.isbn)
+			t.Fatalf("%s: sample data must not carry a cover (書影は起動時に外部カタログから取る)", s.isbn)
 		}
+	}
+}
+
+// 一言まとめ・感想は仮の下書き文言（ADR: 2026-09-30-sample-book-comments-as-drafts）だが、
+// それぞれ書誌に沿った内容にする方針のため、旧仮文言や本同士の使い回しへの回帰を防ぐ。
+func TestSampleBooks_SummaryAndCommentAreDistinctPerBook(t *testing.T) {
+	seenSummary := map[string]string{}
+	seenComment := map[string]string{}
+	for _, s := range sampleBooks {
+		if s.summary == "" || s.summary == "（準備中）" {
+			t.Fatalf("%s: summary is a placeholder (%q)", s.isbn, s.summary)
+		}
+		if s.comment == "" || s.comment == "（準備中）" {
+			t.Fatalf("%s: comment is a placeholder (%q)", s.isbn, s.comment)
+		}
+		if prev, ok := seenSummary[s.summary]; ok {
+			t.Fatalf("%s: summary reused from %s", s.isbn, prev)
+		}
+		if prev, ok := seenComment[s.comment]; ok {
+			t.Fatalf("%s: comment reused from %s", s.isbn, prev)
+		}
+		seenSummary[s.summary] = s.isbn
+		seenComment[s.comment] = s.isbn
 	}
 }
 
@@ -56,10 +78,6 @@ func (f *fakeSeedBooks) CreateAll(_ context.Context, books []*domainbook.Book) e
 
 func (f *fakeSeedBooks) Update(context.Context, *domainbook.Book) error { return nil }
 func (f *fakeSeedBooks) Delete(context.Context, domainbook.ID) error    { return nil }
-
-func (f *fakeSeedBooks) FindRakutenRefreshTargets(context.Context, time.Time) ([]*domainbook.Book, error) {
-	return nil, nil
-}
 
 // fakeSeedQuery は book.Query の手書き Fake。total 冊の本がある DB を表す。
 type fakeSeedQuery struct {

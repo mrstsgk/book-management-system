@@ -5,18 +5,23 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
+  useInfiniteQuery,
   useMutation,
   useQuery
 } from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
+  DefinedUseInfiniteQueryResult,
   DefinedUseQueryResult,
+  InfiniteData,
   MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseInfiniteQueryOptions,
+  UseInfiniteQueryResult,
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
@@ -95,11 +100,84 @@ export const getApiBooks = async (params?: GetApiBooksParams, options?: Paramete
 
 
 
+export const getGetApiBooksInfiniteQueryKey = (params?: GetApiBooksParams,) => {
+    return [
+    'infinite', `/api/books`, ...(params ? [params] : [])
+    ] as const;
+    }
+
 export const getGetApiBooksQueryKey = (params?: GetApiBooksParams,) => {
     return [
     `/api/books`, ...(params ? [params] : [])
     ] as const;
     }
+
+
+export const getGetApiBooksInfiniteQueryOptions = <TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(params?: GetApiBooksParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>>, request?: SecondParameter<typeof apiMutator>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiBooksInfiniteQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiBooks>>, QueryKey, GetApiBooksParams['offset']> = ({ signal, pageParam }) => getApiBooks({...params, 'offset': pageParam ?? params?.['offset']}, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiBooksInfiniteQueryResult = NonNullable<Awaited<ReturnType<typeof getApiBooks>>>
+export type GetApiBooksInfiniteQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetApiBooksInfinite<TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(
+ params: undefined |  GetApiBooksParams, options: { query:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiBooks>>,
+          TError,
+          Awaited<ReturnType<typeof getApiBooks>>, QueryKey
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  DefinedUseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiBooksInfinite<TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiBooks>>,
+          TError,
+          Awaited<ReturnType<typeof getApiBooks>>, QueryKey
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiBooksInfinite<TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+  ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary 読んだ本の一覧を取得する
+ */
+
+export function useGetApiBooksInfinite<TData = InfiniteData<Awaited<ReturnType<typeof getApiBooks>>, GetApiBooksParams['offset']>, TError = ErrorType<ErrorResponse>>(
+ params?: GetApiBooksParams, options?: { query?:Partial<UseInfiniteQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData, QueryKey, GetApiBooksParams['offset']>>, request?: SecondParameter<typeof apiMutator>}
+ , queryClient?: QueryClient
+ ):  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiBooksInfiniteQueryOptions(params,options)
+
+  const query = useInfiniteQuery(queryOptions, queryClient) as  UseInfiniteQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
 
 
 export const getGetApiBooksQueryOptions = <TData = Awaited<ReturnType<typeof getApiBooks>>, TError = ErrorType<ErrorResponse>>(params?: GetApiBooksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiBooks>>, TError, TData>>, request?: SecondParameter<typeof apiMutator>}
@@ -179,7 +257,7 @@ export const getPostApiBooksUrl = () => {
 }
 
 /**
- * 書誌は ISBN で openBD から取得し、書影が無ければ楽天ブックスで補う。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409
+ * 書誌と書影は ISBN で openBD から取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409
  * @summary 読んだ本を登録する（自分だけ）
  */
 export const postApiBooks = async (registerBookRequest: RegisterBookRequest, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
@@ -524,81 +602,6 @@ export const usePutApiBooksId = <TError = ErrorType<ErrorResponse>,
       return useMutation(getPutApiBooksIdMutationOptions(options), queryClient);
     }
 
-export const getDeleteApiBooksIdRakutenUrl = (id: number,) => {
-
-
-
-
-  return `/api/books/${id}/rakuten`
-}
-
-/**
- * 楽天から削除の指示を受けた本の楽天の書影・商品ページを消し、以後この本には楽天の書影を付けない。楽天の情報を持たない本でも 204。version は受け取らない（削除の指示には最後に読んだ内容に関係なく従うため）
- * @summary 楽天由来の情報を消す（自分だけ）
- */
-export const deleteApiBooksIdRakuten = async (id: number, options?: Parameters<typeof apiMutator>[1]): Promise<void> => {
-
-  return apiMutator<void>(getDeleteApiBooksIdRakutenUrl(id),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-
-export const getDeleteApiBooksIdRakutenMutationKey = () => ['deleteApiBooksIdRakuten'] as const;
-
-export const getDeleteApiBooksIdRakutenMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>, TError,DeleteApiBooksIdRakutenMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>, TError,DeleteApiBooksIdRakutenMutationVariables, TContext> => {
-
-const mutationKey = getDeleteApiBooksIdRakutenMutationKey();
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>, DeleteApiBooksIdRakutenMutationVariables> = (props) => {
-          const {id} = props ?? {};
-
-          return  deleteApiBooksIdRakuten(id,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteApiBooksIdRakutenMutationResult = NonNullable<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>>
-
-    export type DeleteApiBooksIdRakutenMutationError = ErrorType<ErrorResponse>
-    export type DeleteApiBooksIdRakutenMutationVariables = {id: number}
-
-    /**
- * @summary 楽天由来の情報を消す（自分だけ）
- */
-export const useDeleteApiBooksIdRakuten = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>, TError,DeleteApiBooksIdRakutenMutationVariables, TContext>, request?: SecondParameter<typeof apiMutator>}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof deleteApiBooksIdRakuten>>,
-        TError,
-        DeleteApiBooksIdRakutenMutationVariables,
-        TContext
-      > => {
-      return useMutation(getDeleteApiBooksIdRakutenMutationOptions(options), queryClient);
-    }
-
 export const getGetApiCatalogIsbnUrl = (isbn: string,) => {
 
 
@@ -608,7 +611,7 @@ export const getGetApiCatalogIsbnUrl = (isbn: string,) => {
 }
 
 /**
- * 登録前の確認用。書誌は openBD から取得し、書影が無ければ楽天ブックスで補う
+ * 登録前の確認用。書誌と書影は openBD から取得する
  * @summary ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
  */
 export const getApiCatalogIsbn = async (isbn: string, options?: Parameters<typeof apiMutator>[1]): Promise<CatalogResponse> => {

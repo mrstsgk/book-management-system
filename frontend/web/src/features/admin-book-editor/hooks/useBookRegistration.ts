@@ -1,0 +1,122 @@
+import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  useGetApiCatalogIsbn,
+  useGetApiTags,
+  usePostApiBooks,
+} from '@/api/generated/api'
+import { ApiError } from '@/api/mutator'
+import { adminRequest } from '@/lib/admin-auth'
+import {
+  emptyBookFormValues,
+  type BookFormErrors,
+  type BookFormValues,
+} from '../types'
+import { toFieldMessages } from '../utils/serverFieldErrors'
+import { validateBookForm } from '../utils/validateBookForm'
+import { visibleLocalErrors } from '../utils/visibleErrors'
+
+// 登録が失敗したとき、フィールドの誤り以外（カタログに無い・二重登録など）の一般的な文言にする
+function generalRegisterMessage(error: ApiError | null): string | undefined {
+  if (!error) return undefined
+  if (error.fieldErrors.length > 0) return undefined
+  if (error.status === 409) return 'この ISBN の本はすでに登録されています。'
+  if (error.status === 400)
+    return 'この ISBN の本は外部カタログに見つかりませんでした。'
+  return '登録できませんでした。時間をおいてもう一度お試しください。'
+}
+
+// ISBN を確かめた結果を、画面が出し分ける状態（見つからない・形式が不正・一時的な障害）に分類する。
+// 400（形式・チェックディジットが不正）は入力の誤りであり再試行しても解消しないため、
+// 一時的な障害（500・通信断など）とは別の文言にする
+function catalogErrorState(error: ApiError | undefined) {
+  return {
+    isNotFound: error?.status === 404,
+    isInvalid: error?.status === 400,
+    isError:
+      error !== undefined && error.status !== 404 && error.status !== 400,
+  }
+}
+
+export function useBookRegistration() {
+  const navigate = useNavigate()
+  const [isbn, setIsbn] = useState('')
+  const [confirmedIsbn, setConfirmedIsbn] = useState('')
+  const [values, setValues] = useState<BookFormValues>(emptyBookFormValues)
+  const [localErrors, setLocalErrors] = useState<BookFormErrors>({})
+  const [registered, setRegistered] = useState(false)
+  const submitting = useRef(false)
+
+  const catalogQuery = useGetApiCatalogIsbn(confirmedIsbn || 'x', {
+    query: { enabled: confirmedIsbn !== '' },
+    request: adminRequest(),
+  })
+  const tagsQuery = useGetApiTags({ request: adminRequest() })
+  const registerMutation = usePostApiBooks({ request: adminRequest() })
+
+  const confirm = () => {
+    setConfirmedIsbn(isbn.trim())
+  }
+
+  const submit = () => {
+    if (submitting.current) return
+    const errors = validateBookForm(values)
+    setLocalErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
+    submitting.current = true
+    registerMutation.mutate(
+      {
+        data: {
+          // isbn（入力欄）ではなく confirmedIsbn を送る。確認後に入力欄だけ書き換えても
+          // catalog.confirmed は true のままなので、確認していない ISBN で登録してしまわないため
+          isbn: confirmedIsbn,
+          summary: values.summary.trim(),
+          comment: values.comment,
+          rating: values.rating,
+          tagIds: values.tagIds,
+          titleOverride: values.titleOverride.trim() || undefined,
+        },
+      },
+      {
+        onSettled: () => {
+          submitting.current = false
+        },
+        onSuccess: () => {
+          setRegistered(true)
+          navigate('/admin', { state: { notice: '本を登録しました' } })
+        },
+      },
+    )
+  }
+
+  const serverErrors = registerMutation.error
+    ? toFieldMessages(registerMutation.error.fieldErrors)
+    : {}
+  const errors: BookFormErrors = {
+    ...serverErrors,
+    ...visibleLocalErrors(localErrors, values),
+  }
+
+  return {
+    isbn,
+    setIsbn,
+    confirm,
+    catalog: {
+      data: catalogQuery.data,
+      isLoading: catalogQuery.isFetching,
+      ...catalogErrorState(catalogQuery.error ?? undefined),
+      confirmed: confirmedIsbn !== '' && catalogQuery.isSuccess,
+    },
+    tags: tagsQuery.data?.items ?? [],
+    values,
+    setValues,
+    errors,
+    generalError: generalRegisterMessage(registerMutation.error),
+    submit,
+    submitting: registerMutation.isPending,
+    registered,
+  }
+}
+
+export type BookRegistration = ReturnType<typeof useBookRegistration>

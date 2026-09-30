@@ -3,7 +3,6 @@ package book_test
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
@@ -136,127 +135,18 @@ func TestBook_RefreshCatalog(t *testing.T) {
 	}
 }
 
-func TestBook_DropExpiredCover(t *testing.T) {
+func TestBook_RefreshCatalog_ReplacesCover(t *testing.T) {
 	t.Parallel()
-	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
-	rakuten := func(t *testing.T, fetchedAt time.Time) *book.Cover {
-		t.Helper()
-		c, err := book.NewRakutenCover("https://thumbnail.image.rakuten.co.jp/1.jpg", "https://books.rakuten.co.jp/rb/1/", fetchedAt)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return &c
-	}
-	openbd, err := book.NewCover("https://cover.openbd.jp/9784873118703.jpg", book.CoverSourceOpenBD)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tests := []struct {
-		name        string
-		cover       *book.Cover
-		wantDropped bool
-	}{
-		{name: "楽天の書影は保持期限ちょうどで外す", cover: rakuten(t, now.Add(-book.RakutenRetention)), wantDropped: true},
-		{name: "楽天の書影は保持期限の1秒前なら残す", cover: rakuten(t, now.Add(-book.RakutenRetention+time.Second)), wantDropped: false},
-		{name: "openBDの書影は古くても残す", cover: &openbd, wantDropped: false},
-		{name: "書影なしは何もしない", cover: nil, wantDropped: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			b := mustBook(t)
-			b.Cover = tt.cover
-
-			dropped := b.DropExpiredCover(now)
-
-			if dropped != tt.wantDropped {
-				t.Fatalf("dropped = %v, want %v", dropped, tt.wantDropped)
-			}
-			if tt.wantDropped && b.Cover != nil {
-				t.Fatalf("Cover = %+v, want nil after dropping", b.Cover)
-			}
-			if !tt.wantDropped && b.Cover != tt.cover {
-				t.Fatal("Cover changed although it was not dropped")
-			}
-		})
-	}
-}
-
-func mustRakutenCover(t *testing.T) book.Cover {
-	t.Helper()
-	c, err := book.NewRakutenCover("https://thumbnail.image.rakuten.co.jp/1.jpg", "https://books.rakuten.co.jp/rb/1/", time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return c
-}
-
-func TestBook_DisableRakuten(t *testing.T) {
-	t.Parallel()
+	b := mustBook(t)
 	bib, _ := book.NewBibliography("データ指向アプリケーションデザイン", "Kleppmann,Martin", "オーム社", "201907")
+	oc, _ := book.NewCover("https://cover.openbd.jp/new.jpg", book.CoverSourceOpenBD)
 
-	t.Run("楽天の書影を外して無効化する", func(t *testing.T) {
-		t.Parallel()
-		b := mustBook(t)
-		rc := mustRakutenCover(t)
-		b.RefreshCatalog(bib, &rc)
+	b.RefreshCatalog(bib, &oc)
+	oc = book.Cover{}
 
-		b.DisableRakuten()
-
-		if b.Cover != nil || !b.RakutenDisabled {
-			t.Fatalf("cover=%v disabled=%v, want no cover and disabled", b.Cover, b.RakutenDisabled)
-		}
-	})
-
-	t.Run("openBDの書影は残す", func(t *testing.T) {
-		t.Parallel()
-		b := mustBook(t)
-
-		b.DisableRakuten()
-
-		if b.Cover == nil || b.Cover.Source() != book.CoverSourceOpenBD || !b.RakutenDisabled {
-			t.Fatalf("cover=%v disabled=%v, want the openBD cover kept and disabled", b.Cover, b.RakutenDisabled)
-		}
-	})
-
-	t.Run("無効化した本には取り直しでも楽天の書影を付けない", func(t *testing.T) {
-		t.Parallel()
-		b := mustBook(t)
-		b.DisableRakuten()
-		rc := mustRakutenCover(t)
-
-		b.RefreshCatalog(bib, &rc)
-
-		if b.Cover != nil || b.Bibliography != bib {
-			t.Fatalf("cover=%v bibliography=%+v, want no cover and the refreshed bibliography", b.Cover, b.Bibliography)
-		}
-	})
-
-	t.Run("無効化した本でもopenBDの書影は取り直しで付く", func(t *testing.T) {
-		t.Parallel()
-		b := mustBook(t)
-		b.DisableRakuten()
-		oc, _ := book.NewCover("https://cover.openbd.jp/new.jpg", book.CoverSourceOpenBD)
-
-		b.RefreshCatalog(bib, &oc)
-
-		if b.Cover == nil || b.Cover.URL() != "https://cover.openbd.jp/new.jpg" {
-			t.Fatalf("cover=%v, want the openBD cover", b.Cover)
-		}
-	})
-
-	t.Run("無効化していない本には楽天の書影を付ける", func(t *testing.T) {
-		t.Parallel()
-		b := mustBook(t)
-		rc := mustRakutenCover(t)
-
-		b.RefreshCatalog(bib, &rc)
-
-		if b.Cover == nil || b.Cover.Source() != book.CoverSourceRakuten {
-			t.Fatalf("cover=%v, want the Rakuten cover", b.Cover)
-		}
-	})
+	if b.Cover == nil || b.Cover.URL() != "https://cover.openbd.jp/new.jpg" {
+		t.Fatalf("cover=%v, want the refreshed openBD cover kept independent of the caller's variable", b.Cover)
+	}
 }
 
 // Read Model は書き込み側の VO・Entity に依存しない（docs/rules/testing.md）。

@@ -59,4 +59,60 @@ describe('apiMutator', () => {
 
     await expect(apiMutator('/api/ping')).rejects.toBeInstanceOf(ApiError)
   })
+
+  it('入力検証の 400 はフィールドごとの誤りを fieldErrors に持つ', async () => {
+    server.use(
+      http.post('/api/ping', () =>
+        HttpResponse.json(
+          {
+            message: 'validation failed',
+            errors: [
+              { field: 'summary', rule: 'required' },
+              { field: 'comment', rule: 'max' },
+            ],
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+
+    await expect(
+      apiMutator('/api/ping', { method: 'POST' }),
+    ).rejects.toMatchObject({
+      status: 400,
+      fieldErrors: [
+        { field: 'summary', rule: 'required' },
+        { field: 'comment', rule: 'max' },
+      ],
+    })
+  })
+
+  it('errors が無い・形が崩れた要素は fieldErrors に入れない', async () => {
+    server.use(
+      http.post('/api/ping', () =>
+        HttpResponse.json(
+          { message: 'bad', errors: [{ field: 'summary' }, 'x', null] },
+          { status: 400 },
+        ),
+      ),
+      http.get('/api/ping', () =>
+        HttpResponse.json({ message: 'conflict' }, { status: 409 }),
+      ),
+    )
+
+    await expect(
+      apiMutator('/api/ping', { method: 'POST' }),
+    ).rejects.toMatchObject({ fieldErrors: [] })
+    await expect(apiMutator('/api/ping')).rejects.toMatchObject({
+      fieldErrors: [],
+    })
+  })
+
+  it('ネットワークエラーの fieldErrors は空', async () => {
+    server.use(http.get('/api/ping', () => HttpResponse.error()))
+
+    await expect(apiMutator('/api/ping')).rejects.toMatchObject({
+      fieldErrors: [],
+    })
+  })
 })

@@ -3,7 +3,7 @@
 **日付:** 2026-09-28
 **状態:** 採用
 **カテゴリ:** architecture / library / infra
-**参照:** 一部を置き換えられた: [楽天ブックスは書影を補う用途だけに使う](./2026-09-28-rakuten-for-cover-only.md)（openBD に該当が無いとき楽天で補う部分）、[読んだ本の紹介としての作り直し](./2026-09-28-rebuild-as-reading-portfolio.md)、置き換え前: [書籍の表紙画像を S3 に保存し、ローカルは LocalStack 4.9 で代替する](./2026-09-28-book-image-storage-s3-localstack.md)
+**参照:** 一部を置き換えられた: [書影は openBD だけから取り、無ければ書影なしにする](./2026-09-30-cover-from-openbd-only.md)（今の書影の取得元）、[書影は Google Books → openBD の順で取り、楽天ブックスは撤去する](./2026-09-29-cover-from-google-books-and-openbd.md)（書影の取得元。楽天の部分は撤去）、[楽天ブックスは書影を補う用途だけに使う](./2026-09-28-rakuten-for-cover-only.md)（openBD に該当が無いとき楽天で補う部分）、[読んだ本の紹介としての作り直し](./2026-09-28-rebuild-as-reading-portfolio.md)、置き換え前: [書籍の表紙画像を S3 に保存し、ローカルは LocalStack 4.9 で代替する](./2026-09-28-book-image-storage-s3-localstack.md)
 
 ## 背景・経緯
 
