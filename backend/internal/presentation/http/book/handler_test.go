@@ -261,7 +261,7 @@ func TestHandlerGet(t *testing.T) {
 func TestHandlerRegister(t *testing.T) {
 	body := `{"isbn":"978-4-87311-870-3","summary":"分散データの設計を学べる","comment":"良書","rating":5}`
 
-	t.Run("トークンがあれば入力をそのままusecaseに渡し200で返す", func(t *testing.T) {
+	t.Run("ログイン済みなら入力をそのままusecaseに渡し200で返す", func(t *testing.T) {
 		var got bookcmd.RegisterCommand
 		h := &httpbook.Handler{RegisterUC: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
 			got = cmd
@@ -389,7 +389,7 @@ func TestHandlerRegister(t *testing.T) {
 func TestHandlerUpdate(t *testing.T) {
 	body := `{"summary":"読み返してのまとめ","comment":"読み返した","rating":4,"version":2}`
 
-	t.Run("トークンがあればパスのIDとバージョンをusecaseに渡し200で返す", func(t *testing.T) {
+	t.Run("ログイン済みならパスのIDとバージョンをusecaseに渡し200で返す", func(t *testing.T) {
 		var got bookcmd.UpdateCommand
 		h := &httpbook.Handler{UpdateUC: fakeUpdate(func(_ context.Context, cmd bookcmd.UpdateCommand) (*domainbook.BookDetail, error) {
 			got = cmd
@@ -434,7 +434,7 @@ func TestHandlerUpdate(t *testing.T) {
 }
 
 func TestHandlerDelete(t *testing.T) {
-	t.Run("トークンがあれば削除して204", func(t *testing.T) {
+	t.Run("ログイン済みなら削除して204", func(t *testing.T) {
 		var gotID int64
 		h := &httpbook.Handler{DeleteUC: fakeDelete(func(_ context.Context, id int64) error { gotID = id; return nil })}
 		rec := serve(t, h, http.MethodDelete, "/api/books/5", "", true)

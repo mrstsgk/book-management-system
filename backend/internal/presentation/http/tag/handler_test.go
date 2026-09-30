@@ -59,7 +59,7 @@ type fakeCountBooks func(context.Context) (*domaintag.TagBookCounts, error)
 func (f fakeCountBooks) Execute(ctx context.Context) (*domaintag.TagBookCounts, error) { return f(ctx) }
 
 func TestHandlerCountBooks(t *testing.T) {
-	t.Run("トークン無しで分野タグごとの冊数を返す", func(t *testing.T) {
+	t.Run("ログイン無しでも分野タグごとの冊数を返す", func(t *testing.T) {
 		counts := &domaintag.TagBookCounts{Items: []*domaintag.TagBookCount{{ID: 1, Name: "設計", BookCount: 3}}}
 		h := &httptag.Handler{CountBooksUC: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return counts, nil })}
 
@@ -146,7 +146,7 @@ func TestHandlerList(t *testing.T) {
 }
 
 func TestHandlerRegister(t *testing.T) {
-	t.Run("トークンがあれば登録して200", func(t *testing.T) {
+	t.Run("ログイン済みなら登録して200", func(t *testing.T) {
 		var got tagcmd.RegisterCommand
 		h := &httptag.Handler{RegisterUC: fakeRegister(func(_ context.Context, cmd tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
 			got = cmd
@@ -214,7 +214,7 @@ func TestHandlerRegister(t *testing.T) {
 func TestHandlerRename(t *testing.T) {
 	body := `{"name":"新名","version":2}`
 
-	t.Run("トークンがあればパスのIDとバージョンをusecaseに渡し200で返す", func(t *testing.T) {
+	t.Run("ログイン済みならパスのIDとバージョンをusecaseに渡し200で返す", func(t *testing.T) {
 		var got tagcmd.RenameCommand
 		h := &httptag.Handler{RenameUC: fakeRename(func(_ context.Context, cmd tagcmd.RenameCommand) (*tagcmd.TagView, error) {
 			got = cmd
@@ -258,7 +258,7 @@ func TestHandlerRename(t *testing.T) {
 }
 
 func TestHandlerDelete(t *testing.T) {
-	t.Run("トークンがあれば削除して204", func(t *testing.T) {
+	t.Run("ログイン済みなら削除して204", func(t *testing.T) {
 		var gotID int64
 		h := &httptag.Handler{DeleteUC: fakeDelete(func(_ context.Context, id int64) error { gotID = id; return nil })}
 		rec := serve(t, h, http.MethodDelete, "/api/tags/5", "", true)

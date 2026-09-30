@@ -211,7 +211,7 @@ func TestBookHandlerIntegration_Register(t *testing.T) {
 		}
 	})
 
-	t.Run("401: トークン無し", func(t *testing.T) {
+	t.Run("401: 未ログイン", func(t *testing.T) {
 		h := newIntegrationHandler(db, &integrationFakeCatalog{})
 		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+nextIntegrationISBN(t)+`","summary":"要約","comment":"良書","rating":5}`, false)
 		if rec.Code != http.StatusUnauthorized {
@@ -260,7 +260,7 @@ func TestBookHandlerIntegration_Update(t *testing.T) {
 		assertIntegrationBookUnchanged(t, db, b)
 	})
 
-	t.Run("401: トークン無し", func(t *testing.T) {
+	t.Run("401: 未ログイン", func(t *testing.T) {
 		h := newIntegrationHandler(db, &integrationFakeCatalog{})
 		rec := serve(t, h, http.MethodPut, "/api/books/1", `{"summary":"要約","comment":"良書","rating":3,"version":1}`, false)
 		if rec.Code != http.StatusUnauthorized {
@@ -317,7 +317,7 @@ func TestBookHandlerIntegration_Delete(t *testing.T) {
 		}
 	})
 
-	t.Run("401: トークン無し", func(t *testing.T) {
+	t.Run("401: 未ログイン", func(t *testing.T) {
 		h := newIntegrationHandler(db, &integrationFakeCatalog{})
 		rec := serve(t, h, http.MethodDelete, "/api/books/1", "", false)
 		if rec.Code != http.StatusUnauthorized {
