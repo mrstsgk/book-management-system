@@ -31,8 +31,7 @@ const placeholderText = "（準備中）"
 // publisherLambdaNote は見本データに複数回出てくる出版社名（goconst 対策）。
 const publisherLambdaNote = "ラムダノート"
 
-// sampleBooks は実際に読んだ10冊。書誌は openBD の値を写し、openBD が誤っている著者・出版社は出版社の書誌ページで直した
-// （データ指向アプリケーションデザイン第2版は openBD にも出版社のページにも無く、出版社・発売日を確認できなかったため空）。
+// sampleBooks は実際に読んだ10冊。書誌は openBD の値を写し、openBD が誤っている著者・出版社は出版社の書誌ページで直した。
 // 一言まとめ・感想・評価は仮の値で、本人が書いた文章に差し替えるまで要件定義 §4.3「架空の感想は入れない」を満たさない。
 var sampleBooks = []sampleBook{
 	{
@@ -52,8 +51,8 @@ var sampleBooks = []sampleBook{
 		summary: placeholderText, comment: placeholderText, rating: 3,
 	},
 	{
-		isbn: "9784814401802", title: "データ指向アプリケーションデザイン 第2版 ―信頼性、拡張性、保守性の高い分散システム設計の原理",
-		authors: "Martin Kleppmann",
+		isbn: "9784873118703", title: "データ指向アプリケーションデザイン ―信頼性、拡張性、保守性の高い分散システム設計の原理",
+		authors: "Martin Kleppmann, 斉藤太郎（訳）, 玉川竜司（訳）", publisher: "オーム社", publishedOn: "201907",
 		summary: placeholderText, comment: placeholderText, rating: 3,
 	},
 	{
