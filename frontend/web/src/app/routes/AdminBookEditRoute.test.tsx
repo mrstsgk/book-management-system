@@ -73,13 +73,18 @@ describe('AdminBookEditRoute', () => {
       }),
       getGetApiTagsMockHandler({ items: [] }),
       http.put('*/api/books/:id', () => HttpResponse.json({ id: 1 })),
+      // 戻り先の一覧画面（本の一覧管理）の描画を確かめるのが目的ではないので、
+      // faker の乱数（評価が1〜5の範囲外になり得る）に頼らず空の一覧にする
+      http.get('*/api/books', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
+      ),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/1/edit' })
     await screen.findByRole('heading', { level: 1, name: '本を編集' })
 
     await user.click(screen.getByRole('button', { name: '保存する' }))
 
-    expect(await screen.findByText('準備中')).toBeVisible()
+    expect(await screen.findByText('本を更新しました')).toBeVisible()
   })
 
   it('保存が先に更新されていたら注意を出し、最新を読み込むと入れ直せる', async () => {
@@ -139,6 +144,11 @@ describe('AdminBookEditRoute', () => {
       getDeleteApiBooksIdMockHandler(() => {
         deleteCalled = true
       }),
+      // 戻り先の一覧画面（本の一覧管理）の描画を確かめるのが目的ではないので、
+      // faker の乱数（評価が1〜5の範囲外になり得る）に頼らず空の一覧にする
+      http.get('*/api/books', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
+      ),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/1/edit' })
     await screen.findByRole('heading', { level: 1, name: '本を編集' })
@@ -154,7 +164,9 @@ describe('AdminBookEditRoute', () => {
     await user.click(screen.getByRole('button', { name: 'この本を削除' }))
     await user.click(screen.getByRole('button', { name: '削除する' }))
 
-    expect(await screen.findByText('準備中')).toBeVisible()
+    expect(
+      await screen.findByText('『削除対象の本』を削除しました'),
+    ).toBeVisible()
     expect(deleteCalled).toBe(true)
   })
 

@@ -79,6 +79,11 @@ describe('AdminBookNewRoute', () => {
       }),
       getGetApiTagsMockHandler({ items: [] }),
       http.post('*/api/books', () => HttpResponse.json({ id: 1 })),
+      // 戻り先の一覧画面（本の一覧管理）の描画を確かめるのが目的ではないので、
+      // faker の乱数（評価が1〜5の範囲外になり得る）に頼らず空の一覧にする
+      http.get('*/api/books', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
+      ),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
     await user.type(screen.getByLabelText(/ISBN/), '9784297146221')
@@ -88,8 +93,8 @@ describe('AdminBookNewRoute', () => {
     await fillValidForm(user)
     await user.click(screen.getByRole('button', { name: '登録する' }))
 
-    // /admin へ戻る（この PR の範囲では一覧の中身は仮置きのまま）
-    expect(await screen.findByText('準備中')).toBeVisible()
+    // /admin へ戻り、一覧（本の一覧管理画面）に完了のお知らせが出る
+    expect(await screen.findByText('本を登録しました')).toBeVisible()
   })
 
   it('同じISBNの本が既にあれば409の文言を出す', async () => {
