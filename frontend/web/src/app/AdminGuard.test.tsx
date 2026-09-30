@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { AppRoutes } from '@/app/router'
@@ -39,5 +40,27 @@ describe('AdminGuard', () => {
     expect(
       screen.queryByRole('navigation', { name: '管理メニュー' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('ログインしたら元の管理画面へ戻る', async () => {
+    serveSession(401)
+    const user = userEvent.setup()
+    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
+    await screen.findByRole('heading', { name: '管理画面にログイン' })
+
+    server.use(
+      http.post(
+        '*/api/auth/login',
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    )
+    serveSession(204)
+    await user.type(screen.getByLabelText('ID （必須）'), 'admin')
+    await user.type(screen.getByLabelText('パスワード （必須）'), 'pw')
+    await user.click(screen.getByRole('button', { name: 'ログイン' }))
+
+    expect(
+      await screen.findByRole('heading', { name: '分野タグ' }),
+    ).toBeVisible()
   })
 })
