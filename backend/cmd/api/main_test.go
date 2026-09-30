@@ -144,6 +144,73 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 	}
 }
 
+// TestRegisterRoutes_AppliesSessionAndSameOriginToAdminRoutes は書き込み系（と catalog）に
+// セッション検証と Origin 検証の両方が実際に掛かっていることを、実際のリクエストで確かめる。
+// 実DBが要るため繋がらなければ skip する。
+func TestRegisterRoutes_AppliesSessionAndSameOriginToAdminRoutes(t *testing.T) {
+	db, err := pgcommon.Connect(pgcommon.Config{
+		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
+		DBName: "book_management", SSLMode: "disable",
+	})
+	if err != nil {
+		t.Skipf("skipping: local Postgres not reachable (run `make db-up migrate-up` first): %v", err)
+	}
+
+	e := httpcommon.NewEcho()
+	registerRoutes(e, db, nil, config.Config{})
+
+	sid, err := domainauth.NewSessionID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := pgauth.NewRepository(db).Save(context.Background(), domainauth.NewSession(sid, time.Now())); err != nil {
+		t.Fatalf("save session: %v", err)
+	}
+	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(sid)) })
+	cookie := &http.Cookie{Name: httpcommon.SessionCookieName, Value: string(sid)}
+
+	// 通り抜けた場合に備えて、作られうるタグ行も後片付けする
+	const tagName = "main-test-admin-guard"
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name = ?", tagName) })
+
+	post := func(origin string, withCookie bool) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/tags", strings.NewReader(`{"name":"`+tagName+`"}`))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		if withCookie {
+			req.AddCookie(cookie)
+		}
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	tests := []struct {
+		name       string
+		origin     string
+		withCookie bool
+		want       int
+	}{
+		{"Cookie無しなら401", "http://example.com", false, http.StatusUnauthorized},
+		{"有効なセッションでもOriginが無ければ403", "", true, http.StatusForbidden},
+		{"有効なセッションでも他サイトのOriginなら403", "http://evil.test", true, http.StatusForbidden},
+	}
+	for _, tt := range tests {
+		if got := post(tt.origin, tt.withCookie); got != tt.want {
+			t.Errorf("%s: status = %d, want %d", tt.name, got, tt.want)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/catalog/9784873118703", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("catalog without cookie: status = %d, want 401", rec.Code)
+	}
+}
+
 func TestNewCatalog_ReturnsTheOpenBDCatalog(t *testing.T) {
 	if newCatalog(config.CatalogConfig{OpenBDBaseURL: "http://openbd.test"}) == nil {
 		t.Fatal("newCatalog returned nil")
