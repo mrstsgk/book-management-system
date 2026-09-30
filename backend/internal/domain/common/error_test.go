@@ -10,7 +10,10 @@ import (
 
 func TestSentinelErrors(t *testing.T) {
 	t.Parallel()
-	sentinels := []error{common.ErrNotFound, common.ErrInvalid, common.ErrConflict}
+	sentinels := []error{
+		common.ErrNotFound, common.ErrInvalid, common.ErrConflict,
+		common.ErrUnauthorized, common.ErrTooManyAttempts,
+	}
 
 	for i, target := range sentinels {
 		t.Run(target.Error(), func(t *testing.T) {

@@ -68,6 +68,10 @@ func toErrorResponse(err error) (int, ErrorResponse) {
 		return http.StatusBadRequest, ErrorResponse{Message: err.Error()}
 	case errors.Is(err, domaincommon.ErrConflict):
 		return http.StatusConflict, ErrorResponse{Message: err.Error()}
+	case errors.Is(err, domaincommon.ErrUnauthorized):
+		return http.StatusUnauthorized, ErrorResponse{Message: err.Error()}
+	case errors.Is(err, domaincommon.ErrTooManyAttempts):
+		return http.StatusTooManyRequests, ErrorResponse{Message: err.Error()}
 	}
 	var he *echo.HTTPError
 	if errors.As(err, &he) {
