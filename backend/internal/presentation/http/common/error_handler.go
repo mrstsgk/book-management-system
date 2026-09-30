@@ -53,6 +53,18 @@ func HTTPErrorHandler(err error, c echo.Context) {
 	}
 }
 
+// sentinelStatuses は domain の sentinel error と HTTP ステータスの対応。
+var sentinelStatuses = []struct {
+	err    error
+	status int
+}{
+	{domaincommon.ErrNotFound, http.StatusNotFound},
+	{domaincommon.ErrInvalid, http.StatusBadRequest},
+	{domaincommon.ErrConflict, http.StatusConflict},
+	{domaincommon.ErrUnauthorized, http.StatusUnauthorized},
+	{domaincommon.ErrTooManyAttempts, http.StatusTooManyRequests},
+}
+
 // toErrorResponse はエラーを HTTP ステータスとボディへ変換する: validation
 // エラーはフィールド詳細付き 400、既知の domain sentinel はそれぞれのステータス、
 // echo の HTTPError はそのコード（5xx はメッセージを隠す）、それ以外は汎用 500。
@@ -61,17 +73,10 @@ func toErrorResponse(err error) (int, ErrorResponse) {
 	if errors.As(err, &ve) {
 		return http.StatusBadRequest, ErrorResponse{Message: ve.Error(), Errors: ve.Fields}
 	}
-	switch {
-	case errors.Is(err, domaincommon.ErrNotFound):
-		return http.StatusNotFound, ErrorResponse{Message: err.Error()}
-	case errors.Is(err, domaincommon.ErrInvalid):
-		return http.StatusBadRequest, ErrorResponse{Message: err.Error()}
-	case errors.Is(err, domaincommon.ErrConflict):
-		return http.StatusConflict, ErrorResponse{Message: err.Error()}
-	case errors.Is(err, domaincommon.ErrUnauthorized):
-		return http.StatusUnauthorized, ErrorResponse{Message: err.Error()}
-	case errors.Is(err, domaincommon.ErrTooManyAttempts):
-		return http.StatusTooManyRequests, ErrorResponse{Message: err.Error()}
+	for _, m := range sentinelStatuses {
+		if errors.Is(err, m.err) {
+			return m.status, ErrorResponse{Message: err.Error()}
+		}
 	}
 	var he *echo.HTTPError
 	if errors.As(err, &he) {
