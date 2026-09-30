@@ -58,7 +58,9 @@ describe('AdminBookNewRoute', () => {
     await user.click(screen.getByRole('button', { name: '確かめる' }))
 
     expect(
-      await screen.findByText('この ISBN の本は外部カタログに見つかりませんでした。'),
+      await screen.findByText(
+        'この ISBN の本は外部カタログに見つかりませんでした。',
+      ),
     ).toBeVisible()
   })
 

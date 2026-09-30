@@ -23,13 +23,17 @@ describe('toFieldMessages', () => {
   })
 
   it('未知の rule は汎用の文言にする', () => {
-    expect(toFieldMessages([{ field: 'summary', rule: 'unknown_rule' }])).toEqual({
+    expect(
+      toFieldMessages([{ field: 'summary', rule: 'unknown_rule' }]),
+    ).toEqual({
       summary: '入力を見直してください',
     })
   })
 
   it('未知の field も汎用の文言にする', () => {
-    expect(toFieldMessages([{ field: 'unknown_field', rule: 'required' }])).toEqual({
+    expect(
+      toFieldMessages([{ field: 'unknown_field', rule: 'required' }]),
+    ).toEqual({
       unknown_field: '入力を見直してください',
     })
   })

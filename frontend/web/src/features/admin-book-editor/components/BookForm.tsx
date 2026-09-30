@@ -41,7 +41,10 @@ export function BookForm({
   disabled = false,
 }: BookFormProps) {
   const summaryErrors = (Object.keys(errors) as (keyof BookFormValues)[]).map(
-    (field) => ({ id: field, message: `${FIELD_LABELS[field]}: ${errors[field]}` }),
+    (field) => ({
+      id: field,
+      message: `${FIELD_LABELS[field]}: ${errors[field]}`,
+    }),
   )
 
   const toggleTag = (id: number) => {

@@ -154,7 +154,10 @@ describe('useBookRegistration', () => {
       getGetApiTagsMockHandler({ items: [] }),
       http.post('*/api/books', () =>
         HttpResponse.json(
-          { message: 'invalid', errors: [{ field: 'summary', rule: 'required' }] },
+          {
+            message: 'invalid',
+            errors: [{ field: 'summary', rule: 'required' }],
+          },
           { status: 400 },
         ),
       ),
@@ -175,7 +178,9 @@ describe('useBookRegistration', () => {
     act(() => result.current.submit())
 
     await waitFor(() =>
-      expect(result.current.errors.summary).toBe('一言まとめを入力してください'),
+      expect(result.current.errors.summary).toBe(
+        '一言まとめを入力してください',
+      ),
     )
     expect(result.current.generalError).toBeUndefined()
   })
