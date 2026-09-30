@@ -30,7 +30,11 @@ export function useBooksList() {
     total: books.data?.pages[0]?.total ?? 0,
     isLoading: books.isPending,
     isError: books.isError,
-    retry: () => void books.refetch(),
+    // タグ一覧もエラーだったときに残ったまま復元しないよう、再試行では両方を取り直す
+    retry: () => {
+      void books.refetch()
+      void tags.refetch()
+    },
     hasMore: books.hasNextPage,
     isLoadingMore: books.isFetchingNextPage,
     loadMore: () => void books.fetchNextPage(),

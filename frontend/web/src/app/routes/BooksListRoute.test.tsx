@@ -176,4 +176,38 @@ describe('BooksListRoute', () => {
     expect(await screen.findByText('1冊中 1冊を表示')).toBeVisible()
     expect(calls).toBe(2)
   })
+
+  it('本とタグの両方がエラーのとき、再試行すると分野タグも復元する', async () => {
+    let booksCalls = 0
+    let tagsCalls = 0
+    server.use(
+      http.get('*/api/books', () => {
+        booksCalls += 1
+        return booksCalls === 1
+          ? HttpResponse.json({ message: 'boom' }, { status: 500 })
+          : HttpResponse.json({
+              offset: 0,
+              limit: 20,
+              total: 1,
+              items: [{ id: 1, title: '本1' }],
+            })
+      }),
+      http.get('*/api/tags', () => {
+        tagsCalls += 1
+        return tagsCalls === 1
+          ? HttpResponse.json({ message: 'boom' }, { status: 500 })
+          : HttpResponse.json({ items: [{ id: 1, name: '設計' }] })
+      }),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/' })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '本の一覧を読み込めませんでした',
+    )
+    await userEvent.click(screen.getByRole('button', { name: '再試行' }))
+
+    expect(await screen.findByText('1冊中 1冊を表示')).toBeVisible()
+    expect(await screen.findByRole('group', { name: '分野タグ' })).toBeVisible()
+    expect(tagsCalls).toBe(2)
+  })
 })
