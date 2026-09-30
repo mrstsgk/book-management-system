@@ -18,7 +18,7 @@ cd backend
 make tools          # swag / migrate / golangci-lint / govulncheck を版固定で導入
 make db-up
 make migrate-up
-make run            # 本が1冊も無ければ、起動時に見本データ（5冊）が入る
+make run            # 本が1冊も無ければ、起動時に見本データ（10冊）が入る
 # http://localhost:8080/health
 # http://localhost:8080/api/books
 # 登録: curl -H "Authorization: Bearer local-admin-token" -H "Content-Type: application/json" \

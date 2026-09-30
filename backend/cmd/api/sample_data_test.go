@@ -10,8 +10,8 @@ import (
 )
 
 func TestSampleBooks_AreValidAndDistinct(t *testing.T) {
-	if len(sampleBooks) != 5 {
-		t.Fatalf("len(sampleBooks) = %d, want 5", len(sampleBooks))
+	if len(sampleBooks) != 10 {
+		t.Fatalf("len(sampleBooks) = %d, want 10", len(sampleBooks))
 	}
 	seen := map[string]bool{}
 	for _, s := range sampleBooks {
