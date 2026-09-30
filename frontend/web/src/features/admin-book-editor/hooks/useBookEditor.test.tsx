@@ -277,4 +277,40 @@ describe('useBookEditor', () => {
     expect(result.current.errors.summary).toBeUndefined()
     expect(result.current.errors.comment).toBeDefined()
   })
+
+  it('取得・保存・削除の要求にAuthorizationヘッダを付けない（認証はCookie）', async () => {
+    const auth: Record<string, string | null> = {}
+    server.use(
+      http.get('*/api/books/:id', ({ request }) => {
+        auth.get = request.headers.get('authorization')
+        return HttpResponse.json({
+          id: 1,
+          title: '本',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 3,
+          version: 1,
+        })
+      }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.put('*/api/books/:id', ({ request }) => {
+        auth.put = request.headers.get('authorization')
+        return HttpResponse.json({ id: 1 })
+      }),
+      http.delete('*/api/books/:id', ({ request }) => {
+        auth.delete = request.headers.get('authorization')
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const { result } = renderUseBookEditor('1')
+    await waitFor(() => expect(result.current.values).not.toBeNull())
+
+    act(() => result.current.submit())
+    await waitFor(() => expect(result.current.saved).toBe(true))
+    act(() => result.current.openDelete())
+    act(() => result.current.confirmDelete())
+    await waitFor(() => expect(auth.delete).toBeDefined())
+
+    expect(auth).toEqual({ get: null, put: null, delete: null })
+  })
 })
