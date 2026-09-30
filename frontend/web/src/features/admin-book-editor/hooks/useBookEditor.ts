@@ -7,6 +7,7 @@ import {
   usePutApiBooksId,
 } from '@/api/generated/api'
 import type { BookResponse, TagResponse } from '@/api/generated/api.schemas'
+import { useLoginRedirect } from '@/hooks/useLoginRedirect'
 import type { BookFormErrors, BookFormValues } from '../types'
 import { parseBookId } from '../utils/parseBookId'
 import { toFieldMessages } from '../utils/serverFieldErrors'
@@ -50,6 +51,7 @@ function serverFieldErrorsOf(
 
 export function useBookEditor(rawId: string | undefined) {
   const navigate = useNavigate()
+  const redirectIfUnauthorized = useLoginRedirect()
   const id = parseBookId(rawId)
 
   const bookQuery = useGetApiBooksId(id ?? 0, {
@@ -116,6 +118,7 @@ export function useBookEditor(rawId: string | undefined) {
           navigate('/admin', { state: { notice: '本を更新しました' } })
         },
         onError: (err) => {
+          if (redirectIfUnauthorized(err)) return
           if (err.status === 409) setConflict(true)
         },
       },
@@ -154,7 +157,8 @@ export function useBookEditor(rawId: string | undefined) {
             state: { notice: `『${title}』を削除しました` },
           })
         },
-        onError: () => {
+        onError: (err) => {
+          if (redirectIfUnauthorized(err)) return
           setDeleteError(
             '削除できませんでした。時間をおいてもう一度お試しください。',
           )

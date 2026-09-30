@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { createElement, type ReactNode } from 'react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import {
   getGetApiTagsCountsMockHandler,
@@ -12,11 +13,26 @@ import { server } from '@/testing/server'
 import { useAdminTags } from './useAdminTags'
 
 // hook と同名の .test.ts に置くため JSX を使わない
+let current: { pathname: string; state: unknown } = {
+  pathname: '',
+  state: null,
+}
+function Probe() {
+  const loc = useLocation()
+  current = { pathname: loc.pathname, state: loc.state }
+  return null
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   return createElement(
-    QueryClientProvider,
-    { client: createQueryClient() },
-    children,
+    MemoryRouter,
+    { initialEntries: ['/admin/tags'] },
+    createElement(Probe),
+    createElement(
+      QueryClientProvider,
+      { client: createQueryClient() },
+      children,
+    ),
   )
 }
 
@@ -78,6 +94,26 @@ describe('useAdminTags', () => {
         new Set(['設計', 'データ']),
       ),
     )
+  })
+
+  it('追加が401ならログイン画面へ送る', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.post('*/api/tags', () =>
+        HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
+      ),
+    )
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.addTag('データ')
+    })
+
+    expect(outcome).toEqual({ ok: false, message: 'ログインしてください' })
+    expect(current.pathname).toBe('/admin/login')
+    expect(current.state).toEqual({ from: '/admin/tags' })
   })
 
   it('同じ名前が既にあれば409をタグ名入りの文言にする', async () => {

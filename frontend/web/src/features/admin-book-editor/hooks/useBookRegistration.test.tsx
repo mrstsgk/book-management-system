@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import {
   getGetApiCatalogIsbnMockHandler,
@@ -13,10 +13,23 @@ import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
 import { useBookRegistration } from './useBookRegistration'
 
+let current: { pathname: string; state: unknown } = {
+  pathname: '',
+  state: null,
+}
+function Probe() {
+  const loc = useLocation()
+  current = { pathname: loc.pathname, state: loc.state }
+  return null
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter>{children}</MemoryRouter>
+      <MemoryRouter initialEntries={['/admin/x']}>
+        <Probe />
+        {children}
+      </MemoryRouter>
     </QueryClientProvider>
   )
 }
@@ -124,6 +137,33 @@ describe('useBookRegistration', () => {
         'この ISBN の本はすでに登録されています。',
       ),
     )
+  })
+
+  it('登録が401ならログイン画面へ送る', async () => {
+    server.use(
+      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.post('*/api/books', () =>
+        HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
+      ),
+    )
+    const { result } = renderUseBookRegistration()
+    act(() => result.current.setIsbn('9784297146221'))
+    act(() => result.current.confirm())
+    await waitFor(() => expect(result.current.catalog.confirmed).toBe(true))
+    act(() =>
+      result.current.setValues({
+        titleOverride: '',
+        summary: 'まとめ',
+        comment: '感想',
+        rating: 4,
+        tagIds: [],
+      }),
+    )
+    act(() => result.current.submit())
+
+    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
+    expect(current.state).toEqual({ from: '/admin/x' })
   })
 
   it('フィールドエラーの400は summary の誤りとして返す', async () => {

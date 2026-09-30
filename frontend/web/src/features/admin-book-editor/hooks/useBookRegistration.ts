@@ -6,6 +6,7 @@ import {
   usePostApiBooks,
 } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
+import { useLoginRedirect } from '@/hooks/useLoginRedirect'
 import {
   emptyBookFormValues,
   type BookFormErrors,
@@ -39,6 +40,7 @@ function catalogErrorState(error: ApiError | undefined) {
 
 export function useBookRegistration() {
   const navigate = useNavigate()
+  const redirectIfUnauthorized = useLoginRedirect()
   const [isbn, setIsbn] = useState('')
   const [confirmedIsbn, setConfirmedIsbn] = useState('')
   const [values, setValues] = useState<BookFormValues>(emptyBookFormValues)
@@ -80,6 +82,7 @@ export function useBookRegistration() {
         onSettled: () => {
           submitting.current = false
         },
+        onError: redirectIfUnauthorized,
         onSuccess: () => {
           setRegistered(true)
           navigate('/admin', { state: { notice: '本を登録しました' } })
