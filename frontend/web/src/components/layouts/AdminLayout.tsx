@@ -1,5 +1,4 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { adminToken } from '@/lib/admin-auth'
 
 const navClass = (current: boolean) =>
   `flex h-full items-center border-b-2 ${
@@ -51,17 +50,6 @@ export function AdminLayout() {
           </Link>
         </div>
       </header>
-      {!adminToken() && (
-        <div
-          role="alert"
-          className="border-b border-brand-700 bg-brand-50 px-4 py-3 text-center text-sm text-brand-800"
-        >
-          管理者トークンが設定されていません。
-          <code className="mx-1">frontend/web/.env.development.local</code>に
-          <code className="mx-1">VITE_ADMIN_TOKEN</code>
-          を書いて開発サーバーを起動し直すまで、書き込みはできません。
-        </div>
-      )}
       <main className="flex-1">
         <Outlet />
       </main>

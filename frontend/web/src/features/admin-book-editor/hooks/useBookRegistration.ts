@@ -6,7 +6,6 @@ import {
   usePostApiBooks,
 } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
-import { adminRequest } from '@/lib/admin-auth'
 import {
   emptyBookFormValues,
   type BookFormErrors,
@@ -49,10 +48,9 @@ export function useBookRegistration() {
 
   const catalogQuery = useGetApiCatalogIsbn(confirmedIsbn || 'x', {
     query: { enabled: confirmedIsbn !== '' },
-    request: adminRequest(),
   })
-  const tagsQuery = useGetApiTags({ request: adminRequest() })
-  const registerMutation = usePostApiBooks({ request: adminRequest() })
+  const tagsQuery = useGetApiTags()
+  const registerMutation = usePostApiBooks()
 
   const confirm = () => {
     setConfirmedIsbn(isbn.trim())

@@ -6,7 +6,6 @@ import {
   usePutApiTagsId,
 } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
-import { adminRequest } from '@/lib/admin-auth'
 import { mergeTagCounts } from '../utils/mergeTagCounts'
 
 type Outcome = { ok: true } | { ok: false; message: string; stale?: boolean }
@@ -22,9 +21,9 @@ const DUPLICATE_NAME_MESSAGE = 'conflict: 同じ名前のタグが既にあり�
 export function useAdminTags() {
   const tags = useGetApiTags()
   const counts = useGetApiTagsCounts()
-  const addMutation = usePostApiTags({ request: adminRequest() })
-  const renameMutation = usePutApiTagsId({ request: adminRequest() })
-  const deleteMutation = useDeleteApiTagsId({ request: adminRequest() })
+  const addMutation = usePostApiTags()
+  const renameMutation = usePutApiTagsId()
+  const deleteMutation = useDeleteApiTagsId()
 
   const refetchList = () => {
     void tags.refetch()

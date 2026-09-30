@@ -7,7 +7,6 @@ import {
   usePutApiBooksId,
 } from '@/api/generated/api'
 import type { BookResponse, TagResponse } from '@/api/generated/api.schemas'
-import { adminRequest } from '@/lib/admin-auth'
 import type { BookFormErrors, BookFormValues } from '../types'
 import { parseBookId } from '../utils/parseBookId'
 import { toFieldMessages } from '../utils/serverFieldErrors'
@@ -55,11 +54,10 @@ export function useBookEditor(rawId: string | undefined) {
 
   const bookQuery = useGetApiBooksId(id ?? 0, {
     query: { enabled: id !== undefined },
-    request: adminRequest(),
   })
-  const tagsQuery = useGetApiTags({ request: adminRequest() })
-  const updateMutation = usePutApiBooksId({ request: adminRequest() })
-  const deleteMutation = useDeleteApiBooksId({ request: adminRequest() })
+  const tagsQuery = useGetApiTags()
+  const updateMutation = usePutApiBooksId()
+  const deleteMutation = useDeleteApiBooksId()
 
   const [values, setValues] = useState<BookFormValues | null>(null)
   // 保存に使う version。編集開始時（またはreloadLatest時）に値とあわせて固定する。

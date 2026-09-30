@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
 
@@ -8,10 +8,6 @@ function adminNav() {
 }
 
 describe('AdminLayout', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
   it.each([
     ['/admin', '本'],
     ['/admin/books/new', '本'],
@@ -48,24 +44,5 @@ describe('AdminLayout', () => {
     expect(
       screen.queryByRole('navigation', { name: 'メイン' }),
     ).not.toBeInTheDocument()
-  })
-
-  it('管理者トークンが設定されていれば注意を出さない', () => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', 'secret')
-
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
-
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  })
-
-  it('管理者トークンが空なら、設定のしかたを添えて注意を出す', () => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', '')
-
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      '管理者トークンが設定されていません',
-    )
-    expect(screen.getByRole('alert')).toHaveTextContent('VITE_ADMIN_TOKEN')
   })
 })

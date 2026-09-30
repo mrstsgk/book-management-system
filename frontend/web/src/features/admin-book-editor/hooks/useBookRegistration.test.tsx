@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   getGetApiCatalogIsbnMockHandler,
   getGetApiTagsMockHandler,
@@ -26,10 +26,6 @@ function renderUseBookRegistration() {
 }
 
 describe('useBookRegistration', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
   it('確かめると、その ISBN の書誌と書影を返す', async () => {
     server.use(
       getGetApiCatalogIsbnMockHandler({
@@ -51,24 +47,6 @@ describe('useBookRegistration', () => {
       ),
     )
     expect(result.current.catalog.confirmed).toBe(true)
-  })
-
-  it('確かめる要求に Authorization が付く', async () => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', 'secret')
-    let authHeader: string | null = null
-    server.use(
-      http.get('*/api/catalog/:isbn', ({ request }) => {
-        authHeader = request.headers.get('authorization')
-        return HttpResponse.json({ isbn: '9784297146221', title: '本' })
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-    )
-    const { result } = renderUseBookRegistration()
-
-    act(() => result.current.setIsbn('9784297146221'))
-    act(() => result.current.confirm())
-
-    await waitFor(() => expect(authHeader).toBe('Bearer secret'))
   })
 
   it('カタログに無い ISBN は 404 として扱う', async () => {
