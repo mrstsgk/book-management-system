@@ -7,7 +7,7 @@ const navClass = (current: boolean) =>
       : 'border-transparent text-ink-300 hover:text-white'
   }`
 
-export function AdminLayout() {
+export function AdminLayout({ onLogout }: { onLogout: () => void }) {
   const { pathname } = useLocation()
   // 「本」は一覧・登録・編集のどれでも今いる画面にする（NavLink の前方一致だと /admin/tags まで当たる）
   const onBooks = pathname === '/admin' || pathname.startsWith('/admin/books')
@@ -48,6 +48,13 @@ export function AdminLayout() {
           <Link to="/" className="text-sm text-ink-300 hover:text-white">
             公開画面を見る
           </Link>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="text-sm text-ink-300 hover:text-white"
+          >
+            ログアウト
+          </button>
         </div>
       </header>
       <main className="flex-1">

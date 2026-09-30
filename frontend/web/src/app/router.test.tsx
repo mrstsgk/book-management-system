@@ -1,6 +1,8 @@
 import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { http, HttpResponse } from 'msw'
 import { renderWithProviders } from '@/testing/render'
+import { server } from '@/testing/server'
 import { AppRoutes } from './router'
 
 describe('AppRoutes', () => {
@@ -16,11 +18,13 @@ describe('AppRoutes', () => {
     )
   })
 
-  it('管理画面の知らない path では、管理画面のレイアウトのままページが見つからないことを伝える', () => {
+  it('管理画面の知らない path では、管理画面のレイアウトのままページが見つからないことを伝える', async () => {
     renderWithProviders(<AppRoutes />, { route: '/admin/unknown' })
 
     expect(
-      screen.getByRole('heading', { name: 'ページが見つかりませんでした' }),
+      await screen.findByRole('heading', {
+        name: 'ページが見つかりませんでした',
+      }),
     ).toBeVisible()
     expect(
       screen.getByRole('navigation', { name: '管理メニュー' }),
@@ -36,5 +40,18 @@ describe('AppRoutes', () => {
     expect(
       screen.queryByRole('navigation', { name: '管理メニュー' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('未ログインで /admin を開くとログイン画面へ送る', async () => {
+    server.use(
+      http.get('*/api/auth/session', () =>
+        HttpResponse.json({ message: 'x' }, { status: 401 }),
+      ),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/admin' })
+
+    expect(
+      await screen.findByRole('heading', { name: '管理画面にログイン' }),
+    ).toBeVisible()
   })
 })

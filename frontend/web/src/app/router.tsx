@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { AdminGuard } from '@/app/AdminGuard'
 import { AdminBookEditRoute } from '@/app/routes/AdminBookEditRoute'
 import { AdminBookNewRoute } from '@/app/routes/AdminBookNewRoute'
 import { AdminLoginRoute } from '@/app/routes/AdminLoginRoute'
@@ -7,7 +8,6 @@ import { AdminTagsRoute } from '@/app/routes/AdminTagsRoute'
 import { BookDetailRoute } from '@/app/routes/BookDetailRoute'
 import { BooksListRoute } from '@/app/routes/BooksListRoute'
 import { TagCountsRoute } from '@/app/routes/TagCountsRoute'
-import { AdminLayout } from '@/components/layouts/AdminLayout'
 import { Layout } from '@/components/layouts/Layout'
 import { NotFoundPage } from '@/components/pages/NotFoundPage'
 
@@ -22,7 +22,7 @@ export function AppRoutes() {
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       <Route path="/admin/login" element={<AdminLoginRoute />} />
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route path="/admin" element={<AdminGuard />}>
         <Route index element={<AdminBooksListRoute />} />
         <Route path="books/new" element={<AdminBookNewRoute />} />
         <Route path="books/:id/edit" element={<AdminBookEditRoute />} />

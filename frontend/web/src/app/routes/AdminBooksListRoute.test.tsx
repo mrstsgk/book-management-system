@@ -65,6 +65,7 @@ describe('AdminBooksListRoute', () => {
       },
     })
 
+    await screen.findByRole('navigation', { name: '管理メニュー' })
     expect(await screen.findByRole('status')).toHaveTextContent(
       '「本1」を削除しました。',
     )

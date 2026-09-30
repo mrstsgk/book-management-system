@@ -1,10 +1,13 @@
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
+import { server } from '@/testing/server'
 
-function adminNav() {
-  return within(screen.getByRole('navigation', { name: '管理メニュー' }))
+async function findAdminNav() {
+  return await screen.findByRole('navigation', { name: '管理メニュー' })
 }
 
 describe('AdminLayout', () => {
@@ -13,27 +16,29 @@ describe('AdminLayout', () => {
     ['/admin/books/new', '本'],
     ['/admin/books/1/edit', '本'],
     ['/admin/tags', 'タグ'],
-  ])('%s では「%s」を今いる画面にする', (route, current) => {
+  ])('%s では「%s」を今いる画面にする', async (route, current) => {
     renderWithProviders(<AppRoutes />, { route })
 
     const other = current === '本' ? 'タグ' : '本'
-    expect(adminNav().getByRole('link', { name: current })).toHaveAttribute(
+    const nav = within(await findAdminNav())
+    expect(nav.getByRole('link', { name: current })).toHaveAttribute(
       'aria-current',
       'page',
     )
-    expect(adminNav().getByRole('link', { name: other })).not.toHaveAttribute(
+    expect(nav.getByRole('link', { name: other })).not.toHaveAttribute(
       'aria-current',
     )
   })
 
-  it('管理画面の印と、公開画面へのリンクを出し、公開画面のナビは出さない', () => {
+  it('管理画面の印と、公開画面へのリンクを出し、公開画面のナビは出さない', async () => {
     renderWithProviders(<AppRoutes />, { route: '/admin' })
 
-    expect(adminNav().getByRole('link', { name: '本' })).toHaveAttribute(
+    const nav = within(await findAdminNav())
+    expect(nav.getByRole('link', { name: '本' })).toHaveAttribute(
       'href',
       '/admin',
     )
-    expect(adminNav().getByRole('link', { name: 'タグ' })).toHaveAttribute(
+    expect(nav.getByRole('link', { name: 'タグ' })).toHaveAttribute(
       'href',
       '/admin/tags',
     )
@@ -44,5 +49,23 @@ describe('AdminLayout', () => {
     expect(
       screen.queryByRole('navigation', { name: 'メイン' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('ログアウトを押すと POST /api/auth/logout を呼び、ログイン画面へ移る', async () => {
+    let called = false
+    server.use(
+      http.post('*/api/auth/logout', () => {
+        called = true
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'ログアウト' }),
+    )
+    expect(
+      await screen.findByRole('heading', { name: '管理画面にログイン' }),
+    ).toBeVisible()
+    expect(called).toBe(true)
   })
 })

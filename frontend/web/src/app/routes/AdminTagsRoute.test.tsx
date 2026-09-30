@@ -29,7 +29,9 @@ describe('AdminTagsRoute', () => {
 
     renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
 
-    expect(screen.getByRole('heading', { name: '分野タグ' })).toBeVisible()
+    expect(
+      await screen.findByRole('heading', { name: '分野タグ' }),
+    ).toBeVisible()
     expect(screen.getByRole('status')).toHaveTextContent('読み込み中…')
     expect(await screen.findByText('設計')).toBeVisible()
     expect(screen.getByText('3冊')).toBeVisible()
