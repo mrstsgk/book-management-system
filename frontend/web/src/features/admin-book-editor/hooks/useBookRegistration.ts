@@ -14,6 +14,7 @@ import {
 } from '../types'
 import { toFieldMessages } from '../utils/serverFieldErrors'
 import { validateBookForm } from '../utils/validateBookForm'
+import { visibleLocalErrors } from '../utils/visibleErrors'
 
 // 登録が失敗したとき、フィールドの誤り以外（カタログに無い・二重登録など）の一般的な文言にする
 function generalRegisterMessage(error: ApiError | null): string | undefined {
@@ -80,7 +81,10 @@ export function useBookRegistration() {
   const serverErrors = registerMutation.error
     ? toFieldMessages(registerMutation.error.fieldErrors)
     : {}
-  const errors: BookFormErrors = { ...serverErrors, ...localErrors }
+  const errors: BookFormErrors = {
+    ...serverErrors,
+    ...visibleLocalErrors(localErrors, values),
+  }
 
   return {
     isbn,

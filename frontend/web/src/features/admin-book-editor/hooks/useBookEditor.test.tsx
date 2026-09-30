@@ -240,4 +240,41 @@ describe('useBookEditor', () => {
     expect(result.current.deleteOpen).toBe(true)
     expect(result.current.deleting).toBe(false)
   })
+
+  it('必須項目を空にして送信後、直した項目のエラーは再送信前に消え、直していない項目は残る', async () => {
+    server.use(
+      getGetApiBooksIdMockHandler({
+        id: 1,
+        title: '本',
+        summary: 'まとめ',
+        comment: '感想',
+        rating: 4,
+        version: 1,
+      }),
+      getGetApiTagsMockHandler({ items: [] }),
+    )
+    const { result } = renderUseBookEditor('1')
+    await waitFor(() => expect(result.current.values).not.toBeNull())
+
+    act(() =>
+      result.current.setValues({
+        ...result.current.values!,
+        summary: '',
+        comment: '',
+      }),
+    )
+    act(() => result.current.submit())
+    expect(result.current.errors.summary).toBeDefined()
+    expect(result.current.errors.comment).toBeDefined()
+
+    act(() =>
+      result.current.setValues({
+        ...result.current.values!,
+        summary: 'なおしたまとめ',
+      }),
+    )
+
+    expect(result.current.errors.summary).toBeUndefined()
+    expect(result.current.errors.comment).toBeDefined()
+  })
 })

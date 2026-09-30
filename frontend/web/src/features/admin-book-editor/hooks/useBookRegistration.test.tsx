@@ -281,4 +281,32 @@ describe('useBookRegistration', () => {
     await waitFor(() => expect(result.current.registered).toBe(true))
     expect(sentIsbn).toBe('9784297146221')
   })
+
+  it('必須未入力で送信後、直した項目のエラーは再送信前に消え、直していない項目は残る', async () => {
+    server.use(
+      getGetApiCatalogIsbnMockHandler({
+        isbn: '9784297146221',
+        title: '良いコード／悪いコードで学ぶ設計入門',
+      }),
+      getGetApiTagsMockHandler({ items: [] }),
+    )
+    const { result } = renderUseBookRegistration()
+    act(() => result.current.setIsbn('9784297146221'))
+    act(() => result.current.confirm())
+    await waitFor(() => expect(result.current.catalog.confirmed).toBe(true))
+
+    act(() => result.current.submit())
+    expect(result.current.errors.summary).toBeDefined()
+    expect(result.current.errors.comment).toBeDefined()
+
+    act(() =>
+      result.current.setValues({
+        ...result.current.values,
+        summary: 'まとめ',
+      }),
+    )
+
+    expect(result.current.errors.summary).toBeUndefined()
+    expect(result.current.errors.comment).toBeDefined()
+  })
 })
