@@ -1,5 +1,78 @@
+import type { CatalogResponse } from '@/api/generated/api.schemas'
 import { BookForm } from '@/features/admin-book-editor/components/BookForm'
-import { useBookRegistration } from '@/features/admin-book-editor/hooks/useBookRegistration'
+import {
+  useBookRegistration,
+  type BookRegistration,
+} from '@/features/admin-book-editor/hooks/useBookRegistration'
+
+// ISBN を確かめた結果（読み込み中・404・その他のエラー・書誌と書影のどれか）を出す
+function CatalogPreview({ catalog }: { catalog: BookRegistration['catalog'] }) {
+  if (catalog.isLoading) {
+    return (
+      <p role="status" className="text-sm text-ink-600">
+        確かめています…
+      </p>
+    )
+  }
+  if (catalog.isNotFound) {
+    return (
+      <p role="alert" className="text-sm text-brand-800">
+        この ISBN の本は外部カタログに見つかりませんでした。
+      </p>
+    )
+  }
+  if (catalog.isError) {
+    return (
+      <p role="alert" className="text-sm text-brand-800">
+        確かめられませんでした。時間をおいてもう一度お試しください。
+      </p>
+    )
+  }
+  if (!catalog.data) return null
+  return <CatalogBibliography book={catalog.data} />
+}
+
+function CatalogBibliography({ book }: { book: CatalogResponse }) {
+  return (
+    <div className="flex gap-5 rounded-lg bg-ink-50 p-4">
+      <div className="w-24 flex-shrink-0">
+        {book.coverUrl ? (
+          <img
+            src={book.coverUrl}
+            alt={`${book.title ?? ''}の書影`}
+            className="w-24 rounded"
+          />
+        ) : (
+          <div className="flex h-[136px] w-24 items-center justify-center rounded bg-ink-200 text-xs text-ink-600">
+            書影なし
+          </div>
+        )}
+      </div>
+      <dl className="grid grid-cols-[80px_1fr] gap-y-1.5 text-sm">
+        <dt className="text-ink-600">書名</dt>
+        <dd className="font-bold">{book.title}</dd>
+        {book.authors && (
+          <>
+            <dt className="text-ink-600">著者</dt>
+            <dd>{book.authors}</dd>
+          </>
+        )}
+        {book.publisher && (
+          <>
+            <dt className="text-ink-600">出版社</dt>
+            <dd>{book.publisher}</dd>
+          </>
+        )}
+        {book.publishedOn && (
+          <>
+            <dt className="text-ink-600">出版日</dt>
+            <dd>{book.publishedOn}</dd>
+          </>
+        )}
+      </dl>
+    </div>
+  )
+}
 
 export function AdminBookNewRoute() {
   const reg = useBookRegistration()
@@ -31,61 +104,7 @@ export function AdminBookNewRoute() {
             </button>
           </div>
         </div>
-
-        {reg.catalog.isLoading && (
-          <p role="status" className="text-sm text-ink-600">
-            確かめています…
-          </p>
-        )}
-        {reg.catalog.isNotFound && (
-          <p role="alert" className="text-sm text-brand-800">
-            この ISBN の本は外部カタログに見つかりませんでした。
-          </p>
-        )}
-        {reg.catalog.isError && (
-          <p role="alert" className="text-sm text-brand-800">
-            確かめられませんでした。時間をおいてもう一度お試しください。
-          </p>
-        )}
-        {reg.catalog.data && (
-          <div className="flex gap-5 rounded-lg bg-ink-50 p-4">
-            <div className="w-24 flex-shrink-0">
-              {reg.catalog.data.coverUrl ? (
-                <img
-                  src={reg.catalog.data.coverUrl}
-                  alt={`${reg.catalog.data.title ?? ''}の書影`}
-                  className="w-24 rounded"
-                />
-              ) : (
-                <div className="flex h-[136px] w-24 items-center justify-center rounded bg-ink-200 text-xs text-ink-600">
-                  書影なし
-                </div>
-              )}
-            </div>
-            <dl className="grid grid-cols-[80px_1fr] gap-y-1.5 text-sm">
-              <dt className="text-ink-600">書名</dt>
-              <dd className="font-bold">{reg.catalog.data.title}</dd>
-              {reg.catalog.data.authors && (
-                <>
-                  <dt className="text-ink-600">著者</dt>
-                  <dd>{reg.catalog.data.authors}</dd>
-                </>
-              )}
-              {reg.catalog.data.publisher && (
-                <>
-                  <dt className="text-ink-600">出版社</dt>
-                  <dd>{reg.catalog.data.publisher}</dd>
-                </>
-              )}
-              {reg.catalog.data.publishedOn && (
-                <>
-                  <dt className="text-ink-600">出版日</dt>
-                  <dd>{reg.catalog.data.publishedOn}</dd>
-                </>
-              )}
-            </dl>
-          </div>
-        )}
+        <CatalogPreview catalog={reg.catalog} />
       </div>
 
       <div className="card flex flex-col gap-4 p-6 md:p-7">

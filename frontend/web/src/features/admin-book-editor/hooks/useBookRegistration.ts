@@ -7,7 +7,11 @@ import {
 } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
 import { adminRequest } from '@/lib/admin-auth'
-import { emptyBookFormValues, type BookFormErrors, type BookFormValues } from '../types'
+import {
+  emptyBookFormValues,
+  type BookFormErrors,
+  type BookFormValues,
+} from '../types'
 import { toFieldMessages } from '../utils/serverFieldErrors'
 import { validateBookForm } from '../utils/validateBookForm'
 
@@ -97,3 +101,5 @@ export function useBookRegistration() {
     registered,
   }
 }
+
+export type BookRegistration = ReturnType<typeof useBookRegistration>
