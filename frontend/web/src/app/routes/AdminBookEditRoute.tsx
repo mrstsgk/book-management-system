@@ -1,10 +1,65 @@
 import { useParams } from 'react-router-dom'
+import type { BookResponse } from '@/api/generated/api.schemas'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/states/EmptyState'
 import { ErrorState } from '@/components/states/ErrorState'
 import { LoadingState } from '@/components/states/LoadingState'
 import { BookForm } from '@/features/admin-book-editor/components/BookForm'
 import { useBookEditor } from '@/features/admin-book-editor/hooks/useBookEditor'
+
+// 書影・書名・著者・ISBN の要約（登録画面の確認欄と見た目を揃える）
+function BookSummaryCard({ book }: { book: BookResponse }) {
+  return (
+    <div className="card flex gap-5 p-6 md:p-7">
+      <div className="w-24 flex-shrink-0">
+        {book.coverUrl ? (
+          <img
+            src={book.coverUrl}
+            alt={`${book.title ?? ''}の書影`}
+            className="w-24 rounded"
+          />
+        ) : (
+          <div className="flex h-[136px] w-24 items-center justify-center rounded bg-ink-200 text-xs text-ink-600">
+            書影なし
+          </div>
+        )}
+      </div>
+      <dl className="grid grid-cols-[80px_1fr] gap-y-1.5 text-sm">
+        <dt className="text-ink-600">書名</dt>
+        <dd className="font-bold">{book.title}</dd>
+        {book.authors && (
+          <>
+            <dt className="text-ink-600">著者</dt>
+            <dd>{book.authors}</dd>
+          </>
+        )}
+        <dt className="text-ink-600">ISBN</dt>
+        <dd>{book.isbn}</dd>
+      </dl>
+    </div>
+  )
+}
+
+// 楽観ロックの競合（先に別の画面で更新されていた）を伝え、最新を取り直す導線を出す
+function ConflictBanner({ onReload }: { onReload: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-center justify-between gap-4 rounded-lg border border-brand-700 bg-brand-50 px-5 py-3.5 text-sm text-brand-800"
+    >
+      <span>
+        この本は、ほかの画面で先に更新されていたため保存しませんでした。
+      </span>
+      <button
+        type="button"
+        onClick={onReload}
+        className="h-10 flex-shrink-0 rounded-lg bg-brand-700 px-4 font-bold text-white"
+      >
+        最新を読み込む
+      </button>
+    </div>
+  )
+}
 
 export function AdminBookEditRoute() {
   const { id } = useParams()
@@ -52,50 +107,10 @@ export function AdminBookEditRoute() {
         </button>
       </div>
 
-      <div className="card flex gap-5 p-6 md:p-7">
-        <div className="w-24 flex-shrink-0">
-          {editor.book.coverUrl ? (
-            <img
-              src={editor.book.coverUrl}
-              alt={`${editor.book.title ?? ''}の書影`}
-              className="w-24 rounded"
-            />
-          ) : (
-            <div className="flex h-[136px] w-24 items-center justify-center rounded bg-ink-200 text-xs text-ink-600">
-              書影なし
-            </div>
-          )}
-        </div>
-        <dl className="grid grid-cols-[80px_1fr] gap-y-1.5 text-sm">
-          <dt className="text-ink-600">書名</dt>
-          <dd className="font-bold">{editor.book.title}</dd>
-          {editor.book.authors && (
-            <>
-              <dt className="text-ink-600">著者</dt>
-              <dd>{editor.book.authors}</dd>
-            </>
-          )}
-          <dt className="text-ink-600">ISBN</dt>
-          <dd>{editor.book.isbn}</dd>
-        </dl>
-      </div>
+      <BookSummaryCard book={editor.book} />
 
       {editor.conflict && (
-        <div
-          role="alert"
-          className="flex items-center justify-between gap-4 rounded-lg border border-brand-700 bg-brand-50 px-5 py-3.5 text-sm text-brand-800"
-        >
-          <span>
-            この本は、ほかの画面で先に更新されていたため保存しませんでした。
-          </span>
-          <button
-            type="button"
-            onClick={() => void editor.reloadLatest()}
-            className="h-10 flex-shrink-0 rounded-lg bg-brand-700 px-4 font-bold text-white"
-          >
-            最新を読み込む
-          </button>
-        </div>
+        <ConflictBanner onReload={() => void editor.reloadLatest()} />
       )}
 
       {editor.values && (
