@@ -54,14 +54,14 @@
 - [ ] **Step 3:** `AdminLayout`（ナビの `aria-current`、トークン未設定の注意）と router・仮 route のテスト → 実装
 - [ ] **Step 4:** docs・ADR（案: A 環境変数（採用）／B ログイン画面＋sessionStorage（後回し。重い）／C mutator で全要求に付ける（公開画面の要求にトークンが載るため却下））。全チェック、コミット、push、PR
 
-### PR-M1: 本の一覧（管理）（`feat/admin-books-list`、PR-M0 と #93 のマージ後）
+### PR-M1: 本の一覧（管理）（`feat/admin-books-list`、PR-M0 のマージ後）
 
 **Files:** `web/src/features/admin-books-list/**`、`web/src/app/routes/AdminBooksListRoute.tsx`（+ test を書き直す）
 
 - [ ] **Step 1:** 画面テスト: 表の各列（一言まとめが「（準備中）」なら「未記入」と出す）、「編集」のリンク先、「本を登録」のリンク、遷移の state のお知らせ（`role="status"`）が出る、「もっと見る」、0件（「まだ本が登録されていません」＋登録へのリンク）、エラー→再試行 → 実装
 - [ ] **Step 2:** stories、全チェック、コミット、push、PR
 
-### PR-M2: 本の登録・編集・削除（`feat/admin-book-editor`、PR-M0 と #93 のマージ後）
+### PR-M2: 本の登録・編集・削除（`feat/admin-book-editor`、PR-M0 のマージ後）
 
 **Files:** `web/src/features/admin-book-editor/**`、`web/src/app/routes/AdminBookNewRoute.tsx`・`AdminBookEditRoute.tsx`（+ tests）
 
@@ -71,11 +71,11 @@
 - `utils/tagIds.ts`: `tagIdsByName(names: string[], tags: TagResponse[]): number[]`（完全一致だけ）
 
 - [ ] **Step 1:** utils の単体テスト（上限ちょうど/+1、空白だけ、評価 0・6、タグ 10/11 個、未知の rule は汎用の文言、完全一致）→ 実装
-- [ ] **Step 2:** 登録の画面テスト: 確かめる→書誌表示（Google Books なら Powered by Google）、404、登録成功で `/admin` へ・お知らせ、409・カタログに無い 400・フィールドの 400 の表示、失敗しても入力が残る、二度押しで1回、Authorization が付く → 実装
+- [ ] **Step 2:** 登録の画面テスト: 確かめる→書誌と書影の表示（書影が無ければ枠）、404、登録成功で `/admin` へ・お知らせ、409・カタログに無い 400・フィールドの 400 の表示、失敗しても入力が残る、二度押しで1回、Authorization が付く → 実装
 - [ ] **Step 3:** 編集の画面テスト: 初期値（タグの ID 引き直し）、保存に `version`、409→「最新を読み込む」で取り直す、削除はダイアログで確定したときだけ・キャンセルでは呼ばない、404 の見つからない表示 → 実装
 - [ ] **Step 4:** stories（BookForm の空・誤りあり）、全チェック、コミット、push、PR
 
-### PR-M3: タグの管理（`feat/admin-tags`、PR-M0 と #93 のマージ後）
+### PR-M3: タグの管理（`feat/admin-tags`、PR-M0 のマージ後）
 
 **Files:** `web/src/features/admin-tags/**`、`web/src/app/routes/AdminTagsRoute.tsx`（+ test）
 
