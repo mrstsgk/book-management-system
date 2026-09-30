@@ -1,7 +1,8 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { getGetApiBooksMockHandler } from '@/api/generated/api.msw'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
 import { server } from '@/testing/server'
@@ -11,6 +12,13 @@ async function findAdminNav() {
 }
 
 describe('AdminLayout', () => {
+  // /admin の本一覧は faker の乱数データに頼らず、空の一覧に固定する
+  beforeEach(() => {
+    server.use(
+      getGetApiBooksMockHandler({ items: [], total: 0, limit: 20, offset: 0 }),
+    )
+  })
+
   it.each([
     ['/admin', '本'],
     ['/admin/books/new', '本'],
