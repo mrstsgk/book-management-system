@@ -135,6 +135,7 @@ export function AdminBookEditRoute() {
         onConfirm={editor.confirmDelete}
         onCancel={editor.closeDelete}
         busy={editor.deleting}
+        error={editor.deleteError}
       />
     </section>
   )
