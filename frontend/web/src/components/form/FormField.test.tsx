@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { FormField, describedBy } from './FormField'
+import { describedBy } from './describedBy'
+import { FormField } from './FormField'
 
 describe('FormField', () => {
   it('ラベルと必須の印を出し、入力とラベルを結ぶ', () => {

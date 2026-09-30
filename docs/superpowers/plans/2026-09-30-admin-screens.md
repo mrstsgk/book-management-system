@@ -44,7 +44,7 @@
 - `adminToken(): string` — 空文字なら未設定
 - `ApiError.fieldErrors: { field: string; rule: string }[]`
 - `ConfirmDialog({ open: boolean; title: string; description: string; confirmLabel: string; onConfirm: () => void; onCancel: () => void; busy?: boolean })`
-- `FormField({ id: string; label: string; required?: boolean; hint?: string; error?: string; count?: { current: number; max: number }; children: ReactNode })` — children の入力に `aria-describedby`・`aria-invalid` を付けるのは呼ぶ側（FormField は `describedBy(id)` を返す関数も export）
+- `FormField({ id: string; label: string; required?: boolean; hint?: string; error?: string; count?: { current: number; max: number }; children: ReactNode })` — children の入力に `aria-describedby`・`aria-invalid` を付けるのは呼ぶ側（入力の `aria-describedby` には `components/form/describedBy.ts` の `describedBy(id)` を使う。FormField.tsx から export すると Fast Refresh の lint 警告になるため別ファイル）
 - `ErrorSummary({ errors: { id: string; message: string }[] })` — 0件なら何も出さない。`role="alert"`、各項目は `#id` へのリンク
 - 管理画面の完了のお知らせ: `navigate('/admin', { state: { notice: string } })`、`AdminBooksListRoute` がそれを出す
 - routes: `web/src/app/routes/AdminBooksListRoute.tsx`・`AdminBookNewRoute.tsx`・`AdminBookEditRoute.tsx`・`AdminTagsRoute.tsx`

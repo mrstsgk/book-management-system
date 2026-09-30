@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ErrorSummary } from './ErrorSummary'
-import { FormField, describedBy } from './FormField'
+import { describedBy } from './describedBy'
+import { FormField } from './FormField'
 
 const inputClass =
   'h-12 rounded-lg border border-ink-500 px-4 aria-[invalid=true]:border-2 aria-[invalid=true]:border-brand-700'

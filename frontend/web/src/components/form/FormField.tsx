@@ -10,11 +10,6 @@ type FormFieldProps = {
   children: ReactNode
 }
 
-// 入力に付ける aria-describedby。無い要素の id は読み上げで無視されるので、常に3つとも並べてよい
-export function describedBy(id: string): string {
-  return `${id}-hint ${id}-error ${id}-count`
-}
-
 export function FormField({
   id,
   label,
@@ -49,9 +44,7 @@ export function FormField({
           {count && (
             <span
               id={`${id}-count`}
-              className={
-                over ? 'font-bold text-brand-800' : 'text-ink-600'
-              }
+              className={over ? 'font-bold text-brand-800' : 'text-ink-600'}
             >
               {count.current} / {count.max}
             </span>
