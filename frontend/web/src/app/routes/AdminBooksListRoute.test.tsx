@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { getGetApiBooksMockHandler } from '@/api/generated/api.msw'
 import type { BookListResponse } from '@/api/generated/api.schemas'
 import { AppRoutes } from '@/app/router'
@@ -33,11 +33,6 @@ function serveBooks(total = 25) {
 }
 
 describe('AdminBooksListRoute', () => {
-  // この画面自体はトークン注意の対象外（AdminLayout.test.tsx が担保）。
-  // 未設定だと注意の role="alert" と衝突するため、あるものとして固定する
-  beforeEach(() => vi.stubEnv('VITE_ADMIN_TOKEN', 'secret'))
-  afterEach(() => vi.unstubAllEnvs())
-
   it('/admin を開くと読み込み中のあと先頭20冊と冊数を表を出す', async () => {
     serveBooks()
     renderWithProviders(<AppRoutes />, { route: '/admin' })
@@ -70,6 +65,7 @@ describe('AdminBooksListRoute', () => {
       },
     })
 
+    await screen.findByRole('navigation', { name: '管理メニュー' })
     expect(await screen.findByRole('status')).toHaveTextContent(
       '「本1」を削除しました。',
     )

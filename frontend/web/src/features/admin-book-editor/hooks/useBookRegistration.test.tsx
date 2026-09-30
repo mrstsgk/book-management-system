@@ -2,8 +2,8 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
-import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter, useLocation } from 'react-router-dom'
+import { describe, expect, it } from 'vitest'
 import {
   getGetApiCatalogIsbnMockHandler,
   getGetApiTagsMockHandler,
@@ -13,10 +13,23 @@ import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
 import { useBookRegistration } from './useBookRegistration'
 
+let current: { pathname: string; state: unknown } = {
+  pathname: '',
+  state: null,
+}
+function Probe() {
+  const loc = useLocation()
+  current = { pathname: loc.pathname, state: loc.state }
+  return null
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter>{children}</MemoryRouter>
+      <MemoryRouter initialEntries={['/admin/x']}>
+        <Probe />
+        {children}
+      </MemoryRouter>
     </QueryClientProvider>
   )
 }
@@ -26,10 +39,6 @@ function renderUseBookRegistration() {
 }
 
 describe('useBookRegistration', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
   it('確かめると、その ISBN の書誌と書影を返す', async () => {
     server.use(
       getGetApiCatalogIsbnMockHandler({
@@ -51,24 +60,6 @@ describe('useBookRegistration', () => {
       ),
     )
     expect(result.current.catalog.confirmed).toBe(true)
-  })
-
-  it('確かめる要求に Authorization が付く', async () => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', 'secret')
-    let authHeader: string | null = null
-    server.use(
-      http.get('*/api/catalog/:isbn', ({ request }) => {
-        authHeader = request.headers.get('authorization')
-        return HttpResponse.json({ isbn: '9784297146221', title: '本' })
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-    )
-    const { result } = renderUseBookRegistration()
-
-    act(() => result.current.setIsbn('9784297146221'))
-    act(() => result.current.confirm())
-
-    await waitFor(() => expect(authHeader).toBe('Bearer secret'))
   })
 
   it('カタログに無い ISBN は 404 として扱う', async () => {
@@ -146,6 +137,48 @@ describe('useBookRegistration', () => {
         'この ISBN の本はすでに登録されています。',
       ),
     )
+  })
+
+  it('ISBN を確かめる要求が401（セッション切れ）ならログイン画面へ送る', async () => {
+    server.use(
+      http.get('*/api/catalog/:isbn', () =>
+        HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
+      ),
+      getGetApiTagsMockHandler({ items: [] }),
+    )
+    const { result } = renderUseBookRegistration()
+    act(() => result.current.setIsbn('9784297146221'))
+    act(() => result.current.confirm())
+
+    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
+    expect(current.state).toEqual({ from: '/admin/x' })
+  })
+
+  it('登録が401ならログイン画面へ送る', async () => {
+    server.use(
+      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.post('*/api/books', () =>
+        HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
+      ),
+    )
+    const { result } = renderUseBookRegistration()
+    act(() => result.current.setIsbn('9784297146221'))
+    act(() => result.current.confirm())
+    await waitFor(() => expect(result.current.catalog.confirmed).toBe(true))
+    act(() =>
+      result.current.setValues({
+        titleOverride: '',
+        summary: 'まとめ',
+        comment: '感想',
+        rating: 4,
+        tagIds: [],
+      }),
+    )
+    act(() => result.current.submit())
+
+    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
+    expect(current.state).toEqual({ from: '/admin/x' })
   })
 
   it('フィールドエラーの400は summary の誤りとして返す', async () => {

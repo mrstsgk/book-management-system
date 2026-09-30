@@ -13,13 +13,13 @@ var catalogKeys = []string{"OPENBD_BASE_URL"}
 
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range append(append([]string{"LOG_LEVEL", "HTTP_PORT"}, dbKeys...), append(catalogKeys, "ADMIN_TOKEN")...) {
+	for _, k := range append(append([]string{"LOG_LEVEL", "HTTP_PORT"}, dbKeys...), append(catalogKeys, "ADMIN_ID", "ADMIN_PASSWORD_HASH")...) {
 		t.Setenv(k, "")
 	}
 }
 
 func TestLoad(t *testing.T) {
-	t.Run("未設定ならローカルのDBと開発用の管理者トークンとinfoレベルを使う", func(t *testing.T) {
+	t.Run("未設定ならローカルのDBとinfoレベルを使い、管理者の既定値は置かない", func(t *testing.T) {
 		clearEnv(t)
 		cfg, err := config.Load()
 		if err != nil {
@@ -36,8 +36,8 @@ func TestLoad(t *testing.T) {
 		if cfg.Catalog != want {
 			t.Errorf("catalog defaults = %+v, want %+v", cfg.Catalog, want)
 		}
-		if cfg.AdminToken != "local-admin-token" {
-			t.Errorf("AdminToken = %q, want the local development default", cfg.AdminToken)
+		if cfg.Admin.ID != "" || cfg.Admin.PasswordHash != "" {
+			t.Errorf("Admin = %+v, want no default (a missing setting must not open write access)", cfg.Admin)
 		}
 	})
 
@@ -87,11 +87,15 @@ func TestLoad_CatalogBaseURLsCanBeOverridden(t *testing.T) {
 	}
 }
 
-func TestLoad_AdminTokenCanBeOverridden(t *testing.T) {
+func TestLoad_Admin(t *testing.T) {
 	clearEnv(t)
-	t.Setenv("ADMIN_TOKEN", "my-token")
+	t.Setenv("ADMIN_ID", "me")
+	t.Setenv("ADMIN_PASSWORD_HASH", "$2a$12$x")
 	cfg, err := config.Load()
-	if err != nil || cfg.AdminToken != "my-token" {
-		t.Fatalf("got (%q, %v), want my-token", cfg.AdminToken, err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Admin.ID != "me" || cfg.Admin.PasswordHash != "$2a$12$x" {
+		t.Fatalf("got %+v", cfg.Admin)
 	}
 }

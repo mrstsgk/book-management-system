@@ -18,11 +18,13 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
+        // Host を書き換えない: バックエンドの Origin 検証（RequireSameOrigin）が
+        // Origin と Host を比べるため、ブラウザの localhost:3000 のまま届ける
+        changeOrigin: false,
       },
       '/health': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
+        changeOrigin: false,
       },
     },
   },

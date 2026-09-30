@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   getGetApiCatalogIsbnMockHandler,
   getGetApiTagsMockHandler,
@@ -17,10 +17,6 @@ async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('AdminBookNewRoute', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
   it('確かめると書誌と書影を見せる。書影が無ければ枠を出す', async () => {
     const user = userEvent.setup()
     server.use(
@@ -34,7 +30,7 @@ describe('AdminBookNewRoute', () => {
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
-    await user.type(screen.getByLabelText(/ISBN/), '9784297146221')
+    await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
 
     expect(
@@ -54,7 +50,7 @@ describe('AdminBookNewRoute', () => {
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
-    await user.type(screen.getByLabelText(/ISBN/), '9780000000000')
+    await user.type(await screen.findByLabelText(/ISBN/), '9780000000000')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
 
     expect(
@@ -77,7 +73,7 @@ describe('AdminBookNewRoute', () => {
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
-    await user.type(screen.getByLabelText(/ISBN/), '9784000000001')
+    await user.type(await screen.findByLabelText(/ISBN/), '9784000000001')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
 
     expect(
@@ -102,7 +98,7 @@ describe('AdminBookNewRoute', () => {
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
-    await user.type(screen.getByLabelText(/ISBN/), '9784297146221')
+    await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
 
     expect(
@@ -112,10 +108,12 @@ describe('AdminBookNewRoute', () => {
     ).toBeVisible()
   })
 
-  it('確かめる前は登録するボタンを押せない', () => {
+  it('確かめる前は登録するボタンを押せない', async () => {
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
-    expect(screen.getByRole('button', { name: '登録する' })).toBeDisabled()
+    expect(
+      await screen.findByRole('button', { name: '登録する' }),
+    ).toBeDisabled()
   })
 
   it('確かめてから登録すると成功し、一覧へ戻る', async () => {
@@ -134,7 +132,7 @@ describe('AdminBookNewRoute', () => {
       ),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
-    await user.type(screen.getByLabelText(/ISBN/), '9784297146221')
+    await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
     await screen.findByText('良いコード／悪いコードで学ぶ設計入門')
 
@@ -155,7 +153,7 @@ describe('AdminBookNewRoute', () => {
       ),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
-    await user.type(screen.getByLabelText(/ISBN/), '9784297146221')
+    await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
     await screen.findByText('本', { selector: 'dd' })
     await fillValidForm(user)
@@ -183,7 +181,7 @@ describe('AdminBookNewRoute', () => {
       ),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
-    await user.type(screen.getByLabelText(/ISBN/), '9784297146221')
+    await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
     await screen.findByText('本', { selector: 'dd' })
     await fillValidForm(user)
@@ -206,7 +204,7 @@ describe('AdminBookNewRoute', () => {
       ),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
-    await user.type(screen.getByLabelText(/ISBN/), '9784297146221')
+    await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
     await screen.findByText('本', { selector: 'dd' })
     await fillValidForm(user)
@@ -220,25 +218,5 @@ describe('AdminBookNewRoute', () => {
     ).toBeVisible()
     expect(screen.getByLabelText(/一言まとめ/)).toHaveValue('まとめ')
     expect(screen.getByLabelText(/感想/)).toHaveValue('本文')
-  })
-
-  it('要求に Authorization が付く', async () => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', 'secret')
-    const user = userEvent.setup()
-    let authHeader: string | null = null
-    server.use(
-      http.get('*/api/catalog/:isbn', ({ request }) => {
-        authHeader = request.headers.get('authorization')
-        return HttpResponse.json({ isbn: '9784297146221', title: '本' })
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-    )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
-
-    await user.type(screen.getByLabelText(/ISBN/), '9784297146221')
-    await user.click(screen.getByRole('button', { name: '確かめる' }))
-
-    await screen.findByText('本', { selector: 'dd' })
-    expect(authHeader).toBe('Bearer secret')
   })
 })

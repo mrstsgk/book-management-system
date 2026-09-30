@@ -2,7 +2,8 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { createElement, type ReactNode } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter, useLocation } from 'react-router-dom'
+import { describe, expect, it } from 'vitest'
 import {
   getGetApiTagsCountsMockHandler,
   getGetApiTagsMockHandler,
@@ -12,11 +13,26 @@ import { server } from '@/testing/server'
 import { useAdminTags } from './useAdminTags'
 
 // hook と同名の .test.ts に置くため JSX を使わない
+let current: { pathname: string; state: unknown } = {
+  pathname: '',
+  state: null,
+}
+function Probe() {
+  const loc = useLocation()
+  current = { pathname: loc.pathname, state: loc.state }
+  return null
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   return createElement(
-    QueryClientProvider,
-    { client: createQueryClient() },
-    children,
+    MemoryRouter,
+    { initialEntries: ['/admin/tags'] },
+    createElement(Probe),
+    createElement(
+      QueryClientProvider,
+      { client: createQueryClient() },
+      children,
+    ),
   )
 }
 
@@ -31,13 +47,6 @@ function serveList(
 }
 
 describe('useAdminTags', () => {
-  beforeEach(() => {
-    vi.stubEnv('VITE_ADMIN_TOKEN', 'local-admin-token')
-  })
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
   it('タグの一覧と冊数を名前順の一覧にする', async () => {
     serveList(
       [
@@ -59,11 +68,9 @@ describe('useAdminTags', () => {
   it('追加に成功すると一覧を取り直す', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     let requests = 0
-    let authHeader: string | null = null
     server.use(
-      http.post('*/api/tags', async ({ request }) => {
+      http.post('*/api/tags', async () => {
         requests++
-        authHeader = request.headers.get('authorization')
         return HttpResponse.json({ id: 2, name: 'データ', version: 1 })
       }),
     )
@@ -82,12 +89,31 @@ describe('useAdminTags', () => {
 
     expect(outcome).toEqual({ ok: true })
     expect(requests).toBe(1)
-    expect(authHeader).toBe('Bearer local-admin-token')
     await waitFor(() =>
       expect(new Set(result.current.items.map((i) => i.name))).toEqual(
         new Set(['設計', 'データ']),
       ),
     )
+  })
+
+  it('追加が401ならログイン画面へ送る', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.post('*/api/tags', () =>
+        HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
+      ),
+    )
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.addTag('データ')
+    })
+
+    expect(outcome).toEqual({ ok: false, message: 'ログインしてください' })
+    expect(current.pathname).toBe('/admin/login')
+    expect(current.state).toEqual({ from: '/admin/tags' })
   })
 
   it('同じ名前が既にあれば409をタグ名入りの文言にする', async () => {
@@ -114,10 +140,8 @@ describe('useAdminTags', () => {
 
   it('名前の変更に成功すると一覧を取り直す', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
-    let authHeader: string | null = null
     server.use(
-      http.put('*/api/tags/1', async ({ request }) => {
-        authHeader = request.headers.get('authorization')
+      http.put('*/api/tags/1', async () => {
         return HttpResponse.json({
           id: 1,
           name: 'ソフトウェア設計',
@@ -136,7 +160,6 @@ describe('useAdminTags', () => {
     })
 
     expect(outcome).toEqual({ ok: true })
-    expect(authHeader).toBe('Bearer local-admin-token')
     await waitFor(() =>
       expect(result.current.items[0].name).toBe('ソフトウェア設計'),
     )
@@ -206,10 +229,8 @@ describe('useAdminTags', () => {
 
   it('削除に成功すると一覧を取り直す', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
-    let authHeader: string | null = null
     server.use(
-      http.delete('*/api/tags/1', async ({ request }) => {
-        authHeader = request.headers.get('authorization')
+      http.delete('*/api/tags/1', async () => {
         return new HttpResponse(null, { status: 204 })
       }),
     )
@@ -224,7 +245,6 @@ describe('useAdminTags', () => {
     })
 
     expect(outcome).toEqual({ ok: true })
-    expect(authHeader).toBe('Bearer local-admin-token')
     await waitFor(() => expect(result.current.items).toEqual([]))
   })
 

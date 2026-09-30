@@ -173,11 +173,11 @@ func (h *Handler) Get(c echo.Context) error {
 // @Tags         books
 // @Accept       json
 // @Produce      json
-// @Security     AdminToken
 // @Param        body body RegisterRequest true "body"
 // @Success      200 {object} Response
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      401 {object} common.ErrorResponse
+// @Failure      403 {object} common.ErrorResponse
 // @Failure      409 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
 // @Router       /api/books [post]
@@ -201,12 +201,12 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 // @Tags         books
 // @Accept       json
 // @Produce      json
-// @Security     AdminToken
 // @Param        id   path int           true "読んだ本のID"
 // @Param        body body UpdateRequest true "body"
 // @Success      200 {object} Response
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      401 {object} common.ErrorResponse
+// @Failure      403 {object} common.ErrorResponse
 // @Failure      404 {object} common.ErrorResponse
 // @Failure      409 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
@@ -232,11 +232,11 @@ func (h *Handler) Update(c echo.Context) error {
 // Delete godoc
 // @Summary      読んだ本を削除する（自分だけ）
 // @Tags         books
-// @Security     AdminToken
 // @Param        id path int true "読んだ本のID"
 // @Success      204
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      401 {object} common.ErrorResponse
+// @Failure      403 {object} common.ErrorResponse
 // @Failure      404 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
 // @Router       /api/books/{id} [delete]

@@ -18,7 +18,18 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 )
 
-const adminToken = "test-admin-token"
+const testSession = "test-session"
+
+// fakeAdminOnly は本物の RequireAdminSession の代わり（Cookie の値が testSession なら通す）。
+// セッションの分岐は common のテストが担うので、ここでは「認証が要る経路に付いているか」だけを見る
+func fakeAdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if ck, err := c.Cookie(common.SessionCookieName); err != nil || ck.Value != testSession {
+			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+		}
+		return next(c)
+	}
+}
 
 type fakeLookup func(context.Context, string) (*domainbook.CatalogEntry, error)
 
@@ -27,18 +38,18 @@ func (f fakeLookup) Execute(ctx context.Context, isbn string) (*domainbook.Catal
 }
 
 // serve は cmd/api/main.go と同じ形（NewEcho + Register）でハンドラを組み立ててリクエストを流す。
-func serve(t *testing.T, h *httpcatalog.Handler, path string, withToken bool) *httptest.ResponseRecorder {
+func serve(t *testing.T, h *httpcatalog.Handler, path string, withSession bool) *httptest.ResponseRecorder {
 	t.Helper()
 	orig := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	t.Cleanup(func() { slog.SetDefault(orig) })
 
-	h.AdminOnly = common.RequireAdminToken(adminToken)
+	h.AdminOnly = fakeAdminOnly
 	e := common.NewEcho()
 	h.Register(e.Group("/api/catalog"))
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	if withToken {
-		req.Header.Set(echo.HeaderAuthorization, "Bearer "+adminToken)
+	if withSession {
+		req.AddCookie(&http.Cookie{Name: common.SessionCookieName, Value: testSession})
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -107,16 +118,16 @@ func TestHandlerLookup(t *testing.T) {
 	})
 
 	for _, tt := range []struct {
-		name      string
-		path      string
-		withToken bool
-		err       error
-		want      int
+		name        string
+		path        string
+		withSession bool
+		err         error
+		want        int
 	}{
-		{name: "トークンが無ければ401", path: "/api/catalog/9784873118703", withToken: false, want: http.StatusUnauthorized},
-		{name: "18文字以上のISBNは400", path: "/api/catalog/978-4-87311-870-3-0", withToken: true, want: http.StatusBadRequest},
-		{name: "不正なISBNは400", path: "/api/catalog/123", withToken: true, err: domaincommon.ErrInvalid, want: http.StatusBadRequest},
-		{name: "該当なしは404", path: "/api/catalog/9784873118703", withToken: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
+		{name: "ログインしていなければ401", path: "/api/catalog/9784873118703", withSession: false, want: http.StatusUnauthorized},
+		{name: "18文字以上のISBNは400", path: "/api/catalog/978-4-87311-870-3-0", withSession: true, want: http.StatusBadRequest},
+		{name: "不正なISBNは400", path: "/api/catalog/123", withSession: true, err: domaincommon.ErrInvalid, want: http.StatusBadRequest},
+		{name: "該当なしは404", path: "/api/catalog/9784873118703", withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &httpcatalog.Handler{LookupUC: fakeLookup(func(context.Context, string) (*domainbook.CatalogEntry, error) {
@@ -125,7 +136,7 @@ func TestHandlerLookup(t *testing.T) {
 				}
 				return nil, tt.err
 			})}
-			if rec := serve(t, h, tt.path, tt.withToken); rec.Code != tt.want {
+			if rec := serve(t, h, tt.path, tt.withSession); rec.Code != tt.want {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.want)
 			}
 		})

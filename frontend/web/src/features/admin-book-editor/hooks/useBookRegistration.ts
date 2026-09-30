@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   useGetApiCatalogIsbn,
@@ -6,7 +6,7 @@ import {
   usePostApiBooks,
 } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
-import { adminRequest } from '@/lib/admin-auth'
+import { useLoginRedirect } from '@/hooks/useLoginRedirect'
 import {
   emptyBookFormValues,
   type BookFormErrors,
@@ -40,6 +40,7 @@ function catalogErrorState(error: ApiError | undefined) {
 
 export function useBookRegistration() {
   const navigate = useNavigate()
+  const redirectIfUnauthorized = useLoginRedirect()
   const [isbn, setIsbn] = useState('')
   const [confirmedIsbn, setConfirmedIsbn] = useState('')
   const [values, setValues] = useState<BookFormValues>(emptyBookFormValues)
@@ -49,10 +50,18 @@ export function useBookRegistration() {
 
   const catalogQuery = useGetApiCatalogIsbn(confirmedIsbn || 'x', {
     query: { enabled: confirmedIsbn !== '' },
-    request: adminRequest(),
   })
-  const tagsQuery = useGetApiTags({ request: adminRequest() })
-  const registerMutation = usePostApiBooks({ request: adminRequest() })
+  // ISBN の確認もログイン済みでないと通らない。画面を開いたままセッションが切れた場合、
+  // 一般エラーで止めずに登録と同じくログイン画面へ送る。
+  // redirectIfUnauthorized は現在地が変わるたびに別の関数になるため依存に入れない
+  // （入れると、遷移後の現在地で二度目の遷移が走り state.from が /admin/login になる）
+  const catalogError = catalogQuery.error
+  useEffect(() => {
+    if (catalogError) redirectIfUnauthorized(catalogError)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogError])
+  const tagsQuery = useGetApiTags()
+  const registerMutation = usePostApiBooks()
 
   const confirm = () => {
     setConfirmedIsbn(isbn.trim())
@@ -82,6 +91,7 @@ export function useBookRegistration() {
         onSettled: () => {
           submitting.current = false
         },
+        onError: redirectIfUnauthorized,
         onSuccess: () => {
           setRegistered(true)
           navigate('/admin', { state: { notice: '本を登録しました' } })

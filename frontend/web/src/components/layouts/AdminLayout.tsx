@@ -1,5 +1,4 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { adminToken } from '@/lib/admin-auth'
 
 const navClass = (current: boolean) =>
   `flex h-full items-center border-b-2 ${
@@ -8,7 +7,16 @@ const navClass = (current: boolean) =>
       : 'border-transparent text-ink-300 hover:text-white'
   }`
 
-export function AdminLayout() {
+type AdminLayoutProps = {
+  onLogout: () => void
+  // ログアウトに失敗したとき true。サーバー側のセッションが残っているので画面は抜けず、再試行を促す
+  logoutFailed?: boolean
+}
+
+export function AdminLayout({
+  onLogout,
+  logoutFailed = false,
+}: AdminLayoutProps) {
   const { pathname } = useLocation()
   // 「本」は一覧・登録・編集のどれでも今いる画面にする（NavLink の前方一致だと /admin/tags まで当たる）
   const onBooks = pathname === '/admin' || pathname.startsWith('/admin/books')
@@ -49,17 +57,21 @@ export function AdminLayout() {
           <Link to="/" className="text-sm text-ink-300 hover:text-white">
             公開画面を見る
           </Link>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="text-sm text-ink-300 hover:text-white"
+          >
+            ログアウト
+          </button>
         </div>
       </header>
-      {!adminToken() && (
+      {logoutFailed && (
         <div
           role="alert"
           className="border-b border-brand-700 bg-brand-50 px-4 py-3 text-center text-sm text-brand-800"
         >
-          管理者トークンが設定されていません。
-          <code className="mx-1">frontend/web/.env.development.local</code>に
-          <code className="mx-1">VITE_ADMIN_TOKEN</code>
-          を書いて開発サーバーを起動し直すまで、書き込みはできません。
+          ログアウトできませんでした。ログイン状態は残っています。もう一度「ログアウト」を押してください。
         </div>
       )}
       <main className="flex-1">

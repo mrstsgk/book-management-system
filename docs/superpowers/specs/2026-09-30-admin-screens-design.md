@@ -7,6 +7,8 @@
 
 ## ログインは後回し
 
+> 2026-09-30: [ログインの設計](./2026-09-30-admin-login-design.md) で置き換えた。以下は当時の判断。
+
 - ログイン画面は作らない（要件定義 §3.1 を「後回し」に改める）。書き込み系 API に付ける管理者トークンは、frontend の環境変数 `VITE_ADMIN_TOKEN` から読む。ローカルでは `frontend/web/.env.development.local`（git 管理外）に書く（値はバックエンドの既定 `local-admin-token`。手順は `frontend/README.md`）。リポジトリに既定値のファイルは置かない
 - トークンは画面のコードに埋め込まれるので、ビルドして公開すると誰でも書き込める。デプロイしない前提（要求定義 §4）でだけ成り立つ。判断は ADR に残す
 - トークンは管理画面の hook から Orval 生成フックの `request: { headers }` で渡す（`lib/admin-auth.ts` の `adminRequest()`）。`mutator` で全要求に付けない（公開画面の要求にトークンを載せないため）

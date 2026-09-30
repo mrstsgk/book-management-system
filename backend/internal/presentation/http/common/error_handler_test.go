@@ -56,6 +56,18 @@ func TestHTTPErrorHandler(t *testing.T) {
 			wantMessage: "conflict",
 		},
 		{
+			name:        "ErrUnauthorized is 401",
+			err:         domaincommon.ErrUnauthorized,
+			wantStatus:  http.StatusUnauthorized,
+			wantMessage: "unauthorized",
+		},
+		{
+			name:        "ErrTooManyAttempts is 429",
+			err:         domaincommon.ErrTooManyAttempts,
+			wantStatus:  http.StatusTooManyRequests,
+			wantMessage: "too many attempts",
+		},
+		{
 			name:        "ValidationError is 400 with field errors",
 			err:         &common.ValidationError{Fields: []common.FieldError{{Field: "title", Rule: "required"}}},
 			wantStatus:  http.StatusBadRequest,

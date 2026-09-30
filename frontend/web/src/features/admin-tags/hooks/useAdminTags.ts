@@ -6,7 +6,7 @@ import {
   usePutApiTagsId,
 } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
-import { adminRequest } from '@/lib/admin-auth'
+import { useLoginRedirect } from '@/hooks/useLoginRedirect'
 import { mergeTagCounts } from '../utils/mergeTagCounts'
 
 type Outcome = { ok: true } | { ok: false; message: string; stale?: boolean }
@@ -20,11 +20,12 @@ const genericError = (action: string) =>
 const DUPLICATE_NAME_MESSAGE = 'conflict: 同じ名前のタグが既にあります'
 
 export function useAdminTags() {
+  const redirectIfUnauthorized = useLoginRedirect()
   const tags = useGetApiTags()
   const counts = useGetApiTagsCounts()
-  const addMutation = usePostApiTags({ request: adminRequest() })
-  const renameMutation = usePutApiTagsId({ request: adminRequest() })
-  const deleteMutation = useDeleteApiTagsId({ request: adminRequest() })
+  const addMutation = usePostApiTags()
+  const renameMutation = usePutApiTagsId()
+  const deleteMutation = useDeleteApiTagsId()
 
   const refetchList = () => {
     void tags.refetch()
@@ -37,6 +38,8 @@ export function useAdminTags() {
       refetchList()
       return { ok: true }
     } catch (e) {
+      if (redirectIfUnauthorized(e))
+        return { ok: false, message: 'ログインしてください' }
       if (e instanceof ApiError && e.status === 409) {
         return { ok: false, message: `「${name}」というタグはすでにあります` }
       }
@@ -54,6 +57,8 @@ export function useAdminTags() {
       refetchList()
       return { ok: true }
     } catch (e) {
+      if (redirectIfUnauthorized(e))
+        return { ok: false, message: 'ログインしてください' }
       if (e instanceof ApiError && e.status === 409) {
         if (e.message === DUPLICATE_NAME_MESSAGE) {
           return {
@@ -78,7 +83,9 @@ export function useAdminTags() {
       await deleteMutation.mutateAsync({ id })
       refetchList()
       return { ok: true }
-    } catch {
+    } catch (e) {
+      if (redirectIfUnauthorized(e))
+        return { ok: false, message: 'ログインしてください' }
       return { ok: false, message: genericError('削除') }
     }
   }

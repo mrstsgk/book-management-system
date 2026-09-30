@@ -1,12 +1,123 @@
 {
     "swagger": "2.0",
     "info": {
+        "description": "書き込み系 API は POST /api/auth/login で得た httpOnly Cookie（admin_session）が要る",
         "title": "Book Management System API",
         "contact": {},
         "version": "0.1.0"
     },
     "basePath": "/",
     "paths": {
+        "/api/auth/login": {
+            "post": {
+                "description": "ID とパスワードが合えばセッションを発行し、httpOnly Cookie（admin_session）で返す。どちらが違うかは返さない。失敗が続くとしばらく 429",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "管理画面にログインする",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "description": "サーバー側のセッションを消し、Cookie も消す。ログインしていなくても 204",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "ログアウトする",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/session": {
+            "get": {
+                "description": "ログイン済みの Cookie（admin_session）が有効なら 204。画面のガードに使う。有効ならアイドル期限が延びる",
+                "tags": [
+                    "auth"
+                ],
+                "summary": "ログイン中かを確かめる",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/books": {
             "get": {
                 "description": "新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は0件",
@@ -65,11 +176,6 @@
                 }
             },
             "post": {
-                "security": [
-                    {
-                        "AdminToken": []
-                    }
-                ],
                 "description": "書誌と書影は ISBN で openBD から取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409",
                 "consumes": [
                     "application/json"
@@ -107,6 +213,12 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -172,11 +284,6 @@
                 }
             },
             "put": {
-                "security": [
-                    {
-                        "AdminToken": []
-                    }
-                ],
                 "description": "あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。version が一致しない場合は 409",
                 "consumes": [
                     "application/json"
@@ -225,6 +332,12 @@
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -246,11 +359,6 @@
                 }
             },
             "delete": {
-                "security": [
-                    {
-                        "AdminToken": []
-                    }
-                ],
                 "tags": [
                     "books"
                 ],
@@ -280,6 +388,12 @@
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -297,11 +411,6 @@
         },
         "/api/catalog/{isbn}": {
             "get": {
-                "security": [
-                    {
-                        "AdminToken": []
-                    }
-                ],
                 "description": "登録前の確認用。書誌と書影は openBD から取得する",
                 "produces": [
                     "application/json"
@@ -378,11 +487,6 @@
                 }
             },
             "post": {
-                "security": [
-                    {
-                        "AdminToken": []
-                    }
-                ],
                 "description": "同じ名前のタグは登録できない（409）",
                 "consumes": [
                     "application/json"
@@ -420,6 +524,12 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -467,11 +577,6 @@
         },
         "/api/tags/{id}": {
             "put": {
-                "security": [
-                    {
-                        "AdminToken": []
-                    }
-                ],
                 "description": "version が一致しない場合は 409",
                 "consumes": [
                     "application/json"
@@ -520,6 +625,12 @@
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -541,11 +652,6 @@
                 }
             },
             "delete": {
-                "security": [
-                    {
-                        "AdminToken": []
-                    }
-                ],
                 "description": "付いていた本からは自動で外れる",
                 "tags": [
                     "tags"
@@ -572,6 +678,12 @@
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -818,6 +930,23 @@
                 }
             }
         },
+        "LoginRequest": {
+            "type": "object",
+            "required": [
+                "id",
+                "password"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "admin"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "correct horse battery staple"
+                }
+            }
+        },
         "RegisterBookRequest": {
             "type": "object",
             "required": [
@@ -1004,14 +1133,6 @@
                     "example": 1
                 }
             }
-        }
-    },
-    "securityDefinitions": {
-        "AdminToken": {
-            "description": "登録・更新・削除とカタログの確認に必要。「Bearer \u003cADMIN_TOKEN\u003e」の形式で指定する",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
         }
     }
 }
