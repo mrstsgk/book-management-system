@@ -55,7 +55,9 @@ export function useBookRegistration() {
     registerMutation.mutate(
       {
         data: {
-          isbn: isbn.trim(),
+          // isbn（入力欄）ではなく confirmedIsbn を送る。確認後に入力欄だけ書き換えても
+          // catalog.confirmed は true のままなので、確認していない ISBN で登録してしまわないため
+          isbn: confirmedIsbn,
           summary: values.summary.trim(),
           comment: values.comment,
           rating: values.rating,

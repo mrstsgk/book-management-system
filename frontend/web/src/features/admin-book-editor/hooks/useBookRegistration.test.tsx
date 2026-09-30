@@ -245,4 +245,40 @@ describe('useBookRegistration', () => {
     await waitFor(() => expect(result.current.registered).toBe(true))
     expect(calls).toBe(1)
   })
+
+  it('確かめた後にISBN欄を書き換えても、確かめたISBNで登録する', async () => {
+    let sentIsbn: string | undefined
+    server.use(
+      getGetApiCatalogIsbnMockHandler({
+        isbn: '9784297146221',
+        title: '本',
+      }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.post('*/api/books', async ({ request }) => {
+        const body = (await request.json()) as { isbn?: string }
+        sentIsbn = body.isbn
+        return HttpResponse.json({ id: 1 })
+      }),
+    )
+    const { result } = renderUseBookRegistration()
+    act(() => result.current.setIsbn('9784297146221'))
+    act(() => result.current.confirm())
+    await waitFor(() => expect(result.current.catalog.confirmed).toBe(true))
+
+    // 確認後に別のISBNへ書き換える（確認し直してはいない）
+    act(() => result.current.setIsbn('9784000000000'))
+    act(() =>
+      result.current.setValues({
+        titleOverride: '',
+        summary: 'まとめ',
+        comment: '感想',
+        rating: 4,
+        tagIds: [],
+      }),
+    )
+    act(() => result.current.submit())
+
+    await waitFor(() => expect(result.current.registered).toBe(true))
+    expect(sentIsbn).toBe('9784297146221')
+  })
 })
