@@ -95,6 +95,8 @@ API の `ErrorResponse` の `message` は開発者向けなので、そのまま
 | 相関ルール・業務ルールに固有の文言（`rule` が `isbnDuplicated` などの id） | 概要設計 `docs/design/<機能>.md` のメッセージ一覧（MSG-xx）。同じ対応表に写す |
 | 5xx・通信失敗・`errors` の無い 400 | FE 共通の文言（画面上部） |
 
+上限のある項目の文字数は、BE と同じく前後の空白を除いて Unicode のコードポイントで数える（`Array.from(value.trim()).length`。`String.length` と HTML の `maxlength` は UTF-16 単位で絵文字を 2 文字と数えるため使わない。`maxlength` は IME の変換途中でも文字を切る）。上限を超えたら送信を止め、入力欄のすぐ下で伝える（実例: 一覧の検索キーワード `features/books-list/utils/searchParams.ts`）。
+
 `errors[]` は順序に依存せず全件を表示し、`field` に対応する入力欄のすぐ下に出す（[`docs/architecture.md`](../docs/architecture.md) §4「バリデーションの全件返却」）。
 
 ## 3. 設計パターン
@@ -388,4 +390,3 @@ JSX を含むファイルは `.tsx`、含まないファイルは `.ts`。
 | ルーティング | path の定義の置き場（現在は `router.tsx` と各 Component に文字列で書いている）と、画面と route の対応の書き方（案: `bookPaths.detail(id)` のように目的を表す名前でまとめる） |
 | hook のテスト | `renderHook` で hook を直接テストする書き方と、生成 hook の差し替え方（現在は MSW で差し替えている） |
 | Storybook | Story の置き場（`packages/ui` の `Button` の Story がアプリ側 `components/ui/Button.stories.tsx` にある） |
-| 文字数の数え方 | 上限のある項目を Unicode のコードポイントで数えるか UTF-16 単位で数えるか（BE・DB と揃える） |
