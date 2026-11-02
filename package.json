@@ -1,0 +1,13 @@
+{
+  "name": "book-management-review-tooling",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test .github/scripts/coderabbit-config.test.mjs",
+    "typecheck": "tsc --noEmit --strict --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext .coderabbit.config.ts"
+  },
+  "devDependencies": {
+    "@coderabbitai/config": "1.1.6",
+    "typescript": "6.0.3"
+  }
+}

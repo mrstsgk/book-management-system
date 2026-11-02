@@ -1,0 +1,61 @@
+get:
+  operationId: searchBooks
+  summary: Search books
+  description: |
+    読んだ本を新しく登録した順に返す。q と tagId は同時に使える（両方を満たす本）。
+    total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は 0 件。
+    q の文字数（前後の空白を除いて 100 文字まで）は VO が判定し、超えたら 400（errors なし）。
+  tags:
+    - book
+  security: []
+  parameters:
+    - name: limit
+      in: query
+      required: false
+      description: 取得件数
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    - name: offset
+      in: query
+      required: false
+      description: 取得開始位置
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    - name: q
+      in: query
+      required: false
+      description: 書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない。前後の空白を除いて空なら検索しない
+      schema:
+        type: string
+    - name: tagId
+      in: query
+      required: false
+      description: この分野タグが付いた本だけにする
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/SearchBooksResponse.yaml
+    '400':
+      description: 'path・query パラメータの入力検証の違反（errors[{field, rule}]）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml

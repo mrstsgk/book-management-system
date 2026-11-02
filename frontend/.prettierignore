@@ -1,10 +1,10 @@
 # Orval 生成物（手で直さない。pnpm gen:api で再生成）
-web/src/api/generated/
+*/src/api/generated/
 pnpm-lock.yaml
 # 人が読む日本語ドキュメントの表を自動整形で崩さない
 *.md
 
 # Playwright の実行結果（.gitignore と同じ）
-web/test-results/
-web/playwright-report/
-web/blob-report/
+admin/test-results/
+admin/playwright-report/
+admin/blob-report/

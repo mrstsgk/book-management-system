@@ -1,0 +1,40 @@
+type: object
+required:
+  - isbn
+  - title
+  - authors
+  - publisher
+  - publishedOn
+  - amazonUrl
+  - coverUrl
+  - coverSource
+properties:
+  isbn:
+    type: string
+    example: '9784873118703'
+  title:
+    type: string
+    example: データ指向アプリケーションデザイン
+  authors:
+    type: string
+    example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+  publisher:
+    type: string
+    example: オーム社
+  publishedOn:
+    type: string
+    example: '201907'
+  amazonUrl:
+    type: string
+    nullable: true
+    example: https://www.amazon.co.jp/dp/4873118700
+  coverUrl:
+    type: string
+    nullable: true
+    example: https://cover.openbd.jp/9784873118703.jpg
+  coverSource:
+    type: string
+    nullable: true
+    enum:
+      - openbd
+    example: openbd

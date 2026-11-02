@@ -1,0 +1,40 @@
+type: object
+required:
+  - summary
+  - comment
+  - rating
+  - version
+properties:
+  summary:
+    type: string
+    minLength: 1
+    maxLength: 100
+    example: 読み返して理解が深まった
+  titleOverride:
+    type: string
+    maxLength: 255
+    description: 全体の置き換えなので、省略・空（空白だけも）なら上書きを外す
+  tagIds:
+    type: array
+    maxItems: 10
+    description: 全体の置き換えなので、省略・空なら分野タグをすべて外す
+    items:
+      type: integer
+      format: int64
+    example:
+      - 1
+      - 2
+  comment:
+    type: string
+    minLength: 1
+    maxLength: 5000
+    example: 読み返して理解が深まった
+  rating:
+    type: integer
+    minimum: 1
+    maximum: 5
+    example: 5
+  version:
+    type: integer
+    description: 編集を始めたときに読んだ版
+    example: 1

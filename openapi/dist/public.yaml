@@ -1,0 +1,426 @@
+openapi: 3.0.3
+info:
+  title: Book Management System API (public)
+  version: 0.1.0
+  description: 読んだ本の紹介（閲覧）の API。認証は要らない。
+servers:
+  - url: /
+tags:
+  - name: book
+    description: 読んだ本
+  - name: tag
+    description: 分野タグ
+paths:
+  /api/books:
+    get:
+      operationId: searchBooks
+      summary: Search books
+      description: |
+        読んだ本を新しく登録した順に返す。q と tagId は同時に使える（両方を満たす本）。
+        total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は 0 件。
+        q の文字数（前後の空白を除いて 100 文字まで）は VO が判定し、超えたら 400（errors なし）。
+      tags:
+        - book
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: 取得件数
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          description: 取得開始位置
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: q
+          in: query
+          required: false
+          description: 書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない。前後の空白を除いて空なら検索しない
+          schema:
+            type: string
+        - name: tagId
+          in: query
+          required: false
+          description: この分野タグが付いた本だけにする
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchBooksResponse'
+        '400':
+          description: path・query パラメータの入力検証の違反（errors[{field, rule}]）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/books/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 読んだ本の ID
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 1
+    get:
+      operationId: readBook
+      summary: Read a book
+      description: 読んだ本の詳細（書誌・書影・Amazon リンク・一言まとめ・感想・評価・分野タグ）を返す。
+      tags:
+        - book
+      security: []
+      x-error-codes:
+        - code: bookNotFound
+          status: 404
+          rule: 指定した ID の本が無い
+          message: この本は見つかりませんでした
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookResponse'
+        '400':
+          description: path・query パラメータの入力検証の違反（errors[{field, rule}]）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: '対象が無い（code: bookNotFound）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/tags:
+    get:
+      operationId: searchTags
+      summary: Search tags
+      description: 分野タグをすべて返す。
+      tags:
+        - tag
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchTagsResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/tags/counts:
+    get:
+      operationId: countBooks
+      summary: Count books by tag
+      description: 分野タグごとの冊数を返す。本が 1 冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順。
+      tags:
+        - tag
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CountBooksResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    BookListItemResponse:
+      type: object
+      required:
+        - id
+        - isbn
+        - title
+        - summary
+        - tags
+        - authors
+        - amazonUrl
+        - coverUrl
+        - coverSource
+        - rating
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        isbn:
+          type: string
+          example: '9784873118703'
+        title:
+          type: string
+          description: 表示する書名（上書きがあればそれ、無ければ外部カタログの書名）
+          example: データ指向アプリケーションデザイン
+        summary:
+          type: string
+          example: 分散データの設計を体系的に学べる
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+            - データベース
+        authors:
+          type: string
+          example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        amazonUrl:
+          type: string
+          nullable: true
+          example: https://www.amazon.co.jp/dp/4873118700
+        coverUrl:
+          type: string
+          nullable: true
+          example: https://cover.openbd.jp/9784873118703.jpg
+        coverSource:
+          type: string
+          nullable: true
+          enum:
+            - openbd
+          example: openbd
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+    SearchBooksResponse:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookListItemResponse'
+        total:
+          type: integer
+          description: 条件に合う総件数（取得範囲外も含む）
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        offset:
+          type: integer
+          example: 0
+    FieldError:
+      type: object
+      required:
+        - field
+        - rule
+      properties:
+        field:
+          type: string
+          description: |
+            違反した項目の JSON 名。入れ子・配列はドット区切りのパス（例: tagIds.0）、path・query パラメータはパラメータ名
+          example: summary
+        rule:
+          type: string
+          description: |
+            違反した規則。OpenAPI の制約キーワード（required / minLength / maxLength / minimum / maximum / maxItems / type など）か、
+            VO の違反（format / invalid）か、operation の x-correlation-rules の id（isbnDuplicated など）
+          example: maxLength
+        params:
+          type: object
+          additionalProperties: true
+          description: 文言に差し込む値（BE しか知らない値だけ）
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: 開発者・ログ向け。画面には出さない
+          example: invalid request
+        code:
+          type: string
+          description: |
+            業務ルールの違反のときだけ付くコード（lowerCamel）。値は各 operation の x-error-codes に列挙する。
+            FE はこのコードから文言を引く（docs/architecture.md §4）。5xx には付かない
+          example: bookNotFound
+        params:
+          type: object
+          additionalProperties: true
+          description: 文言に差し込む値（BE しか知らない値だけ。加工しない形で返す）。キーと型は x-error-codes の params
+        errors:
+          type: array
+          description: 入力検証・VO・相関ルールの違反（400）のときだけ付く、項目ごとの違反。独立して判定できるものをすべて返す（順不同）
+          items:
+            $ref: '#/components/schemas/FieldError'
+    BookResponse:
+      type: object
+      required:
+        - id
+        - isbn
+        - title
+        - authors
+        - publisher
+        - publishedOn
+        - amazonUrl
+        - coverUrl
+        - coverSource
+        - titleOverride
+        - summary
+        - tags
+        - comment
+        - rating
+        - version
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        isbn:
+          type: string
+          example: '9784873118703'
+        title:
+          type: string
+          description: 表示する書名（上書きがあればそれ、無ければ外部カタログの書名）
+          example: データ指向アプリケーションデザイン
+        authors:
+          type: string
+          example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        publisher:
+          type: string
+          example: オーム社
+        publishedOn:
+          type: string
+          description: 出版日（外部カタログの表記のまま。例 201907）
+          example: '201907'
+        amazonUrl:
+          type: string
+          nullable: true
+          description: ISBN から導出する。ISBN-10 の形にできなければ null
+          example: https://www.amazon.co.jp/dp/4873118700
+        coverUrl:
+          type: string
+          nullable: true
+          description: 提供元がホストする書影の URL。書影が無ければ null
+          example: https://cover.openbd.jp/9784873118703.jpg
+        coverSource:
+          type: string
+          nullable: true
+          description: 書影の提供元（Domain の CoverSource が値を保証する）。書影が無ければ null
+          enum:
+            - openbd
+          example: openbd
+        titleOverride:
+          type: string
+          nullable: true
+          description: 自分で上書きした書名。上書きしていなければ null
+        summary:
+          type: string
+          example: 分散データの設計を体系的に学べる
+        tags:
+          type: array
+          description: 付いている分野タグの名前
+          items:
+            type: string
+          example:
+            - データベース
+        comment:
+          type: string
+          example: 分散システムの設計を体系的に学べた
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        version:
+          type: integer
+          description: 同時編集を見つけるための版（更新のたびに増える）
+          example: 1
+    TagResponse:
+      type: object
+      required:
+        - id
+        - name
+        - version
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: データベース
+        version:
+          type: integer
+          description: 同時編集を見つけるための版
+          example: 1
+    SearchTagsResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagResponse'
+    TagBookCountResponse:
+      type: object
+      required:
+        - id
+        - name
+        - bookCount
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: データベース
+        bookCount:
+          type: integer
+          example: 3
+    CountBooksResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagBookCountResponse'

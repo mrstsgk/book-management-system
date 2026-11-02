@@ -14,7 +14,7 @@ import (
 	"os"
 	"strings"
 
-	infraauth "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/auth"
+	authbcrypt "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/bcrypt"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func run(in io.Reader, out io.Writer) error {
 	if password == "" {
 		return errors.New("パスワードが空です")
 	}
-	hash, err := infraauth.HashPassword(password)
+	hash, err := authbcrypt.HashPassword(password)
 	if err != nil {
 		return err
 	}

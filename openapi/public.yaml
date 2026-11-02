@@ -1,0 +1,24 @@
+# public チャネル（cmd/public-api・frontend/public）の API 契約の正本。誰でも見られる閲覧の API。
+# 編集後は `make -C backend openapi`（lint・バンドル・BE 再生成）と
+# `pnpm -C frontend gen:api`（FE 再生成）を実行する。dist/ は生成物で手編集しない。
+openapi: 3.0.3
+info:
+  title: Book Management System API (public)
+  version: 0.1.0
+  description: 読んだ本の紹介（閲覧）の API。認証は要らない。
+servers:
+  - url: /
+tags:
+  - name: book
+    description: 読んだ本
+  - name: tag
+    description: 分野タグ
+paths:
+  /api/books:
+    $ref: book/public/paths/books.yaml
+  /api/books/{id}:
+    $ref: book/public/paths/book.yaml
+  /api/tags:
+    $ref: tag/public/paths/tags.yaml
+  /api/tags/counts:
+    $ref: tag/public/paths/tag-counts.yaml

@@ -13,7 +13,7 @@ var catalogKeys = []string{"OPENBD_BASE_URL"}
 
 func clearEnv(t *testing.T) {
 	t.Helper()
-	for _, k := range append(append([]string{"LOG_LEVEL", "HTTP_PORT"}, dbKeys...), append(catalogKeys, "ADMIN_ID", "ADMIN_PASSWORD_HASH")...) {
+	for _, k := range append(append([]string{"STAGE", "LOG_LEVEL", "HTTP_PORT"}, dbKeys...), append(catalogKeys, "ADMIN_ID", "ADMIN_PASSWORD_HASH")...) {
 		t.Setenv(k, "")
 	}
 }
@@ -21,7 +21,7 @@ func clearEnv(t *testing.T) {
 func TestLoad(t *testing.T) {
 	t.Run("未設定ならローカルのDBとinfoレベルを使い、管理者の既定値は置かない", func(t *testing.T) {
 		clearEnv(t)
-		cfg, err := config.Load()
+		cfg, err := config.Load("8080")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -44,7 +44,7 @@ func TestLoad(t *testing.T) {
 	t.Run("LOG_LEVEL is parsed", func(t *testing.T) {
 		clearEnv(t)
 		t.Setenv("LOG_LEVEL", "debug")
-		cfg, err := config.Load()
+		cfg, err := config.Load("8080")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -56,7 +56,7 @@ func TestLoad(t *testing.T) {
 	t.Run("invalid LOG_LEVEL fails", func(t *testing.T) {
 		clearEnv(t)
 		t.Setenv("LOG_LEVEL", "verbose")
-		if _, err := config.Load(); err == nil {
+		if _, err := config.Load("8080"); err == nil {
 			t.Fatal("expected error")
 		}
 	})
@@ -65,7 +65,7 @@ func TestLoad(t *testing.T) {
 		clearEnv(t)
 		t.Setenv("DB_HOST", "db.test")
 		t.Setenv("DB_NAME", "other")
-		cfg, err := config.Load()
+		cfg, err := config.Load("8080")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -78,7 +78,7 @@ func TestLoad(t *testing.T) {
 func TestLoad_CatalogBaseURLsCanBeOverridden(t *testing.T) {
 	clearEnv(t)
 	t.Setenv("OPENBD_BASE_URL", "http://openbd.test")
-	cfg, err := config.Load()
+	cfg, err := config.Load("8080")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,11 +91,51 @@ func TestLoad_Admin(t *testing.T) {
 	clearEnv(t)
 	t.Setenv("ADMIN_ID", "me")
 	t.Setenv("ADMIN_PASSWORD_HASH", "$2a$12$x")
-	cfg, err := config.Load()
+	cfg, err := config.Load("8080")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cfg.Admin.ID != "me" || cfg.Admin.PasswordHash != "$2a$12$x" {
 		t.Fatalf("got %+v", cfg.Admin)
 	}
+}
+
+func TestLoad_Stage(t *testing.T) {
+	t.Run("STAGE が未設定なら local で、HTTP_PORT が無ければ実行サービスの既定のポートを使う", func(t *testing.T) {
+		clearEnv(t)
+		cfg, err := config.Load("8081")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Stage != "local" || cfg.HTTPPort != "8081" {
+			t.Fatalf("Stage=%q HTTPPort=%q, want local / 8081", cfg.Stage, cfg.HTTPPort)
+		}
+	})
+
+	t.Run("local 以外で DB の接続先が無ければ起動しない", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("STAGE", "prd")
+		t.Setenv("DB_HOST", "db.test")
+		t.Setenv("DB_USER", "app")
+		t.Setenv("DB_PASSWORD", "secret")
+		if _, err := config.Load("8080"); err == nil {
+			t.Fatal("expected an error when DB_NAME is missing outside local")
+		}
+	})
+
+	t.Run("local 以外でも DB の接続先がそろえば起動する", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("STAGE", "prd")
+		t.Setenv("DB_HOST", "db.test")
+		t.Setenv("DB_USER", "app")
+		t.Setenv("DB_PASSWORD", "secret")
+		t.Setenv("DB_NAME", "books")
+		cfg, err := config.Load("8080")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.DB.Host != "db.test" || cfg.DB.DBName != "books" {
+			t.Fatalf("DB = %+v", cfg.DB)
+		}
+	})
 }

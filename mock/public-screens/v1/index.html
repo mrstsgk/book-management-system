@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>public-screens Mock v1</title>
+<style>
+  body { font-family: "Noto Sans JP", system-ui, sans-serif; margin: 0; padding: 24px; line-height: 1.6; color: #1a1a1c; }
+  .mockbar { font-size: 13px; color: #555; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 16px; }
+  li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="mockbar">public-screens Mock v1 / 2026-09-29 / Target: US-001・US-002・US-003</div>
+<h1>公開画面のモック</h1>
+<p>画面の見た目・文言・状態別の表示の正。概要設計は <code>docs/design/public-screens.md</code>。<code>[ ]</code> で囲んだ文字は仮置き。</p>
+<ul>
+  <li><a href="list.html">一覧（PC）</a> — キーワード検索・分野タグの絞り込み・「もっと見る」</li>
+  <li><a href="list-mobile.html">一覧（スマホ幅）</a> — 1 列。分野タグは横にスクロール</li>
+  <li><a href="detail.html">詳細</a> — 書誌・書影・評価・分野タグ・一言まとめ・感想・Amazon へのリンク</li>
+  <li><a href="counts.html">分野別の集計</a> — 冊数の多い順。分野を選ぶと絞り込んだ一覧へ</li>
+  <li><a href="states.html">画面の状態</a> — 読み込み中・0 件・エラー（再試行）・存在しない本</li>
+</ul>
+</body>
+</html>

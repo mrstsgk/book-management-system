@@ -1,0 +1,322 @@
+import { QueryClientProvider } from '@tanstack/react-query'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
+import { createElement, type ReactNode } from 'react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
+import { describe, expect, it } from 'vitest'
+import {
+  getCountBooksMockHandler,
+  getSearchTagsMockHandler,
+} from '@/api/generated/api.msw'
+import { createQueryClient } from '@/lib/query-client'
+import { server } from '@/testing/server'
+import { useAdminTags } from './useAdminTags'
+
+// hook と同名の .test.ts に置くため JSX を使わない
+let current: { pathname: string; state: unknown } = {
+  pathname: '',
+  state: null,
+}
+function Probe() {
+  const loc = useLocation()
+  current = { pathname: loc.pathname, state: loc.state }
+  return null
+}
+
+function wrapper({ children }: { children: ReactNode }) {
+  return createElement(
+    MemoryRouter,
+    { initialEntries: ['/tags'] },
+    createElement(Probe),
+    createElement(
+      QueryClientProvider,
+      { client: createQueryClient() },
+      children,
+    ),
+  )
+}
+
+function serveList(
+  tags: { id: number; name: string; version: number }[],
+  counts: { id: number; name: string; bookCount: number }[] = [],
+) {
+  server.use(
+    getSearchTagsMockHandler({ items: tags }),
+    getCountBooksMockHandler({ items: counts }),
+  )
+}
+
+describe('useAdminTags', () => {
+  it('タグの一覧と冊数を名前順の一覧にする', async () => {
+    serveList(
+      [
+        { id: 2, name: 'ネットワーク', version: 1 },
+        { id: 1, name: 'データ', version: 3 },
+      ],
+      [{ id: 2, name: 'ネットワーク', bookCount: 4 }],
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+    expect(result.current.items).toEqual([
+      { id: 1, name: 'データ', version: 3, bookCount: 0 },
+      { id: 2, name: 'ネットワーク', version: 1, bookCount: 4 },
+    ])
+  })
+
+  it('追加に成功すると一覧を取り直す', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    let requests = 0
+    server.use(
+      http.post('*/api/admin/tags', async () => {
+        requests++
+        return HttpResponse.json({ id: 2, name: 'データ', version: 1 })
+      }),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    serveList([
+      { id: 1, name: '設計', version: 1 },
+      { id: 2, name: 'データ', version: 1 },
+    ])
+    let outcome
+    await act(async () => {
+      outcome = await result.current.addTag('データ')
+    })
+
+    expect(outcome).toEqual({ ok: true })
+    expect(requests).toBe(1)
+    await waitFor(() =>
+      expect(new Set(result.current.items.map((i) => i.name))).toEqual(
+        new Set(['設計', 'データ']),
+      ),
+    )
+  })
+
+  it('追加が401ならログイン画面へ送る', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.post('*/api/admin/tags', () =>
+        HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
+      ),
+    )
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.addTag('データ')
+    })
+
+    expect(outcome).toEqual({ ok: false, message: 'ログインしてください' })
+    expect(current.pathname).toBe('/login')
+    expect(current.state).toEqual({ from: '/tags' })
+  })
+
+  it('同じ名前が既にあれば（400 の tagNameDuplicated）名前の誤りの文言にする', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.post('*/api/admin/tags', () =>
+        HttpResponse.json(
+          {
+            message: 'invalid request',
+            errors: [{ field: 'name', rule: 'tagNameDuplicated' }],
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.addTag('設計')
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      message: 'この名前の分野タグはすでにあります。別の名前にしてください。',
+    })
+  })
+
+  it('追加の409（想定外の競合）は一般の文言にする', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.post('*/api/admin/tags', () =>
+        HttpResponse.json({ message: 'conflict' }, { status: 409 }),
+      ),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.addTag('設計')
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      message: '追加できませんでした。時間をおいてもう一度お試しください。',
+    })
+  })
+
+  it('名前の変更に成功すると一覧を取り直す', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.put('*/api/admin/tags/1', async () => {
+        return HttpResponse.json({
+          id: 1,
+          name: 'ソフトウェア設計',
+          version: 2,
+        })
+      }),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    serveList([{ id: 1, name: 'ソフトウェア設計', version: 2 }])
+    let outcome
+    await act(async () => {
+      outcome = await result.current.renameTag(1, 1, 'ソフトウェア設計')
+    })
+
+    expect(outcome).toEqual({ ok: true })
+    await waitFor(() =>
+      expect(result.current.items[0].name).toBe('ソフトウェア設計'),
+    )
+  })
+
+  it('名前の変更が409（他の更新と競合）なら最新を読み込んで伝える', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.put('*/api/admin/tags/1', () =>
+        HttpResponse.json({ message: 'conflict' }, { status: 409 }),
+      ),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    serveList([{ id: 1, name: '設計（他の人が変更）', version: 2 }])
+    let outcome
+    await act(async () => {
+      outcome = await result.current.renameTag(1, 1, '設計案')
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      stale: true,
+      message:
+        'このタグは、ほかの画面で先に更新されていました。最新の内容を読み込みました。',
+    })
+    await waitFor(() =>
+      expect(result.current.items[0].name).toBe('設計（他の人が変更）'),
+    )
+  })
+
+  it('名前の変更で同じ名前が既にあれば（400）名前の誤りの文言にし、一覧は取り直さない', async () => {
+    serveList([
+      { id: 1, name: '設計', version: 1 },
+      { id: 2, name: 'データ', version: 1 },
+    ])
+    server.use(
+      http.put('*/api/admin/tags/1', () =>
+        HttpResponse.json(
+          {
+            message: 'invalid request',
+            errors: [{ field: 'name', rule: 'tagNameDuplicated' }],
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.renameTag(1, 1, 'データ')
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      message: 'この名前の分野タグはすでにあります。別の名前にしてください。',
+    })
+  })
+
+  it('同名への改名が同時に来て 409（code: tagNameDuplicated）なら、競合ではなく名前の誤りの文言にする', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.put('*/api/admin/tags/1', () =>
+        HttpResponse.json(
+          { message: 'conflict', code: 'tagNameDuplicated' },
+          { status: 409 },
+        ),
+      ),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.renameTag(1, 1, 'データ')
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      message: 'この名前の分野タグはすでにあります。別の名前にしてください。',
+    })
+  })
+
+  it('削除に成功すると一覧を取り直す', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.delete('*/api/admin/tags/1', async () => {
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    serveList([])
+    let outcome
+    await act(async () => {
+      outcome = await result.current.deleteTag(1)
+    })
+
+    expect(outcome).toEqual({ ok: true })
+    await waitFor(() => expect(result.current.items).toEqual([]))
+  })
+
+  it('削除に失敗すれば分かる文言を返す', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.delete('*/api/admin/tags/1', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.deleteTag(1)
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      message: '削除できませんでした。時間をおいてもう一度お試しください。',
+    })
+  })
+})

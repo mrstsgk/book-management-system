@@ -11,6 +11,8 @@ type SlotProps = HTMLAttributes<HTMLElement> & {
 }
 
 /** @internal デジタル庁 DS Slot（asChild 用） */
+// 子の要素へ props を合成するのが Slot の役割そのもので、cloneElement・Children の代わりがない
+/* eslint-disable @eslint-react/no-clone-element, @eslint-react/no-children-count, @eslint-react/no-children-only */
 export function Slot(props: SlotProps) {
   const { children, ...rest } = props
 
@@ -29,3 +31,4 @@ export function Slot(props: SlotProps) {
 
   return null
 }
+/* eslint-enable @eslint-react/no-clone-element, @eslint-react/no-children-count, @eslint-react/no-children-only */

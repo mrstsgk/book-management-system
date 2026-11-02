@@ -1,8 +1,8 @@
 import {
   type ComponentProps,
-  forwardRef,
   type MouseEvent,
   type ReactNode,
+  type Ref,
 } from 'react'
 import { Slot } from './Slot'
 
@@ -15,7 +15,7 @@ export const buttonBaseStyle = `
   aria-disabled:pointer-events-none aria-disabled:forced-colors:border-[GrayText] aria-disabled:forced-colors:text-[GrayText]
 `
 
-export const buttonVariantStyle: { [key in ButtonVariant]: string } = {
+export const buttonVariantStyle: Record<ButtonVariant, string> = {
   'solid-fill': `
     border-4
     border-double
@@ -58,7 +58,7 @@ export const buttonVariantStyle: { [key in ButtonVariant]: string } = {
   `,
 }
 
-export const buttonSizeStyle: { [key in ButtonSize]: string } = {
+export const buttonSizeStyle: Record<ButtonSize, string> = {
   lg: 'min-w-[calc(136/16*1rem)] min-h-14 rounded-8 px-4 py-3 text-oln-16B-100',
   md: 'min-w-24 min-h-12 rounded-8 px-4 py-2 text-oln-16B-100',
   sm: 'relative min-w-20 min-h-9 rounded-6 px-3 py-0.5 text-oln-16B-100 after:absolute after:inset-x-0 after:-inset-y-full after:m-auto after:h-[44px]',
@@ -78,37 +78,33 @@ export type ButtonProps = {
  * デジタル庁 DS Button（上流ソースから取り込み）。
  * @see https://github.com/digital-go-jp/design-system-example-components-react
  */
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (props, ref) => {
-    const { asChild, children, className, variant, size, ...rest } = props
+export function Button(props: ButtonProps & { ref?: Ref<HTMLButtonElement> }) {
+  const { asChild, children, className, variant, size, ref, ...rest } = props
 
-    const classNames = `${buttonBaseStyle} ${buttonSizeStyle[size]} ${
-      variant ? buttonVariantStyle[variant] : ''
-    } ${className ?? ''}`
+  const classNames = `${buttonBaseStyle} ${buttonSizeStyle[size]} ${
+    variant ? buttonVariantStyle[variant] : ''
+  } ${className ?? ''}`
 
-    if (asChild) {
-      return (
-        <Slot className={classNames} {...rest}>
-          {children}
-        </Slot>
-      )
-    }
-
-    const handleDisabled = (e: MouseEvent<HTMLButtonElement>) => {
-      e.preventDefault()
-    }
-
+  if (asChild) {
     return (
-      <button
-        className={classNames}
-        onClick={props['aria-disabled'] ? handleDisabled : props.onClick}
-        {...rest}
-        ref={ref}
-      >
+      <Slot className={classNames} {...rest}>
         {children}
-      </button>
+      </Slot>
     )
-  },
-)
+  }
 
-Button.displayName = 'Button'
+  const handleDisabled = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+  }
+
+  return (
+    <button
+      className={classNames}
+      onClick={props['aria-disabled'] ? handleDisabled : props.onClick}
+      {...rest}
+      ref={ref}
+    >
+      {children}
+    </button>
+  )
+}

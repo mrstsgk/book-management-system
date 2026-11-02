@@ -1,0 +1,20 @@
+type: object
+required:
+  - field
+  - rule
+properties:
+  field:
+    type: string
+    description: |
+      違反した項目の JSON 名。入れ子・配列はドット区切りのパス（例: tagIds.0）、path・query パラメータはパラメータ名
+    example: summary
+  rule:
+    type: string
+    description: |
+      違反した規則。OpenAPI の制約キーワード（required / minLength / maxLength / minimum / maximum / maxItems / type など）か、
+      VO の違反（format / invalid）か、operation の x-correlation-rules の id（isbnDuplicated など）
+    example: maxLength
+  params:
+    type: object
+    additionalProperties: true
+    description: 文言に差し込む値（BE しか知らない値だけ）

@@ -1,0 +1,59 @@
+post:
+  operationId: login
+  summary: Login
+  description: |
+    ID とパスワードが合えばセッションを発行し、httpOnly Cookie（admin_session）で返す。
+    どちらが違うかは返さない。失敗が続くと（5 回で 1 分）429。
+  tags:
+    - auth
+  security: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../schemas/LoginRequest.yaml
+  x-error-codes:
+    - code: loginFailed
+      status: 401
+      rule: ID かパスワードが違う（どちらかは返さない）。ID・パスワードが未設定のときも同じ
+      message: MSG-A09
+    - code: tooManyLoginAttempts
+      status: 429
+      rule: 失敗が続いたため一時的に受け付けない
+      message: MSG-A09
+      params:
+        retryAfterSeconds: integer
+  responses:
+    '204':
+      description: ログインした（Set-Cookie で admin_session を返す）
+    '400':
+      description: '入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '401':
+      description: 'ID かパスワードが違う（code: loginFailed）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '403':
+      description: 'Origin が自分と一致しない（CSRF 対策）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '429':
+      description: '失敗が続いている（code: tooManyLoginAttempts。params.retryAfterSeconds）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
