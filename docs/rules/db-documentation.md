@@ -61,6 +61,15 @@
 
 DB 制約が無い場合はその旨を `description` に明記する（「制約あり」と誤解させない）。値の意味も、コードやシード値から確認できる事実のみ書く。
 
+## テーブルの名前
+
+マイグレーションでテーブルを追加するときは、次の規則で名付ける。
+
+- 業務の概念で付ける（画面や要件で使う言葉と同じ。[`backend/architecture.md`](../../backend/architecture.md) §2 の目的駆動名前設計と同じ考え方）。表記は小文字の snake_case
+- **単数形にする**（既存の `book`・`tag`・`admin_session` に揃える。複数形と混ぜない）
+- 親に従属する子のテーブルは、親の名前に子の概念を続ける（例: 本とタグの対応は `book_tag`）
+- 層・技術・画面（`tbl_`・`admin_`・`api_` など）を表す接頭辞は付けない。テーブルは業務の事実を表すもので、どの画面から使うかで分けない
+
 ## マイグレーション自体にもコメントを残す
 
 `docs/db/backend-schema.{json,md}` は副次資料であり、正は `backend/migrations/*.sql`。DB を直接見る人（`psql \d+`、`information_schema`）にも同じ意味が伝わるよう、テーブル・カラムを追加／変更するマイグレーションには `COMMENT ON TABLE` / `COMMENT ON COLUMN` を含める。内容は JSON の `description` と揃える（重複を許容する。正本は SQL 側）。

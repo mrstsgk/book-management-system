@@ -59,9 +59,92 @@ infrastructure/postgres/{common,<domain>}, infrastructure/gateway/{<domain>}
 | **Infrastructure**（`infrastructure/postgres`, `infrastructure/gateway`） | `postgres/<domain>` が Repository／Query 実装。`gateway/<domain>` が ExternalGateway 実装（外部 API・SaaS 呼び出し） |
 
 - Domain Service はエンティティに載せにくい業務ルール
-- 命名目安: `CreateUsecase` / `CreateUsecaseImpl`、`Handler`、`dto.go`
-- `main` で手書き DI（コンテナなし）: config → infra → usecase → presentation
+- 命名目安: UseCase は IF `RegisterBookUsecase` + 公開の実装 `RegisterBookUsecaseImpl`、Handler は `Handler`（詳細は下の「配置と命名のルール」「型・メソッドの名前の付け方」）
+- `cmd/api/main.go` で手書き DI（コンテナなし）: config → infra → usecase → presentation（`registerRoutes`）
 - 外部 API・SaaS 呼び出しは UseCase から **ExternalGateway IF**（Domain 定義）経由で行う。Repository／Query と同じ理由（Domain が具体的な HTTP クライアント実装に依存しないため）で Domain に IF を置く
+
+### 配置と命名のルール（迷ったらここを写す）
+
+- Go のパッケージ名はディレクトリ名と一致させる（`book` / `query` / `command` / `common`）
+- 複数の層・ドメインを import する側（`cmd/api` 等）は `<役割><ドメイン>` の別名を付ける。実例（`cmd/api/main.go`）: `domainbook`・`pgbook`・`pgcommon`・`httpbook`・`httpcommon`・`bookcmd`・`bookqry`・`authcmd`・`tagqry`
+- **`Impl` は IF と実装が同じパッケージにあるときだけ付ける**（命名に迷わず全ドメインで同じ形にするため、条件を 1 つに決めておく）
+  - UseCase: 同じパッケージに IF `XxxUsecase` と公開 struct `XxxUsecaseImpl` を置き、`cmd` で struct リテラル（`&bookcmd.RegisterUsecaseImpl{Books: ..., Catalog: ...}`）から組み立てる。Handler は IF にだけ依存するので、実装を変えても Handler は変わらない
+  - Infrastructure: IF は Domain にあるので名前は衝突しない。非公開 struct（`repository` / `query`）+ Domain の IF を返す `NewRepository(db)` / `NewQuery(db)` で作り、`Impl` は付けない。呼び出し側は Domain の IF にしか依存できない
+- ファイル名は小文字（区切りは `_`）。ドメイン名や `_impl` を付けない（ディレクトリで分かる）。`_linux` / `_js` 等の OS・アーキテクチャ名で終わらせない（Go のビルド制約として解釈される）。テストは `_test.go` にし、テスト以外のファイルを `_test` で終わらせない。例: `register.go` / `register_test.go` / `query.go` / `repository.go`
+- 会話・レビューでは同名を区別するためパッケージ名付きで呼ぶ（`book.Repository` = IF、`pgbook.NewRepository` = 実装、`bookcmd.RegisterUsecase` = UseCase）
+- テストは対象と同じディレクトリに置く（[テスト規約](../docs/rules/testing.md)）
+- **新しいドメインの追加・境界の変更は設計レビューの対象**。要件と実際の変更理由から決め、予測で空パッケージを量産しない。ディレクトリは `book` を写し、今必要な層だけ作る
+
+### 型・メソッドの名前の付け方
+
+名前は下の「設計原則」の目的駆動名前設計に従い、技術的な手段ではなく業務上の目的・振る舞いから付ける。用語は要件定義（[`docs/specifications.md`](../docs/specifications.md)）と同じ言葉を使う。
+
+**UseCase**
+
+- 型名は `<動詞><業務対象>Usecase`（綴りは `Usecase` のまま。`UseCase` にしない）。パッケージ名が `query` / `command` でドメインが呼び出し側から見えないため、型名に業務対象（`Book` / `Tag`）を入れる
+- 単純な参照・更新・削除は `Read` / `Update` / `Delete`。登録・改名・ログイン・カタログの確認など業務上の意味を持つ操作は業務の動詞（`Register` / `Rename` / `Login` / `Logout` / `LookupCatalog`）にし、CRUD に寄せない
+- `Read` は 1 件の参照だけに使う。一覧は、利用者が条件を指定するかどうかに関係なく `Search` にし、業務対象を複数形にする（`SearchBooksUsecase`）。`List` や `Get` は使わない（1 件と一覧が末尾の `s` だけで分かれて取り違えやすく、一覧の動詞を 1 つにして迷わないため）。複数形は複数件を返すことだけを表し、全件を返すとは限らない
+- UseCase の名前を Repository／Query のメソッド名から決めない
+- ファイル名は型名から `Usecase` を除いた snake_case（`search_books.go` / `rename_tag.go`）
+
+| 業務の目的 | UseCase の型名 |
+|---|---|
+| 読んだ本を 1 件参照する | `ReadBookUsecase` |
+| 読んだ本の一覧を参照する（検索・絞り込みを含む） | `SearchBooksUsecase` |
+| 読んだ本を登録する | `RegisterBookUsecase` |
+| 読んだ本を更新・削除する | `UpdateBookUsecase` / `DeleteBookUsecase` |
+| 分野タグの名前を変える | `RenameTagUsecase` |
+| 分野タグごとの冊数を数える | `CountBooksUsecase` |
+| ログインする | `LoginUsecase` |
+
+> **移行中**: 既存の `ListUsecase` / `GetUsecase` / `RegisterUsecase` / `UpdateUsecase` / `DeleteUsecase` / `RenameUsecase` はこの規則の前に付けた名前。改名は別の PR で行う（[ADR](../docs/adr/2026-11-02-revise-development-rules.md)）。新しく作るものはこの規則で付ける。
+
+**Repository／Query のメソッド**
+
+取得は `Find` を基本にし、目的が違うときだけ `Search` / `Count` / `Exists` を使う。同じ意味の取得に `Read` / `Get` / `Find` を混ぜない（UseCase の `Read` は業務の目的、Repository／Query の `Find` はデータの取得で、層の責務が違うため名前も違う）。更新系は `Create` / `Update` / `Delete`。
+
+| 目的 | 名前 | 使う条件 |
+|---|---|---|
+| 一意なキーで 1 件 | `FindByID` | 条件が一意のときだけ。一意でない条件で 1 件を暗黙に選ばない |
+| 全件 | `FindAll` | 全件を返す契約のときだけ |
+| 固定の条件に合うものを全件 | `FindAllByTagID` | 一致したものを**すべて**返すときだけ。ページングした一部には使わない |
+| 利用者が変えられる条件での検索 | `Search(criteria, range)` | キーワード・絞り込み・ページングなど。`WHERE` があるだけでは使わない |
+| 件数 | `CountByTag` | 数値を返す |
+| 存在するか | `ExistsAll` | `bool` を返す |
+
+Query（読み取り側）は Read Model を返し、業務の状態を変えない。現状の `FindList`（`book.Query` / `tag.Query`）は条件付き・範囲付きの取得なので `Search` が規則どおりの名前、`auth.SessionRepository` の `Find` は `FindByID`、`Save` は `Create` に当たる。これらも上の移行中の改名に含める。
+
+**Domain**
+
+- Entity・集約・VO は業務の概念で名付け（`Book` / `Tag` / `ISBN` / `Review`）、`BookData` / `TagEntity` のような技術のサフィックスを付けない。種類が違うだけで Entity を機械的に分けない（業務の目的・不変条件・ライフサイクル・変更理由で判断する）
+- メソッドは業務の振る舞いにする（`book.RefreshCatalog()` / `tag.Rename()`）。`UpdateStatus()` / `Process()` に業務の意味を隠さない。不変条件は状態を変えるメソッドの中で守る（事前に `Validate` を呼ばないと安全にならない形にしない）
+- 判定は `bool` を返す `CanXxx`（操作できるか）/ `IsXxx`（状態）/ `HasXxx`（持っているか）。VO の生成条件は `NewXxx` がエラーを返して保証し、すべての型に `Validate` を付けない
+
+### 層ごとの規則一覧（決まっていること）
+
+層ごとに散らばっている規則の索引。正は各節（命名は上、HTTP は §3、テストは [テスト規約](../docs/rules/testing.md)、コメントは [コメントの書き方](../docs/rules/code-comments.md)）。「実例」は現在のコードにあるもの。
+
+| 層 | 置き場・ファイル名 | 型・関数の命名 | テスト |
+|---|---|---|---|
+| **Domain** | `internal/domain/<domain>/`。Entity と IF は `<domain>.go`、VO は概念ごとのファイル（実例: `book/{book,isbn,review,summary,title}.go`、`tag/{tag,name}.go`、`auth/{session,credentials}.go`、`common/{error,list_range}.go`） | 書き込み IF `Repository`・読み取り IF `Query`・外部連携 IF は業務の能力で名付ける（実例: `book.BookCatalog`、`auth.PasswordVerifier`）。Read Model は `XxxDetail` / `XxxList` / `XxxListItem` / `XxxSummary` など用途が分かる名前（実例: `BookDetail`、`TagListItem`）。VO の不変条件は `NewXxx` で保証 | DB・HTTP に依存しない。不変条件・業務ルール・境界値と、不正な状態を作れないこと |
+| **UseCase（参照）** | `internal/usecase/<domain>/query/`。1 UseCase 1 ファイル（実例: `book/query/{get,list,lookup_catalog}.go`、`tag/query/{list,count_books}.go`） | IF `XxxUsecase` + 公開 struct `XxxUsecaseImpl`、メソッドは `Execute`、依存は公開フィールド（`Books book.Query`）。`cmd` で struct リテラルから組み立てる | 手書き Fake を注入し DB 無しで動かす。下位層のエラーが伝播すること |
+| **UseCase（更新）** | `internal/usecase/<domain>/command/`（実例: `book/command/{register,update,delete}.go`、`auth/command/{login,logout}.go`） | 参照と同じ。データを持つ入力は Command DTO `RegisterCommand` / `UpdateCommand`、ID だけなら scalar 引数 | 参照と同じに加え、失敗時に状態が変わらないこと、入力エラー時に下位層が呼ばれないこと |
+| **Infrastructure（DB）** | `internal/infrastructure/postgres/<domain>/`。実装は `repository.go` / `query.go`、Persistence Model（`gorm` タグ）は同じファイルの非公開 `model`（実例: `book/{repository,query}.go`）。DB 接続は `postgres/common` | 非公開 struct（`repository` / `query`）+ Domain の IF を返す `NewRepository` / `NewQuery`。`Impl` は付けない。**型と各メソッドに日本語で概要の 1 行コメント** | 実際の PostgreSQL への契約テスト（繋がらなければ失敗）。SQL が複雑なもの（JOIN・集計・トランザクション）を優先し、Query は Read Model への詰め替えと書き込み側の型に依存しないことも確認 |
+| **Infrastructure（外部連携）** | `internal/infrastructure/gateway/<提供元>/`（実例: `gateway/openbd/catalog.go`）。ハッシュ照合は `infrastructure/auth/bcrypt.go` | Domain の IF（`book.BookCatalog` 等）を実装。実装には提供元の名前を使ってよい | 偽の HTTP サーバ（`httptest`）に対する契約テスト |
+| **Presentation** | `internal/presentation/http/<domain>/handler.go`。Request／Response DTO（`validate` タグ・swag コメント）も同じファイル（実例: `book/handler.go` の `RegisterRequest` / `Response` / `ListResponse`）。`presentation/http/common` = Echo・`BindValidate`・`HTTPErrorHandler`・セッション／同一オリジンの middleware | struct `Handler`、`Register(g *echo.Group)` でルート登録、メソッドは UseCase と同じ目的の名前。依存は公開フィールドで UseCase の IF | `handler_test.go`（Fake の UseCase で 400 と domain error → ステータスの変換）と `handler_integration_test.go`（実 DB で、返しうるステータスごとに 1 件） |
+| **cmd** | `cmd/api/main.go`（設定・DB 接続・起動・`registerRoutes`）、`sample_data.go`（見本データ） | import の別名は `<役割><ドメイン>`（上の「配置と命名のルール」） | `main_test.go`（in-package）で配線（依存の nil・middleware の適用）を実リクエストで検証 |
+| **全層共通** | ファイル名は小文字・`_` 区切り。ドメイン名・`_impl` を付けない | パッケージ名 = ディレクトリ名。会話ではパッケージ名付きで呼ぶ | 対象と同じディレクトリ。原則は外部テストパッケージ `<対象>_test`。入力違いはテーブルドリブン。DB・環境変数・グローバル状態を共有しないテストには `t.Parallel()` |
+
+### 未決の規則（初めて作るときに決める）
+
+まだ実例が無いか、現在のコードで書き方が揃っていないもの。該当する実装が初めて出る PR で決め、決めたら上の一覧と各節に反映する。推測で先に決めない。
+
+| 対象 | 決めること |
+|---|---|
+| ID の型 | 今は `book.ID` / `tag.ID` の型（`int64` の別名）。VO にするか |
+| Fake の置き場 | 各テストファイルに書くか、共有のテスト用パッケージを作るか（今は各ファイル） |
+| テスト関数名 | `TestRepository_FindByID_NotFound` 形式（英語）と `TestXxx_日本語の振る舞い` の混在をどちらに揃えるか |
+| DB を使うテストの並列実行 | 接続先・片付けは決定済み（[テスト規約](../docs/rules/testing.md)）。`t.Parallel()` を付けるか |
 
 ### 設計原則（目的駆動）
 
@@ -129,7 +212,7 @@ Go DTO + validate + 薄い Handler + swag
 
 ### やらないこと（HTTP）
 
-- ルート手書き `openapi/` を正とし **oapi-codegen で Server IF を生成**する方式
+- ルート手書き `openapi/` を正とし **oapi-codegen で Server IF を生成**する方式（OpenAPI Design First）。契約を先に合意できる利点はあるが、全 Handler の書き換えになるため**保留**（[ADR](../docs/adr/2026-11-02-revise-development-rules.md)）。`internal/<業務領域>/<層>` への配置換えも同じ理由で保留
 - **Huma**
 - 各 Handler に Bind / validate / ステータス分岐を冗長コピペする方式
 - FE で API 型を手書きして正とする運用
@@ -212,4 +295,4 @@ make swagger        # 排出
 make swagger-check  # ドリフト検査（CI と同じ）
 ```
 
-排出物は `api/docs/swagger.yaml` / `swagger.json`（手編集しない）。FE はこれを入力に TypeScript を生成する。
+排出物は `api/docs/swagger.yaml` / `swagger.json`（手編集しない。`.gitattributes` の `linguist-generated` で PR の差分では折りたたまれる）。FE はこれを入力に TypeScript を生成する。

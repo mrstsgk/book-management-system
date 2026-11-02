@@ -52,7 +52,7 @@ API はバックエンド（Go/Echo）へ。フロントは静的アセットの
 - 同一アプリ内でも、似ているだけの UI はコピーを許容。3回同じになったら抽出を検討
 - アプリ横断で共有するものだけ `frontend/packages/` に置く（中身は上記「共有してよいもの」に限定）
 - 各 Web アプリ・packages は **pnpm workspace（lock 1本）** で管理する
-- feature 間 import 禁止は最初 **文書のみ**。痛くなったら ESLint `import/no-restricted-paths`
+- feature 間 import の禁止は ESLint で機械的に検査する（§7）
 
 ### 2.0 端末・画面幅の前提
 
@@ -78,6 +78,17 @@ API はバックエンド（Go/Echo）へ。フロントは静的アセットの
 3. 画面だけの PR では usage 確認を求めない
 4. AI／実装者は「新規取り込み・迷ったとき」以外に usage 全文を読まない
 
+### 2.2 入力チェックのメッセージ
+
+入力チェックのメッセージは、設計モック・実装のどこで書くときも次の 4 つを守る。
+
+1. **ユーザーを責めない**: 「〇〇が間違っています」「入力ミスです」のような否定の言葉や、「エラー」「失敗」のような強い言葉を使わない
+2. **具体的な形式や条件を示す**: 「半角数字で入力してください」「5000 文字以内で入力してください」「ハイフンは不要です」のように、次に何をすればよいかを書く
+3. **専門用語を使わない**: 「Null」「Undefined」「トークンが無効です」のようなシステムの言葉を使わず、誰でもわかる言葉にする
+4. **入力欄のすぐ近くに表示する**: 該当する入力欄のすぐ下か横に出す。画面の上部にまとめるだけにしない。入力欄に対応しないもの（API の 400 で `errors` を含まないもの、通信失敗）は画面の上部に出す
+
+API の `ErrorResponse` の `message` は開発者向けなので、そのまま画面に出さない。文言は FE が `errors[].field` / `rule` から引く（実例: `features/admin-book-editor/utils/serverFieldErrors.ts`）。
+
 ## 3. 設計パターン
 
 **Container/Presenter の明示2層（専用フォルダ・命名）は採用しない。**
@@ -90,6 +101,18 @@ API はバックエンド（Go/Echo）へ。フロントは静的アセットの
 
 - コンポーネント内にデータ取得や複雑な分岐を溜めない。必要なら hook へ上げる
 - 「smart / dumb」の分離は **責務で行い、ディレクトリ名では表現しない**
+
+**View State**: 主要な画面状態は明示する。複数の boolean の組み合わせで 1 つの画面状態を表し始めたら、discriminated union にまとめる。
+
+```ts
+type BooksListViewState =
+  | { type: 'loading' }
+  | { type: 'empty' }
+  | { type: 'error'; message: string }
+  | { type: 'ready'; items: BookListItem[]; hasMore: boolean }
+```
+
+**API Model ≠ UI Model ≠ Props**: OpenAPI 生成型は API 境界の契約であり、UI の型とは限らない。API の構造と画面が必要な構造が違うときだけ、feature の hook か mapper で UI 向けの形に変換する。単純な受け渡しのためだけに UI Model や mapper を機械的に作らない。
 
 ### 3.1 Storybook（Presentational の状態カタログ）
 
@@ -155,9 +178,9 @@ pnpm gen:api
 | MSW ハンドラ（テスト用） | `web/src/api/generated/api.msw.ts`（faker のモック値は `api.faker.ts`） |
 | fetch の共通処理（手書き） | `web/src/api/mutator.ts`（`VITE_API_BASE_URL` 付与・`ErrorResponse` → `ApiError`） |
 
-- 生成物（`web/src/api/generated/`）は手編集しない。契約を更新して再生成する。ESLint / Prettier の対象外
+- 生成物（`web/src/api/generated/`）は手編集しない。契約を更新して再生成する。ESLint / Prettier の対象外。`.gitattributes` の `linguist-generated` で PR の差分では折りたたまれる
 - 画面は生成フックを feature の hook から呼ぶ（Query フックを手書きしない）
-- テストの既定ハンドラは生成 MSW ハンドラ。具体値を検証するテストは `server.use(get…MockHandler(fixture))` で上書きする
+- テストの既定ハンドラは生成 MSW ハンドラ。具体値を検証するテストは `server.use(get…MockHandler(fixture))` で上書きする。**生成 API の差し替えは MSW で行い、`vi.mock()` しない**（成功は生成ハンドラ、4xx やリクエスト内容の検証は同じメソッド・パスの手書き `http.put('*/api/tags/:id', …)`。API 契約の Mock として扱うため。CI `Test Presence` もこの形を検出する）
 - ローカル: Vite が `/api` と `/health` を `localhost:8080` にプロキシ。本番ビルドは `VITE_API_BASE_URL` を指定
 - CI: `pnpm gen:api:check`（再生成して `git diff --exit-code` と未追跡ファイルの有無を確認）
 
@@ -209,6 +232,15 @@ app（routes / provider）
 - feature 間の横断 import は禁止。必要なら共通化を `packages/` か shared へ上げるか、`app` で合成する
 - barrel（`index.ts` の再エクスポート祭り）は必須にしない（バンドラの tree-shaking を優先し、直接 import）
 
+次は ESLint（`frontend/eslint.config.mjs`）で機械的に検査する。feature を足したら設定の一覧にも足す。
+
+| 検査 | 内容 |
+|---|---|
+| feature 同士の import 禁止 | `features/<a>` から `@/features/<b>` を import しない |
+| 共有コードから features への import 禁止 | `api` / `components` / `hooks` / `lib` / `testing` / `types` / `utils` は `@/features/**` を import しない（依存は shared ← features ← app の向きだけ） |
+| 別ディレクトリへの `../` 相対 import 禁止 | 別ディレクトリは `@/` から書く。同じディレクトリと子ディレクトリは `./` |
+| default export 禁止 | named export にする（Storybook の `meta` だけ例外） |
+
 ## 8. テスト（Vitest + React Testing Library）
 
 目的は件数・カバレッジではなく、**不具合を早く見つけ安心して変更できること**。  
@@ -259,3 +291,93 @@ Snapshot は主力にしない（明示 assert）。小さく安定した部品�
 8. 巨大 Snapshot を主力にしない  
 9. E2E は業務継続に直結する導線だけ  
 10. CSS 崩れは必要な画面だけ画像比較で検証する  
+
+## 9. 層ごとの規則と名前の付け方
+
+層（ディレクトリ）ごとに散らばっている規則の索引。正は各節（設計は本書、テストの書き方は [テスト規約](../docs/rules/testing.md)、コメントは [コメントの書き方](../docs/rules/code-comments.md)）。「実例」は現在の `web` のコード。
+
+| 層 | 置き場・ファイル名 | 命名・書き方 | テスト |
+|---|---|---|---|
+| **app** | `src/app/`。`App.tsx`・`provider.tsx`・`router.tsx`・`AdminGuard.tsx`・`routes/XxxRoute.tsx`（実例: `routes/BooksListRoute.tsx`） | Router / Provider / feature の合成だけを行う（§3）。route は feature の hook と表示コンポーネントをつなぐ | 合成だけなら個別のテストは書かない。認証による遷移の振り分けなど挙動を持つもの（`AdminGuard`・`router`）は同名の `*.test.tsx` |
+| **api** | `src/api/`。`generated/`（Orval の生成物。手編集しない）と `mutator.ts` | 全リクエストは `apiMutator` を通り、失敗は `ApiError` に正規化する。hook 名・関数名は Orval が HTTP メソッド + パスから生成（`useGetApiBooks`） | `mutator.test.ts`: MSW で成功・204・HTTP エラー・通信失敗・不正な JSON を検証。生成物はテストしない |
+| **features（画面）** | `src/features/<feature>/components/`。`XxxView.tsx`・`XxxForm.tsx`（実例: `books-list/components/BooksListView.tsx`、`admin-book-editor/components/BookForm.tsx`） | PascalCase のファイル・同名の named export（`export function BooksListView`）。API 取得・大きな変換・複雑な状態遷移は hook に出す | 同名の `*.test.tsx`。MSW の生成ハンドラを `server.use(...)` で上書きし、主要状態（読み込み中 / 0 件 / 成功 / API エラー）ごとに見える内容と押せるものを検証 |
+| **features（hook）** | `src/features/<feature>/hooks/useXxx.ts`（実例: `useBooksList.ts`、`useBookEditor.ts`、`useLogin.ts`） | hook が提供するもので名付ける（下の「名前の付け方」）。API の構造と画面が必要な構造が違うときだけ生成 hook を包む | ロジックがあれば直接テストする（`useBooksList.test.tsx`） |
+| **features（utils・型）** | `src/features/<feature>/utils/`（実例: `paging.ts`、`validateBookForm.ts`、`barRatio.ts`）、`types.ts`（実例: `admin-book-editor/types.ts`） | 関数名と同じ camelCase のファイル名（1 語なら小文字）。型は PascalCase、値の対応表は UPPER_SNAKE（`PAGE_SIZE`） | 計算・判定は直接呼んで分岐・境界値を検証。型だけならテスト不要 |
+| **components（共有）** | `src/components/{layouts,pages,states,ui,form}/`。`layouts/` は枠（`Layout`・`Header`・`Footer`・`AdminLayout`）、`pages/` は feature に属さない画面（`NotFoundPage`）、`states/` は読み込み中・0 件・エラーの表示、`ui/` は小さな部品（`RatingStars`・`ConfirmDialog`）、`form/` はフォームの部品（`FormField`・`ErrorSummary`） | 業務の意味を持つ複合 UI は置かない（§2）。DS の部品は `packages/ui` | ロジック・操作があれば同名の `*.test.tsx`。Story は `*.stories.tsx`（§3.1） |
+| **hooks / lib / testing** | `src/hooks/`（アプリ横断の薄い hook。実例: `useLoginRedirect.ts`）、`src/lib/`（ライブラリの設定。実例: `query-client.ts` の `createQueryClient`）、`src/testing/`（`server.ts`・`handlers.ts`・`render.tsx`・`setup.ts`・`e2e/`） | lib は `createXxx` の生成関数。`testing/` は未定義のリクエストをエラーにする | hook はロジックがあれば同名のテスト。`testing/` はテストしない |
+| **packages/ui** | `frontend/packages/ui/src/`。部品ごとに PascalCase のファイル、`index.ts` から export | デジタル庁 DS の部品だけ。新規追加時は usage を読み、PR に URL を書く（§2.1） | ロジックがあれば同名の `*.test.tsx` |
+| **全層共通** | 別ディレクトリの import は `@/` から、同じディレクトリと子は `./`（§7）。barrel は必須にしない | named export（default export は Storybook の `meta` だけ）。feature 同士は直接 import しない（§7） | テストは対象と同名で同じディレクトリ。テスト名は日本語で期待する振る舞い。入力違いは `it.each`。Snapshot・Coverage の閾値は使わない（§8） |
+
+### 名前の付け方
+
+命名の規則はこの節が正。名前は目的駆動で、存在や技術的な手段ではなく何のためのものかから付ける（[`backend/architecture.md`](../backend/architecture.md) §2「設計原則」と同じ考え方）。
+
+- Component は何を表示し何を操作できるか、hook は何を提供するか、関数は何をするか、型は何を表すかで名付ける
+- 業務の用語（要件定義と同じ言葉: 本・分野タグ・一言まとめ・感想・評価）を揃え、違う概念には違う名前を使う
+- `Manager` / `Helper` / `Common` / `Data` / `Processor` / `Util` のような広すぎる名前は、具体的な責務で言い換えられないか見直す（機械的に禁止はしない）
+- 短さより、語を足して意味が増えるかで判断する。名前を揃えるためだけに目的の違うものをまとめたり、区別の要らないものを分けたりしない
+
+**表記**
+
+| 対象 | 規則 | 例 |
+|---|---|---|
+| Component | PascalCase。役割と表示対象を表す（`View` / `Form` / `Dialog` などは実際の役割と合わせる）。`XxxComponent` / `XxxUI` / `XxxManager` にしない | `BooksListView`、`ConfirmDialog` |
+| 画面（route） | `XxxRoute`（`app/routes/`）。feature に属さない画面は `XxxPage` | `BookDetailRoute`、`NotFoundPage` |
+| Component の宣言 | `function` 宣言にし、ファイル名・export 名と揃える。コールバックや短い内部の関数はアロー関数でよい | `export function BookForm(...)` |
+| Props の型 | `XxxProps` | `BooksListViewProps` |
+| 型 | PascalCase。`I` の接頭辞を付けない。オブジェクトの型は `interface`、union・交差型・`Record` など `type` でしか書けないものは `type`（ESLint の `consistent-type-definitions` で検査） | `BookFormValues` |
+| 関数・変数・props | camelCase。関数は動詞で始め、目的を表す（計算は `calculateXxx`、表示の形に整えるのは `formatXxx`、選ぶ・解釈するのは `resolveXxx` / `parseXxx`、検証は `validateXxx`） | `parseBookId`、`validateBookForm` |
+| 真偽値 | 意味で `is`（状態）/ `has`（持っている・ある）/ `can`（できる）を使い分ける | `isLoading`、`hasMore`、`canSubmit` |
+| イベントの props | `onXxx` | `onSubmit`、`onClose` |
+| Component の中のイベント処理 | `handleXxx` | `handleSubmit` |
+| state の setter | `setXxx` | `setValues` |
+| 値の対応表・上限の定数 | UPPER_SNAKE | `PAGE_SIZE`、`ERROR_MESSAGES` |
+| ほかの定数 | 意味に合わせて付ける（すべてを UPPER_SNAKE にはしない） | `emptyBookFormValues` |
+
+**hook**
+
+- hook が外に提供する状態・情報・操作で名付ける。画面名・API の関数名・実装の技術から機械的に付けない（`useBooksList` / `useBookEditor` / `useLogin`）
+- `Query` / `Mutation` の接尾辞は、区別が要るときだけ付ける
+- 生成 hook は Orval の名前（`useGetApiBooks`）のまま使い、名前を変えるためだけの中間 hook を作らない（§5）。feature の hook は画面の目的で名付け、生成 hook の名前に揃えようとしない
+
+**API Model → UI Model の変換（mapper）**
+
+- 変換先が 1 つで明らかなら `toXxx`（`toBookFormValues`）、変換元・変換先が曖昧なら `mapXxxToYyy`。`convertData` / `adapt` のような抽象的な名前にしない
+- UI Model は画面での目的・意味で名付け、`Model` / `View` の接尾辞は必須にしない。API Model と同じ形で変換が要らなければ mapper を作らない（§3）
+
+**Zustand の store**
+
+- hook の名前は `useXxxStore`、ファイルも同じ名前。状態の型は `XxxState`、操作は具体的な動詞
+- 置き場は最も狭いスコープから選ぶ（§4）。store の名前を決めるためだけに store を作らない（現在は store なし）
+
+**feature**
+
+- `src/features/<feature>/` は業務の領域か、利用者に提供する機能で名付ける（実例: `books-list` / `book-detail` / `tag-counts` / `admin-book-editor` / `admin-login` / `admin-tags`）。管理画面側は `admin-` を前に付けて公開画面と区別する
+- `common` / `misc` のように、何が属するかの基準が曖昧な名前を作らない
+
+**ファイル**
+
+| 種類 | 規則 | 例 |
+|---|---|---|
+| Component・画面・Story・テスト | export する Component の名前と同じ PascalCase | `BookForm.tsx`・`BookForm.test.tsx`・`BookForm.stories.tsx` |
+| hook・store | hook の名前と同じ camelCase | `useBooksList.ts` |
+| utils の関数 | 主となる export の関数名と同じ camelCase（本リポジトリの実例に揃える。kebab-case にしない） | `validateBookForm.ts`・`parseBookId.ts`・`barRatio.ts` |
+| 設定・複数の export を持つ `.ts` | kebab-case か 1 語の小文字 | `query-client.ts`・`paging.ts`・`types.ts` |
+
+JSX を含むファイルは `.tsx`、含まないファイルは `.ts`。
+
+**テスト用のデータ・その他**
+
+- fixture を作る関数は `createXxxFixture`。エラーのコードから文言を引く対応表は `ERROR_MESSAGES`、引く関数は `getErrorMessage` を基本にする。API の通信エラーは `ApiError` に正規化し、Component ごとにエラーの型を増やさない
+
+## 10. 未決の規則（必要になったときに決める）
+
+まだ実例が無い、または現在のコードで書き方が揃っていないもの。該当する実装が初めて出る PR で決め、決めたら §9 と各節に反映する。推測で先に決めない。
+
+| 対象 | 決めること |
+|---|---|
+| Scenario / Fixture | 画面の状態（0 件・多件・API エラー等）を表すテストデータの置き場と、どこまで再利用するか（現在はテストごとにその場で書いている） |
+| ルーティング | path の定義の置き場（現在は `router.tsx` と各 Component に文字列で書いている）と、画面と route の対応の書き方（案: `bookPaths.detail(id)` のように目的を表す名前でまとめる） |
+| hook のテスト | `renderHook` で hook を直接テストする書き方と、生成 hook の差し替え方（現在は MSW で差し替えている） |
+| Storybook | Story の置き場（`packages/ui` の `Button` の Story がアプリ側 `components/ui/Button.stories.tsx` にある） |
+| 文字数の数え方 | 上限のある項目を Unicode のコードポイントで数えるか UTF-16 単位で数えるか（BE・DB と揃える） |

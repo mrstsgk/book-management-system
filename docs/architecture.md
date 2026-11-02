@@ -11,11 +11,13 @@
 
 | 文書 | 管轄（重複しない） |
 |---|---|
+| [`README.md`](../README.md) | 人が読む資料の入口（読む順番と各資料の役割）・リポジトリ全体のディレクトリ構成。規則は書かない |
 | [`requirements.md`](./requirements.md) | 要求定義（誰に何を伝えるために作るか） |
 | [`specifications.md`](./specifications.md) | 要件定義（システムと開発の進め方が満たすこと） |
 | **本書** | リポジトリ全体・トップレベル構成・契約の**境界** |
 | [`backend/architecture.md`](../backend/architecture.md) | バックエンドのスタック・層・HTTP/OpenAPI・ディレクトリ・永続化 |
 | [`frontend/architecture.md`](../frontend/architecture.md) | フロントのスタック・設計パターン・アプリ内ディレクトリ・共有ルール |
+| [`rules/`](./rules/) | 開発の規則（開発の流れ・Git・テスト・コメント・ADR・DB 資料） |
 
 フロントの実装詳細は本書に書かない。バックエンド実装詳細は [`backend/architecture.md`](../backend/architecture.md) に書き、本書は境界のみ。
 
@@ -58,13 +60,23 @@
 
 CI で OpenAPI 排出および TS 生成を再実行 → `git diff --exit-code`（差分があれば **fail**）。
 
-## 5. リポジトリ構成（目安）
+### 名前を揃えるもの・揃えないもの
+
+目的が同じものだけ名前を揃える。FE の画面・独自の hook は目的が違うので、BE の UseCase に揃えない。
+
+| もの | 目的 | 名前 |
+|---|---|---|
+| FE の画面・独自の hook | 画面で何を見せ、何をさせるか | 画面の目的で付ける（`BooksListView`・`useBooksList`。[`frontend/architecture.md`](../frontend/architecture.md) §9） |
+| FE の生成 hook・関数 | その API を呼ぶ | Orval の命名（HTTP メソッド + パス。`useGetApiBooks`）のまま。swag の `operationId` は今は付けていないため、付けるなら BE の UseCase と揃える |
+| BE の Handler のメソッド・UseCase | 業務の目的 | `<動詞><業務対象>`（`SearchBooksUsecase`。[`backend/architecture.md`](../backend/architecture.md) §2） |
+
+## 5. リポジトリ構成
+
+ディレクトリ構成の正はリポジトリ直下の [`README.md`](../README.md)「ディレクトリ構成」。要点だけ:
 
 ```
-frontend/
-  web/
-  packages/
-backend/                 # 詳細は backend/architecture.md（migrations SQL の正もここ）
-docs/
-.github/
+frontend/   # web/（アプリ）と packages/（共有）。詳細は frontend/architecture.md
+backend/    # 詳細は backend/architecture.md（migrations SQL の正もここ）
+docs/       # 人が読む方針・規則・ADR・設計
+.github/    # CI・PR テンプレート
 ```
