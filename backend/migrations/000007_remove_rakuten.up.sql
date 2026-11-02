@@ -1,4 +1,4 @@
--- 楽天ブックスは撤去した（書影は Google Books → openBD の順で取る。docs/adr/2026-09-29-cover-from-google-books-and-openbd.md）。
+-- 楽天ブックスは撤去した（書影は openBD から取る）。
 -- 楽天の書影は規約上そのまま持ち続けられないので外す（次に本を更新したときに openBD から取り直される）
 UPDATE book SET cover_url = NULL, cover_source = NULL WHERE cover_source = 'rakuten';
 
