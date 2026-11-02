@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           # 版は .mise.toml の node
-          node-version: '24.11.0'
+          node-version: '26.13.0'
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -51,10 +51,6 @@ jobs:
 
       - name: Audit
         run: pnpm audit --audit-level high
-        # 既存依存（react-router / jsdom>undici / ESLint プラグイン配下等）に
-        # high が 7 件あり、そのままでは全 PR が落ちるため一時的に非ブロッキング。
-        # 依存更新で解消したらこの行を削除してゲート化する
-        continue-on-error: true
 
       - name: OpenAPI TypeScript drift check
         run: pnpm gen:api:check

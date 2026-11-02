@@ -178,21 +178,13 @@ export interface UpdateBookRequest {
 }
 
 export type GetApiBooksParams = {
-/**
- * 取得件数（1〜100、既定20）
- */
-limit?: number;
-/**
- * 取得開始位置（0以上、既定0）
- */
-offset?: number;
-/**
- * 書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）
- */
-q?: string;
-/**
- * この分野タグが付いた本だけにする（1以上）
- */
-tagId?: number;
+  /** 取得件数（1〜100、既定20） */
+  limit?: number;
+  /** 取得開始位置（0以上、既定0） */
+  offset?: number;
+  /** 書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで） */
+  q?: string;
+  /** この分野タグが付いた本だけにする（1以上） */
+  tagId?: number;
 };
 

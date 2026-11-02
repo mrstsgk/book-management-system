@@ -2,6 +2,6 @@
 # 上げるときは本ファイル・frontend の packageManager / engines を同じ PR で更新する。
 
 [tools]
-node = "24.11.0"
-pnpm = "10.11.0"
-go = "1.25.14"
+node = "26.13.0"
+"npm:pnpm" = "12.16.1"
+go = "1.27.3"

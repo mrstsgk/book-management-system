@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           # 版は .mise.toml の node
-          node-version: '24.11.0'
+          node-version: '26.13.0'
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
