@@ -5,7 +5,7 @@ React + Vite + TypeScript。方針は [architecture.md](./architecture.md)。
 ## 前提
 
 ```bash
-mise install   # Node 24.11.0 / pnpm 10.11.0
+mise install   # Node 26.13.0 / pnpm 12.16.1
 cd frontend
 pnpm install
 ```
