@@ -182,6 +182,45 @@ describe('useBookRegistration', () => {
     expect(calls).toBe(1)
   })
 
+  it('登録時の ISBN の誤りは、ISBN を書き換えたら消え、送った ISBN に戻すとまた出る', async () => {
+    server.use(
+      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.post('*/api/books', () =>
+        HttpResponse.json(
+          {
+            message: 'invalid request',
+            errors: [{ field: 'isbn', rule: 'isbnDuplicated' }],
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+    const { result } = renderUseBookRegistration()
+    act(() => result.current.setIsbn('9784297146221'))
+    act(() => result.current.confirm())
+    await waitFor(() => expect(result.current.catalog.confirmed).toBe(true))
+    act(() =>
+      result.current.setValues({
+        titleOverride: '',
+        summary: 'まとめ',
+        comment: '感想',
+        rating: 4,
+        tagIds: [],
+      }),
+    )
+    act(() => result.current.submit())
+    await waitFor(() => expect(result.current.isbnError).toBeDefined())
+
+    act(() => result.current.setIsbn('9784873118703'))
+    expect(result.current.isbnError).toBeUndefined()
+
+    act(() => result.current.setIsbn('9784297146221'))
+    expect(result.current.isbnError).toBe(
+      'この ISBN の本はすでに登録されています。',
+    )
+  })
+
   it('カタログに無い ISBN と無いタグの 400 は、両方を項目ごとの誤りにする', async () => {
     server.use(
       getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
