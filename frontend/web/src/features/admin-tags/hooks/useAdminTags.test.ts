@@ -252,6 +252,31 @@ describe('useAdminTags', () => {
     })
   })
 
+  it('同名への改名が同時に来て 409（code: tagNameDuplicated）なら、競合ではなく名前の誤りの文言にする', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.put('*/api/admin/tags/1', () =>
+        HttpResponse.json(
+          { message: 'conflict', code: 'tagNameDuplicated' },
+          { status: 409 },
+        ),
+      ),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.renameTag(1, 1, 'データ')
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      message: 'この名前の分野タグはすでにあります。別の名前にしてください。',
+    })
+  })
+
   it('削除に成功すると一覧を取り直す', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(

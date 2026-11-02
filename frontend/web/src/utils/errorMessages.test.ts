@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { toFieldMessages } from './serverFieldErrors'
+import { getErrorMessage, toFieldMessages } from './errorMessages'
 
 describe('toFieldMessages', () => {
   it('既知の field と rule の組み合わせを日本語の文言に変える', () => {
     expect(
       toFieldMessages([
         { field: 'summary', rule: 'required' },
-        { field: 'comment', rule: 'max' },
-        { field: 'rating', rule: 'min' },
-        { field: 'tagIds', rule: 'max' },
-        { field: 'titleOverride', rule: 'max' },
+        { field: 'comment', rule: 'maxLength' },
+        { field: 'rating', rule: 'minimum' },
+        { field: 'tagIds', rule: 'maxItems' },
+        { field: 'titleOverride', rule: 'maxLength' },
         { field: 'isbn', rule: 'required' },
-        { field: 'name', rule: 'max' },
+        { field: 'name', rule: 'maxLength' },
       ]),
     ).toEqual({
       summary: '一言まとめを入力してください',
@@ -81,5 +81,27 @@ describe('toFieldMessages', () => {
 
   it('空配列なら空を返す', () => {
     expect(toFieldMessages([])).toEqual({})
+  })
+})
+
+describe('getErrorMessage', () => {
+  it('業務ルールのコードを文言にし、params を差し込む', () => {
+    expect(
+      getErrorMessage('tooManyLoginAttempts', { retryAfterSeconds: 60 }),
+    ).toBe('ログインに続けて失敗したため、60秒ほど待ってからやり直してください')
+  })
+
+  it('差し込む値が足りなければ undefined（{キー} を画面に出さない）', () => {
+    expect(getErrorMessage('tooManyLoginAttempts')).toBeUndefined()
+  })
+
+  it('対応の無いコードは undefined', () => {
+    expect(getErrorMessage('unknownCode')).toBeUndefined()
+  })
+
+  it('field と rule の組み合わせも同じ表から引く', () => {
+    expect(getErrorMessage('name.tagNameDuplicated')).toBe(
+      'この名前の分野タグはすでにあります。別の名前にしてください。',
+    )
   })
 })

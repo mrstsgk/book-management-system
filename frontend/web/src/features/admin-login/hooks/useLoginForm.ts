@@ -2,10 +2,15 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useLogin } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
+import { getErrorMessage } from '@/utils/errorMessages'
 
 // 401 は ID とパスワードのどちらが違うかを出さない（バックエンドも区別して返さない）
 function loginErrorMessage(error: unknown): string | undefined {
   if (!error) return undefined
+  if (error instanceof ApiError && error.code) {
+    const message = getErrorMessage(error.code, error.params)
+    if (message) return message
+  }
   const status = error instanceof ApiError ? error.status : undefined
   if (status === 401) return 'IDかパスワードが違います'
   if (status === 429) return 'しばらく待ってからやり直してください'

@@ -68,7 +68,7 @@ describe('apiMutator', () => {
             message: 'validation failed',
             errors: [
               { field: 'summary', rule: 'required' },
-              { field: 'comment', rule: 'max' },
+              { field: 'comment', rule: 'maxLength' },
             ],
           },
           { status: 400 },
@@ -82,9 +82,47 @@ describe('apiMutator', () => {
       status: 400,
       fieldErrors: [
         { field: 'summary', rule: 'required' },
-        { field: 'comment', rule: 'max' },
+        { field: 'comment', rule: 'maxLength' },
       ],
     })
+  })
+
+  it('業務ルールの違反は code と params を持つ', async () => {
+    server.use(
+      http.post('/api/ping', () =>
+        HttpResponse.json(
+          {
+            message: 'too many attempts',
+            code: 'tooManyLoginAttempts',
+            params: { retryAfterSeconds: 60 },
+          },
+          { status: 429 },
+        ),
+      ),
+    )
+
+    await expect(
+      apiMutator('/api/ping', { method: 'POST' }),
+    ).rejects.toMatchObject({
+      status: 429,
+      code: 'tooManyLoginAttempts',
+      params: { retryAfterSeconds: 60 },
+    })
+  })
+
+  it('code・params が無い・形が違うときは undefined と空にする', async () => {
+    server.use(
+      http.post('/api/ping', () =>
+        HttpResponse.json(
+          { message: 'bad', code: 1, params: 'x' },
+          { status: 404 },
+        ),
+      ),
+    )
+
+    await expect(
+      apiMutator('/api/ping', { method: 'POST' }),
+    ).rejects.toMatchObject({ status: 404, code: undefined, params: {} })
   })
 
   it('errors が無い・形が崩れた要素は fieldErrors に入れない', async () => {

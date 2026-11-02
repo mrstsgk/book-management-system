@@ -8,17 +8,20 @@ import {
 import { ApiError } from '@/api/mutator'
 import { useLoginRedirect } from '@/hooks/useLoginRedirect'
 import { mergeTagCounts } from '@/features/admin-tags/utils/mergeTagCounts'
-import { toFieldMessages } from '@/utils/serverFieldErrors'
+import { getErrorMessage, toFieldMessages } from '@/utils/errorMessages'
 
 type Outcome = { ok: true } | { ok: false; message: string; stale?: boolean }
 
 const genericError = (action: string) =>
   `${action}できませんでした。時間をおいてもう一度お試しください。`
 
-// 同じ名前のタグは 400 の errors[{field: 'name', rule: 'tagNameDuplicated'}] で返る。
-// 409 は楽観ロック（version 不一致）だけなので、文言で区別しなくてよい
+// 同じ名前のタグは通常 400 の errors[{field: 'name', rule: 'tagNameDuplicated'}] で返る。
+// 同名への改名が同時に来たときだけ、DB の一意制約で 409（code: tagNameDuplicated）になる。
+// 409 の code で楽観ロックの競合（versionConflict）と区別する
 function nameError(e: unknown): string | undefined {
-  if (!(e instanceof ApiError) || e.status !== 400) return undefined
+  if (!(e instanceof ApiError)) return undefined
+  if (e.code === 'tagNameDuplicated') return getErrorMessage(e.code)
+  if (e.status !== 400) return undefined
   return toFieldMessages(e.fieldErrors).name
 }
 

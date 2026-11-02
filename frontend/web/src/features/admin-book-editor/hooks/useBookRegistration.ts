@@ -12,7 +12,7 @@ import {
   type BookFormErrors,
   type BookFormValues,
 } from '@/features/admin-book-editor/types'
-import { toFieldMessages } from '@/utils/serverFieldErrors'
+import { toFieldMessages } from '@/utils/errorMessages'
 import { validateBookForm } from '@/features/admin-book-editor/utils/validateBookForm'
 import { visibleLocalErrors } from '@/features/admin-book-editor/utils/visibleErrors'
 
