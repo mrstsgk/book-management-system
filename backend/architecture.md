@@ -21,11 +21,11 @@
 | マイグレーション | **golang-migrate**（`backend/migrations/` が SQL の正。アプリ起動時 migrate しない） |
 | HTTP / OpenAPI | Echo + validator + swag。**Go の DTO／Handler が BE の正** |
 | FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
-| 書誌・書影 | 外部カタログ。Domain の `bookdomain.BookCatalog`（ExternalGateway）を `book/infrastructure/gateway/openbd` が実装する。画像は保存しない。openBD に書影が無ければ書影なし（[ADR](../docs/adr/2026-09-30-cover-from-openbd-only.md)） |
-| 認証 | 書き込み系はログイン済みのセッション Cookie（`platform/httpserver.RequireAdminSession` + `RequireSameOrigin`）。閲覧は認証なし |
+| 書誌・書影 | 外部カタログ。Domain の `bookdomain.BookCatalog`（ExternalGateway）を `book/infrastructure/gateway/openbd` が実装する。画像は保存しない。openBD に書影が無ければ書影なし（取得元の選び方は [要件定義 §1.2](../docs/specifications.md#12-書影の取得元)） |
+| 認証 | 書き込み系はログイン済みのセッション Cookie（`platform/httpserver.RequireAdminSession` + `RequireSameOrigin`）。閲覧は認証なし。採用理由: 秘密（パスワードの bcrypt ハッシュ）をバックエンドの環境変数だけに置き、ブラウザには意味の無いセッション ID だけを渡せる。管理者トークンを画面のコードに埋め込む方式は、ビルドして公開すると誰でも読めるため採らない。マネージド ID プロバイダ＋外部セッションストアは、ユーザー管理もデプロイもしない要求と釣り合わないため採らない。脅威ごとの対策は [ログインの設計](../docs/superpowers/specs/2026-09-30-admin-login-design.md) |
 | ツールチェーン | **mise で Go 版を固定**（リポジトリ直下 `.mise.toml`。`go.mod` と揃える） |
 | ローカル開発 | API は**ホストの Go**、DB は **Docker Compose**。Dev Container なし |
-| 旧スタック | Kotlin / Spring Boot / jOOQ / Flyway と、旧仕様（書籍・著者の管理 API）の Go 版は**削除済み**（[ADR](../docs/adr/2026-09-28-rebuild-as-reading-portfolio.md)） |
+| 旧スタック | Kotlin / Spring Boot / jOOQ / Flyway と、旧仕様（書籍・著者の管理 API）の Go 版は**削除済み**（理由は [`docs/architecture.md`](../docs/architecture.md) §1） |
 
 マイクロサービス分割はしない。
 
@@ -254,7 +254,7 @@ Go DTO + validate + 薄い Handler + swag
 
 ### やらないこと（HTTP）
 
-- ルート手書き `openapi/` を正とし **oapi-codegen で Server IF を生成**する方式（OpenAPI Design First）。契約を先に合意できる利点はあるが、全 Handler の書き換えになるため**保留**（[ADR](../docs/adr/2026-11-02-revise-development-rules.md)）
+- ルート手書き `openapi/` を正とし **oapi-codegen で Server IF を生成**する方式（OpenAPI Design First）。契約を先に合意できる利点はあるが、全 Handler の書き換えになるため**保留**（OpenAPI Design First へ移す PR で採用に変える）
 - **Huma**
 - 各 Handler に Bind / validate / ステータス分岐を冗長コピペする方式
 - FE で API 型を手書きして正とする運用
@@ -323,7 +323,7 @@ backend/
 | `GET` | `/api/auth/session` | ログイン済みか確かめる（未ログインは 401） | 必要 |
 
 - 認証は httpOnly Cookie `admin_session`。ID とパスワードのハッシュは環境変数（`ADMIN_ID` / `ADMIN_PASSWORD_HASH`）。自分だけが書き込めればよいので、ユーザー管理は持たない
-- 書影は提供元の URL をそのまま返す（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）。登録と更新のたびに取り直す
+- 書影は提供元の URL をそのまま返す（理由は [要件定義 §1.2](../docs/specifications.md#12-書影の取得元)）。登録と更新のたびに取り直す
 
 ## 5. やらないこと（全体）
 

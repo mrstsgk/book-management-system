@@ -14,7 +14,7 @@ Shared rules for AI agents (Claude Code, Cursor, Codex, etc.) working in this re
 
 ## Requirements and design
 
-- Sources of truth: `docs/requirements.md` (why, for whom), `docs/specifications.md` (what the system and the process must satisfy), per-feature design under `docs/superpowers/specs/` with HTML mockups under `docs/design/`, implementation plans under `docs/superpowers/plans/`, and decisions under `docs/adr/` (`docs/rules/adr.md`). The end-to-end flow is `docs/rules/development-flow.md` (Japanese).
+- Sources of truth: `docs/requirements.md` (why, for whom), `docs/specifications.md` (what the system and the process must satisfy), per-feature design under `docs/superpowers/specs/` with HTML mockups under `docs/design/`, implementation plans under `docs/superpowers/plans/`. Reasons for decisions live next to the rules they shape in those docs (no separate decision-record directory). The end-to-end flow is `docs/rules/development-flow.md` (Japanese).
 - Do not resolve requirement ambiguity by technical judgment alone. If a point needs the owner's decision (wording, what to show, what to allow), report it instead of deciding.
 - Do not reuse HTML mockup code (`docs/design/**/*.html`) as production code.
 - Do not add or change requirements because of a legacy behavior; treat legacy code only as evidence (constraints, compatibility).

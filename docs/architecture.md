@@ -17,7 +17,9 @@
 | **本書** | リポジトリ全体・トップレベル構成・契約の**境界** |
 | [`backend/architecture.md`](../backend/architecture.md) | バックエンドのスタック・層・HTTP/OpenAPI・ディレクトリ・永続化 |
 | [`frontend/architecture.md`](../frontend/architecture.md) | フロントのスタック・設計パターン・アプリ内ディレクトリ・共有ルール |
-| [`rules/`](./rules/) | 開発の規則（開発の流れ・Git・テスト・コメント・ADR・DB 資料） |
+| [`rules/`](./rules/) | 開発の規則（開発の流れ・Git・テスト・コメント・DB 資料） |
+
+判断の理由は、その規則を持つ文書の該当箇所に「採用理由」「採らなかった案」として書く（別の判断記録の置き場は持たない。理由と規則が 2 か所に分かれると、片方だけ古くなるため）。
 
 フロントの実装詳細は本書に書かない。バックエンド実装詳細は [`backend/architecture.md`](../backend/architecture.md) に書き、本書は境界のみ。
 
@@ -29,7 +31,8 @@
 | フロントエンド | **React + Vite + TypeScript** の管理画面 `frontend/web`。**mise + pnpm**。正は [`frontend/architecture.md`](../frontend/architecture.md) |
 | API 契約（境界） | **BE は Go 先行**（DTO + validator + swag）。**排出 OpenAPI → FE の TypeScript 生成は必須**。生成物は手編集しない。CI でドリフト検知（gen → diff）。詳細は backend 文書 |
 | モジュラモノリス / マイクロサービス | **採用しない**（境界が必要になったら後からパッケージを育てる） |
-| 旧実装 | Kotlin / Spring Boot 版、および旧仕様（書籍・著者の管理 API）の Go 版は削除済み（[ADR](./adr/2026-09-28-rebuild-as-reading-portfolio.md)） |
+| 旧実装 | Kotlin / Spring Boot 版、および旧仕様（書籍・著者の管理 API）の Go 版は削除済み。目的が「読んだ本の紹介」に変わり、先に著者を作る登録の手間・紹介に使わない著者や価格の業務ルールを持ち越さないため、基盤（構成・CI・規則・共通部分）だけ残して作り直した。著者は独立したエンティティにせず、提供元の文字列のまま持つ |
+| ツールの版 | `.mise.toml`（Go・Node・pnpm）を正にし、`go.mod`・`frontend/package.json` の `packageManager` / `engines`・CI を同じ PR で揃える。版は原則として公開から 2 週間以上たったものを選ぶ（セキュリティ修正版は例外として早めに取り込む） |
 
 ## 2. バックエンド（境界のみ）
 
@@ -68,7 +71,9 @@
 - 前提が成立しない検査は実行しない（ISBN の形式が不正なら重複・外部カタログの検査はしない）。他の項目の検証は続ける
 - 外部カタログ（openBD）への照会は、他の違反が 1 つも無いときだけ行う（外部 API を無駄に呼ばないため。この結果の違反 `isbnNotInCatalog` だけは 2 回目の送信で分かることがある）。重複（`isbnDuplicated`）は DB の検査なので照会の前に行い、重複なら照会しない
 - 400 があるときは保存しない。DB に依存する検査（重複・タグの存在）は保存と同じ UseCase で行い、違反を集めてから保存する
-- `code` / `params`（業務ルール違反のコード・差し込み値）は導入していない。404（対象なし）・401・403・429 は従来どおりステータスだけで伝える（[ADR](./adr/2026-11-02-validation-errors-all-at-once.md)）
+- `code` / `params`（業務ルール違反のコード・差し込み値）は導入していない。404（対象なし）・401・403・429 は従来どおりステータスだけで伝える（文言に差し込む値が要る業務ルールの違反がまだ無いため。必要になった機能の PR で足す）
+
+採用理由: 利用者が直せる入力の問題は、入力欄に対応づけられる 400 の `errors` でまとめて返すと、直すたびに次の違反を知ることがない。重複を 409 のままにすると、FE が同じ 409 を「重複」と「楽観ロックの競合」の 2 つの意味で読み分けることになるため、ステータスは「利用者が次に何をすればよいか」で分ける。外部カタログは、呼ばなくても結果が決まるときは呼ばない
 
 ### 相関ルールの書き方
 
@@ -102,6 +107,6 @@ CI で OpenAPI 排出および TS 生成を再実行 → `git diff --exit-code`�
 ```
 frontend/   # web/（アプリ）と packages/（共有）。詳細は frontend/architecture.md
 backend/    # 詳細は backend/architecture.md（migrations SQL の正もここ）
-docs/       # 人が読む方針・規則・ADR・設計
+docs/       # 人が読む方針・規則・設計
 .github/    # CI・PR テンプレート
 ```

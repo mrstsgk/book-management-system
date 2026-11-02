@@ -5,8 +5,8 @@
 - 正は各 HTML（依存なしの静的 HTML。ブラウザで直接開ける）。PNG は GitHub 上で見るための書き出し
 - `[ ]` で囲んだ文字（`[一言まとめ]`・`[感想の本文]`・`[出版社]` など）は仮置き。書名・著者・ISBN は実際の見本データ、分野タグの名前と冊数は例
 - 1枚に「エラーのとき」「確認ダイアログを開いたとき」など、実装で確かめたい状態を重ねて描いている
-- ログイン画面はこのモックの範囲外（設計は `docs/superpowers/specs/2026-09-30-admin-login-design.md`、判断は `docs/adr/2026-09-30-admin-login-with-server-side-session.md`）
-- 採用の経緯は [ADR](../../adr/2026-09-29-design-mockups-as-html.md)
+- ログイン画面はこのモックの範囲外（設計は `docs/superpowers/specs/2026-09-30-admin-login-design.md`、認証方式の理由は `backend/architecture.md` §1）
+- モックは HTML と PNG でリポジトリに置く。採用理由: 渡すのはリポジトリだけなので、テキストとして差分を PR でレビューでき、追加のツールなしに見られる形にする（Figma は `.fig` がバイナリで差分を読めず、アカウントも要るため採らない）
 
 ## 本の一覧（管理）
 

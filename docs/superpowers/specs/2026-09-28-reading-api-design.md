@@ -8,9 +8,9 @@
 | 別の文書に書いてあること | 文書 |
 |---|---|
 | API の一覧と認証の要否 | [`backend/architecture.md`](../../../backend/architecture.md) §4 |
-| 書影を外部カタログの URL で見せる理由 | [ADR](../../adr/2026-09-28-book-cover-from-external-catalogs.md) |
-| 楽天を書影の補完だけに使う理由 | [ADR](../../adr/2026-09-28-rakuten-for-cover-only.md) |
-| 作り直した理由 | [ADR](../../adr/2026-09-28-rebuild-as-reading-portfolio.md) |
+| 書影を外部カタログの URL で見せる理由 | ADR |
+| 楽天を書影の補完だけに使う理由 | ADR |
+| 作り直した理由 | ADR |
 | テーブルの定義 | [`docs/db/backend-schema.md`](../../db/backend-schema.md) |
 
 ## 1. ドメイン（`domain/book`）

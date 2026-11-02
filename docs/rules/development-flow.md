@@ -16,7 +16,7 @@ flowchart LR
 | 段階 | やること | 成果物（置き場） | 次へ進む条件 | 正 |
 |---|---|---|---|---|
 | 1. 要求・要件 | 誰に何を伝えるために作るか（要求）と、システムと開発の進め方が満たすこと（要件）を決める | [`docs/requirements.md`](../requirements.md)・[`docs/specifications.md`](../specifications.md) | 要件が「満たしたかどうか」を確かめられる形で書かれている | 各文書 |
-| 2. 設計 | 機能ごとに画面・データ・外部連携の仕様と実装計画を決める。画面が要るものは HTML モックで見え方を先に決める | 機能ごとの設計 `docs/superpowers/specs/`、画面モック `docs/design/`、実装計画 `docs/superpowers/plans/`。機能をまたぐ判断は `docs/adr/` | 設計が合意され（必要なら `review:design` の Draft PR でレビュー）、要件と食い違いが無い | [`docs/architecture.md`](../architecture.md)・[`backend/architecture.md`](../../backend/architecture.md)・[`frontend/architecture.md`](../../frontend/architecture.md)・[ADR](./adr.md) |
+| 2. 設計 | 機能ごとに画面・データ・外部連携の仕様と実装計画を決める。画面が要るものは HTML モックで見え方を先に決める | 機能ごとの設計 `docs/superpowers/specs/`、画面モック `docs/design/`、実装計画 `docs/superpowers/plans/`。機能をまたぐ判断の理由は、その規則を持つ文書の該当箇所 | 設計が合意され（必要なら `review:design` の Draft PR でレビュー）、要件と食い違いが無い | [`docs/architecture.md`](../architecture.md)・[`backend/architecture.md`](../../backend/architecture.md)・[`frontend/architecture.md`](../../frontend/architecture.md) |
 | 3. 実装 | テストから書く（TDD）。BE は Go の DTO／Handler が契約の正で、`make swagger` で OpenAPI を排出し、FE は `pnpm gen:api` で生成物を更新する | コードとテスト、生成物（`backend/api/docs/`・`frontend/web/src/api/generated/`） | 自動テストと CI（`Test Presence` を含む）がすべて通る | [`docs/rules/testing.md`](./testing.md)・[コメントの書き方](./code-comments.md) |
 | 4. PR | レビュー分類を人が決め、Draft で作成 → CI → CodeRabbit の指摘に対応 → 確認事項を埋めて Ready → レビュー依頼 | PR | 承認 → `develop` へマージ、ブランチ削除 | [`docs/rules/git-pull-request.md`](./git-pull-request.md) |
 | 5. リリース | `develop` を `main` へマージする（緊急時は `hotfix/*`） | `main` | — | [`docs/rules/git-branch.md`](./git-branch.md) |
@@ -28,7 +28,7 @@ flowchart LR
 
 ## 2. 設計
 
-- 機能ごとの設計は `docs/superpowers/specs/<日付>-<機能>-design.md`、実装計画は `docs/superpowers/plans/`。機能スコープの判断はその設計文書の中に書き、機能をまたぐ判断（ライブラリ・インフラ・見送ったレビュー指摘など）だけ [ADR](./adr.md) にする
+- 機能ごとの設計は `docs/superpowers/specs/<日付>-<機能>-design.md`、実装計画は `docs/superpowers/plans/`。機能スコープの判断はその設計文書の中に書き、機能をまたぐ判断（ライブラリ・インフラなど）は、その規則を持つ文書（`docs/architecture.md`・`backend/architecture.md`・`frontend/architecture.md`・`docs/rules/*.md`）の該当箇所に「採用理由」「採らなかった案」として書く
 - 概要設計は `docs/design/<機能>.md`（テンプレート [`docs/design/_template.md`](../design/_template.md)）。画面が要る機能は、同じディレクトリの HTML モック `docs/design/<機能>/` で見え方・文言・状態（0 件・エラー）を先に決める。入力の制約（★ 列）と相関ルール（CR-xx）・メッセージ（MSG-xx）はここで決め、詳細設計に転記する。モックのコードを本番コードへ流用しない
 - 設計だけを先にレビューしたいときは、設計文書だけの Draft PR を `review:design` で出す（[PR 運用ルール](./git-pull-request.md)）
 
