@@ -35,7 +35,7 @@
 | 要求・要件 | [`docs/requirements.md`](./docs/requirements.md) | 誰に何を伝えるために作るか |
 | | [`docs/specifications.md`](./docs/specifications.md) | システムと開発の進め方が満たすこと |
 | 設計 | [`docs/superpowers/specs/`](./docs/superpowers/specs/) | 機能ごとの設計 |
-| | [`docs/design/`](./docs/design/) | 画面の HTML モック（公開画面・管理画面） |
+| | [`docs/design/`](./docs/design/) | 機能ごとの概要設計 `docs/design/<機能>.md`（テンプレート `_template.md`）と、画面の HTML モック（公開画面・管理画面） |
 | | [`docs/adr/`](./docs/adr/)・[`docs/rules/adr.md`](./docs/rules/adr.md) | 自明でない判断の記録と、その残し方 |
 | バックエンド | [`backend/README.md`](./backend/README.md) | ローカルでの起動とコマンド |
 | | [`backend/architecture.md`](./backend/architecture.md) | 層・命名・HTTP／OpenAPI（swag）・ディレクトリ |

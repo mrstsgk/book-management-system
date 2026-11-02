@@ -56,6 +56,27 @@
 - **生成物（swag 排出・TS）は手編集しない**
 - FE で API 型を手書きして正としない
 
+### バリデーションの全件返却
+
+- 入力検証（Request DTO の `validate` タグ）・Domain VO の不変条件・相関ルールの違反は、すべて HTTP 400 の `ErrorResponse.errors[{field, rule}]` に、**独立して判定できるものをすべて**返す。順序は保証せず、同じ `field`・`rule` は重複させない。FE は順序に依存しない
+- `rule` は、`validate` タグ由来なら validator のキーワード（`required` / `max` / `min` …）、VO 由来なら `format`（ISBN の桁・チェックディジット）か `invalid`（その他）、相関ルールなら `x-correlation-rules` の `id`（lowerCamel。例 `isbnDuplicated`）
+- **409 は楽観ロック（`version` 不一致）だけ**に使う。同じ ISBN・同じタグ名の重複は相関ルール（400）にする。DB の一意制約は同時登録の最後の砦として残し、制約違反になったときは 409（`ErrConflict`）を返す
+- 前提が成立しない検査は実行しない（ISBN の形式が不正なら重複・外部カタログの検査はしない）。他の項目の検証は続ける
+- 外部カタログ（openBD）への照会は、他の違反が 1 つも無いときだけ行う（外部 API を無駄に呼ばないため。この結果の違反 `isbnNotInCatalog` だけは 2 回目の送信で分かることがある）。重複（`isbnDuplicated`）は DB の検査なので照会の前に行い、重複なら照会しない
+- 400 があるときは保存しない。DB に依存する検査（重複・タグの存在）は保存と同じ UseCase で行い、違反を集めてから保存する
+- `code` / `params`（業務ルール違反のコード・差し込み値）は導入していない。404（対象なし）・401・403・429 は従来どおりステータスだけで伝える（[ADR](./adr/2026-11-02-validation-errors-all-at-once.md)）
+
+### 相関ルールの書き方
+
+```text
+概要設計 docs/design/<機能>.md の「相関ルール」（CR-xx: あってはならない状態、rule id、MSG-xx）
+  → 詳細設計 = Handler の swag コメント @x-correlation-rules（JSON 配列 [{"id","field","rule","message"}]。
+    rule は常に真になる条件、message は MSG-xx か文言）
+  → make swagger で swagger.yaml の operation に x-correlation-rules として出る（FE の生成物は変わらない）
+  → UseCase で実装し、規則ごとに「違反する入力で errors[].rule に id が載る」テストを書く（docs/rules/testing.md）
+  → FE は rule → 文言の対応表（web/src/utils/serverFieldErrors.ts）に MSG-xx を写し、field の入力欄の下に出す
+```
+
 ### ドリフト検知（CI・必須）
 
 CI で OpenAPI 排出および TS 生成を再実行 → `git diff --exit-code`（差分があれば **fail**）。

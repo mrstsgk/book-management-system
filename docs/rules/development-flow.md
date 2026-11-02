@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  R["1. 要求・要件<br/>docs/requirements.md<br/>docs/specifications.md"] --> D["2. 設計<br/>docs/superpowers/specs/<br/>docs/design/（画面モック）"]
+  R["1. 要求・要件<br/>docs/requirements.md<br/>docs/specifications.md"] --> D["2. 設計<br/>docs/design/（概要設計・モック）<br/>docs/superpowers/specs/"]
   D -->|設計の合意| I["3. 実装（TDD）<br/>BE → swag → FE 生成"]
   I --> P["4. PR<br/>レビュー分類・CI・CodeRabbit"]
   P -->|承認・マージ| Dev["develop"]
@@ -29,12 +29,13 @@ flowchart LR
 ## 2. 設計
 
 - 機能ごとの設計は `docs/superpowers/specs/<日付>-<機能>-design.md`、実装計画は `docs/superpowers/plans/`。機能スコープの判断はその設計文書の中に書き、機能をまたぐ判断（ライブラリ・インフラ・見送ったレビュー指摘など）だけ [ADR](./adr.md) にする
-- 画面が要る機能は、[`docs/design/`](../design/) の HTML モックで見え方・文言・状態（0 件・エラー）を先に決める。モックのコードを本番コードへ流用しない
+- 概要設計は `docs/design/<機能>.md`（テンプレート [`docs/design/_template.md`](../design/_template.md)）。画面が要る機能は、同じディレクトリの HTML モック `docs/design/<機能>/` で見え方・文言・状態（0 件・エラー）を先に決める。入力の制約（★ 列）と相関ルール（CR-xx）・メッセージ（MSG-xx）はここで決め、詳細設計に転記する。モックのコードを本番コードへ流用しない
 - 設計だけを先にレビューしたいときは、設計文書だけの Draft PR を `review:design` で出す（[PR 運用ルール](./git-pull-request.md)）
 
 ## 3. 実装（TDD）
 
 - 順番は **仕様 → テスト → 実装**。テストは要件・設計から書き、実装の今の動きから書かない（テストの書き方・置き場は [テスト規約](./testing.md)）
+- 詳細設計は別の文書ではなく、Request DTO の `validate` タグ・Domain VO・Handler の swag コメント（相関ルールの `@x-correlation-rules` を含む）そのもので、`make swagger` が契約（`backend/api/docs/swagger.yaml`）を排出する。相関ルールは UseCase に実装し、規則ごとにテストする（[テスト規約](./testing.md)）
 - BE は Domain → UseCase → Infrastructure → Presentation の順にコミットを分け、レビュアーが Domain から順に読めるようにする（業務ルールを HTTP・DB の差分に埋もれさせないため）
 - API の契約（DTO・Handler・swag コメント）を変えたら、同じ PR で `make swagger` と `pnpm gen:api` を実行し、生成物も含めてコミットする（CI のドリフト検査が落ちるため）。生成物は手編集しない
 - FE は生成した hook を feature の hook から呼び、API の差し替えは生成 MSW ハンドラで行う
