@@ -235,7 +235,7 @@ OpenAPI から生成したコード（`backend/api/gen/`・`frontend/web/src/api
   レンダリングせずに直接呼んで分岐網羅・境界値を検証する。コンポーネント側のテストは
   「入力するとエラー文言が表示され送信されない」という**配線**の確認に絞り、ロジックの全分岐を
   コンポーネント経由で網羅し直さない
-- テストダブルは HTTP 境界で差し替える。**生成 API（`src/api/generated`）は MSW で差し替え、`vi.mock()` しない**。成功の応答は Orval が生成した MSW ハンドラ（`get<Op>MockHandler`）を使い、4xx やリクエスト内容の検証は同じメソッド・パスの手書き MSW ハンドラ（`http.put('*/api/tags/:id', …)`）で行う（API 契約の Mock として扱うため。CI `Test Presence` もこの形を検出する）。`vi.mock()` は生成物以外の feature の `api/` モジュールに限る。
+- テストダブルは HTTP 境界で差し替える。**生成 API（`src/api/generated`）は MSW で差し替え、`vi.mock()` しない**。成功の応答は Orval が生成した MSW ハンドラ（`get<Op>MockHandler`）を使い、4xx やリクエスト内容の検証は同じメソッド・パスの手書き MSW ハンドラ（`http.put('*/api/admin/tags/:id', …)`）で行う（API 契約の Mock として扱うため。CI `Test Presence` もこの形を検出する）。`vi.mock()` は生成物以外の feature の `api/` モジュールに限る。
   自作の子コンポーネントはモックしない
 - 操作は `userEvent` を使う（`fireEvent` は使わない）。非同期のアサーションは `findBy` / `waitFor` を
   優先し、`getBy` + 手動の `act` は避ける

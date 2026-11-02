@@ -18,7 +18,7 @@ pnpm test
 pnpm typecheck
 pnpm lint            # ESLint（依存の向き・../ の相対 import・default export の禁止も検査。architecture.md §7）
 pnpm format          # Prettier で整形（CI は pnpm format:check）
-pnpm gen:api         # Orval で API クライアント・MSW ハンドラを再生成（backend/api/docs/swagger.yaml が入力）
+pnpm gen:api         # Orval で API クライアント・MSW ハンドラ・zod を再生成（../openapi/dist/web.yaml が入力。YAML を変えたら先に make -C ../backend openapi）
 pnpm build
 pnpm storybook        # :6006
 pnpm build-storybook

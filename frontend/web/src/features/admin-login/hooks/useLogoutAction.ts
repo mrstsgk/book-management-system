@@ -1,9 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import {
-  getCheckSessionQueryKey,
-  useLogout,
-} from '@/api/generated/api'
+import { getCheckSessionQueryKey, useLogout } from '@/api/generated/api'
 
 // 成功したときだけログイン画面へ送る: 失敗時はサーバー側のセッションも Cookie も残っている
 // （バックエンドは消せなかったとき Cookie を消さずに 500 を返す）ため、画面だけ抜けたように

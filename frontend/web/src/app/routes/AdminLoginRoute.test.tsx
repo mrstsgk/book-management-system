@@ -38,7 +38,9 @@ describe('AdminLoginRoute', () => {
   })
 
   it('セッションを確かめている間は読み込み中を出し、フォームはまだ出さない', () => {
-    server.use(http.get('*/api/admin/auth/session', () => new Promise(() => {})))
+    server.use(
+      http.get('*/api/admin/auth/session', () => new Promise(() => {})),
+    )
     renderWithProviders(<AppRoutes />, { route: '/admin/login' })
 
     expect(screen.getByRole('status')).toHaveTextContent('読み込み中…')

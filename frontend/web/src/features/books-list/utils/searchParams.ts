@@ -15,9 +15,7 @@ const MAX_QUERY_LENGTH = 100
 
 /** 検索キーワードが上限（前後の空白を除いてコードポイントで数える）を超えるかを判定する。 */
 export function isQueryTooLong(value: string | undefined): boolean {
-  return (
-    value !== undefined && codePointLength(value.trim()) > MAX_QUERY_LENGTH
-  )
+  return value !== undefined && codePointLength(value.trim()) > MAX_QUERY_LENGTH
 }
 
 /** API が検索キーワード（q）を入力の誤りとして 400 で返したかを判定する。 */

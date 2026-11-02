@@ -9,7 +9,7 @@
 | **本書** | フロントのスタック・設計パターン・アプリ内ディレクトリ・共有ルール |
 
 本書にバックエンド実装の詳細は書かない。  
-OpenAPI は **バックエンドが swag で排出したもの**が入力。フロントは **生成物（型／クライアント）の利用**だけ扱う。排出・HTTP の正は [`backend/architecture.md`](../backend/architecture.md)。  
+OpenAPI はリポジトリ直下 `openapi/` の YAML（API 契約の正本）をバンドルした `openapi/dist/web.yaml` が入力。フロントは **生成物（型／クライアント／zod）の利用**だけ扱う。契約の正は [`docs/architecture.md`](../docs/architecture.md) §4。  
 人が読む方針は **日本語**（AI 入口の英語ルールは `CLAUDE.md` / `.cursor/rules`）。
 
 参照: [bulletproof-react — Project Structure](https://github.com/alan2207/bulletproof-react/blob/master/docs/project-structure.md)  
@@ -91,11 +91,11 @@ API の `ErrorResponse` の `message` は開発者向けなので、そのまま
 
 | 文言 | 正 |
 |---|---|
-| 制約の種類ごとの共通の文言（`rule` が `required`・`max`・`min`・`format` など） | FE の対応表 `web/src/utils/serverFieldErrors.ts`（本の登録・編集・タグで共有。feature 間 import を避けるため shared に置く） |
-| 相関ルール・業務ルールに固有の文言（`rule` が `isbnDuplicated` などの id） | 概要設計 `docs/design/<機能>.md` のメッセージ一覧（MSG-xx）。同じ対応表に写す |
+| 制約の種類ごとの共通の文言（`rule` が `required`・`maxLength`・`minimum`・`maxItems`・`format` など OpenAPI のキーワード） | FE の対応表 `ERROR_MESSAGES`（`web/src/utils/errorMessages.ts`。キーは `<field>.<rule>`。本の登録・編集・タグ・ログインで共有するため shared に置く） |
+| 相関ルール・業務ルールに固有の文言（`rule` が `isbnDuplicated` などの id、`code` が `versionConflict` などのコード） | 概要設計 `docs/design/<機能>.md` のメッセージ一覧（MSG-xx）。同じ対応表に写し、`getErrorMessage(key, params)` で引く（`params` の値を `{キー}` に差し込む。値が欠けたら呼び出し側の既定の文言にする） |
 | 5xx・通信失敗・`errors` の無い 400 | FE 共通の文言（画面上部） |
 
-上限のある項目の文字数は、BE と同じく前後の空白を除いて Unicode のコードポイントで数える（`Array.from(value.trim()).length`。`String.length` と HTML の `maxlength` は UTF-16 単位で絵文字を 2 文字と数えるため使わない。`maxlength` は IME の変換途中でも文字を切る）。上限を超えたら送信を止め、入力欄のすぐ下で伝える（実例: 一覧の検索キーワード `features/books-list/utils/searchParams.ts`）。
+上限のある項目の文字数は、BE と同じく前後の空白を除いて Unicode のコードポイントで数える（共通の `utils/codePointLength.ts`。生成 zod の `.max()` も同じ数え方。`String.length` と HTML の `maxlength` は UTF-16 単位で絵文字を 2 文字と数えるため使わない。`maxlength` は IME の変換途中でも文字を切る）。上限の値は生成 zod の定数（`registerBookBodySummaryMax` など）を使い、FE で書かない。上限を超えたら送信を止め、入力欄のすぐ下で伝える（実例: 一覧の検索キーワード `features/books-list/utils/searchParams.ts`）。
 
 `errors[]` は順序に依存せず全件を表示し、`field` に対応する入力欄のすぐ下に出す（[`docs/architecture.md`](../docs/architecture.md) §4「バリデーションの全件返却」）。
 
@@ -175,22 +175,24 @@ PR で必須:
 契約・分割・再生成フローの正は [`docs/architecture.md`](../docs/architecture.md) §4。
 
 ```bash
-# リポジトリ frontend/ で（backend/api/docs/swagger.yaml が入力）
+# リポジトリ frontend/ で（../openapi/dist/web.yaml が入力。YAML を変えたら先に make -C ../backend openapi）
 pnpm gen:api
 ```
 
-生成は **Orval**（設定 `web/orval.config.ts`。swag の Swagger 2.0 を Orval が読み込み時に OpenAPI 3 へ変換）。
+生成は **Orval**（設定 `web/orval.config.ts`）。hook・関数の名前は operationId から付く（`searchBooks` → `useSearchBooks`・`getSearchBooksMockHandler`）。
 
 | 生成物 | 場所 |
 |---|---|
 | TanStack Query フック・リクエスト関数 | `web/src/api/generated/api.ts` |
 | 型（DTO） | `web/src/api/generated/api.schemas.ts` |
 | MSW ハンドラ（テスト用） | `web/src/api/generated/api.msw.ts`（faker のモック値は `api.faker.ts`） |
-| fetch の共通処理（手書き） | `web/src/api/mutator.ts`（`VITE_API_BASE_URL` 付与・`ErrorResponse` → `ApiError`） |
+| zod スキーマ・制約の定数（フォームの入力チェック用） | `web/src/api/generated/zod/api.ts` |
+| fetch の共通処理（手書き） | `web/src/api/mutator.ts`（`VITE_API_BASE_URL` 付与・`ErrorResponse` → `ApiError`（`status`・`fieldErrors`・`code`・`params`）） |
 
 - 生成物（`web/src/api/generated/`）は手編集しない。契約を更新して再生成する。ESLint / Prettier の対象外。`.gitattributes` の `linguist-generated` で PR の差分では折りたたまれる
 - 画面は生成フックを feature の hook から呼ぶ（Query フックを手書きしない）
-- テストの既定ハンドラは生成 MSW ハンドラ。具体値を検証するテストは `server.use(get…MockHandler(fixture))` で上書きする。**生成 API の差し替えは MSW で行い、`vi.mock()` しない**（成功は生成ハンドラ、4xx やリクエスト内容の検証は同じメソッド・パスの手書き `http.put('*/api/tags/:id', …)`。API 契約の Mock として扱うため。CI `Test Presence` もこの形を検出する）
+- テストの既定ハンドラは生成 MSW ハンドラ。具体値を検証するテストは `server.use(get…MockHandler(fixture))` で上書きする。**生成 API の差し替えは MSW で行い、`vi.mock()` しない**（成功は生成ハンドラ、4xx やリクエスト内容の検証は同じメソッド・パスの手書き `http.put('*/api/admin/tags/:id', …)`。API 契約の Mock として扱うため。CI `Test Presence` もこの形を検出する）
+- 契約で必須になった項目を満たすテスト用データは、乱数の faker ではなく `src/testing/fixtures.ts` の `createXxxFixture` で作る（書影の有無などを確かめるテストが不安定にならないように）
 - ローカル: Vite が `/api` と `/health` を `localhost:8080` にプロキシ。本番ビルドは `VITE_API_BASE_URL` を指定
 - CI: `pnpm gen:api:check`（再生成して `git diff --exit-code` と未追跡ファイルの有無を確認）
 
@@ -309,9 +311,9 @@ Snapshot は主力にしない（明示 assert）。小さく安定した部品�
 | 層 | 置き場・ファイル名 | 命名・書き方 | テスト |
 |---|---|---|---|
 | **app** | `src/app/`。`App.tsx`・`provider.tsx`・`router.tsx`・`AdminGuard.tsx`・`routes/XxxRoute.tsx`（実例: `routes/BooksListRoute.tsx`） | Router / Provider / feature の合成だけを行う（§3）。route は feature の hook と表示コンポーネントをつなぐ | 合成だけなら個別のテストは書かない。認証による遷移の振り分けなど挙動を持つもの（`AdminGuard`・`router`）は同名の `*.test.tsx` |
-| **api** | `src/api/`。`generated/`（Orval の生成物。手編集しない）と `mutator.ts` | 全リクエストは `apiMutator` を通り、失敗は `ApiError` に正規化する。hook 名・関数名は Orval が HTTP メソッド + パスから生成（`useGetApiBooks`） | `mutator.test.ts`: MSW で成功・204・HTTP エラー・通信失敗・不正な JSON を検証。生成物はテストしない |
+| **api** | `src/api/`。`generated/`（Orval の生成物。手編集しない）と `mutator.ts` | 全リクエストは `apiMutator` を通り、失敗は `ApiError` に正規化する。hook 名・関数名は operationId から生成（`useSearchBooks`）。フォームの上限は `generated/zod/` の定数 | `mutator.test.ts`: MSW で成功・204・HTTP エラー・通信失敗・不正な JSON を検証。生成物はテストしない |
 | **features（画面）** | `src/features/<feature>/components/`。`XxxView.tsx`・`XxxForm.tsx`（実例: `books-list/components/BooksListView.tsx`、`admin-book-editor/components/BookForm.tsx`） | PascalCase のファイル・同名の named export（`export function BooksListView`）。API 取得・大きな変換・複雑な状態遷移は hook に出す | 同名の `*.test.tsx`。MSW の生成ハンドラを `server.use(...)` で上書きし、主要状態（読み込み中 / 0 件 / 成功 / API エラー）ごとに見える内容と押せるものを検証 |
-| **features（hook）** | `src/features/<feature>/hooks/useXxx.ts`（実例: `useBooksList.ts`、`useBookEditor.ts`、`useLogin.ts`） | hook が提供するもので名付ける（下の「名前の付け方」）。API の構造と画面が必要な構造が違うときだけ生成 hook を包む | ロジックがあれば直接テストする（`useBooksList.test.tsx`） |
+| **features（hook）** | `src/features/<feature>/hooks/useXxx.ts`（実例: `useBooksList.ts`、`useBookEditor.ts`、`useLoginForm.ts`） | hook が提供するもので名付ける（下の「名前の付け方」）。API の構造と画面が必要な構造が違うときだけ生成 hook を包む | ロジックがあれば直接テストする（`useBooksList.test.tsx`） |
 | **features（utils・型）** | `src/features/<feature>/utils/`（実例: `paging.ts`、`validateBookForm.ts`、`barRatio.ts`）、`types.ts`（実例: `admin-book-editor/types.ts`） | 関数名と同じ camelCase のファイル名（1 語なら小文字）。型は PascalCase、値の対応表は UPPER_SNAKE（`PAGE_SIZE`） | 計算・判定は直接呼んで分岐・境界値を検証。型だけならテスト不要 |
 | **components（共有）** | `src/components/{layouts,pages,states,ui,form}/`。`layouts/` は枠（`Layout`・`Header`・`Footer`・`AdminLayout`）、`pages/` は feature に属さない画面（`NotFoundPage`）、`states/` は読み込み中・0 件・エラーの表示、`ui/` は小さな部品（`RatingStars`・`ConfirmDialog`）、`form/` はフォームの部品（`FormField`・`ErrorSummary`） | 業務の意味を持つ複合 UI は置かない（§2）。DS の部品は `packages/ui` | ロジック・操作があれば同名の `*.test.tsx`。Story は `*.stories.tsx`（§3.1） |
 | **hooks / lib / testing** | `src/hooks/`（アプリ横断の薄い hook。実例: `useLoginRedirect.ts`）、`src/lib/`（ライブラリの設定。実例: `query-client.ts` の `createQueryClient`）、`src/testing/`（`server.ts`・`handlers.ts`・`render.tsx`・`setup.ts`・`e2e/`） | lib は `createXxx` の生成関数。`testing/` は未定義のリクエストをエラーにする | hook はロジックがあれば同名のテスト。`testing/` はテストしない |
@@ -346,9 +348,9 @@ Snapshot は主力にしない（明示 assert）。小さく安定した部品�
 
 **hook**
 
-- hook が外に提供する状態・情報・操作で名付ける。画面名・API の関数名・実装の技術から機械的に付けない（`useBooksList` / `useBookEditor` / `useLogin`）
+- hook が外に提供する状態・情報・操作で名付ける。画面名・API の関数名・実装の技術から機械的に付けない（`useBooksList` / `useBookEditor` / `useLoginForm`）
 - `Query` / `Mutation` の接尾辞は、区別が要るときだけ付ける
-- 生成 hook は Orval の名前（`useGetApiBooks`）のまま使い、名前を変えるためだけの中間 hook を作らない（§5）。feature の hook は画面の目的で名付け、生成 hook の名前に揃えようとしない
+- 生成 hook は operationId から付いた名前（`useSearchBooks`）のまま使い、名前を変えるためだけの中間 hook を作らない（§5）。feature の hook は画面の目的で名付け、生成 hook の名前に揃えようとしない。名前がぶつかるとき（生成の `useLogin` と画面のフォーム）は、feature 側を目的で付け直す（`useLoginForm`・`useLogoutAction`）
 
 **API Model → UI Model の変換（mapper）**
 

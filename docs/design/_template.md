@@ -93,7 +93,7 @@ flowchart LR
 
 <!--
 - 入力チェックのメッセージは frontend/architecture.md §2.2 の 4 つを守る（責めない・形式や条件を示す・専門用語を使わない・入力欄のすぐ近くに出す）
-- 制約の種類ごとの共通のメッセージ（「〇〇を入力してください」「100 文字以内にしてください」など）は書かない（FE の対応表 web/src/utils/serverFieldErrors.ts が正）
+- 制約の種類ごとの共通のメッセージ（「〇〇を入力してください」「100 文字以内にしてください」など）は書かない（FE の対応表 web/src/utils/errorMessages.ts の ERROR_MESSAGES が正）
 - 書くのは機能に固有のもの（相関ルールの違反・業務ルールの違反・確認・完了など）。モックに出る文言はモックから書き写し、モックに出ないものはここで決める
 - ここの ID（MSG-xx）は、詳細設計で OpenAPI の x-correlation-rules・x-error-codes の message から参照され、FE の対応表に写す
 -->
