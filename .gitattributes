@@ -1,3 +1,4 @@
 # 生成物（手で編集しない）。GitHub の PR の差分で折りたたむ
-backend/api/docs/** linguist-generated=true
+backend/api/gen/** linguist-generated=true
+openapi/dist/** linguist-generated=true
 frontend/*/src/api/generated/** linguist-generated=true

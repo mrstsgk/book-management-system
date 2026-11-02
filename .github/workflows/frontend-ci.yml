@@ -5,14 +5,14 @@ on:
     branches: [main, develop]
     paths:
       - 'frontend/**'
-      - 'backend/api/docs/**'
+      - 'openapi/dist/**'
       - '.github/workflows/frontend-ci.yml'
       - '.mise.toml'
       - '!**/*.md'
   pull_request:
     paths:
       - 'frontend/**'
-      - 'backend/api/docs/**'
+      - 'openapi/dist/**'
       - '.github/workflows/frontend-ci.yml'
       - '.mise.toml'
       - '!**/*.md'

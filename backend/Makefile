@@ -59,8 +59,8 @@ lint: ## golangci-lint + go vet
 vuln: ## 依存の脆弱性チェック
 	govulncheck ./...
 
-test: ## 全テストを実行（DB を使うテストは make db-up migrate-up 済みが前提。DB の状態はテストキャッシュの入力に含まれないためキャッシュを使わない）
-	go test -count=1 ./...
+test: ## 全テストを実行（DB を使うテストは make db-up migrate-up 済みが前提。DB の状態はテストキャッシュの入力に含まれないためキャッシュを使わず、DB を使うパッケージが同じテーブルを触るので 1 つずつ走らせる）
+	go test -p 1 -count=1 ./...
 
 build: ## API をビルド（bin/）
 	go build -o bin/api ./cmd/api

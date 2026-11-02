@@ -4,7 +4,7 @@
 #
 # 対象: backend/{internal,cmd}/**/*.go、frontend/*/src/**/*.ts(x)、frontend/packages/*/src/**/*.ts(x)
 # 対象外: テスト自体・Story・型だけのファイル（*.d.ts）・テスト用の補助（frontend/*/src/testing）・
-#         生成物（backend/api/docs・frontend/*/src/api/generated）
+#         生成物（backend/api/gen・openapi/dist・frontend/*/src/api/generated）
 # 結果は GitHub の注釈（1 ステップ 10 件まで表示）と、全件をジョブのサマリーに出す。
 #
 # 使い方: .github/scripts/warn-missing-tests.sh <比較元の ref>   （例: origin/develop）

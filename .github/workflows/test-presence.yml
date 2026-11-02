@@ -6,6 +6,7 @@ name: Test Presence
 on:
   pull_request:
     paths:
+      - 'openapi/**'
       - 'backend/**'
       - 'frontend/**'
       - '.github/scripts/check-api-tests.sh'

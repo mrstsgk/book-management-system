@@ -21,7 +21,8 @@ const baseConfig = {
       "!**/pnpm-lock.yaml",
       "!**/package-lock.json",
       "!**/go.sum",
-      "!backend/api/docs/**",
+      "!backend/api/gen/**",
+      "!openapi/dist/**",
       "!frontend/*/src/api/generated/**"
     ],
     "path_instructions": [
@@ -83,11 +84,11 @@ Branch, commit, and PR conventions follow \`docs/rules/git-branch.md\` / \`docs/
         "instructions": `Go / Echo monolith. The source of truth for policy is \`backend/architecture.md\` (Japanese). Do not duplicate findings already covered by mechanical checks such as \`go vet\` / golangci-lint.
 
 ## Architecture (onion + tactical DDD + CQRS)
-Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},infrastructure/{postgres,gateway},presentation/http/<channel>}/\` (areas \`book\` / \`tag\` / \`auth\`; channels \`public\` for reading and \`admin\` for writes/login). Technical foundation is in \`internal/platform/\` (Echo / \`BindValidate\` / \`HTTPErrorHandler\` / auth middleware in \`platform/httpserver\`, DB connection in \`platform/postgres\`), shared error classification in \`internal/domainerr/\`. Flag the following boundary violations:
+Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},infrastructure/{postgres,gateway},presentation/http/<channel>}/\` (areas \`book\` / \`tag\` / \`auth\`; channels \`public\` for reading and \`admin\` for writes/login). Technical foundation is in \`internal/platform/\` (Echo / OpenAPI request validation / \`HTTPErrorHandler\` / auth middleware in \`platform/httpserver\`, DB connection in \`platform/postgres\`), shared error classification in \`internal/domainerr/\`. Flag the following boundary violations:
 - Does code import another area's \`infrastructure\` or Persistence Model directly? Is business logic placed in \`platform\` / \`domainerr\`? Are business rules duplicated per channel?
-- **Keep Handlers thin**: only path parsing → shared \`BindValidate[T]\` → UseCase → JSON. Is business logic or **authorization** written in the Handler (presentation)? (authorization is the UseCase's responsibility; authentication middleware lives in \`platform/httpserver\`)
+- **Keep Handlers thin**: only conversion generated type → UseCase input → UseCase → generated type (input validation is already done by the OpenAPI validation middleware). Is business logic or **authorization** written in the Handler (presentation)? (authorization is the UseCase's responsibility; authentication middleware is attached per operation from the spec's \`security\` in \`platform/httpserver\`)
 - **Error → HTTP status mapping is centralized in \`httpserver.HTTPErrorHandler\`**. Are \`if errors.Is(...)\` status branches scattered across Handlers? When a sentinel error is added to \`domainerr\`, is the \`HTTPErrorHandler\` mapping updated too?
-- Is Bind / validate hand-copied into a Handler instead of using \`BindValidate\`? Input constraints go in \`validate\` tags on the request DTO and in the Domain VO, not in Handler code
+- Are input constraints hand-written in a Handler? (constraints go in the \`openapi/\` YAML and are left to the validation middleware, and business constraints are also guaranteed by the Domain VO)
 - \`domain\` depends on no other layer. Does domain import infrastructure / presentation / Echo / GORM?
 - Does a UseCase depend on the domain's **Repository IF (write) / Query IF (read) / ExternalGateway IF** and not import \`infrastructure/*\` directly? Are writes in \`<area>/usecase/command\` and reads in \`<area>/usecase/query\`?
 - Are business constraints such as character limits guaranteed by a domain VO as well, not only by \`validate\` tags?
@@ -96,7 +97,8 @@ Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},in
 - **The transaction boundary belongs to the Command (UseCase)**. Are updates needing strict consistency (book + book_tag, optimistic lock by version) in a single transaction? Does an individual Repository implementation commit on its own?
 - DI is hand-written in \`cmd/api/main.go\` (config → infra → usecase → presentation, \`registerRoutes\`). When a new UseCase / Handler is added, is the wiring added and covered by \`cmd/api/main_test.go\`?
 - Is an error response shape other than the common \`ErrorResponse\` invented?
-- When a swag annotation or request/response DTO changes, is \`backend/api/docs/**\` regenerated (\`make swagger\`) and the FE generated output \`frontend/*/src/api/generated/**\` regenerated (\`pnpm -C frontend gen:api\`) in the same PR? Both are generated, so flag manual edits
+- In a PR that changes \`openapi/\` YAML, are \`openapi/dist/**\`, \`backend/api/gen/**\` (\`make -C backend openapi\`), and the FE generated output \`frontend/*/src/api/generated/**\` (\`pnpm -C frontend gen:api\`) regenerated (\`docs/architecture.md\` §4)? They are generated, so flag manual edits. Do UseCase / Domain / Infrastructure import \`api/gen\`? Does \`cmd/api/server.go\` keep \`var _ webapi.ServerInterface = (*server)(nil)\` without embedding the generated IF?
+- When a business-rule violation is added, is it returned as \`domainerr.CodedError\` with the code listed in the operation's \`x-error-codes\`?
 - Does binding from the body in an HTTP handler overwrite values such as IDs that come from path parameters?
 
 ## Changeability principles (\`backend/architecture.md\` §2 design principles / naming / CQRS)
@@ -120,7 +122,7 @@ Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},in
 
 ## Tests
 - Require \`*_test.go\` in the same directory for behavior-changing changes. Check that they verify boundary values (both exactly-at-limit and over-limit), that the target's state does not change on failure, and that lower-layer errors propagate (see \`docs/rules/testing.md\`)
-- Does each layer verify the right thing? Domain = invariants / state transitions / boundary values (no dependency on DB or HTTP) / UseCase = scenarios with hand-written Fakes injected / Infrastructure = contract tests against the real PostgreSQL (prioritize complex SQL: JOIN, aggregation, transactions, locking; a Query contract test must verify the mapping to the Read Model and must not depend on write-side Domain Models) and \`httptest\` fakes for external gateways / Presentation = \`handler_test.go\` (Fake UseCase: \`BindValidate\` 400 with \`errors[{field, rule}]\` and domain error → status) plus \`handler_integration_test.go\` (real DB via \`common.NewEcho()\` + real DI: at least one case per HTTP status the Handler can return) / cmd = \`cmd/api/main_test.go\` verifies wiring and middleware with real requests. Tests that need the DB fail (not skip) when it is unreachable; CI provides PostgreSQL
+- Does each layer verify the right thing? Domain = invariants / state transitions / boundary values (no dependency on DB or HTTP) / UseCase = scenarios with hand-written Fakes injected / Infrastructure = contract tests against the real PostgreSQL (prioritize complex SQL: JOIN, aggregation, transactions, locking; a Query contract test must verify the mapping to the Read Model and must not depend on write-side Domain Models) and \`httptest\` fakes for external gateways / Presentation = \`handler_integration_test.go\` only (\`internal/apitest\`: real DB, real spec validation, every response validated against the spec; at least one case per HTTP status the operation can return, 500 via a cancelled request context; for each YAML input constraint one passing and one rejected value). Do not ask for a separate Fake-based Handler test / platform = the test spec in \`platform/httpserver\` covers each constraint kind / cmd = \`cmd/api/main_test.go\` verifies wiring and middleware with real requests. Tests that need the DB fail (not skip) when it is unreachable; CI provides PostgreSQL
 `
       },
       {
@@ -134,6 +136,19 @@ Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},in
 `
       },
       {
+        "path": "openapi/**",
+        "instructions": `The source of truth for the API contract (OpenAPI Design First). The rules are defined in \`docs/architecture.md\` §4 (Japanese). Do not duplicate findings already covered by Redocly lint.
+- Generated output (\`openapi/dist/**\`, \`backend/api/gen/**\`, \`frontend/*/src/api/generated/**\`) is out of review scope. However, check that the same PR contains tests for the code that implements/uses the added or changed operations (the BE Handler, the FE hook/screen), and review those tests (CI \`Test Presence\` checks for per-operation tests. \`docs/rules/testing.md\`)
+- When the YAML changes, are \`openapi/dist/**\` (bundle), \`backend/api/gen/**\` (\`make -C backend openapi\`), and \`frontend/*/src/api/generated/**\` (\`pnpm -C frontend gen:api\`) regenerated in the same PR? Flag manual edits of \`openapi/dist/**\`
+- Is \`operationId\` the lowerCamel of the BE UseCase type name it calls, without \`Usecase\` (\`SearchBooksUsecase\` → \`searchBooks\`; \`read\` for one item, \`search\` for any list, business verbs such as \`register\` / \`rename\`; not \`list\` / \`get\`), and unique? Does \`summary\` start with the same verb as \`operationId\`?
+- Are admin operations under \`/api/admin\` with \`security: [adminSession: []]\` (except login/logout), and public reads with \`security: []\`? (the server attaches authentication from the spec)
+- Are only statuses that are actually returned written? Do required fields have \`required\`? Is \`enum\` attached only to items whose value set is guaranteed by a DB constraint or the Domain?
+- Does each correlation rule in the outline design (\`docs/design/*.md\`, CR-xx) appear in \`x-correlation-rules\` as an always-true condition with the same id, and each business-rule violation code in \`x-error-codes\`?
+- If \`common/schemas/ErrorResponse.yaml\` / \`FieldError.yaml\` change, is the hand-written \`ErrorResponse\` in \`backend/internal/platform/httpserver\` fixed in the same PR?
+- For breaking changes such as removing a field, making it required, or changing its type, does the PR explain the OpenAPI CI breaking-change report (warning only until the app is published)?
+`
+      },
+      {
         "path": "frontend/**",
         "instructions": `React + Vite + TypeScript (pnpm workspace, single app \`frontend/web\` + \`packages/ui\`). The source of truth for policy is \`frontend/architecture.md\` (Japanese). Do not duplicate findings already covered by ESLint / Prettier / \`tsc\` / Vitest (ESLint already enforces: no imports between features, no imports from shared code into features, no \`../\` relative imports, no default exports except Storybook meta, \`interface\` for object types, React hooks rules).
 
@@ -143,7 +158,7 @@ Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},in
 - Only DS themes / imported components, OpenAPI generated types, and pure functions (amounts, dates) may live in \`packages/\`. Are domain-bearing composite components shared across apps?
 - Is logic (fetching, transformation, screen state) in \`hooks/\`, with components receiving props and only rendering? Is data fetching or complex branching piling up inside components?
 - Is TanStack Query the source of truth for server state, with no duplicate storage in Zustand? Is business data or frequently changing values put in Context?
-- Are API types/clients hand-written? \`src/api/generated/**\` (Orval) is generated by \`pnpm gen:api\` from \`backend/api/docs/swagger.yaml\`, so flag manual edits (change the Go DTO / swag annotation, run \`make swagger\`, then regenerate)
+- Are API types/clients hand-written? \`src/api/generated/**\` (Orval) is generated by \`pnpm gen:api\` from \`openapi/dist/web.yaml\`, so flag manual edits (change the \`openapi/\` YAML, run \`make -C backend openapi\`, then regenerate)
 - Naming (\`frontend/architecture.md\` §9): components PascalCase with a \`function\` declaration and \`XxxProps\`, pages \`XxxPage\`, hooks named by what they provide (generated hooks keep Orval's name; no wrapper hook that only renames), booleans \`is\` / \`has\` / \`can\`, events \`onXxx\` / \`handleXxx\`, UPPER_SNAKE only for lookup tables
 - Validation messages (\`frontend/architecture.md\` §2.2): do not blame the user, state the format/condition, no system jargon, show the message right next to the field; API default messages are never shown as-is
 - PC first and responsive so it does not break on smartphones
@@ -157,7 +172,7 @@ Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},in
         "path": "**/*{_test.go,.test.ts,.test.tsx}",
         "instructions": `Test files. The team tends to write only happy-path tests, so review for missing failure-path coverage (\`docs/rules/testing.md\`).
 - For each changed behavior, inspect all related test files together. Flag the behavior only when those tests collectively cover only the success case, and ask whether they cover: invalid input, boundary values (exactly at the limit and one over), an empty / zero-item case, and a lower-layer error propagating
-- Handler: does every 4xx/5xx status the Handler can return have a test? For every \`validate\` constraint on the request DTO (\`required\`, lengths, ranges, \`oneof\`, format, item counts, etc.), is there one passing value and one rejected value (400 with \`errors[{field, rule}]\`)?
+- Handler: does every 4xx/5xx status the Handler can return have a test? Is the response checked against the spec? For every input constraint written in the operation's YAML (\`required\`, lengths, ranges, \`enum\`, \`pattern\`, \`format\`, item counts, etc.), is there one passing value and one rejected value (400 with \`errors[{field, rule}]\`)? If the YAML uses a constraint kind for the first time, is it added to the \`internal/platform/httpserver\` test spec?
 - Failure must leave state unchanged; a validation error must not call lower layers. Are both asserted?
 - Are test inputs and expectations derived from the specification (\`docs/specifications.md\`), not from the implementation's constants? Flag tests that build inputs from \`MAX_X\` / \`MAX_X + 1\` of the code under test, or assertions that merely mirror the implementation
 - Frontend: are the API-error and input-error states tested, not only the success screen?
