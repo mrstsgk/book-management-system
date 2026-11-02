@@ -153,18 +153,18 @@ func TestBook_RefreshCatalog_ReplacesCover(t *testing.T) {
 func TestReadModels_UsePlainFieldTypes(t *testing.T) {
 	t.Parallel()
 	writeSide := map[reflect.Type]bool{
-		reflect.TypeOf(book.ISBN{}):          true,
-		reflect.TypeOf(book.Bibliography{}):  true,
-		reflect.TypeOf(book.Cover{}):         true,
-		reflect.TypeOf(book.CoverSource("")): true,
-		reflect.TypeOf(book.Title{}):         true,
-		reflect.TypeOf(book.Summary{}):       true,
-		reflect.TypeOf(book.Comment{}):       true,
-		reflect.TypeOf(book.Rating{}):        true,
-		reflect.TypeOf(book.TagSelection{}):  true,
-		reflect.TypeOf(book.Book{}):          true,
+		reflect.TypeFor[book.ISBN]():         true,
+		reflect.TypeFor[book.Bibliography](): true,
+		reflect.TypeFor[book.Cover]():        true,
+		reflect.TypeFor[book.CoverSource]():  true,
+		reflect.TypeFor[book.Title]():        true,
+		reflect.TypeFor[book.Summary]():      true,
+		reflect.TypeFor[book.Comment]():      true,
+		reflect.TypeFor[book.Rating]():       true,
+		reflect.TypeFor[book.TagSelection](): true,
+		reflect.TypeFor[book.Book]():         true,
 	}
-	for _, typ := range []reflect.Type{reflect.TypeOf(book.BookDetail{}), reflect.TypeOf(book.BookListItem{})} {
+	for _, typ := range []reflect.Type{reflect.TypeFor[book.BookDetail](), reflect.TypeFor[book.BookListItem]()} {
 		for i := range typ.NumField() {
 			ft := typ.Field(i).Type
 			for ft.Kind() == reflect.Pointer || ft.Kind() == reflect.Slice {

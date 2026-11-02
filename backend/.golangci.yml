@@ -12,7 +12,9 @@ linters:
     - errorlint
     - goconst
     - gocyclo
+    - gosec
     - misspell
+    - modernize
     - nilerr
     - revive
     - unconvert
@@ -29,8 +31,8 @@ linters:
     revive:
       enable-default-rules: true
       rules:
-        # 公開要素へのコメント必須はテンプレート向けの規約。本リポジトリでは
-        # 命名で意図が伝わる UseCase/Handler が大半で、定型コメントが増えるだけなので外す
+        # exported は公開要素すべてにコメントを求める。本リポジトリで概要のコメントを書く対象は
+        # 層ごとに決めており（docs/rules/code-comments.md）、cmd・common 等は対象外なので外す
         - name: exported
           disabled: true
         - name: package-comments
@@ -46,6 +48,8 @@ linters:
         linters:
           - errcheck
           - goconst
+          # テストで組み立てる Cookie（Secure 無し）やテスト用ファイルの読み込みは脅威にならない
+          - gosec
           # 表形式のテストはケースを並べるほど数値が上がるだけで、読みにくさとは関係しない
           - gocyclo
 

@@ -15,7 +15,8 @@ const sessionCookieMaxAge = 86400
 // SameSite=Lax で他サイトからの POST には付かない（CSRF の一段目。二段目は RequireSameOrigin）。
 // ponytail: Secure は付けない（ローカルの http でしか動かさない）。https で公開するなら Secure: true にする
 func SetSessionCookie(c echo.Context, id string) {
-	c.SetCookie(&http.Cookie{
+	c.SetCookie(&http.Cookie{ //nolint:gosec // Secure を付けない理由は上のコメント（ローカルの http 限定）
+
 		Name: SessionCookieName, Value: id, Path: "/api", MaxAge: sessionCookieMaxAge,
 		HttpOnly: true, SameSite: http.SameSiteLaxMode,
 	})
@@ -23,7 +24,8 @@ func SetSessionCookie(c echo.Context, id string) {
 
 // ClearSessionCookie はブラウザ側の Cookie を消す（サーバー側の行は LogoutUsecase が消す）。
 func ClearSessionCookie(c echo.Context) {
-	c.SetCookie(&http.Cookie{
+	c.SetCookie(&http.Cookie{ //nolint:gosec // 消すだけの Cookie。Secure を付けない理由は SetSessionCookie と同じ
+
 		Name: SessionCookieName, Value: "", Path: "/api", MaxAge: -1,
 		HttpOnly: true, SameSite: http.SameSiteLaxMode,
 	})

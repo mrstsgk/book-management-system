@@ -74,7 +74,7 @@ func newLogin(sessions *fakeSessions, v *fakeVerifier) *command.LoginUsecaseImpl
 // failTimes は失敗を n 回積む（ロックのテストの前提を作る）。
 func failTimes(t *testing.T, uc *command.LoginUsecaseImpl, n int) {
 	t.Helper()
-	for i := 0; i < n; i++ {
+	for range n {
 		_, _ = uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"})
 	}
 }
@@ -218,7 +218,7 @@ func TestLoginUsecase_Execute(t *testing.T) {
 		}
 		v.ok = false
 		// reset が無ければ 1 回目で 5 回目の失敗になりロックされ、2 回目が 429 になる。
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			if _, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"}); !errors.Is(err, common.ErrUnauthorized) {
 				t.Fatalf("attempt %d: err = %v, want ErrUnauthorized (count must have been reset)", i+1, err)
 			}
@@ -233,10 +233,8 @@ func TestLoginUsecase_Execute(t *testing.T) {
 		const n = 20
 		var unauthorized, tooMany atomic.Int32
 		var wg sync.WaitGroup
-		for i := 0; i < n; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range n {
+			wg.Go(func() {
 				_, err := uc.Execute(context.Background(), command.LoginCommand{ID: "admin", Password: "bad"})
 				switch {
 				case errors.Is(err, common.ErrUnauthorized):
@@ -244,7 +242,7 @@ func TestLoginUsecase_Execute(t *testing.T) {
 				case errors.Is(err, common.ErrTooManyAttempts):
 					tooMany.Add(1)
 				}
-			}()
+			})
 		}
 		wg.Wait()
 
