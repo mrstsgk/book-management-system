@@ -1,0 +1,44 @@
+name: Review Policy
+
+# PR のレビュー分類（docs/rules/git-pull-request.md）が人によって 1 つ決められていることと、
+# CodeRabbit の設定（.coderabbit.config.ts）が型・分岐テストを通ることを検査する。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review, converted_to_draft]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  classification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const allowed = ['review:design', 'review:standard', 'review:critical', 'review:skip'];
+            const selected = pr.labels.map(label => label.name).filter(label => allowed.includes(label));
+            if (selected.length !== 1) {
+              core.setFailed('人がレビュー分類を決定し、review:design / review:standard / review:critical / review:skip のいずれか1つを付けてください。');
+            }
+  config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          # 版は .mise.toml の node
+          node-version: '24.11.0'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test

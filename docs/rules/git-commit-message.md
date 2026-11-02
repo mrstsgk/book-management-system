@@ -21,6 +21,7 @@
 | `feat` | 新機能追加 | `feat: 書籍登録APIを追加` |
 | `fix` | バグ修正 | `fix: 著者の書籍一覧で重複レコードが表示される問題を修正` |
 | `chore` | 雑務（CI / ビルド / 環境設定など） | `chore: CIにgolangci-lintを追加` |
+| `docs` | ドキュメントのみの変更 | `docs: 開発の流れを追加` |
 | `refactor` | リファクタリング | `refactor: 変数名をauthorIDsに変更` |
 | `test` | テスト追加・修正 | `test: UpdateBookUsecaseにテストを追加` |
 | `hotfix` | 緊急バグ修正（本番） | `hotfix: 書籍更新時の致命的なバグを修正` |

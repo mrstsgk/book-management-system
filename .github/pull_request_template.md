@@ -1,4 +1,4 @@
-<!-- type: feat / fix / chore / refactor / test / hotfix -->
+<!-- type: feat / fix / chore / docs / refactor / test / hotfix -->
 <!-- ベースブランチ: 通常は develop（hotfix/* のみ main） -->
 
 ## 参照
@@ -11,6 +11,15 @@
 
 <!-- 何の機能ができていればゴールか（UI がある場合は、どの画面ができていればゴールか）を書く -->
 <!-- 「何を変えたか」の要約は書かない（CodeRabbit が自動でまとめる） -->
+
+## レビュー分類
+
+<!-- AIが変更内容と推奨理由を提示し、人が決定してからPRを作成する。未回答を通常扱いにしない。 -->
+<!-- review:design（設計・仕様/assertive）、review:standard（通常の実装/chill）、review:critical（重要な実装/assertive）、review:skip（CodeRabbitの自動レビューなし。人のレビュー承認・CIは必要）から1つ。 -->
+- 分類・ラベル:
+- 判断理由:
+- 決定者・確認記録: <!-- 人の名前と回答内容、または決定を確認できるリンク。AIの推薦を人の決定として書かない -->
+- 合意済み設計: <!-- 実装の場合は設計資料・PRへリンク。該当しない場合はN/Aと理由 -->
 
 ## 確認事項
 

@@ -15,6 +15,7 @@
 | `fix/` | バグ修正（非緊急） | `develop` → `develop` |
 | `refactor/` | 内部構造改善（挙動不変） | `develop` → `develop` |
 | `chore/` | CI / 設定 / 依存更新など | `develop` → `develop` |
+| `docs/` | ドキュメントのみの変更 | `develop` → `develop` |
 | `hotfix/` | 本番の緊急修正 | `main` → `main` + `develop` |
 
 ⚠️ **`feature/` ではなく `feat/`**。
@@ -38,7 +39,7 @@
 
 1. `develop` から作業ブランチを切る
 2. 実装 → PR を `develop` へ
-3. Copilot レビュー + 人間レビュー通過後にマージ
+3. CI・CodeRabbit・確認事項のチェックボックスがすべて OK になったらレビュー依頼し、承認後にマージ（手順は [開発の流れ](./development-flow.md) §5、マージ条件は [PR 運用ルール](./git-pull-request.md)）
 
 ## 緊急修正フロー（hotfix）
 
