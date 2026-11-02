@@ -214,7 +214,7 @@ Storybook は表示バリエーションのカタログであり、テストの�
   テーブルは `make migrate-up` 済みが前提（CI は Backend CI の `check` ジョブで PostgreSQL を起動して migration を当てる）。
   データはテストの終わりに片付ける（他のテストに残さない）。**DB に繋がらなければ、ローカルでも CI でも skip せず失敗にする**
   （skip のまま通ると何も検証しないため。`make test` の前に `make db-up && make migrate-up`）
-- 実行: `cd backend && make test`（= `go test -count=1 ./...`。DB の状態はテストキャッシュの入力に含まれないため、キャッシュを使わない）
+- 実行: `cd backend && make test`（= `go test -p 1 -count=1 ./...`。DB の状態はテストキャッシュの入力に含まれないため、キャッシュを使わない。DB を使うテストは別のパッケージ同士でも同じテーブルのデータを作って消すため、パッケージを並行に実行しない。CI も `make test` を使う）
 
 ### frontend（React + Vite）
 
