@@ -14,6 +14,7 @@ const nameMaxLength = 30
 // Name はタグの名前の VO。書名など他のドメインの命名規則には依存しない
 // （タグの命名規則は本の書名と揃える理由が無いため、独立して検証する）。
 type Name struct {
+	// タグの名前。
 	value string
 }
 

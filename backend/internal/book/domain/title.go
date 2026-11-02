@@ -2,6 +2,7 @@ package domain
 
 // Title は自分で上書きする書名の VO。規則は外部カタログの書名（Bibliography）と同じなので、同じ検証を使う。
 type Title struct {
+	// 上書きする書名。
 	value string
 }
 

@@ -4,6 +4,7 @@ const summaryMaxLength = 100
 
 // Summary は一覧で見せる一言まとめの VO。1行の短い文なので、感想と違い改行も受け付けない。
 type Summary struct {
+	// 一言まとめの本文。
 	value string
 }
 
