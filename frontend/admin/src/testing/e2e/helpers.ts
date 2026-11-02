@@ -52,7 +52,7 @@ export function bookRow(page: Page, titleSubstring: string) {
 }
 
 function extractIdFromEditHref(href: string | null): string {
-  const match = href?.match(/\/admin\/books\/(\d+)\/edit$/)
+  const match = href?.match(/\/books\/(\d+)\/edit$/)
   if (!match) {
     throw new Error(`編集リンクの href から ID を取り出せませんでした: ${href}`)
   }
