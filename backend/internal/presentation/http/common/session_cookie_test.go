@@ -35,6 +35,10 @@ func TestSetSessionCookie(t *testing.T) {
 	if !ck.HttpOnly || ck.SameSite != http.SameSiteLaxMode || ck.Path != "/api" || ck.MaxAge != 86400 {
 		t.Fatalf("attributes = %+v, want HttpOnly, Lax, Path=/api, Max-Age=86400", ck)
 	}
+	// ローカルの http でしか動かさないため Secure は付けない（session_cookie.go の判断）。https で公開するときにこのテストを反転する
+	if ck.Secure {
+		t.Fatalf("Secure must not be set for the local http deployment: %+v", ck)
+	}
 }
 
 func TestClearSessionCookie(t *testing.T) {
