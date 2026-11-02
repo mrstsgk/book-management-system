@@ -61,7 +61,7 @@ func decodeOK[T any](t *testing.T, rec *httptest.ResponseRecorder, want int) T {
 	return v
 }
 
-// isbn13CheckDigit は internal/domain/book.isbn13CheckDigit と同じ計算（重み1/3の交互和）。
+// isbn13CheckDigit は internal/book/domain.isbn13CheckDigit と同じ計算（重み1/3の交互和）。
 // 非公開なのでこのテストからは呼べず、同じアルゴリズムをここに複製している。
 func isbn13CheckDigit(twelve string) byte {
 	sum := 0
