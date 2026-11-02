@@ -82,14 +82,14 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 
 // TestRegisterRoutes_WiresTagQueryIntoBookUsecases は main.go が RegisterUsecaseImpl と UpdateUsecaseImpl の両方の
 // Tags に本物の tag.Query を渡していることを、実際のリクエストで確かめる（配線漏れなら nil interface の
-// メソッド呼び出しでパニックする）。実DBが要るため繋がらなければ skip する。
+// メソッド呼び出しでパニックする）。実DBが要るため繋がらなければ失敗する（CI は PostgreSQL を起動する）。
 func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 	db, err := pgcommon.Connect(pgcommon.Config{
 		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
 		DBName: "book_management", SSLMode: "disable",
 	})
 	if err != nil {
-		t.Skipf("skipping: local Postgres not reachable (run `make db-up migrate-up` first): %v", err)
+		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
 
 	e := httpcommon.NewEcho()
@@ -146,14 +146,14 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 
 // TestRegisterRoutes_AppliesSessionAndSameOriginToAdminRoutes は書き込み系（と catalog）に
 // セッション検証と Origin 検証の両方が実際に掛かっていることを、実際のリクエストで確かめる。
-// 実DBが要るため繋がらなければ skip する。
+// 実DBが要るため繋がらなければ失敗する（CI は PostgreSQL を起動する）。
 func TestRegisterRoutes_AppliesSessionAndSameOriginToAdminRoutes(t *testing.T) {
 	db, err := pgcommon.Connect(pgcommon.Config{
 		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
 		DBName: "book_management", SSLMode: "disable",
 	})
 	if err != nil {
-		t.Skipf("skipping: local Postgres not reachable (run `make db-up migrate-up` first): %v", err)
+		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
 
 	e := httpcommon.NewEcho()
@@ -218,19 +218,19 @@ func TestNewCatalog_ReturnsTheOpenBDCatalog(t *testing.T) {
 }
 
 // migratedTempDB は共有の開発 DB を空にせずに「空の DB での起動」を試すため、一時的なデータベースを作って
-// backend/migrations の up を順に流す。ローカルの PostgreSQL に繋がらなければ skip する。
+// backend/migrations の up を順に流す。ローカルの PostgreSQL に繋がらなければ失敗する。
 func migratedTempDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	base := pgcommon.Config{Host: "localhost", Port: "5432", User: "postgres", Password: "postgres", DBName: "book_management", SSLMode: "disable"}
 	admin, err := pgcommon.Connect(base)
 	if err != nil {
-		t.Skipf("skipping: local Postgres not reachable (run `make db-up` first): %v", err)
+		t.Fatalf("local Postgres not reachable (run `make db-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
 	t.Cleanup(func() { _ = pgcommon.Close(admin) })
 
 	name := fmt.Sprintf("book_management_seedtest_%d", time.Now().UnixNano())
 	if err := admin.Exec("CREATE DATABASE " + name).Error; err != nil {
-		t.Skipf("skipping: cannot create a temporary database: %v", err)
+		t.Fatalf("cannot create a temporary database: %v", err)
 	}
 	t.Cleanup(func() { admin.Exec("DROP DATABASE IF EXISTS " + name + " WITH (FORCE)") })
 

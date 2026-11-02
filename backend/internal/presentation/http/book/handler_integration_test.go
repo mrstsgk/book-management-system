@@ -28,7 +28,7 @@ import (
 )
 
 // connectIntegrationDB はローカルの開発用 DB に接続する。実際の PostgreSQL に対する結合テストなので、
-// DB に繋がらなければ失敗ではなく skip する（契約テストと同じ理由。docs/rules/testing.md）。
+// DB に繋がらなければ skip せず失敗にする（契約テストと同じ理由。docs/rules/testing.md）。
 func connectIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := pgcommon.Connect(pgcommon.Config{
@@ -36,10 +36,10 @@ func connectIntegrationDB(t *testing.T) *gorm.DB {
 		DBName: "book_management", SSLMode: "disable",
 	})
 	if err != nil {
-		t.Skipf("skipping: local Postgres not reachable (run `make db-up migrate-up` first): %v", err)
+		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
 	if err := db.Exec("SELECT 1 FROM book LIMIT 0").Error; err != nil {
-		t.Skipf("skipping: schema not migrated (run `make migrate-up` first): %v", err)
+		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db
 }
@@ -115,7 +115,7 @@ func mustCreateIntegrationBook(t *testing.T, db *gorm.DB, isbn string) *domainbo
 func itoa(v int64) string { return strconv.FormatInt(v, 10) }
 
 // integrationISBNSeq は nextIntegrationISBN の一意性を同一プロセス内の複数呼び出しでも保証するための連番。
-var integrationISBNSeq int64
+var integrationISBNSeq atomic.Int64
 
 // nextIntegrationISBN は結合テストごとに一意な、チェックディジットが正しい ISBN-13 を生成する。
 // 固定リテラルだと、前回実行のクリーンアップ漏れ（プロセスの強制終了など）で同じ ISBN の行が
@@ -123,7 +123,7 @@ var integrationISBNSeq int64
 // Handler の検証（本テストの目的）に届く前にテストが落ちてしまうため。
 func nextIntegrationISBN(t *testing.T) string {
 	t.Helper()
-	n := time.Now().UnixNano() + atomic.AddInt64(&integrationISBNSeq, 1)
+	n := time.Now().UnixNano() + integrationISBNSeq.Add(1)
 	first12 := fmt.Sprintf("978%09d", n%1_000_000_000)
 	sum := 0
 	for i, r := range first12 {

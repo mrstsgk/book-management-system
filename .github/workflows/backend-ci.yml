@@ -7,15 +7,21 @@ on:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
       - '.mise.toml'
+      - '!**/*.md'
   pull_request:
     branches: [main, develop]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
       - '.mise.toml'
+      - '!**/*.md'
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 defaults:
   run:
@@ -49,6 +55,7 @@ jobs:
         run: go vet ./...
 
       # uses: のステップには defaults.run が効かないため working-directory を明示する
+      # 版は backend/Makefile の GOLANGCI_VERSION
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
@@ -72,6 +79,22 @@ jobs:
 
   check:
     runs-on: ubuntu-latest
+    # DB を使うテスト（契約・結合・cmd の配線）用。値は docker-compose.yml とテストの接続先に揃える。
+    # DB に繋がらなければテストは失敗する（skip しない。docs/rules/testing.md）。
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: book_management
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d book_management"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -80,17 +103,23 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
 
+      # 版は backend/Makefile の MIGRATE_VERSION
+      - name: Migrate
+        run: |
+          go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.20.1
+          make migrate-up
+
+      # DB の状態は Go のテストキャッシュの入力に含まれないため、キャッシュを使わない
       - name: Test
-        run: go test ./...
+        run: make test
 
       - name: Build
         run: |
           go build -o /dev/null ./cmd/api
 
+      # 版は backend/Makefile の SWAG_VERSION
       - name: Install swag
         run: go install github.com/swaggo/swag/cmd/swag@v1.16.6
 
       - name: OpenAPI drift check
-        run: |
-          make swagger
-          git diff --exit-code -- api/docs/swagger.yaml api/docs/swagger.json
+        run: make swagger-check

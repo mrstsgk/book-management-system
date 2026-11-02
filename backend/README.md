@@ -16,7 +16,7 @@ mise install
 
 cd backend
 make tools          # swag / migrate / golangci-lint / govulncheck を版固定で導入
-make db-up
+make db-up          # docker compose up -d --wait（DB が使えるようになるまで待つ）
 make migrate-up
 make run            # 本が1冊も無ければ、起動時に見本データ（10冊）が入る
 # http://localhost:8080/health
@@ -28,6 +28,10 @@ make run            # 本が1冊も無ければ、起動時に見本データ（
 
 # OpenAPI 再排出（DTO/Handler 変更後）
 make swagger
+
+# テスト（DB を使うテスト（契約・結合）は DB が無ければ失敗する）
+make db-up && make migrate-up
+make test
 ```
 
 ## 現状
@@ -35,7 +39,7 @@ make swagger
 - 読んだ本の API（一覧・詳細・登録・更新・削除）とカタログの確認 API、分野タグの API（一覧・追加・改名・削除）（範囲は `architecture.md` §4）
 - 書誌と書影は ISBN で openBD から取得する
 - 書き込み系はログイン済みのセッション Cookie が必要
-- Repository／Query の契約テストはローカルの PostgreSQL（`make db-up migrate-up`）に対して実行し、起動していなければ skip する。外部カタログのゲートウェイは偽の HTTP サーバに対してテストする
+- DB を使うテスト（Repository／Query の契約テストと Handler の結合テスト）はローカルの PostgreSQL（`make db-up migrate-up`）に対して実行し、繋がらなければ失敗する（CI も PostgreSQL を起動して実行する）。外部カタログのゲートウェイは偽の HTTP サーバに対してテストする
 - OpenAPI: `make swagger` → `backend/api/docs/`（手編集禁止。CI でドリフト検知）
 
 ## 環境変数（DB 以外）

@@ -19,8 +19,8 @@ tidy: ## go mod tidy
 run: ## API を起動（:8080）
 	go run ./cmd/api
 
-db-up: ## PostgreSQL を起動（docker compose）
-	docker compose up -d
+db-up: ## PostgreSQL を起動（docker compose。healthcheck が通るまで待つ）
+	docker compose up -d --wait
 
 db-down: ## PostgreSQL を停止
 	docker compose down
@@ -53,8 +53,8 @@ lint: ## golangci-lint + go vet
 vuln: ## 依存の脆弱性チェック
 	govulncheck ./...
 
-test: ## 全テストを実行
-	go test ./...
+test: ## 全テストを実行（DB を使うテストは make db-up migrate-up 済みが前提。DB の状態はテストキャッシュの入力に含まれないためキャッシュを使わない）
+	go test -count=1 ./...
 
 build: ## API をビルド（bin/）
 	go build -o bin/api ./cmd/api

@@ -35,10 +35,10 @@ func connectTestDB(t *testing.T) *gorm.DB {
 		DBName: "book_management", SSLMode: "disable",
 	})
 	if err != nil {
-		t.Skipf("skipping: local Postgres not reachable (run `make db-up migrate-up` first): %v", err)
+		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
 	if err := db.Exec("SELECT 1 FROM admin_session LIMIT 0").Error; err != nil {
-		t.Skipf("skipping: schema not migrated (run `make migrate-up` first): %v", err)
+		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db
 }
@@ -137,7 +137,7 @@ func TestIntegration_Login_400(t *testing.T) {
 
 func TestIntegration_Login_429(t *testing.T) {
 	e := newIntegrationEcho(t, connectTestDB(t))
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		do(e, http.MethodPost, "/api/auth/login", `{"id":"admin","password":"wrong"}`, nil)
 	}
 	if rec := do(e, http.MethodPost, "/api/auth/login", `{"id":"admin","password":"pw"}`, nil); rec.Code != http.StatusTooManyRequests {

@@ -23,7 +23,7 @@ import (
 // postgres/tag の契約テストが担う）。ここでは各エンドポイントが返しうる HTTP ステータスごとに
 // 最低1件、配線が噛み合っていることだけを確かめる。
 
-// connectTestDB はローカルの開発用 DB に接続する。契約テストと同じ理由で、繋がらなければ skip する。
+// connectTestDB はローカルの開発用 DB に接続する。契約テストと同じ理由で、繋がらなければ skip せず失敗にする。
 func connectTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := pgcommon.Connect(pgcommon.Config{
@@ -31,10 +31,10 @@ func connectTestDB(t *testing.T) *gorm.DB {
 		DBName: "book_management", SSLMode: "disable",
 	})
 	if err != nil {
-		t.Skipf("skipping: local Postgres not reachable (run `make db-up migrate-up` first): %v", err)
+		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
 	if err := db.Exec("SELECT 1 FROM tag LIMIT 0").Error; err != nil {
-		t.Skipf("skipping: schema not migrated (run `make migrate-up` first): %v", err)
+		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db
 }
