@@ -100,9 +100,15 @@ export function useBookRegistration() {
   }
 
   // isbn はフォーム（BookFormValues）の外の入力欄なので、項目のエラーから分けて ISBN 欄の下に出す
-  const { isbn: isbnError, ...serverErrors } = registerMutation.error
+  const { isbn: submittedIsbnError, ...serverErrors } = registerMutation.error
     ? toFieldMessages(registerMutation.error.fieldErrors)
     : {}
+  // 送った ISBN に対する誤りなので、入力欄を別の ISBN に書き換えたら出さない。
+  // mutation を reset しないのは、送った ISBN に戻したときに同じ誤りを出し直すため
+  const isbnError =
+    isbn.trim() === registerMutation.variables?.data.isbn
+      ? submittedIsbnError
+      : undefined
   const errors: BookFormErrors = {
     ...serverErrors,
     ...visibleLocalErrors(localErrors, values),
