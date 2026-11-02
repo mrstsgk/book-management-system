@@ -13,6 +13,8 @@ node_modules/
 .claude/*
 !.claude/hooks/
 !.claude/agents/
+!.claude/skills/
+.claude/skills/*
 !.claude/output-styles/
 !.claude/settings.json
 !.claude/statusline-command.sh

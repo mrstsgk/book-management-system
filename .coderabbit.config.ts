@@ -1,7 +1,6 @@
 import { defineConfig, type CodeRabbitConfig } from "@coderabbitai/config";
 
-// レビュー分類（docs/rules/git-pull-request.md）に応じて profile と工程別の指示を切り替える。
-// 分類が無い・重複している PR は自動レビューを始めない（人が 1 つ選ぶまで待つ）。
+// Keep existing review rules when switching profiles.
 const baseConfig = {
   "language": "ja-JP",
   "reviews": {
@@ -22,7 +21,6 @@ const baseConfig = {
       "!**/package-lock.json",
       "!**/go.sum",
       "!backend/api/gen/**",
-      "!openapi/dist/**",
       "!frontend/*/src/api/generated/**"
     ],
     "path_instructions": [
@@ -42,14 +40,11 @@ Branch, commit, and PR conventions follow \`docs/rules/git-branch.md\` / \`docs/
 - PRs to \`main\` are only releases from \`develop\` or \`hotfix/*\`. \`hotfix/*\` branches from \`main\` and is applied to both \`main\` and \`develop\`
 - Branch names must not contain an issue number (names like \`feat/issue-83-xxx\` are to be flagged)
 
-## Decision reasons
-- A non-trivial decision (library/infra choice, a dismissed review finding, a root-cause decision) must record its reason next to the rule it shapes, in the doc that owns the rule (\`docs/architecture.md\`, \`backend/architecture.md\`, \`frontend/architecture.md\`, \`docs/rules/*.md\`, \`docs/specifications.md\`). There is no separate decision-record directory
-
 ## Security
 - Are secrets (API keys, passwords, tokens, DB connection strings, signing keys, etc.) included in logs, error responses, or commits?
 - Are SQL values bound via placeholders/ORM? Is any query built by string concatenation (SQL injection)?
 - Is external input embedded into HTML/shell commands without escaping (XSS, command injection)?
-- Does a new endpoint unintentionally bypass authentication/authorization (admin session cookie + same-origin check for writes)?
+- Does a new endpoint unintentionally bypass authentication/authorization (admin channel: session cookie + same-origin check)?
 - Is a user-supplied ID used as-is to access another user's resource (IDOR, missing authorization)? Check whether an ownership check exists
 - Does the CORS config allow a wildcard (\`*\`) together with credentialed requests (cookies, etc.)?
 - Are internal error messages or stack traces returned to the client as-is (exposure of internals)?
@@ -81,48 +76,44 @@ Branch, commit, and PR conventions follow \`docs/rules/git-branch.md\` / \`docs/
       },
       {
         "path": "backend/**",
-        "instructions": `Go / Echo monolith. The source of truth for policy is \`backend/architecture.md\` (Japanese). Do not duplicate findings already covered by mechanical checks such as \`go vet\` / golangci-lint.
+        "instructions": `Go / Echo monolith. The source of truth for policy is \`backend/architecture.md\` (Japanese). Do not duplicate findings already covered by mechanical checks such as \`go vet\`.
 
 ## Architecture (onion + tactical DDD + CQRS)
-Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},infrastructure/{postgres,gateway},presentation/http/<channel>}/\` (areas \`book\` / \`tag\` / \`auth\`; channels \`public\` for reading and \`admin\` for writes/login). Technical foundation is in \`internal/platform/\` (Echo / OpenAPI request validation / \`HTTPErrorHandler\` / auth middleware in \`platform/httpserver\`, DB connection in \`platform/postgres\`), shared error classification in \`internal/domainerr/\`. Flag the following boundary violations:
-- Does code import another area's \`infrastructure\` or Persistence Model directly? Is business logic placed in \`platform\` / \`domainerr\`? Are business rules duplicated per channel?
-- **Keep Handlers thin**: only conversion generated type → UseCase input → UseCase → generated type (input validation is already done by the OpenAPI validation middleware). Is business logic or **authorization** written in the Handler (presentation)? (authorization is the UseCase's responsibility; authentication middleware is attached per operation from the spec's \`security\` in \`platform/httpserver\`)
-- **Error → HTTP status mapping is centralized in \`httpserver.HTTPErrorHandler\`**. Are \`if errors.Is(...)\` status branches scattered across Handlers? When a sentinel error is added to \`domainerr\`, is the \`HTTPErrorHandler\` mapping updated too?
-- Are input constraints hand-written in a Handler? (constraints go in the \`openapi/\` YAML and are left to the validation middleware, and business constraints are also guaranteed by the Domain VO)
-- \`domain\` depends on no other layer. Does domain import infrastructure / presentation / Echo / GORM?
-- Does a UseCase depend on the domain's **Repository IF (write) / Query IF (read) / ExternalGateway IF** and not import \`infrastructure/*\` directly? Are writes in \`<area>/usecase/command\` and reads in \`<area>/usecase/query\`?
-- Are business constraints such as character limits guaranteed by a domain VO as well, not only by \`validate\` tags?
+Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},infrastructure/{postgres,gateway},presentation/http/<channel>}/\` (areas: book, tag, auth; channels: public, admin; technical foundation in \`internal/platform/\`, shared errors in \`internal/domainerr/\`). Flag the following boundary violations:
+- Does code import another area's \`infrastructure\` or Persistence Model directly? Is business logic placed in \`platform\` / \`domainerr\`? Are business rules duplicated per channel (e.g. \`internal/admin/domain\`)?
+- **Keep Handlers thin**: only conversion generated type → UseCase → generated type (input validation is already done by the OpenAPI validation middleware). Is business logic or **authorization** written in the Handler (presentation)? (authorization is the UseCase's responsibility)
+- **Error → HTTP status mapping is centralized in the shared \`httpserver.HTTPErrorHandler\`**. Are \`if errors.Is(...)\` status branches scattered across Handlers? When a sentinel error is added to \`domainerr\`, is the \`HTTPErrorHandler\` mapping updated too?
+- Are input constraints hand-written in a Handler? (constraints go in the \`openapi/\` YAML and are left to the validation middleware)
+- \`domain\` depends on no other layer. Does domain import infrastructure / presentation / GORM?
+- Does a UseCase depend on the domain's **Repository IF (write) / Query IF (read)** and not import \`infrastructure/postgres\` directly? Are writes in \`<area>/usecase/command\` and reads in \`<area>/usecase/query\`?
+- Are business constraints such as character limits guaranteed by a domain VO as well, not only by OpenAPI constraints?
 - **Does a Repository / Query implementation contain business rules?** It should only hide persistence details and move domain objects in and out
 - **Is the domain model anemic?** Do invariants that Entities / VOs should own leak into UseCases?
-- **The transaction boundary belongs to the Command (UseCase)**. Are updates needing strict consistency (book + book_tag, optimistic lock by version) in a single transaction? Does an individual Repository implementation commit on its own?
-- DI is hand-written in \`cmd/api/main.go\` (config → infra → usecase → presentation, \`registerRoutes\`). When a new UseCase / Handler is added, is the wiring added and covered by \`cmd/api/main_test.go\`?
+- **The transaction boundary belongs to the Command (UseCase)**. Are updates needing strict consistency (a book and its tags, optimistic lock by version) in a single transaction? Does an individual Repository implementation commit on its own?
+- Is business logic duplicated per channel (\`/api\` public / \`/api/admin\` admin)? \`cmd/public-api\` and \`cmd/admin-api\` should differ only in wiring and public routes
+- DI is hand-written in \`cmd/*/main.go\` (config → platform → infrastructure → usecase → presentation). When a new UseCase / Handler is added, is the wiring added too?
 - Is an error response shape other than the common \`ErrorResponse\` invented?
-- In a PR that changes \`openapi/\` YAML, are \`openapi/dist/**\`, \`backend/api/gen/**\` (\`make -C backend openapi\`), and the FE generated output \`frontend/*/src/api/generated/**\` (\`pnpm -C frontend gen:api\`) regenerated (\`docs/architecture.md\` §4)? They are generated, so flag manual edits. Do UseCase / Domain / Infrastructure import \`api/gen\`? Does \`cmd/api/server.go\` keep \`var _ webapi.ServerInterface = (*server)(nil)\` without embedding the generated IF?
-- When a business-rule violation is added, is it returned as \`domainerr.CodedError\` with the code listed in the operation's \`x-error-codes\`?
+- In a PR that changes \`openapi/\` YAML, are \`openapi/dist/**\`, \`backend/api/gen/**\` (\`make -C backend openapi\`), and the FE generated output \`frontend/*/src/api/generated/**\` (\`pnpm -C frontend gen:api\`) regenerated (\`docs/architecture.md\` §4)? \`openapi/dist/**\`, \`backend/api/gen/**\`, and \`frontend/*/src/api/generated/**\` are generated, so flag manual edits. Do UseCase / Domain / Infrastructure import \`api/gen\`?
 - Does binding from the body in an HTTP handler overwrite values such as IDs that come from path parameters?
 
-## Changeability principles (\`backend/architecture.md\` §2 design principles / naming / CQRS)
+## Changeability principles (\`backend/architecture.md\` §2 design principles / CQRS)
 - **Purpose-driven naming, one class one purpose**: does a name express purpose rather than existence? Is a single struct / UseCase mixing multiple reasons to change? Flag vague shared names such as \`Common\` / \`Util\` / \`Manager\` / \`Helper\` / \`BaseService\`, and forced merging of processing that changes for different reasons
-- **Naming rules**: new UseCases are \`<Verb><Subject>Usecase\` (\`ReadBookUsecase\` for one item, \`SearchBooksUsecase\` for any list, business verbs such as \`RegisterBookUsecase\` / \`RenameTagUsecase\`; no \`List\` / \`Get\`). Repository / Query fetches are \`FindByID\` / \`FindAll\` / \`FindAllByXxx\` / \`Search(criteria)\` / \`CountByXxx\` / \`ExistsByXxx\`. Existing names that predate the rule are migrated separately; do not demand their rename in an unrelated PR
-- **Do not conflate the three models**: Domain Model (Entity / VO in \`<area>/domain\`) / Read Model (read-only; \`XxxDetail\` / \`XxxListItem\` / \`XxxSummary\` etc.) / Persistence Model (the \`gorm\`-tagged model in \`<area>/infrastructure/postgres\`). Is a DB table structure or GORM model used as-is as a Domain Model? Does a Read Model return write-side Entity / VO types, or is the same struct reused for both update and read?
-- **Domain does not depend on external technology**: does domain reference Echo / Request·Response / GORM / SQL / DB-specific types / external API SDKs? Is external communication done via Repository / Query / ExternalGateway IFs (defined in domain)? Are business rules placed in Handlers, DTOs, or ORM models?
-- **Writes use a Command DTO**: is the boundary passed as a Command DTO from \`<area>/usecase/command\`, converted from DTO to domain model inside the UseCase before being handed to the Repository? Are Request structs, ORM models, or \`echo.Context\` passed to UseCase / Domain? Does a Command DTO contain business logic (validation, state transitions, DB / external API access)? ID-only operations (Delete) may take a scalar argument
+- **Do not conflate the three models**: Domain Model (Entity / VO in \`<area>/domain\`) / Read Model (read-only; \`XxxReadModel\` / \`XxxView\` / \`XxxListItem\` etc.) / Persistence Model (the \`gorm\`-tagged model in \`<area>/infrastructure/postgres\`). Is a DB table structure or GORM model used as-is as a Domain Model? Does a Read Model return write-side Entity / VO types, or is the same struct reused for both update and read?
+- **Domain does not depend on external technology**: does domain reference Echo / Request·Response / GORM / SQL / DB-specific types / external API SDKs? Is external communication done via Repository / Query / ExternalGateway IFs (defined in domain)? Are business rules placed in Controllers, DTOs, or ORM models?
+- **Writes use a Command DTO**: is the boundary passed as a Command DTO from \`<area>/usecase/command\`, converted from DTO to domain model inside the UseCase before being handed to the Repository? Are Request structs, ORM Entities, or \`echo.Context\` passed to UseCase / Domain? Does a Command DTO contain business logic (validation, state transitions, DB / external API access)?
 - **Reads center on Read Models**: do they return a shape optimized for display/search? Are write-side DTOs or domain models forcibly reused?
-- **Confine business rules to VOs and Entities**: is the same range check scattered across several call sites? Does the VO constructor make it impossible to create an invalid state?
-- **External API integration** (openBD): is it called from a UseCase via the domain's ExternalGateway IF (\`book.BookCatalog\`), with the implementation in \`infrastructure/gateway/<provider>\`? Do UseCase / Domain depend directly on a concrete HTTP client?
-- **Is a Persistence Model used as an API response?** Is an ORM model used as a UseCase input?
+- **Confine business rules to VOs and Entities**: is the same range check (e.g. \`if rating >= 1 && rating <= 5\`) scattered across several call sites? Does the VO constructor make it impossible to create an invalid state?
+- **External API integration** (openBD): is it called from a UseCase via the domain's ExternalGateway IF, with the implementation in \`<area>/infrastructure/gateway\`? Do UseCase / Domain depend directly on a concrete HTTP client?
+- **Is a DB Entity (Persistence Model) used as an API response?** Is an ORM Entity used as a UseCase input?
 - **Is an existing design that violates these principles followed unconditionally?** After checking compatibility with callers, propose a design with a clear purpose and a small blast radius
 - Blast radius: does a single change ripple into unrelated features (e.g. adding a reason to change to a shared struct)? Propose a more purpose-aligned design with a smaller blast radius
-
-## Comments
-- Repository / Query implementations (type and each method), Domain types and fields, UseCase IFs and Command DTOs, and Handler methods (with HTTP method + path) carry a one-line Japanese doc comment describing *what*; everything else only carries *why not* comments (\`docs/rules/code-comments.md\`). Flag comments that narrate the implementation or restate constraints the code already expresses
 
 ## Persistence / migrations
 - Is GORM AutoMigrate used? (the source of truth for schema is \`backend/migrations/*.sql\`, golang-migrate). Is migration run at application startup?
 
 ## Tests
 - Require \`*_test.go\` in the same directory for behavior-changing changes. Check that they verify boundary values (both exactly-at-limit and over-limit), that the target's state does not change on failure, and that lower-layer errors propagate (see \`docs/rules/testing.md\`)
-- Does each layer verify the right thing? Domain = invariants / state transitions / boundary values (no dependency on DB or HTTP) / UseCase = scenarios with hand-written Fakes injected / Infrastructure = contract tests against the real PostgreSQL (prioritize complex SQL: JOIN, aggregation, transactions, locking; a Query contract test must verify the mapping to the Read Model and must not depend on write-side Domain Models) and \`httptest\` fakes for external gateways / Presentation = \`handler_integration_test.go\` only (\`internal/apitest\`: real DB, real spec validation, every response validated against the spec; at least one case per HTTP status the operation can return, 500 via a cancelled request context; for each YAML input constraint one passing and one rejected value). Do not ask for a separate Fake-based Handler test / platform = the test spec in \`platform/httpserver\` covers each constraint kind / cmd = \`cmd/api/main_test.go\` verifies wiring and middleware with real requests. Tests that need the DB fail (not skip) when it is unreachable; CI provides PostgreSQL
+- Does each layer verify the right thing? Domain = exceptions / invariants / state transitions / boundary values (no dependency on DB or HTTP) / UseCase = use-case scenarios (with Fakes injected) / Adapter = contract tests for ExternalGateway (external-service mock) and only for Repository / Query with complex SQL (JOIN, subquery, aggregation, locking or multi-statement transactions, DB-specific features); do not ask for contract tests on simple reads/writes / Presentation (\`*_integration_test.go\`, the only HTTP-level test; do not ask for a separate Fake-based Handler test) = on a real DB, at least one case per HTTP status the API can return (500 via a cancelled request context), every response validated against the spec, inserted rows checked field by field, and for each constrained input field the boundary values from the acceptance criteria / cmd (\`cmd/<service>/main_test.go\`) = routes respond through \`buildEcho\` and a spec violation returns 400 / E2E = only the minimum important business flows (do not duplicate what Domain/UseCase can verify). When a Query contract test exists, check that it verifies the mapping to the Read Model and that it does not depend on write-side Domain Models
 `
       },
       {
@@ -131,8 +122,7 @@ Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},in
 - Is there a \`.down.sql\` paired with each \`.up.sql\`, and does down correctly roll back up?
 - Is an already-merged migration file rewritten? (changes go in a new numbered file)
 - For changes that affect existing data, such as adding NOT NULL or changing a type, is the handling of existing rows (default value / backfill) considered?
-- If the table structure changed, is \`docs/db/backend-schema.json\` / \`.md\` updated too, and does the migration carry \`COMMENT ON TABLE\` / \`COMMENT ON COLUMN\`? (see \`docs/rules/db-documentation.md\`)
-- Table names: business concept, snake_case, singular (\`book\`, \`tag\`, \`book_tag\`), no layer/technology/screen prefix
+- If the table structure changed, is \`docs/db/backend-schema.json\` / \`.md\` updated too? (see \`docs/rules/db-documentation.md\`)
 `
       },
       {
@@ -140,51 +130,50 @@ Layout is by business area: \`internal/<area>/{domain,usecase/{command,query},in
         "instructions": `The source of truth for the API contract (OpenAPI Design First). The rules are defined in \`docs/architecture.md\` §4 (Japanese). Do not duplicate findings already covered by Redocly lint.
 - Generated output (\`openapi/dist/**\`, \`backend/api/gen/**\`, \`frontend/*/src/api/generated/**\`) is out of review scope. However, check that the same PR contains tests for the code that implements/uses the added or changed operations (the BE Handler, the FE hook/screen), and review those tests (CI \`Test Presence\` checks for per-operation tests. \`docs/rules/testing.md\`)
 - When the YAML changes, are \`openapi/dist/**\` (bundle), \`backend/api/gen/**\` (\`make -C backend openapi\`), and \`frontend/*/src/api/generated/**\` (\`pnpm -C frontend gen:api\`) regenerated in the same PR? Flag manual edits of \`openapi/dist/**\`
-- Is \`operationId\` the lowerCamel of the BE UseCase type name it calls, without \`Usecase\` (\`SearchBooksUsecase\` → \`searchBooks\`; \`read\` for one item, \`search\` for any list, business verbs such as \`register\` / \`rename\`; not \`list\` / \`get\`), and unique? Does \`summary\` start with the same verb as \`operationId\`?
-- Are admin operations under \`/api/admin\` with \`security: [adminSession: []]\` (except login/logout), and public reads with \`security: []\`? (the server attaches authentication from the spec)
-- Are only statuses that are actually returned written? Do required fields have \`required\`? Is \`enum\` attached only to items whose value set is guaranteed by a DB constraint or the Domain?
-- Does each correlation rule in the outline design (\`docs/design/*.md\`, CR-xx) appear in \`x-correlation-rules\` as an always-true condition with the same id, and each business-rule violation code in \`x-error-codes\`?
+- Is \`operationId\` the lowerCamel of the BE UseCase type name it calls, without \`Usecase\` (\`SearchBooksUsecase\` → \`searchBooks\`; verbs follow the UseCase naming rule: \`read\` for one item, \`search\` for any list, \`create\` / \`update\` / \`delete\` or a business verb such as \`register\` / \`rename\`, not \`list\` / \`get\`), and unique within the channel? Does \`summary\` start with the same verb as \`operationId\` (\`searchBooks\` → \`Search books\`, \`readBook\` → \`Read a book\`)?
+- Are only statuses that are actually returned written? Do required fields have \`required\`?
+- Is \`enum\` attached only to items whose value set is guaranteed by a DB constraint or the Domain? (an unguaranteed enum becomes a contract violation on an out-of-range value)
 - If \`common/schemas/ErrorResponse.yaml\` / \`FieldError.yaml\` change, is the hand-written \`ErrorResponse\` in \`backend/internal/platform/httpserver\` fixed in the same PR?
-- For breaking changes such as removing a field, making it required, or changing its type, does the PR explain the OpenAPI CI breaking-change report (warning only until the app is published)?
+- For breaking changes such as removing an existing field, making it required, or changing its type, does the PR explain the OpenAPI CI breaking-change report (warning only until the first release)?
 `
       },
       {
         "path": "frontend/**",
-        "instructions": `React + Vite + TypeScript (pnpm workspace, single app \`frontend/web\` + \`packages/ui\`). The source of truth for policy is \`frontend/architecture.md\` (Japanese). Do not duplicate findings already covered by ESLint / Prettier / \`tsc\` / Vitest (ESLint already enforces: no imports between features, no imports from shared code into features, no \`../\` relative imports, no default exports except Storybook meta, \`interface\` for object types, React hooks rules).
+        "instructions": `React + Vite + TypeScript (pnpm workspace). The source of truth for policy is \`frontend/architecture.md\` (Japanese). Do not duplicate findings already covered by ESLint / Prettier / \`tsc\` / Vitest.
 
 ## Architecture
 - Has code assuming Next.js / SSR / RSC been brought in? (this is a Vite SPA). Is app code placed in \`.js\` / \`.jsx\`?
-- UI is the **Digital Agency Design System** (\`packages/ui\` + \`@digital-go-jp/tailwind-theme-plugin\`). Has another UI library (shadcn, etc.) been introduced without agreement? When a component is newly imported into \`packages/ui\`, does the PR cite the official usage URL?
+- The design reference differs per channel: public follows **Apple HIG (iOS)**, admin follows the **Digital Agency Design System** (\`packages/ui\` + \`@digital-go-jp/tailwind-theme-plugin\`) (\`frontend/architecture.md\` §4). Has another UI library (shadcn, etc.) been introduced without agreement? Does public consider tap targets (44pt or larger) and safe areas?
 - Only DS themes / imported components, OpenAPI generated types, and pure functions (amounts, dates) may live in \`packages/\`. Are domain-bearing composite components shared across apps?
+- **No imports between features** (dependencies are one-way: shared → features → app; composition is done in \`app/\`)
 - Is logic (fetching, transformation, screen state) in \`hooks/\`, with components receiving props and only rendering? Is data fetching or complex branching piling up inside components?
 - Is TanStack Query the source of truth for server state, with no duplicate storage in Zustand? Is business data or frequently changing values put in Context?
-- Are API types/clients hand-written? \`src/api/generated/**\` (Orval) is generated by \`pnpm gen:api\` from \`openapi/dist/web.yaml\`, so flag manual edits (change the \`openapi/\` YAML, run \`make -C backend openapi\`, then regenerate)
-- Naming (\`frontend/architecture.md\` §9): components PascalCase with a \`function\` declaration and \`XxxProps\`, pages \`XxxPage\`, hooks named by what they provide (generated hooks keep Orval's name; no wrapper hook that only renames), booleans \`is\` / \`has\` / \`can\`, events \`onXxx\` / \`handleXxx\`, UPPER_SNAKE only for lookup tables
-- Validation messages (\`frontend/architecture.md\` §2.2): do not blame the user, state the format/condition, no system jargon, show the message right next to the field; API default messages are never shown as-is
-- PC first and responsive so it does not break on smartphones
+- Are API types/clients hand-written? \`src/api/generated/**\` (Orval) is generated by \`pnpm gen:api\`, so flag manual edits (change the contract and regenerate)
+- Is public mobile-first (mobile first, single column), and is admin laid out for PC?
 - Storybook is a state catalog of Presentational components that are self-contained via props. Are there stories for whole pages or stories wired directly to production Providers / APIs?
 
 ## Tests
-- Require \`*.test.ts(x)\` in the same directory for behavior-changing changes. Check that they verify the main states (loading, empty, success, API error, input error), boundary values, and error propagation. Are self-written child components over-mocked? Is a huge Snapshot relied on? Is the generated API replaced with the generated MSW handlers (\`get<Op>MockHandler\`) rather than \`vi.mock()\`? (see \`frontend/architecture.md\` §8 and \`docs/rules/testing.md\`)
+- Require \`*.test.ts(x)\` in the same directory for behavior-changing changes. Check that they verify the main states (loading, empty, success, error), boundary values, and error propagation. Are self-written child components over-mocked? Is a huge Snapshot relied on? (see \`frontend/architecture.md\` and \`docs/rules/testing.md\`)
 `
       },
       {
         "path": "**/*{_test.go,.test.ts,.test.tsx}",
-        "instructions": `Test files. The team tends to write only happy-path tests, so review for missing failure-path coverage (\`docs/rules/testing.md\`).
+        "instructions": `Test files. Review for missing failure-path coverage (\`docs/rules/testing.md\`).
 - For each changed behavior, inspect all related test files together. Flag the behavior only when those tests collectively cover only the success case, and ask whether they cover: invalid input, boundary values (exactly at the limit and one over), an empty / zero-item case, and a lower-layer error propagating
-- Handler: does every 4xx/5xx status the Handler can return have a test? Is the response checked against the spec? For every input constraint written in the operation's YAML (\`required\`, lengths, ranges, \`enum\`, \`pattern\`, \`format\`, item counts, etc.), is there one passing value and one rejected value (400 with \`errors[{field, rule}]\`)? If the YAML uses a constraint kind for the first time, is it added to the \`internal/platform/httpserver\` test spec?
+- Handler: does every 4xx/5xx status the OpenAPI spec lists for the operation have a test? Is the response checked against the spec? For every input constraint written in the operation's YAML (\`required\`, lengths, ranges, \`enum\`, \`pattern\`, \`format\`, item counts, etc.), is there one passing value and one rejected value (400 with \`errors[{field, rule}]\`) taken from the acceptance criteria? If the YAML uses a constraint kind for the first time, is it added to the \`internal/platform/httpserver\` test spec?
 - Failure must leave state unchanged; a validation error must not call lower layers. Are both asserted?
-- Are test inputs and expectations derived from the specification (\`docs/specifications.md\`), not from the implementation's constants? Flag tests that build inputs from \`MAX_X\` / \`MAX_X + 1\` of the code under test, or assertions that merely mirror the implementation
 - Frontend: are the API-error and input-error states tested, not only the success screen?
+- Are tests derived from the acceptance criteria / OpenAPI rather than from what the code currently does? Flag assertions that merely mirror the implementation
 - High-value viewpoints beyond boundary values. Raise one only when the changed code actually involves it, and name the concrete missing case:
-  - Validation failures (expected user mistakes, not system errors): for each required / type / format / length / range rule, is the exact expected error (status and \`errors[{field, rule}]\`) tested? Is the invariant also tested at the Domain VO constructor, not only via \`validate\` tags?
-  - Business-rule violations (valid input that the business forbids: duplicate ISBN, ISBN not found in openBD, duplicate tag name, not found, optimistic-lock version mismatch): does each map to the expected \`ErrInvalid\` / \`ErrNotFound\` / \`ErrConflict\` (and 4xx), with state unchanged?
+  - Validation failures (expected user mistakes, not system errors): for each required / type / format / length / range / correlation rule, is the exact expected error (status and \`errors[{field, rule}]\`) tested? Is the invariant also tested at the Domain VO constructor, not only via OpenAPI?
+  - Business-rule violations (valid input that the business forbids: duplicate ISBN, ISBN not in the external catalog, duplicate tag name, not found, version mismatch): does each map to the expected \`ErrInvalid\` / \`ErrNotFound\` / \`ErrConflict\` (and 4xx), with state unchanged?
   - Equivalence partitioning / decision table: when behavior depends on a combination of conditions (e.g. keyword × tag filter × paging), is each meaningful combination covered, not only the all-true one?
+  - State transitions: for an entity with a status, are invalid transitions rejected and tested (e.g. using an expired or logged-out session)?
   - Concurrency: for read-modify-write with a version column, is there a test that a stale version is rejected?
   - Idempotency: is a retried or double-submitted request safe (same result, no duplicate side effect)?
-  - Authorization: is an unauthenticated request, a request without the same-origin header, and an expired session rejected?
-  - Date and time: exactly at a deadline / validity start and end (session expiry), across midnight, timezone (JST vs UTC)
-  - External failure: for Gateway / external API calls (openBD), are timeout, error response, and malformed payload tested, including that state is not left half-updated?
+  - Authorization: is an unauthenticated request, and a cross-origin write, rejected?
+  - Date and time: exactly at a deadline / validity start and end, across midnight, timezone (JST vs UTC), leap day
+  - External failure: for Gateway / external API calls, are timeout, error response, and partial failure tested, including that state is not left half-updated?
   - Empty / zero / null / duplicated input, and the last page of a list
 - Do not ask for tests on trivial code; name the specific missing case instead of a generic "add more tests"
 `
