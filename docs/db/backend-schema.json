@@ -1,9 +1,9 @@
 {
   "database": "backend",
   "tables": {
-    "book": {
+    "books": {
       "description": "自分が読んだ本。書誌・書影は ISBN で外部カタログ（openBD）から取得し、感想と評価は自分で書く。著者は独立したテーブルにせず、提供元の文字列のまま持つ。",
-      "source": "backend/migrations/000007_remove_rakuten.up.sql",
+      "source": "backend/migrations/000009_rename_tables_to_plural.up.sql",
       "columns": [
         { "name": "id", "type": "BIGSERIAL", "nullable": false, "pk": true, "description": "読んだ本のID（主キー）" },
         { "name": "isbn", "type": "VARCHAR(13)", "nullable": false, "unique": true, "description": "ISBN。常に13桁（ISBN-10 は 978 付きの13桁に変換、チェックディジット検証済み。アプリ側で保証）。Amazon の商品リンクは保存せずこの値から導出する（ISBN-10 = ASIN）" },
@@ -27,15 +27,15 @@
       ],
       "indexes": [],
       "constraints": [
-        "uq_book_isbn UNIQUE (isbn)",
-        "ck_book_rating CHECK (rating BETWEEN 1 AND 5)",
-        "ck_book_cover_source CHECK (cover_source IN ('openbd'))",
-        "ck_book_cover_pair CHECK ((cover_url IS NULL) = (cover_source IS NULL))"
+        "uq_books_isbn UNIQUE (isbn)",
+        "ck_books_rating CHECK (rating BETWEEN 1 AND 5)",
+        "ck_books_cover_source CHECK (cover_source IN ('openbd'))",
+        "ck_books_cover_pair CHECK ((cover_url IS NULL) = (cover_source IS NULL))"
       ]
     },
-    "tag": {
-      "description": "自分が定義した分野タグ。本には book_tag 経由で複数付けられる。",
-      "source": "backend/migrations/000003_create_tag.up.sql",
+    "tags": {
+      "description": "自分が定義した分野タグ。本には book_tags 経由で複数付けられる。",
+      "source": "backend/migrations/000009_rename_tables_to_plural.up.sql",
       "columns": [
         { "name": "id", "type": "BIGSERIAL", "nullable": false, "pk": true, "description": "タグのID（主キー）" },
         { "name": "name", "type": "VARCHAR(30)", "nullable": false, "unique": true, "description": "タグ名（1〜30文字）" },
@@ -44,11 +44,11 @@
         { "name": "updated_at", "type": "TIMESTAMPTZ", "nullable": false, "default": "NOW()", "description": "最終更新日時" }
       ],
       "indexes": [],
-      "constraints": ["uq_tag_name UNIQUE (name)"]
+      "constraints": ["uq_tags_name UNIQUE (name)"]
     },
-    "book_tag": {
+    "book_tags": {
       "description": "本と分野タグの多対多の中間テーブル。本・タグどちらが消えても自動で外れる。",
-      "source": "backend/migrations/000004_create_book_tag.up.sql",
+      "source": "backend/migrations/000009_rename_tables_to_plural.up.sql",
       "columns": [
         { "name": "book_id", "type": "BIGINT", "nullable": false, "pk": true, "description": "読んだ本のID" },
         { "name": "tag_id", "type": "BIGINT", "nullable": false, "pk": true, "description": "タグのID" }
@@ -56,13 +56,13 @@
       "indexes": [],
       "constraints": [
         "PRIMARY KEY (book_id, tag_id)",
-        "book_id REFERENCES book(id) ON DELETE CASCADE",
-        "tag_id REFERENCES tag(id) ON DELETE CASCADE"
+        "book_id REFERENCES books(id) ON DELETE CASCADE",
+        "tag_id REFERENCES tags(id) ON DELETE CASCADE"
       ]
     },
-    "admin_session": {
+    "sessions": {
       "description": "管理画面のログイン済みセッション。利用者は自分 1 人なので誰のセッションかは持たない。パスワードもハッシュも入れない。",
-      "source": "backend/migrations/000008_create_admin_session.up.sql",
+      "source": "backend/migrations/000009_rename_tables_to_plural.up.sql",
       "columns": [
         { "name": "id", "type": "VARCHAR(64)", "nullable": false, "pk": true, "description": "セッションID（32 byte の乱数を base64url にした 43 文字）。ブラウザには httpOnly Cookie でこれだけを渡す" },
         { "name": "expires_at", "type": "TIMESTAMPTZ", "nullable": false, "description": "アイドル期限。管理者向け API（セッション確認を含む）を通るたびに「今 + 1 時間」に延びる（絶対期限は超えない）" },

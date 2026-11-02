@@ -1,0 +1,32 @@
+package bcrypt
+
+import (
+	"golang.org/x/crypto/bcrypt"
+
+	authdomain "github.com/mrstsgk/book-management-system/backend/internal/auth/domain"
+)
+
+// hashCost は bcrypt のコスト。既定（10）より高くして総当たりを遅くする。ログインは 1 人が 1 日に数回なので待ち時間は問題にならない。
+const hashCost = 12
+
+// bcryptVerifier は、bcrypt でパスワードを照合する（authdomain.PasswordVerifier の実装）。
+type bcryptVerifier struct{}
+
+// NewBcryptVerifier は、bcrypt の PasswordVerifier を作る。
+func NewBcryptVerifier() authdomain.PasswordVerifier {
+	return bcryptVerifier{}
+}
+
+// Matches は bcrypt で照合する。壊れたハッシュはエラーになるが、それも「一致しない」として扱う。
+func (bcryptVerifier) Matches(hash, password string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+}
+
+// HashPassword は ADMIN_PASSWORD_HASH に置く値を作る（cmd/hashpw が使う）。
+func HashPassword(password string) (string, error) {
+	b, err := bcrypt.GenerateFromPassword([]byte(password), hashCost)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}

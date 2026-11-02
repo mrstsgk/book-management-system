@@ -1,0 +1,47 @@
+name: Test Presence
+
+# テストの書き忘れに気づくための検査（docs/rules/testing.md「テストの有無の検査」）。
+# 生成物はテストもレビューもしないが、それを実装・利用するコードのテストは必須。
+
+on:
+  pull_request:
+    paths:
+      - 'openapi/**'
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/scripts/check-api-tests.sh'
+      - '.github/scripts/warn-missing-tests.sh'
+      - '.github/workflows/test-presence.yml'
+      - '!**/*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 警告の比較元（PR のベース）を読むため
+          fetch-depth: 0
+          # 取得済みの履歴を読むだけなので、PR のスクリプトから Git の認証情報を読めないようにする
+          persist-credentials: false
+
+      # 検査スクリプト自体の静的解析（ubuntu-latest に同梱の shellcheck）
+      - name: Lint scripts
+        run: shellcheck .github/scripts/check-api-tests.sh .github/scripts/warn-missing-tests.sh
+
+      # 失敗にする: API の各 operation に、生成物を使う側（Handler・画面）のテストがあるか
+      - name: API operations have tests
+        run: .github/scripts/check-api-tests.sh
+
+      # 警告のみ: 変更したソースの同じディレクトリでテストが変わっていないもの
+      - name: Warn changed sources without test changes
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: .github/scripts/warn-missing-tests.sh "origin/$BASE_REF"

@@ -1,0 +1,24 @@
+# 実装の正は backend/internal/platform/httpserver.ErrorResponse。形を変えるときは両方を同じ PR で直す。
+type: object
+required:
+  - message
+properties:
+  message:
+    type: string
+    description: 開発者・ログ向け。画面には出さない
+    example: invalid request
+  code:
+    type: string
+    description: |
+      業務ルールの違反のときだけ付くコード（lowerCamel）。値は各 operation の x-error-codes に列挙する。
+      FE はこのコードから文言を引く（docs/architecture.md §4）。5xx には付かない
+    example: bookNotFound
+  params:
+    type: object
+    additionalProperties: true
+    description: 文言に差し込む値（BE しか知らない値だけ。加工しない形で返す）。キーと型は x-error-codes の params
+  errors:
+    type: array
+    description: 入力検証・VO・相関ルールの違反（400）のときだけ付く、項目ごとの違反。独立して判定できるものをすべて返す（順不同）
+    items:
+      $ref: FieldError.yaml

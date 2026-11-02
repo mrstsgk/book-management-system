@@ -1,0 +1,56 @@
+import { useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useLogin } from '@/api/generated/api'
+import { ApiError } from '@/api/mutator'
+import { getErrorMessage } from '@/utils/errorMessages'
+
+// 401 は ID とパスワードのどちらが違うかを出さない（バックエンドも区別して返さない）
+function loginErrorMessage(error: unknown): string | undefined {
+  if (!error) return undefined
+  if (error instanceof ApiError && error.code) {
+    const message = getErrorMessage(error.code, error.params)
+    if (message) return message
+  }
+  const status = error instanceof ApiError ? error.status : undefined
+  if (status === 401) return 'IDかパスワードが違います'
+  if (status === 429) return 'しばらく待ってからやり直してください'
+  return 'ログインできませんでした。時間をおいてもう一度お試しください。'
+}
+
+export function useLoginForm() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  // useLoginRedirect / AdminGuard が state.from に元の場所を入れる
+  const from = (location.state as { from?: string } | null)?.from
+  const [id, setId] = useState('')
+  const [password, setPassword] = useState('')
+  const [localError, setLocalError] = useState<string | undefined>(undefined)
+  const mutation = useLogin()
+
+  const submit = () => {
+    if (mutation.isPending) return
+    if (!id.trim() || !password) {
+      setLocalError('IDとパスワードを入力してください')
+      return
+    }
+    setLocalError(undefined)
+    mutation.mutate(
+      { data: { id, password } },
+      {
+        onSuccess: () => {
+          navigate(from ?? '/books', { replace: true })
+        },
+      },
+    )
+  }
+
+  return {
+    id,
+    password,
+    setId,
+    setPassword,
+    submit,
+    submitting: mutation.isPending,
+    error: localError ?? loginErrorMessage(mutation.error),
+  }
+}

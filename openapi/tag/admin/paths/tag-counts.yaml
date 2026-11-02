@@ -1,0 +1,32 @@
+get:
+  operationId: countBooks
+  summary: Count books by tag
+  description: 分野タグごとの冊数を返す。本が 1 冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順。
+  tags:
+    - tag
+  security:
+    - adminSession: []
+  x-error-codes:
+    - code: unauthenticated
+      status: 401
+      rule: ログインしていない、またはセッションの期限が切れている
+      message: （ログイン画面へ移る。文言は出さない）
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/CountBooksResponse.yaml
+    '401':
+      description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml

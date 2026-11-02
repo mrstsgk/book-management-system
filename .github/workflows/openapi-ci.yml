@@ -1,0 +1,58 @@
+name: OpenAPI CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'openapi/**'
+      - '.github/workflows/openapi-ci.yml'
+      - '.mise.toml'
+      - '!**/*.md'
+  pull_request:
+    paths:
+      - 'openapi/**'
+      - '.github/workflows/openapi-ci.yml'
+      - '.mise.toml'
+      - '!**/*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: openapi
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # breaking で比較元ブランチのバンドルを読むため
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          # 版は .mise.toml の node
+          node-version: '26.13.0'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # 版は openapi/Makefile の REDOCLY_VERSION / OASDIFF_VERSION
+      - name: Lint
+        run: make lint
+
+      - name: Bundle drift check
+        run: make bundle-check
+
+      # 公開するまでは警告のみ（docs/architecture.md §4）。公開した後に --fail-on を付けて fail にする
+      - name: Breaking change report
+        if: github.event_name == 'pull_request'
+        run: make breaking BASE_REF=origin/${{ github.base_ref }}

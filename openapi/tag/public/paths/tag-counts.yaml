@@ -1,0 +1,20 @@
+get:
+  operationId: countBooks
+  summary: Count books by tag
+  description: 分野タグごとの冊数を返す。本が 1 冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順。
+  tags:
+    - tag
+  security: []
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/CountBooksResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml

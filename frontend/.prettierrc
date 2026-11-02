@@ -4,5 +4,5 @@
   "trailingComma": "all",
   "printWidth": 80,
   "plugins": ["prettier-plugin-tailwindcss"],
-  "tailwindConfig": "./web/tailwind.config.cjs"
+  "tailwindConfig": "./public/tailwind.config.cjs"
 }

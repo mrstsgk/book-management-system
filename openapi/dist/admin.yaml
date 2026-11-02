@@ -1,0 +1,1245 @@
+openapi: 3.0.3
+info:
+  title: Book Management System API (admin)
+  version: 0.1.0
+  description: |
+    自分用の登録・編集の API。
+    ログイン・ログアウト以外は POST /api/admin/auth/login で得た httpOnly Cookie（admin_session）が要る。
+    状態を変える要求（GET 以外）は Origin が自分と同じでなければ 403。
+servers:
+  - url: /
+tags:
+  - name: book
+    description: 読んだ本
+  - name: catalog
+    description: 外部カタログ（openBD）
+  - name: tag
+    description: 分野タグ
+  - name: auth
+    description: 管理画面のログイン
+paths:
+  /api/admin/books:
+    get:
+      operationId: searchBooks
+      summary: Search books
+      description: |
+        読んだ本を新しく登録した順に返す。q と tagId は同時に使える（両方を満たす本）。
+        total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は 0 件。
+        q の文字数（前後の空白を除いて 100 文字まで）は VO が判定し、超えたら 400（errors なし）。
+      tags:
+        - book
+      security:
+        - adminSession: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: 取得件数
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          description: 取得開始位置
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: q
+          in: query
+          required: false
+          description: 書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない。前後の空白を除いて空なら検索しない
+          schema:
+            type: string
+        - name: tagId
+          in: query
+          required: false
+          description: この分野タグが付いた本だけにする
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchBooksResponse'
+        '400':
+          description: path・query パラメータの入力検証の違反（errors[{field, rule}]）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: registerBook
+      summary: Register a book
+      description: |
+        読んだ本を登録する。書誌と書影は ISBN で外部カタログ（openBD）から取得する。
+        ISBN の形式（13 桁か 10 桁・チェックディジット）は VO が判定し、違反は errors の rule format。
+        独立して判定できる入力・VO・相関ルールの違反はすべて errors に返す（順不同）。詳細は docs/architecture.md §4。
+      tags:
+        - book
+      security:
+        - adminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterBookRequest'
+      x-correlation-rules:
+        - id: isbnDuplicated
+          field: isbn
+          rule: 登録する ISBN の本は未登録である
+          message: MSG-A01
+        - id: isbnNotInCatalog
+          field: isbn
+          rule: 登録する ISBN は外部カタログに存在する（外部カタログの照会は他の違反が無いときだけ行う）
+          message: MSG-A02
+        - id: tagIdsNotFound
+          field: tagIds
+          rule: 指定した分野タグ ID はすべて存在する
+          message: MSG-A03
+        - id: tagIdsDuplicated
+          field: tagIds
+          rule: 分野タグ ID に重複が無い
+          message: 入力を見直してください
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+        - code: isbnDuplicated
+          status: 409
+          rule: 同じ ISBN の本が同時に登録された（DB の一意制約。通常は 400 の isbnDuplicated になる）
+          message: MSG-A01
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookResponse'
+        '400':
+          description: 入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Origin が自分と一致しない（CSRF 対策）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '競合（code: isbnDuplicated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/admin/books/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 読んだ本の ID
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 1
+    get:
+      operationId: readBook
+      summary: Read a book
+      description: 読んだ本の詳細（書誌・書影・Amazon リンク・一言まとめ・感想・評価・分野タグ）を返す。
+      tags:
+        - book
+      security:
+        - adminSession: []
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+        - code: bookNotFound
+          status: 404
+          rule: 指定した ID の本が無い
+          message: この本は見つかりませんでした
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookResponse'
+        '400':
+          description: path・query パラメータの入力検証の違反（errors[{field, rule}]）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: '対象が無い（code: bookNotFound）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateBook
+      summary: Update a book
+      description: |
+        一言まとめ・感想・評価・書名の上書き・分野タグを更新する（全体の置き換え）。
+        あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。
+        titleOverride を省略・空（空白だけも）にすると上書きを外し、tagIds を省略・空にすると分野タグをすべて外す。
+        version が一致しなければ 409（他で先に更新された）。
+      tags:
+        - book
+      security:
+        - adminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequest'
+      x-correlation-rules:
+        - id: tagIdsNotFound
+          field: tagIds
+          rule: 指定した分野タグ ID はすべて存在する
+          message: MSG-A03
+        - id: tagIdsDuplicated
+          field: tagIds
+          rule: 分野タグ ID に重複が無い
+          message: 入力を見直してください
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+        - code: bookNotFound
+          status: 404
+          rule: 指定した ID の本が無い
+          message: この本は見つかりませんでした
+        - code: versionConflict
+          status: 409
+          rule: version が保存されている版と一致しない（他で先に更新された）
+          message: MSG-A06
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookResponse'
+        '400':
+          description: 入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Origin が自分と一致しない（CSRF 対策）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: '対象が無い（code: bookNotFound）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '競合（code: versionConflict）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteBook
+      summary: Delete a book
+      description: 読んだ本を削除する。
+      tags:
+        - book
+      security:
+        - adminSession: []
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+        - code: bookNotFound
+          status: 404
+          rule: 指定した ID の本が無い
+          message: この本は見つかりませんでした
+      responses:
+        '204':
+          description: No Content
+        '400':
+          description: path・query パラメータの入力検証の違反（errors[{field, rule}]）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Origin が自分と一致しない（CSRF 対策）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: '対象が無い（code: bookNotFound）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/admin/catalog/{isbn}:
+    parameters:
+      - name: isbn
+        in: path
+        required: true
+        description: ISBN（13 桁か 10 桁。ハイフン可）
+        schema:
+          type: string
+          maxLength: 17
+        example: '9784873118703'
+    get:
+      operationId: lookupCatalog
+      summary: Lookup a catalog entry
+      description: |
+        登録前の確認用に、ISBN で外部カタログ（openBD）の書誌と書影を返す。
+        ISBN の形式が不正なら 400（errors なし）。外部カタログへの中継を誰にでも開放しないため、ログインが要る。
+      tags:
+        - catalog
+      security:
+        - adminSession: []
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+        - code: catalogEntryNotFound
+          status: 404
+          rule: 外部カタログにその ISBN の本が無い
+          message: MSG-A02
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResponse'
+        '400':
+          description: path・query パラメータの入力検証の違反（errors[{field, rule}]）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: '対象が無い（code: catalogEntryNotFound）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/admin/tags:
+    get:
+      operationId: searchTags
+      summary: Search tags
+      description: 分野タグをすべて返す。
+      tags:
+        - tag
+      security:
+        - adminSession: []
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchTagsResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: registerTag
+      summary: Register a tag
+      description: 分野タグを追加する。同じ名前のタグは追加できない（400 の tagNameDuplicated）。
+      tags:
+        - tag
+      security:
+        - adminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterTagRequest'
+      x-correlation-rules:
+        - id: tagNameDuplicated
+          field: name
+          rule: タグ名は他のタグと重複しない
+          message: MSG-A04
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+        - code: tagNameDuplicated
+          status: 409
+          rule: 同じ名前のタグが同時に追加された（DB の一意制約。通常は 400 の tagNameDuplicated になる）
+          message: MSG-A04
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+        '400':
+          description: 入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Origin が自分と一致しない（CSRF 対策）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '競合（code: tagNameDuplicated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/admin/tags/counts:
+    get:
+      operationId: countBooks
+      summary: Count books by tag
+      description: 分野タグごとの冊数を返す。本が 1 冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順。
+      tags:
+        - tag
+      security:
+        - adminSession: []
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CountBooksResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/admin/tags/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 分野タグの ID
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+        example: 1
+    put:
+      operationId: renameTag
+      summary: Rename a tag
+      description: |
+        分野タグの名前を変える。自分以外に同じ名前のタグがあれば 400 の tagNameDuplicated。
+        version が一致しなければ 409（他で先に更新された）。
+      tags:
+        - tag
+      security:
+        - adminSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameTagRequest'
+      x-correlation-rules:
+        - id: tagNameDuplicated
+          field: name
+          rule: タグ名は自分以外のタグと重複しない
+          message: MSG-A04
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+        - code: tagNotFound
+          status: 404
+          rule: 指定した ID のタグが無い
+          message: このタグは見つかりませんでした
+        - code: versionConflict
+          status: 409
+          rule: version が保存されている版と一致しない（他で先に更新された）
+          message: MSG-A08
+        - code: tagNameDuplicated
+          status: 409
+          rule: 同じ名前に同時に変えられた（DB の一意制約。通常は 400 の tagNameDuplicated になる）
+          message: MSG-A04
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+        '400':
+          description: 入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Origin が自分と一致しない（CSRF 対策）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: '対象が無い（code: tagNotFound）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '競合（code: versionConflict / tagNameDuplicated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteTag
+      summary: Delete a tag
+      description: 分野タグを削除する。付いていた本からは自動で外れる（本は消えない）。
+      tags:
+        - tag
+      security:
+        - adminSession: []
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+        - code: tagNotFound
+          status: 404
+          rule: 指定した ID のタグが無い
+          message: このタグは見つかりませんでした
+      responses:
+        '204':
+          description: No Content
+        '400':
+          description: path・query パラメータの入力検証の違反（errors[{field, rule}]）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Origin が自分と一致しない（CSRF 対策）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: '対象が無い（code: tagNotFound）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/admin/auth/login:
+    post:
+      operationId: login
+      summary: Login
+      description: |
+        ID とパスワードが合えばセッションを発行し、httpOnly Cookie（admin_session）で返す。
+        どちらが違うかは返さない。失敗が続くと（5 回で 1 分）429。
+      tags:
+        - auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      x-error-codes:
+        - code: loginFailed
+          status: 401
+          rule: ID かパスワードが違う（どちらかは返さない）。ID・パスワードが未設定のときも同じ
+          message: MSG-A09
+        - code: tooManyLoginAttempts
+          status: 429
+          rule: 失敗が続いたため一時的に受け付けない
+          message: MSG-A09
+          params:
+            retryAfterSeconds: integer
+      responses:
+        '204':
+          description: ログインした（Set-Cookie で admin_session を返す）
+        '400':
+          description: 入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'ID かパスワードが違う（code: loginFailed）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Origin が自分と一致しない（CSRF 対策）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: '失敗が続いている（code: tooManyLoginAttempts。params.retryAfterSeconds）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/admin/auth/logout:
+    post:
+      operationId: logout
+      summary: Logout
+      description: サーバー側のセッションを消し、Cookie も消す。ログインしていなくても 204。
+      tags:
+        - auth
+      security: []
+      responses:
+        '204':
+          description: ログアウトした
+        '403':
+          description: Origin が自分と一致しない（CSRF 対策）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/admin/auth/session:
+    get:
+      operationId: checkSession
+      summary: Check the session
+      description: ログイン済みの Cookie（admin_session）が有効なら 204。画面のガードに使う。有効ならアイドル期限が延びる。
+      tags:
+        - auth
+      security:
+        - adminSession: []
+      x-error-codes:
+        - code: unauthenticated
+          status: 401
+          rule: ログインしていない、またはセッションの期限が切れている
+          message: （ログイン画面へ移る。文言は出さない）
+      responses:
+        '204':
+          description: ログイン中
+        '401':
+          description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: admin_session
+      description: ログインで発行するセッション ID（httpOnly・SameSite=Lax・Path=/api/admin）
+  schemas:
+    BookListItemResponse:
+      type: object
+      required:
+        - id
+        - isbn
+        - title
+        - summary
+        - tags
+        - authors
+        - amazonUrl
+        - coverUrl
+        - coverSource
+        - rating
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        isbn:
+          type: string
+          example: '9784873118703'
+        title:
+          type: string
+          description: 表示する書名（上書きがあればそれ、無ければ外部カタログの書名）
+          example: データ指向アプリケーションデザイン
+        summary:
+          type: string
+          example: 分散データの設計を体系的に学べる
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+            - データベース
+        authors:
+          type: string
+          example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        amazonUrl:
+          type: string
+          nullable: true
+          example: https://www.amazon.co.jp/dp/4873118700
+        coverUrl:
+          type: string
+          nullable: true
+          example: https://cover.openbd.jp/9784873118703.jpg
+        coverSource:
+          type: string
+          nullable: true
+          enum:
+            - openbd
+          example: openbd
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+    SearchBooksResponse:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookListItemResponse'
+        total:
+          type: integer
+          description: 条件に合う総件数（取得範囲外も含む）
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        offset:
+          type: integer
+          example: 0
+    FieldError:
+      type: object
+      required:
+        - field
+        - rule
+      properties:
+        field:
+          type: string
+          description: |
+            違反した項目の JSON 名。入れ子・配列はドット区切りのパス（例: tagIds.0）、path・query パラメータはパラメータ名
+          example: summary
+        rule:
+          type: string
+          description: |
+            違反した規則。OpenAPI の制約キーワード（required / minLength / maxLength / minimum / maximum / maxItems / type など）か、
+            VO の違反（format / invalid）か、operation の x-correlation-rules の id（isbnDuplicated など）
+          example: maxLength
+        params:
+          type: object
+          additionalProperties: true
+          description: 文言に差し込む値（BE しか知らない値だけ）
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: 開発者・ログ向け。画面には出さない
+          example: invalid request
+        code:
+          type: string
+          description: |
+            業務ルールの違反のときだけ付くコード（lowerCamel）。値は各 operation の x-error-codes に列挙する。
+            FE はこのコードから文言を引く（docs/architecture.md §4）。5xx には付かない
+          example: bookNotFound
+        params:
+          type: object
+          additionalProperties: true
+          description: 文言に差し込む値（BE しか知らない値だけ。加工しない形で返す）。キーと型は x-error-codes の params
+        errors:
+          type: array
+          description: 入力検証・VO・相関ルールの違反（400）のときだけ付く、項目ごとの違反。独立して判定できるものをすべて返す（順不同）
+          items:
+            $ref: '#/components/schemas/FieldError'
+    RegisterBookRequest:
+      type: object
+      required:
+        - isbn
+        - summary
+        - comment
+        - rating
+      properties:
+        isbn:
+          type: string
+          minLength: 1
+          maxLength: 17
+          description: 13 桁か 10 桁（ハイフン可）。書誌と書影はこれで外部カタログから取得する
+          example: '9784873118703'
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: 一覧で見せる一言まとめ
+          example: 分散データの設計を体系的に学べる
+        titleOverride:
+          type: string
+          maxLength: 255
+          description: 外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない
+        tagIds:
+          type: array
+          maxItems: 10
+          description: 付ける分野タグの ID
+          items:
+            type: integer
+            format: int64
+          example:
+            - 1
+            - 2
+        comment:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: 詳細で見せる感想（改行できる）
+          example: 分散システムの設計を体系的に学べた
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+    BookResponse:
+      type: object
+      required:
+        - id
+        - isbn
+        - title
+        - authors
+        - publisher
+        - publishedOn
+        - amazonUrl
+        - coverUrl
+        - coverSource
+        - titleOverride
+        - summary
+        - tags
+        - comment
+        - rating
+        - version
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        isbn:
+          type: string
+          example: '9784873118703'
+        title:
+          type: string
+          description: 表示する書名（上書きがあればそれ、無ければ外部カタログの書名）
+          example: データ指向アプリケーションデザイン
+        authors:
+          type: string
+          example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        publisher:
+          type: string
+          example: オーム社
+        publishedOn:
+          type: string
+          description: 出版日（外部カタログの表記のまま。例 201907）
+          example: '201907'
+        amazonUrl:
+          type: string
+          nullable: true
+          description: ISBN から導出する。ISBN-10 の形にできなければ null
+          example: https://www.amazon.co.jp/dp/4873118700
+        coverUrl:
+          type: string
+          nullable: true
+          description: 提供元がホストする書影の URL。書影が無ければ null
+          example: https://cover.openbd.jp/9784873118703.jpg
+        coverSource:
+          type: string
+          nullable: true
+          description: 書影の提供元（Domain の CoverSource が値を保証する）。書影が無ければ null
+          enum:
+            - openbd
+          example: openbd
+        titleOverride:
+          type: string
+          nullable: true
+          description: 自分で上書きした書名。上書きしていなければ null
+        summary:
+          type: string
+          example: 分散データの設計を体系的に学べる
+        tags:
+          type: array
+          description: 付いている分野タグの名前
+          items:
+            type: string
+          example:
+            - データベース
+        comment:
+          type: string
+          example: 分散システムの設計を体系的に学べた
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        version:
+          type: integer
+          description: 同時編集を見つけるための版（更新のたびに増える）
+          example: 1
+    UpdateBookRequest:
+      type: object
+      required:
+        - summary
+        - comment
+        - rating
+        - version
+      properties:
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: 読み返して理解が深まった
+        titleOverride:
+          type: string
+          maxLength: 255
+          description: 全体の置き換えなので、省略・空（空白だけも）なら上書きを外す
+        tagIds:
+          type: array
+          maxItems: 10
+          description: 全体の置き換えなので、省略・空なら分野タグをすべて外す
+          items:
+            type: integer
+            format: int64
+          example:
+            - 1
+            - 2
+        comment:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          example: 読み返して理解が深まった
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        version:
+          type: integer
+          description: 編集を始めたときに読んだ版
+          example: 1
+    CatalogResponse:
+      type: object
+      required:
+        - isbn
+        - title
+        - authors
+        - publisher
+        - publishedOn
+        - amazonUrl
+        - coverUrl
+        - coverSource
+      properties:
+        isbn:
+          type: string
+          example: '9784873118703'
+        title:
+          type: string
+          example: データ指向アプリケーションデザイン
+        authors:
+          type: string
+          example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+        publisher:
+          type: string
+          example: オーム社
+        publishedOn:
+          type: string
+          example: '201907'
+        amazonUrl:
+          type: string
+          nullable: true
+          example: https://www.amazon.co.jp/dp/4873118700
+        coverUrl:
+          type: string
+          nullable: true
+          example: https://cover.openbd.jp/9784873118703.jpg
+        coverSource:
+          type: string
+          nullable: true
+          enum:
+            - openbd
+          example: openbd
+    TagResponse:
+      type: object
+      required:
+        - id
+        - name
+        - version
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: データベース
+        version:
+          type: integer
+          description: 同時編集を見つけるための版
+          example: 1
+    SearchTagsResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagResponse'
+    RegisterTagRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 30
+          example: データベース
+    TagBookCountResponse:
+      type: object
+      required:
+        - id
+        - name
+        - bookCount
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: データベース
+        bookCount:
+          type: integer
+          example: 3
+    CountBooksResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagBookCountResponse'
+    RenameTagRequest:
+      type: object
+      required:
+        - name
+        - version
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 30
+          example: 分散システム
+        version:
+          type: integer
+          description: 名前の変更を始めたときに読んだ版
+          example: 1
+    LoginRequest:
+      type: object
+      required:
+        - id
+        - password
+      properties:
+        id:
+          type: string
+          minLength: 1
+          example: admin
+        password:
+          type: string
+          minLength: 1
+          format: password
+          example: correct horse battery staple

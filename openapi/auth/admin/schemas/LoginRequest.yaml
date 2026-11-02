@@ -1,0 +1,14 @@
+type: object
+required:
+  - id
+  - password
+properties:
+  id:
+    type: string
+    minLength: 1
+    example: admin
+  password:
+    type: string
+    minLength: 1
+    format: password
+    example: correct horse battery staple

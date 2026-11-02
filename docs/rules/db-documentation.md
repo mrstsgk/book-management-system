@@ -4,7 +4,7 @@
 
 ## なぜ資料化するか
 
-スキーマの正は golang-migrate の `backend/migrations/*.sql`（差分の積み重ね）で、GORM AutoMigrate は使わない（[`backend/architecture.md`](../../backend/architecture.md)）。GORM のモデル構造体（`infrastructure/postgres/<domain>/model.go`）は必要なカラムしか持たず、CHECK 制約・デフォルト値・インデックスのように SQL にしか無い情報もある。テーブルの「今の完全な状態」を知るには複数のマイグレーションを順に合成する必要があり、資料化する価値がある。
+スキーマの正は golang-migrate の `backend/migrations/*.sql`（差分の積み重ね）で、GORM AutoMigrate は使わない（[`backend/architecture.md`](../../backend/architecture.md)）。GORM のモデル構造体（`internal/<area>/infrastructure/postgres/model.go`）は必要なカラムしか持たず、CHECK 制約・デフォルト値・インデックスのように SQL にしか無い情報もある。テーブルの「今の完全な状態」を知るには複数のマイグレーションを順に合成する必要があり、資料化する価値がある。
 
 ## なぜ2種類必要か
 
@@ -33,7 +33,7 @@
       "source": "backend/migrations/000001_create_books.up.sql",
       "columns": [
         { "name": "id", "type": "BIGSERIAL", "nullable": false, "pk": true, "description": "主キー" },
-        { "name": "title", "type": "VARCHAR(255)", "nullable": false, "description": "このカラムに何が入るか" },
+        { "name": "title", "type": "VARCHAR(50)", "nullable": false, "description": "このカラムに何が入るか" },
         { "name": "created_at", "type": "TIMESTAMPTZ", "nullable": false, "default": "NOW()", "description": "作成日時" }
       ],
       "indexes": ["ix_<table>_<column>"],
@@ -50,16 +50,25 @@
 固定の値集合しか取らないカラム（Postgres の `ENUM` 型、`CHECK IN (...)` 制約、または DB 制約はなくアプリ側の慣習で値が決まっているもの）は、`description` に加えて `enum` 配列で各値の意味を列挙する:
 
 ```json
-{ "name": "publish_status", "type": "INTEGER", "nullable": false,
-  "description": "出版状況。DB制約はなくアプリ側の慣習による。",
+{ "name": "cover_source", "type": "TEXT", "nullable": true,
+  "description": "書影の取得元。DB制約はなくアプリ側の慣習による。",
   "enum": [
-    { "value": 1, "description": "未出版" },
-    { "value": 2, "description": "出版済み" }
+    { "value": "openbd", "description": "openBD から取得した書影" }
   ]
 }
 ```
 
 DB 制約が無い場合はその旨を `description` に明記する（「制約あり」と誤解させない）。値の意味も、コードやシード値から確認できる事実のみ書く。
+
+## テーブルの名前
+
+マイグレーションでテーブルを追加するときは、次の規則で名付ける。
+
+- 業務の概念で付ける（業務担当者と同じ言葉。[`backend/architecture.md`](../../backend/architecture.md) §2「型・メソッドの名前の付け方」と同じ考え方）。表記は小文字の snake_case で、複数形にする（例: `books`・`tags`）
+- **チャネル（public・admin）を表す接頭辞は付けない**（`admin_books`・`public_books` にしない）。本と分野タグの真実は 1 つで、チャネルで DB を割らないため（[`docs/architecture.md`](../architecture.md) §2）。チャネル名を付けると、同じデータをチャネルごとに別に持つように読める
+- チャネルごとに別の概念になるもの（利用者など）は、`users` にまとめず、概念の違いが分かる名前にする（例: 管理画面のログインのセッションは `admin_sessions`。`admin` はチャネルではなく「管理者」という概念を表す）
+- 業務領域（`internal/<area>`）の名前も、接頭辞として機械的に付けない。領域の境界や名前は変わりうるため（[`backend/architecture.md`](../../backend/architecture.md) §4）。結果として領域名と同じ語が入るのはよい（`book` 領域の `books`）
+- 親に従属する子のテーブルは、親の単数形に子の概念を続ける（例: `books` に付ける分野タグは `book_tags`）
 
 ## マイグレーション自体にもコメントを残す
 
@@ -89,5 +98,3 @@ nullableなカラムは `text note "nullable"` のようにダブルクオート
 `.claude/hooks/require-db-docs-on-migration.sh`（Stop, blocking）が、`backend/migrations/*.sql` の変更を検知して対応するJSON/MD両方の変更が同じ差分に含まれているかを機械的にチェックする。構造的な有無のみの確認であり、内容の正確性までは保証しない — 内容が正しいかは人/AIレビューで確認すること。
 
 バイパス: `SKIP_DB_DOCS_CHECK=1`（ドキュメントを伴わない理由がある場合のみ使用し、PRにその理由を明記する）。
-
-関連: [ADRルール](./adr.md)

@@ -1,0 +1,17 @@
+type: object
+required:
+  - id
+  - name
+  - version
+properties:
+  id:
+    type: integer
+    format: int64
+    example: 1
+  name:
+    type: string
+    example: データベース
+  version:
+    type: integer
+    description: 同時編集を見つけるための版
+    example: 1

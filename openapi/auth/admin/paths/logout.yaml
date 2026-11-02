@@ -1,0 +1,22 @@
+post:
+  operationId: logout
+  summary: Logout
+  description: サーバー側のセッションを消し、Cookie も消す。ログインしていなくても 204。
+  tags:
+    - auth
+  security: []
+  responses:
+    '204':
+      description: ログアウトした
+    '403':
+      description: 'Origin が自分と一致しない（CSRF 対策）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml

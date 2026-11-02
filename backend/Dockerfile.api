@@ -1,0 +1,19 @@
+# 本番の形のイメージ（日常の開発では使わない。デプロイはしない）。
+# どの実行サービスを入れるかは --build-arg CMD=public-api|admin-api で選ぶ（make docker-build-public / docker-build-admin）。
+# Go の版は .mise.toml・go.mod と揃える
+FROM golang:1.27.3-alpine AS builder
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+ARG CMD=public-api
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/${CMD}
+
+FROM alpine:3.21
+WORKDIR /app
+RUN apk add --no-cache ca-certificates tzdata
+ENV TZ=Asia/Tokyo
+COPY --from=builder /out/api /app/api
+EXPOSE 8080 8081
+USER nobody
+CMD ["/app/api"]
