@@ -10,8 +10,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Pool limits per process. Process count × maxOpenConns must stay below
-// PostgreSQL's max_connections.
+// プールの上限はプロセスごと。プロセス数 × maxOpenConns が PostgreSQL の max_connections を下回るようにする。
 const (
 	maxOpenConns    = 20
 	maxIdleConns    = 10
@@ -28,8 +27,7 @@ type Config struct {
 	SSLMode  string
 }
 
-// Connect opens the pool and pings once so a bad DB setting fails at startup,
-// not on the first request.
+// Connect はプールを開いて 1 度 ping し、DB 設定の誤りを最初のリクエストではなく起動時に失敗させる。
 func Connect(cfg Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=Asia/Tokyo",
@@ -37,7 +35,7 @@ func Connect(cfg Config) (*gorm.DB, error) {
 	)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Warn),
-		// GORM's own ping has no timeout; we ping below with one instead.
+		// GORM 自身の ping にはタイムアウトが無いので、下でタイムアウト付きの ping を行う。
 		DisableAutomaticPing: true,
 		NowFunc: func() time.Time {
 			return time.Now().In(time.FixedZone("Asia/Tokyo", 9*60*60))
@@ -63,7 +61,7 @@ func Connect(cfg Config) (*gorm.DB, error) {
 	return db, nil
 }
 
-// Close releases the pool; called on graceful shutdown.
+// Close はプールを解放する（graceful shutdown で呼ぶ）。
 func Close(db *gorm.DB) error {
 	sqlDB, err := db.DB()
 	if err != nil {

@@ -14,11 +14,13 @@ import (
 // DefaultBaseURL は openBD の公開 API。キーは不要で、利用規約上データ（書影を含む）は本の販促・紹介目的に限り使える。
 const DefaultBaseURL = "https://api.openbd.jp"
 
+// catalog は、openBD の API から書誌と書影を取得する（domainbook.BookCatalog の実装）。
 type catalog struct {
 	baseURL string
 	client  *http.Client
 }
 
+// NewCatalog は、baseURL の openBD を client で呼ぶ BookCatalog を作る。
 func NewCatalog(baseURL string, client *http.Client) domainbook.BookCatalog {
 	return &catalog{baseURL: baseURL, client: client}
 }

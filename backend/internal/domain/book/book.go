@@ -6,22 +6,31 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
 
+// ID は、読んだ本を区別する番号。
 type ID int64
 
 // Book は自分が読んだ本1冊。外部カタログから取得した書誌・書影と、自分が書いた感想・評価を持つ。
 type Book struct {
-	ID           ID
-	ISBN         ISBN
+	// 本を区別する番号。
+	ID ID
+	// 登録に使った ISBN。
+	ISBN ISBN
+	// 外部カタログから取得した書誌。
 	Bibliography Bibliography
 	// Cover は書影。提供元に書影が無い本は nil。
 	Cover *Cover
 	// TitleOverride は自分で上書きした書名。上書きしていなければ nil。外部カタログを取り直しても消さない。
 	TitleOverride *Title
-	Summary       Summary
-	Comment       Comment
-	Rating        Rating
-	Tags          TagSelection
-	Version       int
+	// 一覧で見せる一言まとめ。
+	Summary Summary
+	// 詳細で見せる感想。
+	Comment Comment
+	// 自分が付けた評価。
+	Rating Rating
+	// 付けた分野タグ。
+	Tags TagSelection
+	// 同時編集を見つけるための版。
+	Version int
 }
 
 // New は登録前の読んだ本を作る（ID とバージョンは保存時に採番する）。
@@ -74,45 +83,67 @@ type Repository interface {
 
 // BookDetail は読んだ本1冊の Read Model。
 type BookDetail struct {
-	ID   ID
+	// 本を区別する番号。
+	ID ID
+	// 13 桁の ISBN。
 	ISBN string
 	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
-	Title       string
-	Authors     string
-	Publisher   string
+	Title string
+	// 著者（提供元の表記のまま）。
+	Authors string
+	// 出版社。
+	Publisher string
+	// 出版日（提供元の表記のまま）。
 	PublishedOn string
 	// AmazonURL は ISBN から導出する（保存しない）。ISBN-10 の形式が無ければ nil。
 	AmazonURL *string
-	// CoverURL・CoverSource は書影が無ければ nil。
-	CoverURL    *string
+	// 書影の URL。書影が無ければ nil。
+	CoverURL *string
+	// 書影の提供元。書影が無ければ nil。
 	CoverSource *string
 	// TitleOverride は自分で上書きした書名。上書きしていなければ nil（編集画面が今の上書きを送り直すのに使う）。
 	TitleOverride *string
-	Summary       string
-	Tags          []string
-	Comment       string
-	Rating        int
-	Version       int
+	// 一覧で見せる一言まとめ。
+	Summary string
+	// 付いている分野タグの名前。
+	Tags []string
+	// 詳細で見せる感想。
+	Comment string
+	// 自分が付けた評価。
+	Rating int
+	// 同時編集を見つけるための版。
+	Version int
 }
 
 // BookListItem は読んだ本の一覧の1行分の Read Model。感想の本文は詳細でだけ返す。
 type BookListItem struct {
-	ID   ID
+	// 本を区別する番号。
+	ID ID
+	// 13 桁の ISBN。
 	ISBN string
 	// Title は表示する書名（上書きがあればそれ、無ければ外部カタログの書名）。
-	Title       string
-	Summary     string
-	Tags        []string
-	Authors     string
-	AmazonURL   *string
-	CoverURL    *string
+	Title string
+	// 一覧で見せる一言まとめ。
+	Summary string
+	// 付いている分野タグの名前。
+	Tags []string
+	// 著者（提供元の表記のまま）。
+	Authors string
+	// Amazon の商品ページ。ISBN-10 の形式が無ければ nil。
+	AmazonURL *string
+	// 書影の URL。書影が無ければ nil。
+	CoverURL *string
+	// 書影の提供元。書影が無ければ nil。
 	CoverSource *string
-	Rating      int
+	// 自分が付けた評価。
+	Rating int
 }
 
 // BookList は一覧のうち取得範囲の分と、全体の総件数。
 type BookList struct {
+	// 取得範囲に入る本。
 	Items []*BookListItem
+	// 条件に合う本の総件数。
 	Total int
 }
 
@@ -128,7 +159,9 @@ type Query interface {
 
 // CatalogEntry は外部カタログが ISBN について持っている書誌と書影。
 type CatalogEntry struct {
-	ISBN         ISBN
+	// 問い合わせた ISBN。
+	ISBN ISBN
+	// 提供元が持つ書誌。
 	Bibliography Bibliography
 	// Cover はどの提供元にも書影が無ければ nil。
 	Cover *Cover

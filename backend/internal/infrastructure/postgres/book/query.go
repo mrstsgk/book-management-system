@@ -12,14 +12,17 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
 
+// query は、読んだ本の一覧・詳細を PostgreSQL から読み取る（domainbook.Query の実装）。
 type query struct {
 	db *gorm.DB
 }
 
+// NewQuery は、db を使う Query を作る。
 func NewQuery(db *gorm.DB) domainbook.Query {
 	return &query{db: db}
 }
 
+// FindDetailByID は、id の本の詳細（タグ名を含む）を 1 件返す。存在しなければ common.ErrNotFound を返す。
 func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbook.BookDetail, error) {
 	var row model
 	if err := q.db.WithContext(ctx).First(&row, int64(id)).Error; err != nil {

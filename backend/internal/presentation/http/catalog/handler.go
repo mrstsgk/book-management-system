@@ -31,11 +31,12 @@ type Handler struct {
 	AdminOnly echo.MiddlewareFunc
 }
 
+// Register は、外部カタログ確認の API のルートを g に登録する。
 func (h *Handler) Register(g *echo.Group) {
 	g.GET("/:isbn", h.Lookup, h.AdminOnly)
 }
 
-// Lookup godoc
+// Lookup は、ISBN で外部カタログの書誌と書影を確かめる（GET /api/catalog/{isbn}）。
 // @Summary      ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
 // @Description  登録前の確認用。書誌と書影は openBD から取得する
 // @Tags         catalog

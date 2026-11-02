@@ -19,7 +19,9 @@ const coverURLMaxLength = 2048
 // Cover は提供元がホストする書影の VO。提供元が認めているのは本の紹介のためにそのまま表示することだけなので、
 // 画像そのものは保存・加工しない。
 type Cover struct {
-	url    string
+	// 提供元がホストする画像の URL。
+	url string
+	// 書影の提供元。
 	source CoverSource
 }
 

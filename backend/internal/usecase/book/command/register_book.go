@@ -11,13 +11,18 @@ import (
 
 // RegisterBookCommand は RegisterBookUsecase の入力（Presentation から渡る境界）。データだけを持ち、ロジックは持たない。
 type RegisterBookCommand struct {
-	ISBN    string
+	// 登録する本の ISBN（13 桁か 10 桁。ハイフン可）。
+	ISBN string
+	// 一覧で見せる一言まとめ。
 	Summary string
 	// TitleOverride は自分で上書きする書名。前後の空白を除いて空なら上書きしない。
 	TitleOverride string
-	TagIDs        []int64
-	Comment       string
-	Rating        int
+	// 付ける分野タグの ID。
+	TagIDs []int64
+	// 詳細で見せる感想。
+	Comment string
+	// 自分が付ける評価。
+	Rating int
 }
 
 // RegisterBookUsecase は、読んだ本を登録する。

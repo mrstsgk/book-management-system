@@ -8,10 +8,12 @@ import (
 	domaintag "github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
+// query は、分野タグの一覧・集計を PostgreSQL から読み取る（domaintag.Query の実装）。
 type query struct {
 	db *gorm.DB
 }
 
+// NewQuery は、db を使う Query を作る。
 func NewQuery(db *gorm.DB) domaintag.Query {
 	return &query{db: db}
 }

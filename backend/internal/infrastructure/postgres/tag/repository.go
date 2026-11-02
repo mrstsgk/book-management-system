@@ -30,6 +30,7 @@ type repository struct {
 	db *gorm.DB
 }
 
+// NewRepository は、db を使う Repository を作る。
 func NewRepository(db *gorm.DB) domaintag.Repository {
 	return &repository{db: db}
 }

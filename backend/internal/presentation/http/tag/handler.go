@@ -50,6 +50,7 @@ type Handler struct {
 	AdminOnly echo.MiddlewareFunc
 }
 
+// Register は、分野タグの API のルートを g に登録する。
 func (h *Handler) Register(g *echo.Group) {
 	g.GET("", h.Search)
 	g.GET("/counts", h.CountBooks)
@@ -58,7 +59,7 @@ func (h *Handler) Register(g *echo.Group) {
 	g.DELETE("/:id", h.Delete, h.AdminOnly)
 }
 
-// List godoc
+// Search は、分野タグの一覧を参照する（GET /api/tags）。
 // @Summary      分野タグの一覧を取得する
 // @Tags         tags
 // @Produce      json
@@ -77,7 +78,7 @@ func (h *Handler) Search(c echo.Context) error {
 	return c.JSON(http.StatusOK, ListResponse{Items: items})
 }
 
-// CountBooks godoc
+// CountBooks は、分野タグごとの冊数を返す（GET /api/tags/counts）。
 // @Summary      分野タグごとの冊数を取得する
 // @Description  本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順
 // @Tags         tags
@@ -97,7 +98,7 @@ func (h *Handler) CountBooks(c echo.Context) error {
 	return c.JSON(http.StatusOK, BookCountListResponse{Items: items})
 }
 
-// RegisterTag godoc
+// RegisterTag は、分野タグを追加する（POST /api/tags）。
 // @Summary      分野タグを追加する（自分だけ）
 // @Description  同じ名前のタグは追加できない。入力・VO・相関ルールの違反は 400 の errors[{field, rule}] で返す（rule: validate のキーワード / invalid / tagNameDuplicated）
 // @Tags         tags
@@ -124,7 +125,7 @@ func (h *Handler) RegisterTag(c echo.Context) error {
 	return c.JSON(http.StatusOK, toResponse(out))
 }
 
-// Rename godoc
+// Rename は、分野タグの名前を変える（PUT /api/tags/{id}）。
 // @Summary      分野タグの名前を変更する（自分だけ）
 // @Description  自分以外に同じ名前のタグがあると変更できない。入力・VO・相関ルールの違反は 400 の errors[{field, rule}] で返す（rule: validate のキーワード / invalid / tagNameDuplicated）。version が一致しない場合は 409
 // @Tags         tags
@@ -157,7 +158,7 @@ func (h *Handler) Rename(c echo.Context) error {
 	return c.JSON(http.StatusOK, toResponse(out))
 }
 
-// Delete godoc
+// Delete は、分野タグを削除する（DELETE /api/tags/{id}）。
 // @Summary      分野タグを削除する（自分だけ）
 // @Description  付いていた本からは自動で外れる
 // @Tags         tags

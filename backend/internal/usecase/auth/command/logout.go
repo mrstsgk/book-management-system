@@ -6,6 +6,7 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/auth"
 )
 
+// LogoutUsecase は、セッションを破棄する。
 type LogoutUsecase interface {
 	Execute(ctx context.Context, sessionID string) error
 }

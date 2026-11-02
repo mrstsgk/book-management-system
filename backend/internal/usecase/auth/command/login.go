@@ -18,16 +18,21 @@ const (
 
 // LoginCommand は LoginUsecase の入力。データだけを持ち、ロジックは持たない。
 type LoginCommand struct {
-	ID       string
+	// 入力されたログイン ID。
+	ID string
+	// 入力されたパスワード。
 	Password string
 }
 
 // AdminAccount は環境変数から読んだ管理者の ID とパスワードのハッシュ。
 type AdminAccount struct {
-	ID           string
+	// 管理者のログイン ID。
+	ID string
+	// パスワードの bcrypt ハッシュ。
 	PasswordHash string
 }
 
+// LoginUsecase は、ID とパスワードを照合してセッションを発行する。
 type LoginUsecase interface {
 	// Execute は照合に成功したらセッションを発行し、その ID を返す。
 	Execute(ctx context.Context, cmd LoginCommand) (string, error)

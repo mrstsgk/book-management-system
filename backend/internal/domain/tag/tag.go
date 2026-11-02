@@ -2,12 +2,16 @@ package tag
 
 import "context"
 
+// ID は、分野タグを区別する番号。
 type ID int64
 
 // Tag は自分が定義した分野タグ。本には ID の集合（book.TagSelection）で付ける。
 type Tag struct {
-	ID      ID
-	Name    Name
+	// タグを区別する番号。
+	ID ID
+	// 画面に出すタグの名前。
+	Name Name
+	// 同時編集を見つけるための版。
 	Version int
 }
 
@@ -37,25 +41,33 @@ type Repository interface {
 // TagListItem はタグ一覧の1行分の Read Model。Version は一覧から改名（version が要る）へ進むのに必要
 // （個別取得の API が無いため、一覧の応答だけが version の取得元になる）。
 type TagListItem struct {
-	ID      ID
-	Name    string
+	// タグを区別する番号。
+	ID ID
+	// 画面に出すタグの名前。
+	Name string
+	// 同時編集を見つけるための版。
 	Version int
 }
 
 // TagList はタグの一覧全体（想定件数が少ないため取得範囲は絞らない）。
 type TagList struct {
+	// すべてのタグ。
 	Items []*TagListItem
 }
 
 // TagBookCount は分野別の集計の1行分の Read Model（公開画面向け。管理画面の TagListItem とは目的が違うため分ける）。
 type TagBookCount struct {
-	ID        ID
-	Name      string
+	// タグを区別する番号。
+	ID ID
+	// 画面に出すタグの名前。
+	Name string
+	// そのタグが付いている本の冊数。
 	BookCount int
 }
 
 // TagBookCounts は分野別の集計全体。本が付いていないタグは含めない。
 type TagBookCounts struct {
+	// 冊数の多い順に並んだ集計。
 	Items []*TagBookCount
 }
 

@@ -6,6 +6,7 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
+// CountBooksUsecase は、分野タグごとの冊数を数える。
 type CountBooksUsecase interface {
 	Execute(ctx context.Context) (*tag.TagBookCounts, error)
 }

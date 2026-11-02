@@ -9,7 +9,9 @@ import (
 
 // Credentials はログイン画面から受け取った ID とパスワード。空を拒否するだけで、正しいかどうかは判定しない。
 type Credentials struct {
-	id       string
+	// ログイン ID。
+	id string
+	// 平文のパスワード。
 	password string
 }
 

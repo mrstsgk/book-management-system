@@ -24,13 +24,14 @@ type Handler struct {
 	SameOrigin echo.MiddlewareFunc
 }
 
+// Register は、ログインの API のルートを g に登録する。
 func (h *Handler) Register(g *echo.Group) {
 	g.POST("/login", h.Login, h.SameOrigin)
 	g.POST("/logout", h.Logout, h.SameOrigin)
 	g.GET("/session", h.Session, common.RequireAdminSession(h.CheckSessionUsecase))
 }
 
-// Login godoc
+// Login は、ID とパスワードでログインしてセッション Cookie を発行する（POST /api/auth/login）。
 // @Summary      管理画面にログインする
 // @Description  ID とパスワードが合えばセッションを発行し、httpOnly Cookie（admin_session）で返す。どちらが違うかは返さない。失敗が続くとしばらく 429
 // @Tags         auth
@@ -56,7 +57,7 @@ func (h *Handler) Login(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// Logout godoc
+// Logout は、セッションを破棄して Cookie を消す（POST /api/auth/logout）。
 // @Summary      ログアウトする
 // @Description  サーバー側のセッションを消し、Cookie も消す。ログインしていなくても 204
 // @Tags         auth
@@ -74,7 +75,7 @@ func (h *Handler) Logout(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// Session godoc
+// Session は、ログイン中かを確かめる（GET /api/auth/session）。
 // @Summary      ログイン中かを確かめる
 // @Description  ログイン済みの Cookie（admin_session）が有効なら 204。画面のガードに使う。有効ならアイドル期限が延びる
 // @Tags         auth

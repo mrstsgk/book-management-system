@@ -9,13 +9,17 @@ import (
 
 // RegisterTagCommand は RegisterTagUsecase の入力。データだけを持ち、ロジックは持たない。
 type RegisterTagCommand struct {
+	// 追加するタグの名前。
 	Name string
 }
 
 // TagView はタグの登録・改名の結果を返す Read Model。
 type TagView struct {
-	ID      int64
-	Name    string
+	// タグを区別する番号。
+	ID int64
+	// 画面に出すタグの名前。
+	Name string
+	// 同時編集を見つけるための版。
 	Version int
 }
 

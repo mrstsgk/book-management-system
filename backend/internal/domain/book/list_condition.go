@@ -14,8 +14,10 @@ const keywordMaxLength = 100
 
 // ListCondition は一覧の検索・絞り込みの条件（参照専用）。ゼロ値は「絞り込まない」。
 type ListCondition struct {
+	// 書名・著者の部分一致に使う語。空なら検索しない。
 	keyword string
-	tagID   *tag.ID
+	// 絞り込む分野タグ。nil なら絞り込まない。
+	tagID *tag.ID
 }
 
 // NewListCondition はキーワード（前後の空白を除いて100文字まで。空なら検索しない）と、任意の分野タグで条件を作る。

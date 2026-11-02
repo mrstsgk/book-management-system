@@ -6,6 +6,7 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
+// SearchTagsUsecase は、分野タグの一覧を参照する。
 type SearchTagsUsecase interface {
 	Execute(ctx context.Context) (*tag.TagList, error)
 }

@@ -11,7 +11,7 @@ import (
 
 var validate = func() *validator.Validate {
 	v := validator.New(validator.WithRequiredStructEnabled())
-	// Report JSON names so clients can match errors to the fields they sent.
+	// クライアントが送ったフィールドとエラーを突き合わせられるよう、JSON 名で報告する。
 	v.RegisterTagNameFunc(func(f reflect.StructField) string {
 		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
 		if name == "" || name == "-" {
@@ -22,7 +22,7 @@ var validate = func() *validator.Validate {
 	return v
 }()
 
-// ValidationError is a request bind / validate failure (→ 400 with Fields).
+// ValidationError はリクエストのバインド／検証の失敗（→ Fields 付きの 400）。
 type ValidationError struct {
 	Fields []FieldError
 }

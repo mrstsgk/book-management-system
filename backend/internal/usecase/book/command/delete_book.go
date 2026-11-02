@@ -6,6 +6,7 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 )
 
+// DeleteBookUsecase は、読んだ本を削除する。
 type DeleteBookUsecase interface {
 	Execute(ctx context.Context, id int64) error
 }

@@ -71,7 +71,7 @@ infrastructure/postgres/{common,<domain>}, infrastructure/gateway/{<domain>}
   - UseCase: 同じパッケージに IF `XxxUsecase` と公開 struct `XxxUsecaseImpl` を置き、`cmd` で struct リテラル（`&bookcmd.RegisterUsecaseImpl{Books: ..., Catalog: ...}`）から組み立てる。Handler は IF にだけ依存するので、実装を変えても Handler は変わらない
   - Infrastructure: IF は Domain にあるので名前は衝突しない。非公開 struct（`repository` / `query`）+ Domain の IF を返す `NewRepository(db)` / `NewQuery(db)` で作り、`Impl` は付けない。呼び出し側は Domain の IF にしか依存できない
 - ファイル名は小文字（区切りは `_`）。ドメイン名や `_impl` を付けない（ディレクトリで分かる）。`_linux` / `_js` 等の OS・アーキテクチャ名で終わらせない（Go のビルド制約として解釈される）。テストは `_test.go` にし、テスト以外のファイルを `_test` で終わらせない。例: `register.go` / `register_test.go` / `query.go` / `repository.go`
-- 会話・レビューでは同名を区別するためパッケージ名付きで呼ぶ（`book.Repository` = IF、`pgbook.NewRepository` = 実装、`bookcmd.RegisterUsecase` = UseCase）
+- 会話・レビューでは同名を区別するためパッケージ名付きで呼ぶ（`book.Repository` = IF、`pgbook.NewRepository` = 実装、`bookcmd.RegisterBookUsecase` = UseCase）
 - テストは対象と同じディレクトリに置く（[テスト規約](../docs/rules/testing.md)）
 - **新しいドメインの追加・境界の変更は設計レビューの対象**。要件と実際の変更理由から決め、予測で空パッケージを量産しない。ディレクトリは `book` を写し、今必要な層だけ作る
 
@@ -97,8 +97,6 @@ infrastructure/postgres/{common,<domain>}, infrastructure/gateway/{<domain>}
 | 分野タグごとの冊数を数える | `CountBooksUsecase` |
 | ログインする | `LoginUsecase` |
 
-> **移行中**: 既存の `ListUsecase` / `GetUsecase` / `RegisterUsecase` / `UpdateUsecase` / `DeleteUsecase` / `RenameUsecase` はこの規則の前に付けた名前。改名は別の PR で行う（[ADR](../docs/adr/2026-11-02-revise-development-rules.md)）。新しく作るものはこの規則で付ける。
-
 **Repository／Query のメソッド**
 
 取得は `Find` を基本にし、目的が違うときだけ `Search` / `Count` / `Exists` を使う。同じ意味の取得に `Read` / `Get` / `Find` を混ぜない（UseCase の `Read` は業務の目的、Repository／Query の `Find` はデータの取得で、層の責務が違うため名前も違う）。更新系は `Create` / `Update` / `Delete`。
@@ -112,7 +110,7 @@ infrastructure/postgres/{common,<domain>}, infrastructure/gateway/{<domain>}
 | 件数 | `CountByTag` | 数値を返す |
 | 存在するか | `ExistsAll` / `ExistsByISBN` / `ExistsByName` | `bool` を返す |
 
-Query（読み取り側）は Read Model を返し、業務の状態を変えない。現状の `FindList`（`book.Query` / `tag.Query`）は条件付き・範囲付きの取得なので `Search` が規則どおりの名前、`auth.SessionRepository` の `Find` は `FindByID`、`Save` は `Create` に当たる。これらも上の移行中の改名に含める。
+Query（読み取り側）は Read Model を返し、業務の状態を変えない。実例: `book.Query.Search`（条件・範囲付き）、`tag.Query.FindAll`（全件）、`auth.SessionRepository.FindByID` / `Create`。
 
 **Domain**
 

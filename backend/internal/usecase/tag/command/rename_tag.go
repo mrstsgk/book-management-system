@@ -8,8 +8,11 @@ import (
 
 // RenameTagCommand は RenameTagUsecase の入力。データだけを持ち、ロジックは持たない。
 type RenameTagCommand struct {
-	ID      int64
-	Name    string
+	// 改名するタグの番号。
+	ID int64
+	// 新しい名前。
+	Name string
+	// 改名を始めたときに読んだ版（楽観的ロックに使う）。
 	Version int
 }
 

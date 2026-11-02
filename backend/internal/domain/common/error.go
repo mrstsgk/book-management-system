@@ -2,8 +2,7 @@ package common
 
 import "errors"
 
-// Sentinel errors returned by usecase / infrastructure. The presentation
-// layer's HTTPErrorHandler is the only place that maps them to HTTP status.
+// UseCase・Infrastructure が返す業務の分類エラー。HTTP ステータスへの変換は Presentation の HTTPErrorHandler だけが行う。
 var (
 	ErrNotFound        = errors.New("not found")         // → 404
 	ErrInvalid         = errors.New("invalid")           // → 400

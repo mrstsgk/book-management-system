@@ -12,14 +12,20 @@ import (
 
 // UpdateBookCommand は UpdateBookUsecase の入力（Presentation から渡る境界）。データだけを持ち、ロジックは持たない。
 type UpdateBookCommand struct {
-	ID      int64
+	// 更新する本の番号。
+	ID int64
+	// 一覧で見せる一言まとめ。
 	Summary string
 	// TitleOverride は自分で上書きする書名。全体の置き換えなので、前後の空白を除いて空なら上書きを外す。
 	TitleOverride string
-	TagIDs        []int64
-	Comment       string
-	Rating        int
-	Version       int
+	// 付ける分野タグの ID（全体の置き換え）。
+	TagIDs []int64
+	// 詳細で見せる感想。
+	Comment string
+	// 自分が付ける評価。
+	Rating int
+	// 編集を始めたときに読んだ版（楽観的ロックに使う）。
+	Version int
 }
 
 // UpdateBookUsecase は、読んだ本の感想・評価・書名の上書き・分野タグを更新する。

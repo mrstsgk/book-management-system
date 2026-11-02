@@ -19,9 +19,13 @@ const (
 // Bibliography は外部カタログから取得した書誌の VO。著者は独立したエンティティにせず、
 // 提供元の文字列のまま持つ（著者と訳者の区別が無く、書式も提供元ごとに違うため）。
 type Bibliography struct {
-	title       string
-	authors     string
-	publisher   string
+	// 書名。
+	title string
+	// 著者（提供元の表記のまま）。
+	authors string
+	// 出版社。
+	publisher string
+	// 出版日（提供元の表記のまま）。
 	publishedOn string
 }
 

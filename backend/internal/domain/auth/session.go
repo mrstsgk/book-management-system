@@ -28,11 +28,15 @@ func NewSessionID() (SessionID, error) {
 
 // Session はログイン済みの状態。ID 以外はいつまで有効かだけを持つ（誰のセッションかは、利用者が自分 1 人なので持たない）。
 type Session struct {
-	ID                SessionID
-	ExpiresAt         time.Time
+	// ブラウザの Cookie に渡す値。
+	ID SessionID
+	// 操作が無いまま失効する時刻。
+	ExpiresAt time.Time
+	// 延長しても超えない失効時刻。
 	AbsoluteExpiresAt time.Time
 }
 
+// NewSession は、今ログインしたセッションを作る。
 func NewSession(id SessionID, now time.Time) *Session {
 	return &Session{ID: id, ExpiresAt: now.Add(IdleTimeout), AbsoluteExpiresAt: now.Add(AbsoluteTimeout)}
 }

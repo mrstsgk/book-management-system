@@ -98,6 +98,7 @@ type Handler struct {
 	AdminOnly echo.MiddlewareFunc
 }
 
+// Register は、読んだ本の API のルートを g に登録する。
 func (h *Handler) Register(g *echo.Group) {
 	g.GET("", h.Search)
 	g.GET("/:id", h.Read)
@@ -106,7 +107,7 @@ func (h *Handler) Register(g *echo.Group) {
 	g.DELETE("/:id", h.Delete, h.AdminOnly)
 }
 
-// List godoc
+// Search は、読んだ本を検索する（GET /api/books）。
 // @Summary      読んだ本の一覧を取得する
 // @Description  新しく登録した順。q と tagId は同時に使える（両方を満たす本）。total は条件に合う、取得範囲外も含む総件数。感想の本文は詳細で返す。存在しない tagId は0件
 // @Tags         books
@@ -145,7 +146,7 @@ func (h *Handler) Search(c echo.Context) error {
 	return c.JSON(http.StatusOK, ListResponse{Items: items, Total: out.Total, Limit: limit, Offset: offset})
 }
 
-// Get godoc
+// Read は、読んだ本を 1 件参照する（GET /api/books/{id}）。
 // @Summary      読んだ本を取得する
 // @Tags         books
 // @Produce      json
@@ -167,7 +168,7 @@ func (h *Handler) Read(c echo.Context) error {
 	return c.JSON(http.StatusOK, toResponse(out))
 }
 
-// RegisterBook godoc
+// RegisterBook は、読んだ本を登録する（POST /api/books）。
 // @Summary      読んだ本を登録する（自分だけ）
 // @Description  書誌と書影は ISBN で openBD から取得する。入力・VO・相関ルールの違反は独立して判定できるものをすべて 400 の errors[{field, rule}] で返す（rule: validate のキーワード / isbn の format / isbnDuplicated / isbnNotInCatalog / tagIdsNotFound / tagIdsDuplicated）。外部カタログの照会は他の違反が無いときだけ行う
 // @Tags         books
@@ -196,7 +197,7 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 	return c.JSON(http.StatusOK, toResponse(out))
 }
 
-// Update godoc
+// Update は、読んだ本の感想・評価・書名の上書き・分野タグを更新する（PUT /api/books/{id}）。
 // @Summary      感想と評価を更新する（自分だけ）
 // @Description  あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。入力・VO・相関ルールの違反は独立して判定できるものをすべて 400 の errors[{field, rule}] で返す（rule: validate のキーワード / tagIdsNotFound / tagIdsDuplicated）。version が一致しない場合は 409
 // @Tags         books
@@ -231,7 +232,7 @@ func (h *Handler) Update(c echo.Context) error {
 	return c.JSON(http.StatusOK, toResponse(out))
 }
 
-// Delete godoc
+// Delete は、読んだ本を削除する（DELETE /api/books/{id}）。
 // @Summary      読んだ本を削除する（自分だけ）
 // @Tags         books
 // @Param        id path int true "読んだ本のID"

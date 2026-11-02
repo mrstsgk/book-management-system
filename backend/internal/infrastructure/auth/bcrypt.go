@@ -9,8 +9,10 @@ import (
 // hashCost は bcrypt のコスト。既定（10）より高くして総当たりを遅くする。ログインは 1 人が 1 日に数回なので待ち時間は問題にならない。
 const hashCost = 12
 
+// bcryptVerifier は、bcrypt でパスワードを照合する（domainauth.PasswordVerifier の実装）。
 type bcryptVerifier struct{}
 
+// NewBcryptVerifier は、bcrypt の PasswordVerifier を作る。
 func NewBcryptVerifier() domainauth.PasswordVerifier {
 	return bcryptVerifier{}
 }

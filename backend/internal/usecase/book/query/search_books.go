@@ -11,12 +11,17 @@ import (
 // SearchBooksInput は SearchBooksUsecase の入力（Presentation から渡る境界）。データだけを持ち、判定は VO が行う。
 // 引数を並べると同じ int の limit・offset・タグIDを取り違えやすいため、構造体で受け取る。
 type SearchBooksInput struct {
+	// 書名・著者の部分一致に使う語。
 	Keyword string
-	TagID   *int64
-	Limit   int
-	Offset  int
+	// 絞り込む分野タグの ID。nil なら絞り込まない。
+	TagID *int64
+	// 最大取得件数。0 なら既定値。
+	Limit int
+	// 取得開始位置。
+	Offset int
 }
 
+// SearchBooksUsecase は、読んだ本を条件で探す。
 type SearchBooksUsecase interface {
 	Execute(ctx context.Context, in SearchBooksInput) (*book.BookList, error)
 }

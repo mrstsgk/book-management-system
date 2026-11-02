@@ -10,6 +10,7 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
 )
 
+// CheckSessionUsecase は、セッションが有効かを確かめ、有効なら期限を延ばす。
 type CheckSessionUsecase interface {
 	// Execute は sessionID が有効なら nil を返してアイドル期限を延ばす。無効なら common.ErrUnauthorized。
 	Execute(ctx context.Context, sessionID string) error

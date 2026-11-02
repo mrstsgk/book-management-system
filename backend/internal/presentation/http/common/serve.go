@@ -13,10 +13,10 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// shutdownTimeout bounds in-flight request draining; keep it under the orchestrator stop timeout (commonly 30s).
+// shutdownTimeout は処理中のリクエストを待つ上限。オーケストレータの停止猶予（一般に 30 秒）より短くしておく。
 const shutdownTimeout = 10 * time.Second
 
-// Serve runs e until SIGINT/SIGTERM, then shuts down gracefully.
+// Serve は SIGINT / SIGTERM まで e を動かし、その後 graceful shutdown する。
 func Serve(e *echo.Echo, addr string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

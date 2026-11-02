@@ -6,6 +6,7 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
+// DeleteTagUsecase は、分野タグを削除する。
 type DeleteTagUsecase interface {
 	Execute(ctx context.Context, id int64) error
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 )
 
+// ReadBookUsecase は、読んだ本を 1 件参照する。
 type ReadBookUsecase interface {
 	Execute(ctx context.Context, id int64) (*book.BookDetail, error)
 }

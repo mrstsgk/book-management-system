@@ -28,11 +28,12 @@ type repository struct {
 	db *gorm.DB
 }
 
+// NewRepository は、db を使う SessionRepository を作る。
 func NewRepository(db *gorm.DB) domainauth.SessionRepository {
 	return &repository{db: db}
 }
 
-// Save は行を挿入する。
+// Create は行を挿入する。
 func (r *repository) Create(ctx context.Context, s *domainauth.Session) error {
 	row := model{ID: string(s.ID), ExpiresAt: s.ExpiresAt, AbsoluteExpiresAt: s.AbsoluteExpiresAt, CreatedAt: time.Now()}
 	return r.db.WithContext(ctx).Create(&row).Error

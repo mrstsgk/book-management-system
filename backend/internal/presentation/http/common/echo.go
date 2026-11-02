@@ -15,7 +15,7 @@ func NewEcho() *echo.Echo {
 	e.HTTPErrorHandler = HTTPErrorHandler
 	e.Use(middleware.RequestID())
 	e.Use(requestLogger())
-	// Inside the logger so panics still get an access log line with the request ID.
+	// パニックでもリクエスト ID 付きのアクセスログが残るよう、ロガーの内側に置く。
 	e.Use(middleware.Recover())
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
@@ -23,9 +23,9 @@ func NewEcho() *echo.Echo {
 	return e
 }
 
-// requestLogger writes one access log line per request via slog.
-// Error details are logged by HTTPErrorHandler at warn/error, so this stays at info.
-// The query string is not logged: it may carry tokens or personal search terms.
+// requestLogger はリクエストごとに 1 行のアクセスログを slog に書く。
+// エラーの詳細は HTTPErrorHandler が warn/error で出すので、ここは info のまま。
+// クエリ文字列はトークンや個人的な検索語を含みうるため記録しない。
 func requestLogger() echo.MiddlewareFunc {
 	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogLatency:   true,
@@ -34,7 +34,7 @@ func requestLogger() echo.MiddlewareFunc {
 		LogURIPath:   true,
 		LogStatus:    true,
 		LogRequestID: true,
-		// Run the error handler first so the logged status is the final one.
+		// 記録するステータスが最終のものになるよう、先にエラーハンドラを走らせる。
 		HandleError: true,
 		LogValuesFunc: func(_ echo.Context, v middleware.RequestLoggerValues) error {
 			slog.Info("request",

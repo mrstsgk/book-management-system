@@ -21,11 +21,10 @@ type FieldError struct {
 	Rule  string `json:"rule" example:"required"`
 } // @name FieldError
 
-// 5xx never echoes err.Error(): driver / network errors carry hosts and credentials.
+// 5xx では err.Error() を返さない（ドライバやネットワークのエラーはホスト名や資格情報を含む）。
 const internalMessage = "internal"
 
-// HTTPErrorHandler is the single place that maps errors to HTTP responses.
-// Handlers just `return err`.
+// HTTPErrorHandler はエラーを HTTP レスポンスに変換する唯一の場所。Handler は return err するだけでよい。
 func HTTPErrorHandler(err error, c echo.Context) {
 	if c.Response().Committed {
 		return

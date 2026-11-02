@@ -3,6 +3,7 @@ package common
 import "fmt"
 
 const (
+	// DefaultListLimit は limit を指定しないときの取得件数。
 	DefaultListLimit = 20
 	// MaxListLimit はクライアントの指定にかかわらず、一覧の取得件数に上限をかける。
 	MaxListLimit = 100
@@ -10,7 +11,9 @@ const (
 
 // ListRange は一覧の取得範囲の VO。取得開始位置 offset（0 以上）から、最大 limit 件（1〜MaxListLimit）を取る。
 type ListRange struct {
-	limit  int
+	// 最大取得件数。
+	limit int
+	// 取得開始位置。
 	offset int
 }
 
