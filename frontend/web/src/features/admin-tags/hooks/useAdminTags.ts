@@ -7,7 +7,7 @@ import {
 } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
 import { useLoginRedirect } from '@/hooks/useLoginRedirect'
-import { mergeTagCounts } from '../utils/mergeTagCounts'
+import { mergeTagCounts } from '@/features/admin-tags/utils/mergeTagCounts'
 
 type Outcome = { ok: true } | { ok: false; message: string; stale?: boolean }
 

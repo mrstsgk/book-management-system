@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import type { TagBookCountResponse } from '@/api/generated/api.schemas'
-import { barRatio } from '../utils/barRatio'
+import { barRatio } from '@/features/tag-counts/utils/barRatio'
 
-type TagCountsViewProps = {
+interface TagCountsViewProps {
   items: TagBookCountResponse[]
 }
 

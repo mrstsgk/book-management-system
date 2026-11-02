@@ -21,6 +21,7 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "@eslint-react/eslint-plugin": "5.28.1",
     "@eslint/js": "^9.39.5",
     "@vitest/eslint-plugin": "^1.6.27",
     "eslint": "^9.39.5",

@@ -1,5 +1,5 @@
 import { useGetApiBooksId } from '@/api/generated/api'
-import { parseBookId } from '../utils/parseBookId'
+import { parseBookId } from '@/features/book-detail/utils/parseBookId'
 
 export function useBookDetail(rawId: string | undefined) {
   const id = parseBookId(rawId)

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-type EmptyStateProps = {
+interface EmptyStateProps {
   title: string
   description?: string
   action?: ReactNode

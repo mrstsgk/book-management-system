@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { emptyBookFormValues } from '../types'
+import { emptyBookFormValues } from '@/features/admin-book-editor/types'
 import { visibleLocalErrors } from './visibleErrors'
 
 describe('visibleLocalErrors', () => {

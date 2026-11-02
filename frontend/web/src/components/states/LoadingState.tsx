@@ -1,4 +1,4 @@
-type LoadingStateProps = {
+interface LoadingStateProps {
   label?: string
 }
 

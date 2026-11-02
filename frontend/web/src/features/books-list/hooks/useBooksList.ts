@@ -1,7 +1,10 @@
 import { useSearchParams } from 'react-router-dom'
 import { useGetApiBooksInfinite, useGetApiTags } from '@/api/generated/api'
-import { nextOffset, PAGE_SIZE } from '../utils/paging'
-import { normalizeQuery, parseTagParam } from '../utils/searchParams'
+import { nextOffset, PAGE_SIZE } from '@/features/books-list/utils/paging'
+import {
+  normalizeQuery,
+  parseTagParam,
+} from '@/features/books-list/utils/searchParams'
 
 // 検索キーワードと分野タグは URL のクエリを正にする（分野別からのリンク・戻る・再読み込みで条件を保つため）
 export function useBooksList() {

@@ -1,5 +1,5 @@
 // 本の登録・編集フォームの値。登録は空から、編集は既存の本の値から始める
-export type BookFormValues = {
+export interface BookFormValues {
   titleOverride: string
   summary: string
   comment: string

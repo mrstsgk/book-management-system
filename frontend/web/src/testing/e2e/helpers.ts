@@ -19,7 +19,7 @@ export async function login(page: Page) {
   await expect(page).toHaveURL('/admin')
 }
 
-export type NewBookInput = {
+export interface NewBookInput {
   isbn: string
   titleOverride: string
   summary: string

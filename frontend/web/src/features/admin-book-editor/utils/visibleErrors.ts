@@ -1,4 +1,7 @@
-import type { BookFormErrors, BookFormValues } from '../types'
+import type {
+  BookFormErrors,
+  BookFormValues,
+} from '@/features/admin-book-editor/types'
 import { validateBookForm } from './validateBookForm'
 
 // 送信時に検出したエラー（localErrors）のうち、今の入力値でまだ誤りが残っている項目だけを残す。

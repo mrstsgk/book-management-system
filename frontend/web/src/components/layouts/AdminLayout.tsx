@@ -7,7 +7,7 @@ const navClass = (current: boolean) =>
       : 'border-transparent text-ink-300 hover:text-white'
   }`
 
-type AdminLayoutProps = {
+interface AdminLayoutProps {
   onLogout: () => void
   // ログアウトに失敗したとき true。サーバー側のセッションが残っているので画面は抜けず、再試行を促す
   logoutFailed?: boolean

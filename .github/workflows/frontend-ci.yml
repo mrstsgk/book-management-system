@@ -8,6 +8,7 @@ on:
       - 'backend/api/docs/**'
       - '.github/workflows/frontend-ci.yml'
       - '.mise.toml'
+      - '!**/*.md'
   pull_request:
     branches: [main, develop]
     paths:
@@ -15,9 +16,14 @@ on:
       - 'backend/api/docs/**'
       - '.github/workflows/frontend-ci.yml'
       - '.mise.toml'
+      - '!**/*.md'
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 defaults:
   run:
@@ -26,6 +32,7 @@ defaults:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +42,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
+          # 版は .mise.toml の node
           node-version: '24.11.0'
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml

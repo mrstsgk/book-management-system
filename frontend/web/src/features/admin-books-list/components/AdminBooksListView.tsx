@@ -5,7 +5,7 @@ import { ErrorState } from '@/components/states/ErrorState'
 import { LoadingState } from '@/components/states/LoadingState'
 import { RatingStars } from '@/components/ui/RatingStars'
 
-type AdminBooksListViewProps = {
+interface AdminBooksListViewProps {
   books: BookListItemResponse[]
   total: number
   notice?: string

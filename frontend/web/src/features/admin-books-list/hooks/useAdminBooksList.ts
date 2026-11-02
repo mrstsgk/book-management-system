@@ -1,5 +1,5 @@
 import { useGetApiBooksInfinite } from '@/api/generated/api'
-import { nextOffset, PAGE_SIZE } from '../utils/paging'
+import { nextOffset, PAGE_SIZE } from '@/features/admin-books-list/utils/paging'
 
 // 管理画面の本の一覧。検索・絞り込みは無い（冊数が少ないため。要件定義 §3・設計書「やらないこと」）
 export function useAdminBooksList() {

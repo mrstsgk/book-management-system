@@ -1,4 +1,7 @@
-import type { BookFormErrors, BookFormValues } from '../types'
+import type {
+  BookFormErrors,
+  BookFormValues,
+} from '@/features/admin-book-editor/types'
 
 const SUMMARY_MAX = 100
 const COMMENT_MAX = 5000

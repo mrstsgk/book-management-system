@@ -1,4 +1,4 @@
-type ErrorSummaryProps = {
+interface ErrorSummaryProps {
   errors: { id: string; message: string }[]
 }
 

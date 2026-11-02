@@ -8,12 +8,15 @@ import {
 } from '@/api/generated/api'
 import type { BookResponse, TagResponse } from '@/api/generated/api.schemas'
 import { useLoginRedirect } from '@/hooks/useLoginRedirect'
-import type { BookFormErrors, BookFormValues } from '../types'
-import { parseBookId } from '../utils/parseBookId'
-import { toFieldMessages } from '../utils/serverFieldErrors'
-import { tagIdsByName } from '../utils/tagIds'
-import { validateBookForm } from '../utils/validateBookForm'
-import { visibleLocalErrors } from '../utils/visibleErrors'
+import type {
+  BookFormErrors,
+  BookFormValues,
+} from '@/features/admin-book-editor/types'
+import { parseBookId } from '@/features/admin-book-editor/utils/parseBookId'
+import { toFieldMessages } from '@/features/admin-book-editor/utils/serverFieldErrors'
+import { tagIdsByName } from '@/features/admin-book-editor/utils/tagIds'
+import { validateBookForm } from '@/features/admin-book-editor/utils/validateBookForm'
+import { visibleLocalErrors } from '@/features/admin-book-editor/utils/visibleErrors'
 
 // 取得した本とタグ一覧から、フォームの初期値を作る（タグは名前からIDに引き直す）
 function buildFormValues(
@@ -82,6 +85,9 @@ export function useBookEditor(rawId: string | undefined) {
   useEffect(() => {
     if (values !== null) return
     if (!bookQuery.data || !tagsQuery.data) return
+    // 取得が終わった時点で 1 回だけフォームの初期値を作る。レンダー中に導出すると、
+    // ユーザーの入力中に再取得が走ったとき初期値で上書きしてしまうため、effect で values が null のときに限る
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setValues(buildFormValues(bookQuery.data, tags))
     setEditingVersion(bookQuery.data.version ?? null)
     // eslint-disable-next-line react-hooks/exhaustive-deps

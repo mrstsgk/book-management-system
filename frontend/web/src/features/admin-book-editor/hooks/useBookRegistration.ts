@@ -11,10 +11,10 @@ import {
   emptyBookFormValues,
   type BookFormErrors,
   type BookFormValues,
-} from '../types'
-import { toFieldMessages } from '../utils/serverFieldErrors'
-import { validateBookForm } from '../utils/validateBookForm'
-import { visibleLocalErrors } from '../utils/visibleErrors'
+} from '@/features/admin-book-editor/types'
+import { toFieldMessages } from '@/features/admin-book-editor/utils/serverFieldErrors'
+import { validateBookForm } from '@/features/admin-book-editor/utils/validateBookForm'
+import { visibleLocalErrors } from '@/features/admin-book-editor/utils/visibleErrors'
 
 // 登録が失敗したとき、フィールドの誤り以外（カタログに無い・二重登録など）の一般的な文言にする
 function generalRegisterMessage(error: ApiError | null): string | undefined {

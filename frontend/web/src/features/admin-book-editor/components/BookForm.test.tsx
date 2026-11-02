@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { TagResponse } from '@/api/generated/api.schemas'
 import { renderWithProviders } from '@/testing/render'
-import type { BookFormValues } from '../types'
+import type { BookFormValues } from '@/features/admin-book-editor/types'
 import { BookForm } from './BookForm'
 
 const tags: TagResponse[] = [

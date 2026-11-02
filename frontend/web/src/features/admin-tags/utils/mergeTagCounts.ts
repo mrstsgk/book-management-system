@@ -3,7 +3,7 @@ import type {
   TagResponse,
 } from '@/api/generated/api.schemas'
 
-export type TagWithCount = {
+export interface TagWithCount {
   id: number
   name: string
   version: number

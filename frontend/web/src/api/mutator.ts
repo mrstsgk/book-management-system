@@ -3,7 +3,10 @@
 /** Empty in local dev (Vite proxies /api). Set VITE_API_BASE_URL for deployed API. */
 const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
 
-export type FieldErrorDetail = { field: string; rule: string }
+export interface FieldErrorDetail {
+  field: string
+  rule: string
+}
 
 export class ApiError extends Error {
   readonly status: number

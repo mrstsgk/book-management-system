@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { FormField } from '@/components/form/FormField'
 import { describedBy } from '@/components/form/describedBy'
-import type { TagWithCount } from '../utils/mergeTagCounts'
+import type { TagWithCount } from '@/features/admin-tags/utils/mergeTagCounts'
 
 type Outcome = { ok: true } | { ok: false; message: string; stale?: boolean }
 
-type TagsViewProps = {
+interface TagsViewProps {
   items: TagWithCount[]
   onAdd: (name: string) => Promise<Outcome>
   onRename: (id: number, version: number, name: string) => Promise<Outcome>

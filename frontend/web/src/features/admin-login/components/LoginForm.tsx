@@ -1,6 +1,6 @@
 import { FormField } from '@/components/form/FormField'
 
-type LoginFormProps = {
+interface LoginFormProps {
   id: string
   password: string
   onIdChange: (v: string) => void

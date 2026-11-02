@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import type { BookResponse } from '@/api/generated/api.schemas'
 import { RatingStars } from '@/components/ui/RatingStars'
 
-type BookDetailViewProps = {
+interface BookDetailViewProps {
   book: BookResponse
 }
 

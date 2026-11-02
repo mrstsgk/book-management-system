@@ -1,4 +1,4 @@
-type RatingStarsProps = {
+interface RatingStarsProps {
   rating: number
   size?: 'sm' | 'lg'
 }

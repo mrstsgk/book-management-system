@@ -2,7 +2,10 @@ import { describedBy } from '@/components/form/describedBy'
 import { ErrorSummary } from '@/components/form/ErrorSummary'
 import { FormField } from '@/components/form/FormField'
 import type { TagResponse } from '@/api/generated/api.schemas'
-import type { BookFormErrors, BookFormValues } from '../types'
+import type {
+  BookFormErrors,
+  BookFormValues,
+} from '@/features/admin-book-editor/types'
 
 const RATING_LABELS: Record<number, string> = {
   1: '★',
@@ -19,7 +22,7 @@ const FIELD_LABELS: Record<keyof BookFormValues, string> = {
   tagIds: '分野タグ',
 }
 
-type BookFormProps = {
+interface BookFormProps {
   values: BookFormValues
   onChange: (values: BookFormValues) => void
   errors: BookFormErrors

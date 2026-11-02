@@ -9,7 +9,7 @@ import { ErrorState } from '@/components/states/ErrorState'
 import { LoadingState } from '@/components/states/LoadingState'
 import { RatingStars } from '@/components/ui/RatingStars'
 
-type BooksListViewProps = {
+interface BooksListViewProps {
   books: BookListItemResponse[]
   total: number
   query?: string

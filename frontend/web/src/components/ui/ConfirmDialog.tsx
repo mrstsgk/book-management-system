@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type KeyboardEvent } from 'react'
 
-type ConfirmDialogProps = {
+interface ConfirmDialogProps {
   open: boolean
   title: string
   description: string

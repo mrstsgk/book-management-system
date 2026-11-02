@@ -16,7 +16,7 @@ pnpm install
 pnpm dev              # web :3000
 pnpm test
 pnpm typecheck
-pnpm lint            # ESLint
+pnpm lint            # ESLint（依存の向き・../ の相対 import・default export の禁止も検査。architecture.md §7）
 pnpm format          # Prettier で整形（CI は pnpm format:check）
 pnpm gen:api         # Orval で API クライアント・MSW ハンドラを再生成（backend/api/docs/swagger.yaml が入力）
 pnpm build

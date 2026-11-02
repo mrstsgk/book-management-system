@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { BookFormValues } from '../types'
+import type { BookFormValues } from '@/features/admin-book-editor/types'
 import { validateBookForm } from './validateBookForm'
 
 function values(overrides: Partial<BookFormValues> = {}): BookFormValues {
