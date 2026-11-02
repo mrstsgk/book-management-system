@@ -3,7 +3,7 @@
 **日付:** 2026-11-02
 **状態:** 採用
 **カテゴリ:** review
-**参照:** PR（作成後に追記）
+**参照:** [PR #113](https://github.com/mrstsgk/book-management-system/pull/113)
 
 ## 背景・経緯
 
