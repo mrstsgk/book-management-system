@@ -89,7 +89,11 @@ function SearchPanel({
           </button>
         </div>
         {queryTooLong && (
-          <p id="books-q-error" role="alert" className="text-[13px] text-brand-800">
+          <p
+            id="books-q-error"
+            role="alert"
+            className="text-[13px] text-brand-800"
+          >
             キーワードは100文字以内で入力してください
           </p>
         )}

@@ -1,4 +1,6 @@
+import type { ApiError } from '@/api/mutator'
 import { codePointLength } from '@/utils/codePointLength'
+
 // URL の tag は正の整数だけを受け付ける。それ以外は API の 400 を画面に出さないよう絞り込みなしにする
 export function parseTagParam(value: string | null): number | undefined {
   if (value === null || !/^[1-9]\d*$/.test(value)) return undefined
@@ -16,6 +18,11 @@ export function isQueryTooLong(value: string | undefined): boolean {
   return (
     value !== undefined && codePointLength(value.trim()) > MAX_QUERY_LENGTH
   )
+}
+
+/** API が検索キーワード（q）を入力の誤りとして 400 で返したかを判定する。 */
+export function isQueryRejected(error: ApiError | null): boolean {
+  return error?.status === 400 && error.fieldErrors.some((e) => e.field === 'q')
 }
 
 /** 検索キーワードの前後の空白を除き、空ならキーワードなし（undefined）にする。 */

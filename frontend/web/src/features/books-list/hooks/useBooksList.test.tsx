@@ -142,8 +142,6 @@ describe('useBooksList', () => {
     const { result } = renderUseBooksList(`/?q=${'あ'.repeat(101)}`)
 
     expect(result.current.queryTooLong).toBe(true)
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.isError).toBe(false)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(requests).toHaveLength(0)
   })

@@ -1,5 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import { isQueryTooLong, normalizeQuery, parseTagParam } from './searchParams'
+import { ApiError } from '@/api/mutator'
+import {
+  isQueryRejected,
+  isQueryTooLong,
+  normalizeQuery,
+  parseTagParam,
+} from './searchParams'
+
+describe('isQueryRejected', () => {
+  it('400 で errors に q があれば true', () => {
+    expect(
+      isQueryRejected(
+        new ApiError(400, 'invalid request', [{ field: 'q', rule: 'max' }]),
+      ),
+    ).toBe(true)
+  })
+
+  it.each([
+    ['エラーなし', null],
+    [
+      '400 だが q 以外の項目',
+      new ApiError(400, 'x', [{ field: 'limit', rule: 'max' }]),
+    ],
+    ['400 で errors なし', new ApiError(400, 'x')],
+    ['500', new ApiError(500, 'internal', [{ field: 'q', rule: 'max' }])],
+  ])('%s なら false', (_name, error) => {
+    expect(isQueryRejected(error)).toBe(false)
+  })
+})
 
 describe('isQueryTooLong', () => {
   // 上限は要件の 100 文字。文字数は Unicode のコードポイントで数える（補助平面の絵文字 1 つは 1 文字）
@@ -9,7 +37,12 @@ describe('isQueryTooLong', () => {
     ['101文字', 'あ'.repeat(101), true],
     ['補助平面の絵文字100文字', '😀'.repeat(100), false],
     ['補助平面の絵文字101文字', '😀'.repeat(101), true],
-    ['前後の空白を除くと100文字', ` ${'あ'.repeat(100)}　`, false],
+    // 末尾は全角の空白（U+3000）
+    [
+      '前後の空白を除くと100文字',
+      ` ${'あ'.repeat(100)}${String.fromCodePoint(0x3000)}`,
+      false,
+    ],
     ['空', '', false],
   ])('%s なら上限超過=%s', (_name, input, want) => {
     expect(isQueryTooLong(input)).toBe(want)

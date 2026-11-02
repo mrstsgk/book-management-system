@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useSearchBooksInfinite, useSearchTags } from '@/api/generated/api'
 import { nextOffset, PAGE_SIZE } from '@/features/books-list/utils/paging'
 import {
+  isQueryRejected,
   isQueryTooLong,
   normalizeQuery,
   parseTagParam,
@@ -27,10 +28,7 @@ export function useBooksList() {
     },
   )
   // 数え方の食い違いなどで API が q の 400 を返したときも、エラーの画面ではなく入力欄で伝える
-  const queryTooLong =
-    tooLong ||
-    (books.error?.status === 400 &&
-      books.error.fieldErrors.some((e) => e.field === 'q'))
+  const queryTooLong = tooLong || isQueryRejected(books.error)
   const tags = useSearchTags()
 
   const update = (next: { q?: string; tag?: number }) => {
@@ -46,9 +44,10 @@ export function useBooksList() {
     hasFilter: q !== undefined || tagId !== undefined,
     books: books.data?.pages.flatMap((p) => p.items ?? []) ?? [],
     total: books.data?.pages[0]?.total ?? 0,
+    // queryTooLong のとき画面は読み込み中・エラーより先にこれを見る（読みに行かないので isPending は true のまま）
     queryTooLong,
-    isLoading: books.isPending && !queryTooLong,
-    isError: books.isError && !queryTooLong,
+    isLoading: books.isPending,
+    isError: books.isError,
     // タグ一覧もエラーだったときに残ったまま復元しないよう、再試行では両方を取り直す
     retry: () => {
       void books.refetch()
