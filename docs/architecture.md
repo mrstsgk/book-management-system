@@ -25,7 +25,7 @@
 
 | 項目 | 決定 |
 |---|---|
-| バックエンド | **Go / Echo モノリス**（1 `go.mod`・API バイナリ1つ）。Presentation → UseCase → Domain ← Infrastructure。各層はドメイン別ディレクトリ（+ common）。CQRS で Repository／Query 分離（単一 DB）。正は [`backend/architecture.md`](../backend/architecture.md) |
+| バックエンド | **Go / Echo モノリス**（1 `go.mod`・API バイナリ1つ）。`internal/` の第一階層は**業務領域別**（`book` / `tag` / `auth`）で、Presentation → UseCase → Domain ← Infrastructure の層は各領域の中に置く。技術基盤は `internal/platform/`。CQRS で Repository／Query 分離（単一 DB）。正は [`backend/architecture.md`](../backend/architecture.md) |
 | フロントエンド | **React + Vite + TypeScript** の管理画面 `frontend/web`。**mise + pnpm**。正は [`frontend/architecture.md`](../frontend/architecture.md) |
 | API 契約（境界） | **BE は Go 先行**（DTO + validator + swag）。**排出 OpenAPI → FE の TypeScript 生成は必須**。生成物は手編集しない。CI でドリフト検知（gen → diff）。詳細は backend 文書 |
 | モジュラモノリス / マイクロサービス | **採用しない**（境界が必要になったら後からパッケージを育てる） |
@@ -35,7 +35,11 @@
 
 正は [`backend/architecture.md`](../backend/architecture.md)。
 
-- API の path は `/api/...`（例: `/api/books`）。閲覧は認証なし、書き込みは管理者トークン
+本書が持つのは次だけ:
+
+- データ（読んだ本・分野タグ）の真実は 1 つ。利用者（誰でも見られる閲覧と、自分だけの管理）で API・DB を割らない
+- 利用者の差は **チャネル**（`public` = 閲覧、`admin` = 管理）として、各業務領域の `presentation/http/<channel>` に置く。Domain・UseCase はチャネルで複製しない（業務上の認可は UseCase）
+- API の path は `/api/...`（例: `/api/books`）。閲覧は認証なし、管理はログイン済みのセッション Cookie
 - ローカル開発: **ホスト Go（mise で版固定）+ Docker は DB**。API の日常起動はコンテナにしない（詳細は backend 文書）
 
 ## 3. フロントエンド（境界のみ）

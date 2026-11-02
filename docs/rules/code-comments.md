@@ -44,7 +44,7 @@ cover := catalog.CoverURL
 
 ## バックエンド
 
-層・ディレクトリは `internal/{presentation/http,usecase,domain,infrastructure/postgres,infrastructure/gateway}/<domain>`（[`backend/architecture.md`](../../backend/architecture.md) §2）。
+層・ディレクトリは `internal/<area>/{domain,usecase/{command,query},infrastructure/{postgres,gateway},presentation/http/<channel>}`（[`backend/architecture.md`](../../backend/architecture.md) §2）。
 
 | 層 | 1 行の概要を書くもの |
 |---|---|
@@ -53,7 +53,7 @@ cover := catalog.CoverURL
 | UseCase | IF の型（メソッドは `Execute` だけなので書かない）。Command DTO の型と各フィールド |
 | Presentation（Handler） | 型と各メソッド。メソッドには HTTP メソッドとパスを添える。Request／Response DTO（`dto.go`）には書かない（swag の説明タグと `validate` タグで表す） |
 | Infrastructure | Repository・Query・ExternalGateway の実装の型と各メソッド |
-| 上記以外（`cmd`・`presentation/http/common`・`infrastructure/postgres/common`・変換関数など） | 書かない（Why not だけ） |
+| 上記以外（`cmd`・`platform/httpserver`・`platform/postgres`・`domainerr`・変換関数など） | 書かない（Why not だけ） |
 
 UseCase の実装の型（`XxxUsecaseImpl`）は IF を見れば分かるので書かない。Persistence Model（`gorm` タグの付いた型）はカラムの意味の正が migration の `COMMENT ON COLUMN` と [`docs/db/backend-schema.md`](../db/backend-schema.md)（[DB 資料の規則](./db-documentation.md)）なので書かない。
 
@@ -115,8 +115,8 @@ type RegisterBookUsecase interface {
 }
 
 type RegisterBookUsecaseImpl struct {
-	Books   book.Repository
-	Catalog book.BookCatalog
+	Books   bookdomain.Repository
+	Catalog bookdomain.BookCatalog
 }
 
 // RegisterCommand は、本の新規登録の入力。
@@ -153,13 +153,13 @@ func (h *Handler) Register(c echo.Context) error { ... }
 type repository struct{ db *gorm.DB }
 
 // FindByID は、ID で本を 1 件取り出す。
-func (r *repository) FindByID(ctx context.Context, id int64) (*book.Book, error) { ... }
+func (r *repository) FindByID(ctx context.Context, id int64) (*bookdomain.Book, error) { ... }
 
 // query は、本の一覧と詳細を PostgreSQL から読み取る。
 type query struct{ db *gorm.DB }
 
 // Search は、条件に合う本を新しい順に探す。
-func (q *query) Search(ctx context.Context, cond book.ListCondition) ([]book.BookSummary, error) { ... }
+func (q *query) Search(ctx context.Context, cond bookdomain.ListCondition) ([]bookdomain.BookSummary, error) { ... }
 ```
 
 ## フロントエンド

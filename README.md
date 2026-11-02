@@ -83,7 +83,7 @@ pnpm dev                  # http://localhost:3000
 .
 ├── backend/               # Go / Echo の API（backend/architecture.md）
 │   ├── cmd/               #   実行ポイント（api）と手書き DI、見本データ
-│   ├── internal/          #   presentation / usecase / domain / infrastructure（各層の下にドメイン別 + common）
+│   ├── internal/          #   業務領域別（book・tag・auth）の中に domain / usecase / infrastructure / presentation、技術基盤（platform/）、エラー分類（domainerr/）
 │   ├── api/docs/          #   swag が排出した OpenAPI（手編集しない）
 │   ├── migrations/        #   DB マイグレーション（SQL）
 │   └── config/            #   設定の読み込み

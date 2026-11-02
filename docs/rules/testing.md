@@ -52,7 +52,7 @@
 
 | 観点 | 確認すること |
 |---|---|
-| 入力バリデーション（準正常系） | 必須の欠落・型違い・形式違い（ISBN の桁・ハイフン）・長さ／範囲の外（感想の文字数、評価の 1〜5）。利用者が起こしうる入力ミスで、システムの異常ではない。違反ごとに期待するエラー（ステータスと `errors[{field, rule}]`）を検証する。検証は層ごとに持つ: HTTP 入力は Request DTO の `validate` タグ（`BindValidate` の変換は `presentation/http/common` のテストで網羅し、各 DTO に書いた制約の値は Handler のテストで検証）、不変条件は Domain の VO のコンストラクタ（Domain のテスト）。相関ルール（詳細設計の `x-correlation-rules`）は規則ごとに、違反する入力で `errors[{field, rule}]` の `rule` に id が載ること、独立した複数の違反が 1 回の 400 でまとめて返ることを UseCase と Presentation のテストで検証する |
+| 入力バリデーション（準正常系） | 必須の欠落・型違い・形式違い（ISBN の桁・ハイフン）・長さ／範囲の外（感想の文字数、評価の 1〜5）。利用者が起こしうる入力ミスで、システムの異常ではない。違反ごとに期待するエラー（ステータスと `errors[{field, rule}]`）を検証する。検証は層ごとに持つ: HTTP 入力は Request DTO の `validate` タグ（`BindValidate` の変換は `platform/httpserver` のテストで網羅し、各 DTO に書いた制約の値は Handler のテストで検証）、不変条件は Domain の VO のコンストラクタ（Domain のテスト）。相関ルール（詳細設計の `x-correlation-rules`）は規則ごとに、違反する入力で `errors[{field, rule}]` の `rule` に id が載ること、独立した複数の違反が 1 回の 400 でまとめて返ることを UseCase と Presentation のテストで検証する |
 | 業務ルール違反（準正常系） | 入力は正しいが業務上できない操作（同じ ISBN の二重登録・openBD に無い ISBN・タグ名の重複・対象が存在しない）。違反ごとに期待するエラー（`ErrInvalid` / `ErrNotFound` / `ErrConflict` とそれに対応する 4xx）になり、状態が変わらない |
 | 同値分割・デシジョンテーブル | 結果が複数の条件の組み合わせで決まるとき（例: 書名の上書きがあるか × 外部カタログを取り直せたか）、意味のある組み合わせごとにテストがある。全部が真のケースだけにしない |
 | 状態遷移 | ステータスや版を持つものは、不正な遷移が拒否されること（例: 期限切れセッションでの操作、ログアウト済みセッションの再利用） |
@@ -127,7 +127,7 @@ Storybook は表示バリエーションのカタログであり、テストの�
 
 | 検査 | 内容 | 結果 |
 |---|---|---|
-| API の operation ごとのテスト | operation の一覧は `backend/api/docs/swagger.json` の `paths` から取る（CI のドリフト検査でコードと一致している）。**BE**: `backend/internal/presentation/http/` 配下の `*_test.go` のいずれかに、そのパスの文字列（`{id}` は任意の 1 セグメント）と HTTP メソッド（`http.MethodGet` または `"GET"`）の両方があること（リクエストを組み立てる補助関数にメソッドが隠れるため、同じ行には限定しない）。**FE**: アプリのコード（生成物・テスト・Story・`src/testing/` 以外）が生成モジュール `api/generated/api` からその operation の hook・関数（`use<Op>`・`use<Op>Infinite`・`get<Op>QueryOptions`・`get<Op>QueryKey`・`<op>`。`<Op>` は Orval の命名で HTTP メソッド + パス、例 `GetApiBooks`）を使っていれば、`*.test.ts(x)` のいずれかが生成 MSW ハンドラ `get<Op>MockHandler(` を呼ぶか、同じメソッド・パスの手書き MSW ハンドラ（`http.put('*/api/tags/:id', …)`。4xx やリクエスト内容の検証に使う）を使っていること（import だけでは不可。まだ使っていない operation は対象外）。テスト・ソースはコメントを除いて判定する。文字列での判定のため、別の operation のテストに同じパスが現れると一致する限界がある | **失敗** |
+| API の operation ごとのテスト | operation の一覧は `backend/api/docs/swagger.json` の `paths` から取る（CI のドリフト検査でコードと一致している）。**BE**: `backend/internal/*/presentation/http/` 配下の `*_test.go` のいずれかに、そのパスの文字列（`{id}` は任意の 1 セグメント）と HTTP メソッド（`http.MethodGet` または `"GET"`）の両方があること（リクエストを組み立てる補助関数にメソッドが隠れるため、同じ行には限定しない）。**FE**: アプリのコード（生成物・テスト・Story・`src/testing/` 以外）が生成モジュール `api/generated/api` からその operation の hook・関数（`use<Op>`・`use<Op>Infinite`・`get<Op>QueryOptions`・`get<Op>QueryKey`・`<op>`。`<Op>` は Orval の命名で HTTP メソッド + パス、例 `GetApiBooks`）を使っていれば、`*.test.ts(x)` のいずれかが生成 MSW ハンドラ `get<Op>MockHandler(` を呼ぶか、同じメソッド・パスの手書き MSW ハンドラ（`http.put('*/api/tags/:id', …)`。4xx やリクエスト内容の検証に使う）を使っていること（import だけでは不可。まだ使っていない operation は対象外）。テスト・ソースはコメントを除いて判定する。文字列での判定のため、別の operation のテストに同じパスが現れると一致する限界がある | **失敗** |
 | 変更したソースのテスト | PR で変更した `backend/{internal,cmd}/**/*.go`・`frontend/*/src/**/*.ts(x)`（`frontend/packages/*/src` を含む。テスト・Story・`*.d.ts`・`src/testing/`・生成物を除く）のうち、同じディレクトリのテストが追加・変更されていないもの。GitHub の注釈は 1 ステップ 10 件までしか表示されないため、全件はジョブのサマリーに出す | 警告のみ |
 
 失敗にするのは、「API があるのにテストが無い」は客観的に判定でき例外が無いため。変更したソースのテストは、要らない正当な変更があり機械的に判定できないため警告にとどめる（失敗にすると形だけのテスト変更を誘う）。
@@ -148,18 +148,18 @@ Storybook は表示バリエーションのカタログであり、テストの�
 
 | 層 | テスト（ファイル） | 何をテストするか | そのテストが担保すること |
 |---|---|---|---|
-| Domain | `internal/domain/<domain>/*_test.go` | VO・Entity のコンストラクタと業務ルール。DB・HTTP に依存しない | 業務上の制約の境界値（要件定義から）・不変条件・状態遷移。不正な状態を作れないこと |
-| UseCase | `internal/usecase/<domain>/{command,query}/*_test.go` | 手書き Fake を注入したシナリオ | 業務上の認可・分岐・下位層のエラーの伝播・失敗時に状態が変わらないこと・入力エラー時に下位層を呼ばないこと |
-| Infrastructure（DB） | `internal/infrastructure/postgres/<domain>/*_test.go` | 実際の PostgreSQL に対する契約テスト。**SQL が複雑なときに書く** | JOIN・集計・ロック・トランザクション・DB 固有の機能が期待どおりに読み書きすること |
-| Infrastructure（外部連携） | `internal/infrastructure/gateway/<提供元>/*_test.go` | 外部サービスの mock（`httptest`）に対する契約テスト | リクエスト・レスポンスの組み立てとシリアライズ |
-| presentation/http/common | `internal/presentation/http/common/*_test.go` | `BindValidate` の変換とエラーの変換 | 制約の**種類**（`required`・`max`・`min`・`oneof` 等）ごとに違反が 400 + `errors[{field, rule}]` になること。domain error → HTTP ステータスの変換 |
-| Presentation（Fake） | `internal/presentation/http/<domain>/handler_test.go` | Fake の UseCase を注入し `e.ServeHTTP` で実リクエスト | Request DTO に書いた `validate` 制約がすべて要件どおりであること（制約 1 つにつき通る値と弾かれる値の 1 組）・UseCase への受け渡し・domain error → ステータス |
-| Presentation（結合） | `internal/presentation/http/<domain>/handler_integration_test.go` | 実際の DI 配線 + 実際の PostgreSQL で、API が返しうるステータスごとに実リクエスト | Handler → UseCase → Repository／Query → DB の配線が実物同士で噛み合っていること・DB の値が期待するフィールドに載ること |
+| Domain | `internal/<area>/domain/*_test.go` | VO・Entity のコンストラクタと業務ルール。DB・HTTP に依存しない | 業務上の制約の境界値（要件定義から）・不変条件・状態遷移。不正な状態を作れないこと |
+| UseCase | `internal/<area>/usecase/{command,query}/*_test.go` | 手書き Fake を注入したシナリオ | 業務上の認可・分岐・下位層のエラーの伝播・失敗時に状態が変わらないこと・入力エラー時に下位層を呼ばないこと |
+| Infrastructure（DB） | `internal/<area>/infrastructure/postgres/*_test.go` | 実際の PostgreSQL に対する契約テスト。**SQL が複雑なときに書く** | JOIN・集計・ロック・トランザクション・DB 固有の機能が期待どおりに読み書きすること |
+| Infrastructure（外部連携） | `internal/<area>/infrastructure/gateway/<提供元>/*_test.go` | 外部サービスの mock（`httptest`）に対する契約テスト | リクエスト・レスポンスの組み立てとシリアライズ |
+| platform/httpserver | `internal/platform/httpserver/*_test.go` | `BindValidate` の変換とエラーの変換 | 制約の**種類**（`required`・`max`・`min`・`oneof` 等）ごとに違反が 400 + `errors[{field, rule}]` になること。domain error → HTTP ステータスの変換 |
+| Presentation（Fake） | `internal/<area>/presentation/http/<channel>/handler_test.go` | Fake の UseCase を注入し `e.ServeHTTP` で実リクエスト | Request DTO に書いた `validate` 制約がすべて要件どおりであること（制約 1 つにつき通る値と弾かれる値の 1 組）・UseCase への受け渡し・domain error → ステータス |
+| Presentation（結合） | `internal/<area>/presentation/http/<channel>/handler_integration_test.go` | 実際の DI 配線 + 実際の PostgreSQL で、API が返しうるステータスごとに実リクエスト | Handler → UseCase → Repository／Query → DB の配線が実物同士で噛み合っていること・DB の値が期待するフィールドに載ること |
 | cmd | `cmd/api/main_test.go` | `registerRoutes` で組み立てたサーバーへの実リクエスト | ルートが登録され依存に nil が無いこと・セッション／同一オリジンの middleware が書き込み系に適用されていること |
 
 - テストは対象と**同じディレクトリ**に `*_test.go` として置く
-  （例: `internal/domain/book/title.go` と `title_test.go` が同居）
-- **原則、外部テストパッケージにする**: package 名は `<対象>_test`（例: `package book_test`）。
+  （例: `internal/book/domain/title.go` と `title_test.go` が同居）
+- **原則、外部テストパッケージにする**: package 名は `<対象>_test`（例: `package domain_test`）。
   公開 API を通した振る舞いを検証する
 - **例外**: 非公開シンボルの検証が必要な場合のみ in-package（`package <対象>`）を許可。
   なぜ外から検証できないのかをファイル冒頭のコメントに残す
@@ -168,9 +168,9 @@ Storybook は表示バリエーションのカタログであり、テストの�
   UseCase のテストは Fake を注入し、infrastructure（PostgreSQL）に繋がずに走ることを目標にする
 - **Domain のテストは DB・HTTP に依存しない**: 不変条件・業務ルール・状態遷移・境界値、および不正な状態を
   生成できないこと（コンストラクタがエラーを返すこと）を検証する
-- Handler のテスト（`handler_test.go`）は `httptest` + `common.NewEcho()` を使い `e.ServeHTTP` の実リクエストで検証する
+- Handler のテスト（`handler_test.go`）は `httptest` + `httpserver.NewEcho()` を使い `e.ServeHTTP` の実リクエストで検証する
   （Handler を直接呼ぶだけだとエラーが応答へ変換されない。変換はルーターに登録された
-  `common.HTTPErrorHandler` が担うため）。`BindValidate` による 400（フィールドエラー含む）と、
+  `httpserver.HTTPErrorHandler` が担うため）。`BindValidate` による 400（フィールドエラー含む）と、
   domain error → HTTP ステータスの変換を確認する。**Request DTO に書いた `validate` 制約がすべて要件どおりか**は、
   operation ごとに 1 つのテーブルドリブンのテストにまとめ、制約 1 つにつき「通る値」と「弾かれる値（400 と `errors[{field, rule}]`）」の 1 組を
   要件定義から取って送る（制約の値は BE の `validate` タグと FE の入力チェックの両方の元になり、書き間違いはこれ以外のテストでは見つからない）
@@ -183,8 +183,8 @@ Storybook は表示バリエーションのカタログであり、テストの�
     | `dive`・配列の件数 | 件数の境界ちょうど | 境界の 1 つ外 |
     | 形式（ISBN 等の独自検証） | 合う値 | 合わない値 |
 
-- 制約の種類ごとの変換（`validate` のタグ → 400 + `errors[{field, rule}]`）は `presentation/http/common` のテストで網羅する。
-  Handler のテストでは種類ごとの網羅を繰り返さない。**初めて使う種類の制約は、その PR で common のテストに足す**
+- 制約の種類ごとの変換（`validate` のタグ → 400 + `errors[{field, rule}]`）は `platform/httpserver` のテストで網羅する。
+  Handler のテストでは種類ごとの網羅を繰り返さない。**初めて使う種類の制約は、その PR で `platform/httpserver` のテストに足す**
 - **Repository／Query の契約テストは、SQL が複雑なときに書く**: JOIN・サブクエリ・集計（`GROUP BY` 等）・
   ロックや複数文のトランザクション（楽観ロックの version 比較など）・DB 固有の機能を使う場合が対象。
   単純な取得・保存だけなら必須にしない（SQL と詰め替えは結合テストで実際の DB を通る。既存の契約テストは残してよい）
@@ -197,15 +197,15 @@ Storybook は表示バリエーションのカタログであり、テストの�
   取得できること・Read Model の各フィールドへ正しくマッピングされることに加えて、**更新系の
   Domain Model（Entity・VO）に依存していないこと**（例: Read Model の `Title` が `string` であり
   書き込み側の `Title` VO 型を返していないこと）を確認する
-- **Presentation → Infrastructure の結合テスト**: 各 Handler につき、`httptest` + `common.NewEcho()` +
+- **Presentation → Infrastructure の結合テスト**: 各 Handler につき、`httptest` + `httpserver.NewEcho()` +
   実際の DI 配線（`registerRoutes` 相当）+ 実際の PostgreSQL を通した実 HTTP リクエストで、その Handler が
   **返しうる HTTP ステータスごとに最低 1 件**のテストを書く（200 のハッピーパス＋実際に返しうる 4xx/5xx を
   それぞれ 1 件ずつ）。狙いは内部の分岐網羅ではなく、Handler→UseCase→Repository/Query→DB の配線が
   実物同士で噛み合っていることの確認であり、既存の Fake ベースの Handler／UseCase テストと契約テストを
   代替しない（分岐網羅・境界値はそれらに任せる）。外部 API（openBD など）に依存する Handler は、
   その依存だけ Fake の Gateway に差し替え、DB は実物のままにする（外部ゲートウェイ自体は
-  `infrastructure/gateway/<name>` の単体テストで別途検証済みのため、ここで実ネットワークに頼る必要はない）。
-  ファイルは対象と同じディレクトリに `<handler>_integration_test.go` として置く。500 はキャンセルした context で
+  `<area>/infrastructure/gateway/<name>` の単体テストで別途検証済みのため、ここで実ネットワークに頼る必要はない）。
+  ファイルは対象と同じディレクトリに `<handler>_integration_test.go` として置く。閲覧（`public`）と管理（`admin`）で Handler が分かれているので、テストの準備や確認に別のチャネルの API が要るとき（例: 閲覧のテストで一覧に出す行を作る）は、その API を呼ばずに DB へ直接入れる・DB で確かめる。500 はキャンセルした context で
   リクエストを送り、実際の DB の呼び出しを失敗させて作る（DB を止めない）
 - **`cmd` の配線のテスト**: `cmd/api/main_test.go` で、`registerRoutes` に実際の依存を渡し、各ルートが Handler → UseCase を通って
   応答すること（依存の nil・登録漏れ）と、書き込み系にセッション・同一オリジンの middleware が適用されていることを確認する。

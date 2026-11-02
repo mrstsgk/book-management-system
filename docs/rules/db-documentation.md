@@ -4,7 +4,7 @@
 
 ## なぜ資料化するか
 
-スキーマの正は golang-migrate の `backend/migrations/*.sql`（差分の積み重ね）で、GORM AutoMigrate は使わない（[`backend/architecture.md`](../../backend/architecture.md)）。GORM のモデル構造体（`infrastructure/postgres/<domain>/model.go`）は必要なカラムしか持たず、CHECK 制約・デフォルト値・インデックスのように SQL にしか無い情報もある。テーブルの「今の完全な状態」を知るには複数のマイグレーションを順に合成する必要があり、資料化する価値がある。
+スキーマの正は golang-migrate の `backend/migrations/*.sql`（差分の積み重ね）で、GORM AutoMigrate は使わない（[`backend/architecture.md`](../../backend/architecture.md)）。GORM のモデル構造体（`internal/<area>/infrastructure/postgres/` の非公開 `model`）は必要なカラムしか持たず、CHECK 制約・デフォルト値・インデックスのように SQL にしか無い情報もある。テーブルの「今の完全な状態」を知るには複数のマイグレーションを順に合成する必要があり、資料化する価値がある。
 
 ## なぜ2種類必要か
 
