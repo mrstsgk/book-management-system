@@ -54,7 +54,7 @@ func TestQuery_FindDetailByID(t *testing.T) {
 	}
 }
 
-func TestQuery_FindList(t *testing.T) {
+func TestQuery_Search(t *testing.T) {
 	db := connectTestDB(t)
 	qry := pgbook.NewQuery(db)
 	ctx := context.Background()
@@ -72,15 +72,15 @@ func TestQuery_FindList(t *testing.T) {
 	createBook(t, db, older)
 	newer := newBook(t, "9780000000071", "list-test-newer", mustCover(t, "https://cover.openbd.jp/newer.jpg"), 5)
 	createBook(t, db, newer)
-	all, err := qry.FindList(ctx, domainbook.ListCondition{}, listRange(t, 1, 0))
+	all, err := qry.Search(ctx, domainbook.ListCondition{}, listRange(t, 1, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	t.Run("新しく登録した順に取得範囲の分を返し、感想の本文は含めない", func(t *testing.T) {
-		got, err := qry.FindList(ctx, domainbook.ListCondition{}, listRange(t, 2, 0))
+		got, err := qry.Search(ctx, domainbook.ListCondition{}, listRange(t, 2, 0))
 		if err != nil {
-			t.Fatalf("FindList: %v", err)
+			t.Fatalf("Search: %v", err)
 		}
 		want := &domainbook.BookList{Total: all.Total, Items: []*domainbook.BookListItem{
 			{ID: newer.ID, ISBN: "9780000000071", Title: "list-test-newer", Summary: "一言まとめ", Tags: []string{}, Authors: "Kleppmann,Martin",
@@ -94,11 +94,11 @@ func TestQuery_FindList(t *testing.T) {
 	})
 
 	t.Run("続きの範囲と範囲外", func(t *testing.T) {
-		got, err := qry.FindList(ctx, domainbook.ListCondition{}, listRange(t, 1, 1))
+		got, err := qry.Search(ctx, domainbook.ListCondition{}, listRange(t, 1, 1))
 		if err != nil || len(got.Items) != 1 || got.Items[0].ID != older.ID {
 			t.Fatalf("got (%+v, %v), want only the older book", got, err)
 		}
-		out, err := qry.FindList(ctx, domainbook.ListCondition{}, listRange(t, 1, all.Total))
+		out, err := qry.Search(ctx, domainbook.ListCondition{}, listRange(t, 1, all.Total))
 		if err != nil || out.Items == nil || len(out.Items) != 0 || out.Total != all.Total {
 			t.Fatalf("got (%#v, %v), want an empty non-nil list with total %d", out, err, all.Total)
 		}
@@ -138,9 +138,9 @@ func TestQuery_DisplayTitle(t *testing.T) {
 
 	t.Run("一覧も表示する書名と一言まとめを返す", func(t *testing.T) {
 		r, _ := domaincommon.NewListRange(100, 0)
-		list, err := q.FindList(context.Background(), domainbook.ListCondition{}, r)
+		list, err := q.Search(context.Background(), domainbook.ListCondition{}, r)
 		if err != nil {
-			t.Fatalf("FindList: %v", err)
+			t.Fatalf("Search: %v", err)
 		}
 		titles := map[domainbook.ID]*domainbook.BookListItem{}
 		for _, it := range list.Items {
@@ -198,9 +198,9 @@ func TestQuery_Tags(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		list, err := q.FindList(context.Background(), domainbook.ListCondition{}, r)
+		list, err := q.Search(context.Background(), domainbook.ListCondition{}, r)
 		if err != nil {
-			t.Fatalf("FindList: %v", err)
+			t.Fatalf("Search: %v", err)
 		}
 		byID := map[domainbook.ID]*domainbook.BookListItem{}
 		for _, it := range list.Items {
@@ -223,9 +223,9 @@ func TestQuery_Tags(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		list, err := q.FindList(context.Background(), domainbook.ListCondition{}, r)
+		list, err := q.Search(context.Background(), domainbook.ListCondition{}, r)
 		if err != nil {
-			t.Fatalf("FindList: %v", err)
+			t.Fatalf("Search: %v", err)
 		}
 		if len(list.Items) != 1 || list.Items[0].ID != taggedC.ID {
 			t.Fatalf("Items = %+v, want only taggedC (%d)", list.Items, taggedC.ID)
@@ -236,7 +236,7 @@ func TestQuery_Tags(t *testing.T) {
 	})
 }
 
-func TestQuery_FindList_Condition(t *testing.T) {
+func TestQuery_Search_Condition(t *testing.T) {
 	db := connectTestDB(t)
 	q := pgbook.NewQuery(db)
 	ctx := context.Background()
@@ -305,9 +305,9 @@ func TestQuery_FindList_Condition(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			list, err := q.FindList(ctx, c, r)
+			list, err := q.Search(ctx, c, r)
 			if err != nil {
-				t.Fatalf("FindList: %v", err)
+				t.Fatalf("Search: %v", err)
 			}
 			got := map[domainbook.ID]bool{}
 			for _, it := range list.Items {

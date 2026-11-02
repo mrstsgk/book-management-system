@@ -18,8 +18,8 @@ type fakeSessions struct {
 	updatedAt time.Time
 }
 
-func (f *fakeSessions) Save(context.Context, *auth.Session) error { return nil }
-func (f *fakeSessions) Find(context.Context, auth.SessionID) (*auth.Session, error) {
+func (f *fakeSessions) Create(context.Context, *auth.Session) error { return nil }
+func (f *fakeSessions) FindByID(context.Context, auth.SessionID) (*auth.Session, error) {
 	return f.found, f.findErr
 }
 func (f *fakeSessions) Delete(context.Context, auth.SessionID) error { return nil }

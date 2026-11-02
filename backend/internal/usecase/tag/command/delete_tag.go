@@ -6,14 +6,14 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
-type DeleteUsecase interface {
+type DeleteTagUsecase interface {
 	Execute(ctx context.Context, id int64) error
 }
 
-type DeleteUsecaseImpl struct {
+type DeleteTagUsecaseImpl struct {
 	Tags tag.Repository
 }
 
-func (u *DeleteUsecaseImpl) Execute(ctx context.Context, id int64) error {
+func (u *DeleteTagUsecaseImpl) Execute(ctx context.Context, id int64) error {
 	return u.Tags.Delete(ctx, tag.ID(id))
 }

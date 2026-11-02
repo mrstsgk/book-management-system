@@ -33,13 +33,13 @@ func NewRepository(db *gorm.DB) domainauth.SessionRepository {
 }
 
 // Save は行を挿入する。
-func (r *repository) Save(ctx context.Context, s *domainauth.Session) error {
+func (r *repository) Create(ctx context.Context, s *domainauth.Session) error {
 	row := model{ID: string(s.ID), ExpiresAt: s.ExpiresAt, AbsoluteExpiresAt: s.AbsoluteExpiresAt, CreatedAt: time.Now()}
 	return r.db.WithContext(ctx).Create(&row).Error
 }
 
-// Find は id の行を返す。無ければ common.ErrNotFound を返す。
-func (r *repository) Find(ctx context.Context, id domainauth.SessionID) (*domainauth.Session, error) {
+// FindByID は id の行を返す。無ければ common.ErrNotFound を返す。
+func (r *repository) FindByID(ctx context.Context, id domainauth.SessionID) (*domainauth.Session, error) {
 	var row model
 	if err := r.db.WithContext(ctx).First(&row, "id = ?", string(id)).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

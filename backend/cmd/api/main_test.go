@@ -100,7 +100,7 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := pgauth.NewRepository(db).Save(context.Background(), domainauth.NewSession(sid, time.Now())); err != nil {
+	if err := pgauth.NewRepository(db).Create(context.Background(), domainauth.NewSession(sid, time.Now())); err != nil {
 		t.Fatalf("save session: %v", err)
 	}
 	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(sid)) })
@@ -163,7 +163,7 @@ func TestRegisterRoutes_AppliesSessionAndSameOriginToAdminRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := pgauth.NewRepository(db).Save(context.Background(), domainauth.NewSession(sid, time.Now())); err != nil {
+	if err := pgauth.NewRepository(db).Create(context.Background(), domainauth.NewSession(sid, time.Now())); err != nil {
 		t.Fatalf("save session: %v", err)
 	}
 	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(sid)) })

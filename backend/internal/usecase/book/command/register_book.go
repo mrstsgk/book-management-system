@@ -9,8 +9,8 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
-// RegisterCommand は RegisterUsecase の入力（Presentation から渡る境界）。データだけを持ち、ロジックは持たない。
-type RegisterCommand struct {
+// RegisterBookCommand は RegisterBookUsecase の入力（Presentation から渡る境界）。データだけを持ち、ロジックは持たない。
+type RegisterBookCommand struct {
 	ISBN    string
 	Summary string
 	// TitleOverride は自分で上書きする書名。前後の空白を除いて空なら上書きしない。
@@ -20,12 +20,12 @@ type RegisterCommand struct {
 	Rating        int
 }
 
-// RegisterUsecase は、読んだ本を登録する。
-type RegisterUsecase interface {
-	Execute(ctx context.Context, cmd RegisterCommand) (*book.BookDetail, error)
+// RegisterBookUsecase は、読んだ本を登録する。
+type RegisterBookUsecase interface {
+	Execute(ctx context.Context, cmd RegisterBookCommand) (*book.BookDetail, error)
 }
 
-type RegisterUsecaseImpl struct {
+type RegisterBookUsecaseImpl struct {
 	Books   book.Repository
 	Catalog book.BookCatalog
 	Details book.Query
@@ -33,7 +33,7 @@ type RegisterUsecaseImpl struct {
 }
 
 // Execute は入力の違反（VO・相関ルール）をすべて集めてから、ISBN で外部カタログの書誌・書影を取得し、感想・評価と合わせて登録する。
-func (u *RegisterUsecaseImpl) Execute(ctx context.Context, cmd RegisterCommand) (*book.BookDetail, error) {
+func (u *RegisterBookUsecaseImpl) Execute(ctx context.Context, cmd RegisterBookCommand) (*book.BookDetail, error) {
 	var vs common.Violations
 	isbn, err := book.NewISBN(cmd.ISBN)
 	isbnOK := err == nil

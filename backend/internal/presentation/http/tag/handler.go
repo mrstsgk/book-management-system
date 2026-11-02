@@ -41,17 +41,17 @@ type BookCountListResponse struct {
 
 // Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
 type Handler struct {
-	RegisterUC   tagcmd.RegisterUsecase
-	RenameUC     tagcmd.RenameUsecase
-	DeleteUC     tagcmd.DeleteUsecase
-	ListUC       tagqry.ListUsecase
-	CountBooksUC tagqry.CountBooksUsecase
+	RegisterTagUsecase tagcmd.RegisterTagUsecase
+	RenameTagUsecase   tagcmd.RenameTagUsecase
+	DeleteTagUsecase   tagcmd.DeleteTagUsecase
+	SearchTagsUsecase  tagqry.SearchTagsUsecase
+	CountBooksUsecase  tagqry.CountBooksUsecase
 	// AdminOnly は追加・改名・削除に掛ける認証（閲覧は誰でもできる）。
 	AdminOnly echo.MiddlewareFunc
 }
 
 func (h *Handler) Register(g *echo.Group) {
-	g.GET("", h.List)
+	g.GET("", h.Search)
 	g.GET("/counts", h.CountBooks)
 	g.POST("", h.RegisterTag, h.AdminOnly)
 	g.PUT("/:id", h.Rename, h.AdminOnly)
@@ -65,8 +65,8 @@ func (h *Handler) Register(g *echo.Group) {
 // @Success      200 {object} ListResponse
 // @Failure      500 {object} common.ErrorResponse
 // @Router       /api/tags [get]
-func (h *Handler) List(c echo.Context) error {
-	out, err := h.ListUC.Execute(c.Request().Context())
+func (h *Handler) Search(c echo.Context) error {
+	out, err := h.SearchTagsUsecase.Execute(c.Request().Context())
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (h *Handler) List(c echo.Context) error {
 // @Failure      500 {object} common.ErrorResponse
 // @Router       /api/tags/counts [get]
 func (h *Handler) CountBooks(c echo.Context) error {
-	out, err := h.CountBooksUC.Execute(c.Request().Context())
+	out, err := h.CountBooksUsecase.Execute(c.Request().Context())
 	if err != nil {
 		return err
 	}
@@ -117,7 +117,7 @@ func (h *Handler) RegisterTag(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	out, err := h.RegisterUC.Execute(c.Request().Context(), tagcmd.RegisterCommand{Name: req.Name})
+	out, err := h.RegisterTagUsecase.Execute(c.Request().Context(), tagcmd.RegisterTagCommand{Name: req.Name})
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func (h *Handler) Rename(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	out, err := h.RenameUC.Execute(c.Request().Context(), tagcmd.RenameCommand{ID: id, Name: req.Name, Version: *req.Version})
+	out, err := h.RenameTagUsecase.Execute(c.Request().Context(), tagcmd.RenameTagCommand{ID: id, Name: req.Name, Version: *req.Version})
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (h *Handler) Delete(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := h.DeleteUC.Execute(c.Request().Context(), id); err != nil {
+	if err := h.DeleteTagUsecase.Execute(c.Request().Context(), id); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)

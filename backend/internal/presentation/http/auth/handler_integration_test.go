@@ -59,15 +59,15 @@ func newIntegrationEcho(t *testing.T, db *gorm.DB) *echo.Echo {
 	e := common.NewEcho()
 	api := e.Group("/api")
 	(&httpauth.Handler{
-		LoginUC: &authcmd.LoginUsecaseImpl{
+		LoginUsecase: &authcmd.LoginUsecaseImpl{
 			Admin: authcmd.AdminAccount{ID: "admin", PasswordHash: string(hash)}, Verifier: infraauth.NewBcryptVerifier(),
 			Sessions: sessions, Now: time.Now,
 		},
-		LogoutUC: &authcmd.LogoutUsecaseImpl{Sessions: sessions}, CheckUC: check, SameOrigin: common.RequireSameOrigin(),
+		LogoutUsecase: &authcmd.LogoutUsecaseImpl{Sessions: sessions}, CheckSessionUsecase: check, SameOrigin: common.RequireSameOrigin(),
 	}).Register(api.Group("/auth"))
 	repo := pgtag.NewRepository(db)
 	(&httptag.Handler{
-		RegisterUC: &tagcmd.RegisterUsecaseImpl{Tags: repo, TagQuery: pgtag.NewQuery(db)}, DeleteUC: &tagcmd.DeleteUsecaseImpl{Tags: repo}, AdminOnly: adminOnly,
+		RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: repo, TagQuery: pgtag.NewQuery(db)}, DeleteTagUsecase: &tagcmd.DeleteTagUsecaseImpl{Tags: repo}, AdminOnly: adminOnly,
 	}).Register(api.Group("/tags"))
 	return e
 }

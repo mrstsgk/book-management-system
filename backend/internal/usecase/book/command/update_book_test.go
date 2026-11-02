@@ -24,15 +24,15 @@ func existingBook(t *testing.T) *book.Book {
 	return b
 }
 
-func TestUpdateUsecase_Execute(t *testing.T) {
+func TestUpdateBookUsecase_Execute(t *testing.T) {
 	t.Parallel()
-	cmd := command.UpdateCommand{ID: 10, Summary: "読み返したまとめ", TitleOverride: "新しい上書き", TagIDs: []int64{3}, Comment: "読み返した", Rating: 5, Version: 2}
+	cmd := command.UpdateBookCommand{ID: 10, Summary: "読み返したまとめ", TitleOverride: "新しい上書き", TagIDs: []int64{3}, Comment: "読み返した", Rating: 5, Version: 2}
 
 	t.Run("感想・評価を差し替え、書誌と書影を取り直して保存する", func(t *testing.T) {
 		t.Parallel()
 		books := &fakeBooks{findByID: existingBook(t)}
 		details := &fakeDetails{detail: &book.BookDetail{ID: 10}}
-		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "新しい書名", nil)}, Details: details, Tags: &fakeTagQuery{exists: true}}
+		uc := &command.UpdateBookUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "新しい書名", nil)}, Details: details, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), cmd); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -58,7 +58,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		books := &fakeBooks{findByID: existingBook(t)}
 		c := cmd
 		c.TitleOverride = ""
-		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "新しい書名", nil)}, Details: &fakeDetails{detail: &book.BookDetail{}}, Tags: &fakeTagQuery{exists: true}}
+		uc := &command.UpdateBookUsecaseImpl{Books: books, Catalog: &fakeCatalog{entry: catalogEntry(t, "新しい書名", nil)}, Details: &fakeDetails{detail: &book.BookDetail{}}, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), c); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -74,7 +74,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		catalog := &fakeCatalog{}
 		c := cmd
 		c.Summary = ""
-		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
+		uc := &command.UpdateBookUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), c); !errors.Is(err, common.ErrInvalid) {
 			t.Fatalf("err = %v, want ErrInvalid", err)
@@ -95,7 +95,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			books := &fakeBooks{findByID: existingBook(t)}
-			uc := &command.UpdateUsecaseImpl{Books: books, Catalog: tt.catalog, Details: &fakeDetails{detail: &book.BookDetail{}}, Tags: &fakeTagQuery{exists: true}}
+			uc := &command.UpdateBookUsecaseImpl{Books: books, Catalog: tt.catalog, Details: &fakeDetails{detail: &book.BookDetail{}}, Tags: &fakeTagQuery{exists: true}}
 
 			if _, err := uc.Execute(context.Background(), cmd); err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -112,7 +112,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		existing := existingBook(t)
 		books := &fakeBooks{findByID: existing}
 		catalog := &fakeCatalog{}
-		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
+		uc := &command.UpdateBookUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
 		c := cmd
 		c.Comment = ""
 
@@ -126,7 +126,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 
 	t.Run("存在しない本はNotFound", func(t *testing.T) {
 		t.Parallel()
-		uc := &command.UpdateUsecaseImpl{Books: &fakeBooks{findByIDErr: common.ErrNotFound}, Catalog: &fakeCatalog{}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
+		uc := &command.UpdateBookUsecaseImpl{Books: &fakeBooks{findByIDErr: common.ErrNotFound}, Catalog: &fakeCatalog{}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), cmd); !errors.Is(err, common.ErrNotFound) {
 			t.Fatalf("err = %v, want ErrNotFound", err)
@@ -135,7 +135,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 
 	t.Run("楽観的ロックの競合はConflictを返す", func(t *testing.T) {
 		t.Parallel()
-		uc := &command.UpdateUsecaseImpl{Books: &fakeBooks{findByID: existingBook(t), updateErr: common.ErrConflict}, Catalog: &fakeCatalog{entry: catalogEntry(t, "x", nil)}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
+		uc := &command.UpdateBookUsecaseImpl{Books: &fakeBooks{findByID: existingBook(t), updateErr: common.ErrConflict}, Catalog: &fakeCatalog{entry: catalogEntry(t, "x", nil)}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), cmd); !errors.Is(err, common.ErrConflict) {
 			t.Fatalf("err = %v, want ErrConflict", err)
@@ -148,7 +148,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		catalog := &fakeCatalog{}
 		c := cmd
 		c.TagIDs = []int64{999}
-		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: false}}
+		uc := &command.UpdateBookUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: false}}
 
 		_, err := uc.Execute(context.Background(), c)
 		if want := (common.Violations{{Field: "tagIds", Rule: "tagIdsNotFound"}}); !reflect.DeepEqual(violationsOf(t, err), want) {
@@ -165,7 +165,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		books := &fakeBooks{findByID: existing}
 		c := cmd
 		c.Summary, c.Rating, c.TagIDs = "", 9, []int64{999}
-		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: &fakeCatalog{}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: false}}
+		uc := &command.UpdateBookUsecaseImpl{Books: books, Catalog: &fakeCatalog{}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: false}}
 
 		_, err := uc.Execute(context.Background(), c)
 		want := common.Violations{{Field: "summary", Rule: "invalid"}, {Field: "rating", Rule: "invalid"}, {Field: "tagIds", Rule: "tagIdsNotFound"}}
@@ -183,7 +183,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		catalog := &fakeCatalog{}
 		c := cmd
 		c.TagIDs = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
-		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
+		uc := &command.UpdateBookUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
 
 		if _, err := uc.Execute(context.Background(), c); !errors.Is(err, common.ErrInvalid) {
 			t.Fatalf("err = %v, want ErrInvalid", err)

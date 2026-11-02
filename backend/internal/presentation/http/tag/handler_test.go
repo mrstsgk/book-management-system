@@ -34,15 +34,15 @@ func fakeAdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-type fakeRegister func(context.Context, tagcmd.RegisterCommand) (*tagcmd.TagView, error)
+type fakeRegister func(context.Context, tagcmd.RegisterTagCommand) (*tagcmd.TagView, error)
 
-func (f fakeRegister) Execute(ctx context.Context, cmd tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
+func (f fakeRegister) Execute(ctx context.Context, cmd tagcmd.RegisterTagCommand) (*tagcmd.TagView, error) {
 	return f(ctx, cmd)
 }
 
-type fakeRename func(context.Context, tagcmd.RenameCommand) (*tagcmd.TagView, error)
+type fakeRename func(context.Context, tagcmd.RenameTagCommand) (*tagcmd.TagView, error)
 
-func (f fakeRename) Execute(ctx context.Context, cmd tagcmd.RenameCommand) (*tagcmd.TagView, error) {
+func (f fakeRename) Execute(ctx context.Context, cmd tagcmd.RenameTagCommand) (*tagcmd.TagView, error) {
 	return f(ctx, cmd)
 }
 
@@ -61,7 +61,7 @@ func (f fakeCountBooks) Execute(ctx context.Context) (*domaintag.TagBookCounts, 
 func TestHandlerCountBooks(t *testing.T) {
 	t.Run("ログイン無しでも分野タグごとの冊数を返す", func(t *testing.T) {
 		counts := &domaintag.TagBookCounts{Items: []*domaintag.TagBookCount{{ID: 1, Name: "設計", BookCount: 3}}}
-		h := &httptag.Handler{CountBooksUC: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return counts, nil })}
+		h := &httptag.Handler{CountBooksUsecase: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return counts, nil })}
 
 		rec := serve(t, h, http.MethodGet, "/api/tags/counts", "", false)
 		if rec.Code != http.StatusOK {
@@ -78,7 +78,7 @@ func TestHandlerCountBooks(t *testing.T) {
 	})
 
 	t.Run("0件は空配列", func(t *testing.T) {
-		h := &httptag.Handler{CountBooksUC: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return &domaintag.TagBookCounts{}, nil })}
+		h := &httptag.Handler{CountBooksUsecase: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return &domaintag.TagBookCounts{}, nil })}
 		rec := serve(t, h, http.MethodGet, "/api/tags/counts", "", false)
 		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"items":[]`) {
 			t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
@@ -86,14 +86,14 @@ func TestHandlerCountBooks(t *testing.T) {
 	})
 
 	t.Run("ユースケースの障害は500", func(t *testing.T) {
-		h := &httptag.Handler{CountBooksUC: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return nil, errors.New("db: timeout") })}
+		h := &httptag.Handler{CountBooksUsecase: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return nil, errors.New("db: timeout") })}
 		if rec := serve(t, h, http.MethodGet, "/api/tags/counts", "", false); rec.Code != http.StatusInternalServerError {
 			t.Fatalf("status = %d, want 500", rec.Code)
 		}
 	})
 
 	t.Run("countsは/:idのIDとして扱われない（PUTはIDのパースで400）", func(t *testing.T) {
-		h := &httptag.Handler{RenameUC: fakeRename(func(context.Context, tagcmd.RenameCommand) (*tagcmd.TagView, error) {
+		h := &httptag.Handler{RenameTagUsecase: fakeRename(func(context.Context, tagcmd.RenameTagCommand) (*tagcmd.TagView, error) {
 			t.Error("usecase must not be called")
 			return nil, nil
 		})}
@@ -129,7 +129,7 @@ func mustNotCall(t *testing.T) func() {
 
 func TestHandlerList(t *testing.T) {
 	list := &domaintag.TagList{Items: []*domaintag.TagListItem{{ID: 1, Name: "データベース", Version: 1}}}
-	h := &httptag.Handler{ListUC: fakeList(func(context.Context) (*domaintag.TagList, error) { return list, nil })}
+	h := &httptag.Handler{SearchTagsUsecase: fakeList(func(context.Context) (*domaintag.TagList, error) { return list, nil })}
 
 	rec := serve(t, h, http.MethodGet, "/api/tags", "", false)
 	if rec.Code != http.StatusOK {
@@ -147,8 +147,8 @@ func TestHandlerList(t *testing.T) {
 
 func TestHandlerRegister(t *testing.T) {
 	t.Run("ログイン済みなら登録して200", func(t *testing.T) {
-		var got tagcmd.RegisterCommand
-		h := &httptag.Handler{RegisterUC: fakeRegister(func(_ context.Context, cmd tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
+		var got tagcmd.RegisterTagCommand
+		h := &httptag.Handler{RegisterTagUsecase: fakeRegister(func(_ context.Context, cmd tagcmd.RegisterTagCommand) (*tagcmd.TagView, error) {
 			got = cmd
 			return &tagcmd.TagView{ID: 1, Name: "データベース", Version: 1}, nil
 		})}
@@ -164,7 +164,7 @@ func TestHandlerRegister(t *testing.T) {
 
 	t.Run("ログインしていなければ401でusecaseを呼ばない", func(t *testing.T) {
 		called := mustNotCall(t)
-		h := &httptag.Handler{RegisterUC: fakeRegister(func(context.Context, tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
+		h := &httptag.Handler{RegisterTagUsecase: fakeRegister(func(context.Context, tagcmd.RegisterTagCommand) (*tagcmd.TagView, error) {
 			called()
 			return nil, nil
 		})}
@@ -183,7 +183,7 @@ func TestHandlerRegister(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			called := mustNotCall(t)
-			h := &httptag.Handler{RegisterUC: fakeRegister(func(context.Context, tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
+			h := &httptag.Handler{RegisterTagUsecase: fakeRegister(func(context.Context, tagcmd.RegisterTagCommand) (*tagcmd.TagView, error) {
 				called()
 				return nil, nil
 			})}
@@ -202,7 +202,7 @@ func TestHandlerRegister(t *testing.T) {
 	}
 
 	t.Run("同時追加で一意制約に当たったときは409", func(t *testing.T) {
-		h := &httptag.Handler{RegisterUC: fakeRegister(func(context.Context, tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
+		h := &httptag.Handler{RegisterTagUsecase: fakeRegister(func(context.Context, tagcmd.RegisterTagCommand) (*tagcmd.TagView, error) {
 			return nil, domaincommon.ErrConflict
 		})}
 		if rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"データベース"}`, true); rec.Code != http.StatusConflict {
@@ -211,7 +211,7 @@ func TestHandlerRegister(t *testing.T) {
 	})
 
 	t.Run("同名のタグはusecaseの違反として400でerrorsに載る", func(t *testing.T) {
-		h := &httptag.Handler{RegisterUC: fakeRegister(func(context.Context, tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
+		h := &httptag.Handler{RegisterTagUsecase: fakeRegister(func(context.Context, tagcmd.RegisterTagCommand) (*tagcmd.TagView, error) {
 			return nil, domaincommon.Violations{{Field: "name", Rule: "tagNameDuplicated"}}
 		})}
 		rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"データベース"}`, true)
@@ -230,8 +230,8 @@ func TestHandlerRename(t *testing.T) {
 	body := `{"name":"新名","version":2}`
 
 	t.Run("ログイン済みならパスのIDとバージョンをusecaseに渡し200で返す", func(t *testing.T) {
-		var got tagcmd.RenameCommand
-		h := &httptag.Handler{RenameUC: fakeRename(func(_ context.Context, cmd tagcmd.RenameCommand) (*tagcmd.TagView, error) {
+		var got tagcmd.RenameTagCommand
+		h := &httptag.Handler{RenameTagUsecase: fakeRename(func(_ context.Context, cmd tagcmd.RenameTagCommand) (*tagcmd.TagView, error) {
 			got = cmd
 			return &tagcmd.TagView{ID: 5, Name: "新名", Version: 3}, nil
 		})}
@@ -239,7 +239,7 @@ func TestHandlerRename(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 		}
-		if want := (tagcmd.RenameCommand{ID: 5, Name: "新名", Version: 2}); got != want {
+		if want := (tagcmd.RenameTagCommand{ID: 5, Name: "新名", Version: 2}); got != want {
 			t.Fatalf("usecase received %+v, want %+v", got, want)
 		}
 	})
@@ -260,7 +260,7 @@ func TestHandlerRename(t *testing.T) {
 		{name: "他のタグと同名はusecaseの違反として400", path: "/api/tags/5", body: body, withSession: true, err: domaincommon.Violations{{Field: "name", Rule: "tagNameDuplicated"}}, want: http.StatusBadRequest},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &httptag.Handler{RenameUC: fakeRename(func(context.Context, tagcmd.RenameCommand) (*tagcmd.TagView, error) {
+			h := &httptag.Handler{RenameTagUsecase: fakeRename(func(context.Context, tagcmd.RenameTagCommand) (*tagcmd.TagView, error) {
 				if tt.err == nil {
 					t.Error("usecase must not be called")
 				}
@@ -276,7 +276,7 @@ func TestHandlerRename(t *testing.T) {
 func TestHandlerDelete(t *testing.T) {
 	t.Run("ログイン済みなら削除して204", func(t *testing.T) {
 		var gotID int64
-		h := &httptag.Handler{DeleteUC: fakeDelete(func(_ context.Context, id int64) error { gotID = id; return nil })}
+		h := &httptag.Handler{DeleteTagUsecase: fakeDelete(func(_ context.Context, id int64) error { gotID = id; return nil })}
 		rec := serve(t, h, http.MethodDelete, "/api/tags/5", "", true)
 		if rec.Code != http.StatusNoContent || gotID != 5 {
 			t.Fatalf("status = %d id = %d, want 204 for id 5", rec.Code, gotID)
@@ -293,7 +293,7 @@ func TestHandlerDelete(t *testing.T) {
 		{name: "存在しないタグは404", withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &httptag.Handler{DeleteUC: fakeDelete(func(context.Context, int64) error {
+			h := &httptag.Handler{DeleteTagUsecase: fakeDelete(func(context.Context, int64) error {
 				if tt.err == nil {
 					t.Error("usecase must not be called")
 				}

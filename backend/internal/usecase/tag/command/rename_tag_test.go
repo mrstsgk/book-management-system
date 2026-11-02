@@ -11,7 +11,7 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
 )
 
-func TestRenameUsecase_Execute(t *testing.T) {
+func TestRenameTagUsecase_Execute(t *testing.T) {
 	t.Parallel()
 
 	existing := func(t *testing.T) *tag.Tag {
@@ -29,9 +29,9 @@ func TestRenameUsecase_Execute(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{findByID: existing(t)}
 		q := &fakeTagQuery{}
-		uc := &command.RenameUsecaseImpl{Tags: tags, TagQuery: q}
+		uc := &command.RenameTagUsecaseImpl{Tags: tags, TagQuery: q}
 
-		got, err := uc.Execute(context.Background(), command.RenameCommand{ID: 5, Name: "新名", Version: 2})
+		got, err := uc.Execute(context.Background(), command.RenameTagCommand{ID: 5, Name: "新名", Version: 2})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -50,9 +50,9 @@ func TestRenameUsecase_Execute(t *testing.T) {
 	t.Run("空文字は保存を呼ばずに invalid の違反", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{findByID: existing(t)}
-		uc := &command.RenameUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{}}
+		uc := &command.RenameTagUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{}}
 
-		_, err := uc.Execute(context.Background(), command.RenameCommand{ID: 5, Name: " ", Version: 2})
+		_, err := uc.Execute(context.Background(), command.RenameTagCommand{ID: 5, Name: " ", Version: 2})
 		if want := (common.Violations{{Field: "name", Rule: "invalid"}}); !reflect.DeepEqual(violationsOf(t, err), want) {
 			t.Fatalf("err = %v, want %+v", err, want)
 		}
@@ -65,9 +65,9 @@ func TestRenameUsecase_Execute(t *testing.T) {
 		t.Parallel()
 		existingTag := existing(t)
 		tags := &fakeTags{findByID: existingTag}
-		uc := &command.RenameUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{nameExists: true}}
+		uc := &command.RenameTagUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{nameExists: true}}
 
-		_, err := uc.Execute(context.Background(), command.RenameCommand{ID: 5, Name: "新名", Version: 2})
+		_, err := uc.Execute(context.Background(), command.RenameTagCommand{ID: 5, Name: "新名", Version: 2})
 		if want := (common.Violations{{Field: "name", Rule: "tagNameDuplicated"}}); !reflect.DeepEqual(violationsOf(t, err), want) {
 			t.Fatalf("err = %v, want %+v", err, want)
 		}
@@ -79,9 +79,9 @@ func TestRenameUsecase_Execute(t *testing.T) {
 	t.Run("存在しないタグはNotFound", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{findByIDErr: common.ErrNotFound}
-		uc := &command.RenameUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{}}
+		uc := &command.RenameTagUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{}}
 
-		if _, err := uc.Execute(context.Background(), command.RenameCommand{ID: 5, Name: "新名", Version: 2}); !errors.Is(err, common.ErrNotFound) {
+		if _, err := uc.Execute(context.Background(), command.RenameTagCommand{ID: 5, Name: "新名", Version: 2}); !errors.Is(err, common.ErrNotFound) {
 			t.Fatalf("err = %v, want ErrNotFound", err)
 		}
 	})
@@ -89,9 +89,9 @@ func TestRenameUsecase_Execute(t *testing.T) {
 	t.Run("バージョン競合はConflict", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{findByID: existing(t), updateErr: common.ErrConflict}
-		uc := &command.RenameUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{}}
+		uc := &command.RenameTagUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{}}
 
-		if _, err := uc.Execute(context.Background(), command.RenameCommand{ID: 5, Name: "新名", Version: 2}); !errors.Is(err, common.ErrConflict) {
+		if _, err := uc.Execute(context.Background(), command.RenameTagCommand{ID: 5, Name: "新名", Version: 2}); !errors.Is(err, common.ErrConflict) {
 			t.Fatalf("err = %v, want ErrConflict", err)
 		}
 	})

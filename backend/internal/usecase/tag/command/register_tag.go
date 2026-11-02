@@ -7,8 +7,8 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
-// RegisterCommand は RegisterUsecase の入力。データだけを持ち、ロジックは持たない。
-type RegisterCommand struct {
+// RegisterTagCommand は RegisterTagUsecase の入力。データだけを持ち、ロジックは持たない。
+type RegisterTagCommand struct {
 	Name string
 }
 
@@ -19,18 +19,18 @@ type TagView struct {
 	Version int
 }
 
-// RegisterUsecase は、分野タグを追加する。
-type RegisterUsecase interface {
-	Execute(ctx context.Context, cmd RegisterCommand) (*TagView, error)
+// RegisterTagUsecase は、分野タグを追加する。
+type RegisterTagUsecase interface {
+	Execute(ctx context.Context, cmd RegisterTagCommand) (*TagView, error)
 }
 
-type RegisterUsecaseImpl struct {
+type RegisterTagUsecaseImpl struct {
 	Tags     tag.Repository
 	TagQuery tag.Query
 }
 
 // Execute はタグ名を検証し、同名のタグが無いことを確かめてから登録する。
-func (u *RegisterUsecaseImpl) Execute(ctx context.Context, cmd RegisterCommand) (*TagView, error) {
+func (u *RegisterTagUsecaseImpl) Execute(ctx context.Context, cmd RegisterTagCommand) (*TagView, error) {
 	name, err := parseUniqueName(ctx, u.TagQuery, cmd.Name, 0)
 	if err != nil {
 		return nil, err

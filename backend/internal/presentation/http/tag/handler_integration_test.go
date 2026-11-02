@@ -46,11 +46,11 @@ func newIntegrationHandler(db *gorm.DB) *httptag.Handler {
 	repo := pgtag.NewRepository(db)
 	q := pgtag.NewQuery(db)
 	return &httptag.Handler{
-		RegisterUC:   &tagcmd.RegisterUsecaseImpl{Tags: repo, TagQuery: q},
-		RenameUC:     &tagcmd.RenameUsecaseImpl{Tags: repo, TagQuery: q},
-		DeleteUC:     &tagcmd.DeleteUsecaseImpl{Tags: repo},
-		ListUC:       &tagqry.ListUsecaseImpl{Tags: q},
-		CountBooksUC: &tagqry.CountBooksUsecaseImpl{Tags: q},
+		RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: repo, TagQuery: q},
+		RenameTagUsecase:   &tagcmd.RenameTagUsecaseImpl{Tags: repo, TagQuery: q},
+		DeleteTagUsecase:   &tagcmd.DeleteTagUsecaseImpl{Tags: repo},
+		SearchTagsUsecase:  &tagqry.SearchTagsUsecaseImpl{Tags: q},
+		CountBooksUsecase:  &tagqry.CountBooksUsecaseImpl{Tags: q},
 	}
 }
 

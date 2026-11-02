@@ -16,7 +16,7 @@ type fakeTagQuery struct {
 	countsErr error
 }
 
-func (f *fakeTagQuery) FindList(context.Context) (*tag.TagList, error) {
+func (f *fakeTagQuery) FindAll(context.Context) (*tag.TagList, error) {
 	return f.list, nil
 }
 
@@ -30,10 +30,10 @@ func (f *fakeTagQuery) CountBooks(context.Context) (*tag.TagBookCounts, error) {
 	return f.counts, f.countsErr
 }
 
-func TestListUsecase_Execute(t *testing.T) {
+func TestSearchTagsUsecase_Execute(t *testing.T) {
 	t.Parallel()
 	want := &tag.TagList{Items: []*tag.TagListItem{{ID: 1, Name: "データベース"}}}
-	uc := &query.ListUsecaseImpl{Tags: &fakeTagQuery{list: want}}
+	uc := &query.SearchTagsUsecaseImpl{Tags: &fakeTagQuery{list: want}}
 
 	got, err := uc.Execute(context.Background())
 	if err != nil {

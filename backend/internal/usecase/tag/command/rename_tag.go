@@ -6,25 +6,25 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
-// RenameCommand は RenameUsecase の入力。データだけを持ち、ロジックは持たない。
-type RenameCommand struct {
+// RenameTagCommand は RenameTagUsecase の入力。データだけを持ち、ロジックは持たない。
+type RenameTagCommand struct {
 	ID      int64
 	Name    string
 	Version int
 }
 
-// RenameUsecase は、分野タグの名前を変える。
-type RenameUsecase interface {
-	Execute(ctx context.Context, cmd RenameCommand) (*TagView, error)
+// RenameTagUsecase は、分野タグの名前を変える。
+type RenameTagUsecase interface {
+	Execute(ctx context.Context, cmd RenameTagCommand) (*TagView, error)
 }
 
-type RenameUsecaseImpl struct {
+type RenameTagUsecaseImpl struct {
 	Tags     tag.Repository
 	TagQuery tag.Query
 }
 
 // Execute はタグの名前を検証し、自分以外に同名のタグが無いことを確かめてから差し替える。
-func (u *RenameUsecaseImpl) Execute(ctx context.Context, cmd RenameCommand) (*TagView, error) {
+func (u *RenameTagUsecaseImpl) Execute(ctx context.Context, cmd RenameTagCommand) (*TagView, error) {
 	t, err := u.Tags.FindByID(ctx, tag.ID(cmd.ID))
 	if err != nil {
 		return nil, err

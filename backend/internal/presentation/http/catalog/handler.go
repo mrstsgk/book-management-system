@@ -26,7 +26,7 @@ type Response struct {
 
 // Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
 type Handler struct {
-	LookupUC bookqry.LookupCatalogUsecase
+	LookupCatalogUsecase bookqry.LookupCatalogUsecase
 	// AdminOnly は登録画面でだけ使うための認証（外部カタログへの中継を誰にでも開放しないため）。
 	AdminOnly echo.MiddlewareFunc
 }
@@ -52,7 +52,7 @@ func (h *Handler) Lookup(c echo.Context) error {
 	if len(isbn) > isbnMaxLength {
 		return &common.ValidationError{Fields: []common.FieldError{{Field: "isbn", Rule: "max"}}}
 	}
-	out, err := h.LookupUC.Execute(c.Request().Context(), isbn)
+	out, err := h.LookupCatalogUsecase.Execute(c.Request().Context(), isbn)
 	if err != nil {
 		return err
 	}

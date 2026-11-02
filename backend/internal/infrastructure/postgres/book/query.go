@@ -93,8 +93,8 @@ func orEmpty(names []string) []string {
 	return names
 }
 
-// FindList は条件に合う本を新しく登録した順（同時刻は ID の大きい順）に、取得範囲の分だけ返す。総件数も条件に合う件数。
-func (q *query) FindList(ctx context.Context, c domainbook.ListCondition, r common.ListRange) (*domainbook.BookList, error) {
+// Search は条件に合う本を新しく登録した順（同時刻は ID の大きい順）に、取得範囲の分だけ返す。総件数も条件に合う件数。
+func (q *query) Search(ctx context.Context, c domainbook.ListCondition, r common.ListRange) (*domainbook.BookList, error) {
 	db := q.db.WithContext(ctx)
 	// 総件数と取得範囲の取得は別の SQL なので、同時に登録されると1件ずれうる。
 	// 一覧画面では許容でき、スナップショットのトランザクションより軽い。

@@ -20,16 +20,16 @@ func newSession(t *testing.T) *domainauth.Session {
 	return domainauth.NewSession(id, time.Now().UTC().Truncate(time.Microsecond))
 }
 
-func TestRepository_SaveThenFind(t *testing.T) {
+func TestRepository_CreateThenFindByID(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgauth.NewRepository(db)
 	s := newSession(t)
 	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(s.ID)) })
 
-	if err := repo.Save(context.Background(), s); err != nil {
+	if err := repo.Create(context.Background(), s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
-	got, err := repo.Find(context.Background(), s.ID)
+	got, err := repo.FindByID(context.Background(), s.ID)
 	if err != nil {
 		t.Fatalf("Find: %v", err)
 	}
@@ -38,9 +38,9 @@ func TestRepository_SaveThenFind(t *testing.T) {
 	}
 }
 
-func TestRepository_Find_NotFound(t *testing.T) {
+func TestRepository_FindByID_NotFound(t *testing.T) {
 	repo := pgauth.NewRepository(connectTestDB(t))
-	if _, err := repo.Find(context.Background(), "no-such-session"); !errors.Is(err, domaincommon.ErrNotFound) {
+	if _, err := repo.FindByID(context.Background(), "no-such-session"); !errors.Is(err, domaincommon.ErrNotFound) {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 }
@@ -50,7 +50,7 @@ func TestRepository_UpdateExpiry(t *testing.T) {
 	repo := pgauth.NewRepository(db)
 	s := newSession(t)
 	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(s.ID)) })
-	if err := repo.Save(context.Background(), s); err != nil {
+	if err := repo.Create(context.Background(), s); err != nil {
 		t.Fatal(err)
 	}
 
@@ -58,7 +58,7 @@ func TestRepository_UpdateExpiry(t *testing.T) {
 	if err := repo.UpdateExpiry(context.Background(), s.ID, next); err != nil {
 		t.Fatalf("UpdateExpiry: %v", err)
 	}
-	got, _ := repo.Find(context.Background(), s.ID)
+	got, _ := repo.FindByID(context.Background(), s.ID)
 	if !got.ExpiresAt.Equal(next) {
 		t.Fatalf("ExpiresAt = %v, want %v", got.ExpiresAt, next)
 	}
@@ -71,14 +71,14 @@ func TestRepository_Delete(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgauth.NewRepository(db)
 	s := newSession(t)
-	if err := repo.Save(context.Background(), s); err != nil {
+	if err := repo.Create(context.Background(), s); err != nil {
 		t.Fatal(err)
 	}
 
 	if err := repo.Delete(context.Background(), s.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
-	if _, err := repo.Find(context.Background(), s.ID); !errors.Is(err, domaincommon.ErrNotFound) {
+	if _, err := repo.FindByID(context.Background(), s.ID); !errors.Is(err, domaincommon.ErrNotFound) {
 		t.Fatalf("Find after delete: err = %v, want ErrNotFound", err)
 	}
 	if err := repo.Delete(context.Background(), s.ID); err != nil {

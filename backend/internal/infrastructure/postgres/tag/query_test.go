@@ -9,7 +9,7 @@ import (
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/tag"
 )
 
-func TestQuery_FindList(t *testing.T) {
+func TestQuery_FindAll(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgtag.NewRepository(db)
 	q := pgtag.NewQuery(db)
@@ -18,9 +18,9 @@ func TestQuery_FindList(t *testing.T) {
 	a := createTag(t, repo, "query-test-データベース")
 	b := createTag(t, repo, "query-test-分散システム")
 
-	list, err := q.FindList(context.Background())
+	list, err := q.FindAll(context.Background())
 	if err != nil {
-		t.Fatalf("FindList: %v", err)
+		t.Fatalf("FindAll: %v", err)
 	}
 	items := map[domaintag.ID]*domaintag.TagListItem{}
 	for _, it := range list.Items {

@@ -6,14 +6,14 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
 )
 
-type DeleteUsecase interface {
+type DeleteBookUsecase interface {
 	Execute(ctx context.Context, id int64) error
 }
 
-type DeleteUsecaseImpl struct {
+type DeleteBookUsecaseImpl struct {
 	Books book.Repository
 }
 
-func (u *DeleteUsecaseImpl) Execute(ctx context.Context, id int64) error {
+func (u *DeleteBookUsecaseImpl) Execute(ctx context.Context, id int64) error {
 	return u.Books.Delete(ctx, book.ID(id))
 }

@@ -16,8 +16,8 @@ func NewQuery(db *gorm.DB) domaintag.Query {
 	return &query{db: db}
 }
 
-// FindList は全件を id 昇順で返す。
-func (q *query) FindList(ctx context.Context) (*domaintag.TagList, error) {
+// FindAll は全件を id 昇順で返す。
+func (q *query) FindAll(ctx context.Context) (*domaintag.TagList, error) {
 	var rows []model
 	if err := q.db.WithContext(ctx).Order("id").Find(&rows).Error; err != nil {
 		return nil, err

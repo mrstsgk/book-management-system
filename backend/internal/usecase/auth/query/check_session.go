@@ -22,7 +22,7 @@ type CheckSessionUsecaseImpl struct {
 
 // Execute は見つからない・期限切れを同じ 401 にし、有効なときだけ延長する。
 func (u *CheckSessionUsecaseImpl) Execute(ctx context.Context, sessionID string) error {
-	s, err := u.Sessions.Find(ctx, auth.SessionID(sessionID))
+	s, err := u.Sessions.FindByID(ctx, auth.SessionID(sessionID))
 	if errors.Is(err, common.ErrNotFound) {
 		return fmt.Errorf("%w: ログインしてください", common.ErrUnauthorized)
 	}

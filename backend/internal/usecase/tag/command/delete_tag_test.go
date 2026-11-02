@@ -9,13 +9,13 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
 )
 
-func TestDeleteUsecase_Execute(t *testing.T) {
+func TestDeleteTagUsecase_Execute(t *testing.T) {
 	t.Parallel()
 
 	t.Run("指定したIDのタグを削除する", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{}
-		uc := &command.DeleteUsecaseImpl{Tags: tags}
+		uc := &command.DeleteTagUsecaseImpl{Tags: tags}
 
 		if err := uc.Execute(context.Background(), 7); err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -28,7 +28,7 @@ func TestDeleteUsecase_Execute(t *testing.T) {
 	t.Run("存在しないタグはNotFoundのまま返す", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{deleteErr: common.ErrNotFound}
-		uc := &command.DeleteUsecaseImpl{Tags: tags}
+		uc := &command.DeleteTagUsecaseImpl{Tags: tags}
 
 		if err := uc.Execute(context.Background(), 7); !errors.Is(err, common.ErrNotFound) {
 			t.Fatalf("err = %v, want ErrNotFound", err)

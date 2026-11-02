@@ -61,8 +61,8 @@ type TagBookCounts struct {
 
 // Query はタグの参照系ポート。
 type Query interface {
-	// FindList は全件を返す。
-	FindList(ctx context.Context) (*TagList, error)
+	// FindAll は全件を返す。
+	FindAll(ctx context.Context) (*TagList, error)
 	// ExistsAll は ids がすべて実在するかを返す（本の登録・更新時の入力検証に使う）。
 	ExistsAll(ctx context.Context, ids []ID) (bool, error)
 	// ExistsByName は同じ名前のタグ（excludeID のタグを除く。0 なら除外なし）があるかを返す（追加・改名時の相関ルール tagNameDuplicated の判定に使う）。

@@ -65,11 +65,11 @@ func newIntegrationHandler(db *gorm.DB, catalog domainbook.BookCatalog) *httpboo
 	bookQuery := pgbook.NewQuery(db)
 	tagQuery := pgtag.NewQuery(db)
 	return &httpbook.Handler{
-		RegisterUC: &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery},
-		UpdateUC:   &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery},
-		DeleteUC:   &bookcmd.DeleteUsecaseImpl{Books: books},
-		GetUC:      &bookqry.GetUsecaseImpl{Books: bookQuery},
-		ListUC:     &bookqry.ListUsecaseImpl{Books: bookQuery},
+		RegisterBookUsecase: &bookcmd.RegisterBookUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery},
+		UpdateBookUsecase:   &bookcmd.UpdateBookUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery},
+		DeleteBookUsecase:   &bookcmd.DeleteBookUsecaseImpl{Books: books},
+		ReadBookUsecase:     &bookqry.ReadBookUsecaseImpl{Books: bookQuery},
+		SearchBooksUsecase:  &bookqry.SearchBooksUsecaseImpl{Books: bookQuery},
 	}
 }
 

@@ -8,24 +8,24 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
 )
 
-// ListInput は ListUsecase の入力（Presentation から渡る境界）。データだけを持ち、判定は VO が行う。
+// SearchBooksInput は SearchBooksUsecase の入力（Presentation から渡る境界）。データだけを持ち、判定は VO が行う。
 // 引数を並べると同じ int の limit・offset・タグIDを取り違えやすいため、構造体で受け取る。
-type ListInput struct {
+type SearchBooksInput struct {
 	Keyword string
 	TagID   *int64
 	Limit   int
 	Offset  int
 }
 
-type ListUsecase interface {
-	Execute(ctx context.Context, in ListInput) (*book.BookList, error)
+type SearchBooksUsecase interface {
+	Execute(ctx context.Context, in SearchBooksInput) (*book.BookList, error)
 }
 
-type ListUsecaseImpl struct {
+type SearchBooksUsecaseImpl struct {
 	Books book.Query
 }
 
-func (u *ListUsecaseImpl) Execute(ctx context.Context, in ListInput) (*book.BookList, error) {
+func (u *SearchBooksUsecaseImpl) Execute(ctx context.Context, in SearchBooksInput) (*book.BookList, error) {
 	r, err := common.NewListRange(in.Limit, in.Offset)
 	if err != nil {
 		return nil, err
@@ -39,5 +39,5 @@ func (u *ListUsecaseImpl) Execute(ctx context.Context, in ListInput) (*book.Book
 	if err != nil {
 		return nil, err
 	}
-	return u.Books.FindList(ctx, c, r)
+	return u.Books.Search(ctx, c, r)
 }

@@ -34,15 +34,15 @@ func fakeAdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-type fakeRegister func(context.Context, bookcmd.RegisterCommand) (*domainbook.BookDetail, error)
+type fakeRegister func(context.Context, bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error)
 
-func (f fakeRegister) Execute(ctx context.Context, cmd bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+func (f fakeRegister) Execute(ctx context.Context, cmd bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error) {
 	return f(ctx, cmd)
 }
 
-type fakeUpdate func(context.Context, bookcmd.UpdateCommand) (*domainbook.BookDetail, error)
+type fakeUpdate func(context.Context, bookcmd.UpdateBookCommand) (*domainbook.BookDetail, error)
 
-func (f fakeUpdate) Execute(ctx context.Context, cmd bookcmd.UpdateCommand) (*domainbook.BookDetail, error) {
+func (f fakeUpdate) Execute(ctx context.Context, cmd bookcmd.UpdateBookCommand) (*domainbook.BookDetail, error) {
 	return f(ctx, cmd)
 }
 
@@ -56,9 +56,9 @@ func (f fakeGet) Execute(ctx context.Context, id int64) (*domainbook.BookDetail,
 	return f(ctx, id)
 }
 
-type fakeList func(context.Context, bookqry.ListInput) (*domainbook.BookList, error)
+type fakeList func(context.Context, bookqry.SearchBooksInput) (*domainbook.BookList, error)
 
-func (f fakeList) Execute(ctx context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+func (f fakeList) Execute(ctx context.Context, in bookqry.SearchBooksInput) (*domainbook.BookList, error) {
 	return f(ctx, in)
 }
 
@@ -127,7 +127,7 @@ func TestHandlerList(t *testing.T) {
 	} {
 		t.Run(tt.name+"で誰でも取得できる", func(t *testing.T) {
 			var gotLimit, gotOffset int
-			h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+			h := &httpbook.Handler{SearchBooksUsecase: fakeList(func(_ context.Context, in bookqry.SearchBooksInput) (*domainbook.BookList, error) {
 				gotLimit, gotOffset = in.Limit, in.Offset
 				return list, nil
 			})}
@@ -150,7 +150,7 @@ func TestHandlerList(t *testing.T) {
 	}
 
 	t.Run("0件は空配列", func(t *testing.T) {
-		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) {
+		h := &httpbook.Handler{SearchBooksUsecase: fakeList(func(context.Context, bookqry.SearchBooksInput) (*domainbook.BookList, error) {
 			return &domainbook.BookList{}, nil
 		})}
 		rec := serve(t, h, http.MethodGet, "/api/books", "", false)
@@ -160,8 +160,8 @@ func TestHandlerList(t *testing.T) {
 	})
 
 	t.Run("キーワードと分野タグをusecaseに渡す", func(t *testing.T) {
-		var got bookqry.ListInput
-		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+		var got bookqry.SearchBooksInput
+		h := &httpbook.Handler{SearchBooksUsecase: fakeList(func(_ context.Context, in bookqry.SearchBooksInput) (*domainbook.BookList, error) {
 			got = in
 			return &domainbook.BookList{}, nil
 		})}
@@ -175,8 +175,8 @@ func TestHandlerList(t *testing.T) {
 	})
 
 	t.Run("前後の空白を除いて100文字のキーワードは200", func(t *testing.T) {
-		var got bookqry.ListInput
-		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+		var got bookqry.SearchBooksInput
+		h := &httpbook.Handler{SearchBooksUsecase: fakeList(func(_ context.Context, in bookqry.SearchBooksInput) (*domainbook.BookList, error) {
 			got = in
 			return &domainbook.BookList{}, nil
 		})}
@@ -191,7 +191,7 @@ func TestHandlerList(t *testing.T) {
 	})
 
 	t.Run("前後の空白を除いて101文字のキーワードは400", func(t *testing.T) {
-		h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) {
+		h := &httpbook.Handler{SearchBooksUsecase: fakeList(func(context.Context, bookqry.SearchBooksInput) (*domainbook.BookList, error) {
 			return nil, domaincommon.ErrInvalid
 		})}
 		rec := serve(t, h, http.MethodGet, "/api/books?q=%20"+strings.Repeat("a", 101)+"%20", "", false)
@@ -201,8 +201,8 @@ func TestHandlerList(t *testing.T) {
 	})
 
 	t.Run("キーワードと分野タグを省略すると絞り込まない", func(t *testing.T) {
-		var got bookqry.ListInput
-		h := &httpbook.Handler{ListUC: fakeList(func(_ context.Context, in bookqry.ListInput) (*domainbook.BookList, error) {
+		var got bookqry.SearchBooksInput
+		h := &httpbook.Handler{SearchBooksUsecase: fakeList(func(_ context.Context, in bookqry.SearchBooksInput) (*domainbook.BookList, error) {
 			got = in
 			return &domainbook.BookList{}, nil
 		})}
@@ -224,7 +224,10 @@ func TestHandlerList(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			called := mustNotCall(t)
-			h := &httpbook.Handler{ListUC: fakeList(func(context.Context, bookqry.ListInput) (*domainbook.BookList, error) { called(); return nil, nil })}
+			h := &httpbook.Handler{SearchBooksUsecase: fakeList(func(context.Context, bookqry.SearchBooksInput) (*domainbook.BookList, error) {
+				called()
+				return nil, nil
+			})}
 			rec := serve(t, h, http.MethodGet, "/api/books"+tt.query, "", false)
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400", rec.Code)
@@ -235,7 +238,7 @@ func TestHandlerList(t *testing.T) {
 
 func TestHandlerGet(t *testing.T) {
 	t.Run("誰でも詳細を取得できる", func(t *testing.T) {
-		h := &httpbook.Handler{GetUC: fakeGet(func(_ context.Context, id int64) (*domainbook.BookDetail, error) {
+		h := &httpbook.Handler{ReadBookUsecase: fakeGet(func(_ context.Context, id int64) (*domainbook.BookDetail, error) {
 			if id != 1 {
 				t.Errorf("id = %d, want 1", id)
 			}
@@ -251,7 +254,7 @@ func TestHandlerGet(t *testing.T) {
 	})
 
 	t.Run("存在しない本は404", func(t *testing.T) {
-		h := &httpbook.Handler{GetUC: fakeGet(func(context.Context, int64) (*domainbook.BookDetail, error) { return nil, domaincommon.ErrNotFound })}
+		h := &httpbook.Handler{ReadBookUsecase: fakeGet(func(context.Context, int64) (*domainbook.BookDetail, error) { return nil, domaincommon.ErrNotFound })}
 		if rec := serve(t, h, http.MethodGet, "/api/books/1", "", false); rec.Code != http.StatusNotFound {
 			t.Fatalf("status = %d, want 404", rec.Code)
 		}
@@ -262,8 +265,8 @@ func TestHandlerRegister(t *testing.T) {
 	body := `{"isbn":"978-4-87311-870-3","summary":"分散データの設計を学べる","comment":"良書","rating":5}`
 
 	t.Run("ログイン済みなら入力をそのままusecaseに渡し200で返す", func(t *testing.T) {
-		var got bookcmd.RegisterCommand
-		h := &httpbook.Handler{RegisterUC: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+		var got bookcmd.RegisterBookCommand
+		h := &httpbook.Handler{RegisterBookUsecase: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error) {
 			got = cmd
 			return detail, nil
 		})}
@@ -272,14 +275,14 @@ func TestHandlerRegister(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 		}
-		if want := (bookcmd.RegisterCommand{ISBN: "978-4-87311-870-3", Summary: "分散データの設計を学べる", Comment: "良書", Rating: 5}); !reflect.DeepEqual(got, want) {
+		if want := (bookcmd.RegisterBookCommand{ISBN: "978-4-87311-870-3", Summary: "分散データの設計を学べる", Comment: "良書", Rating: 5}); !reflect.DeepEqual(got, want) {
 			t.Fatalf("usecase received %+v, want %+v", got, want)
 		}
 	})
 
 	t.Run("分野タグを指定するとusecaseに渡る", func(t *testing.T) {
-		var got bookcmd.RegisterCommand
-		h := &httpbook.Handler{RegisterUC: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+		var got bookcmd.RegisterBookCommand
+		h := &httpbook.Handler{RegisterBookUsecase: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error) {
 			got = cmd
 			return detail, nil
 		})}
@@ -295,8 +298,8 @@ func TestHandlerRegister(t *testing.T) {
 	})
 
 	t.Run("書名の上書きを指定するとusecaseに渡る", func(t *testing.T) {
-		var got bookcmd.RegisterCommand
-		h := &httpbook.Handler{RegisterUC: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+		var got bookcmd.RegisterBookCommand
+		h := &httpbook.Handler{RegisterBookUsecase: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error) {
 			got = cmd
 			return detail, nil
 		})}
@@ -312,8 +315,8 @@ func TestHandlerRegister(t *testing.T) {
 	})
 
 	t.Run("書名の上書きを省略すると空文字でusecaseに渡る", func(t *testing.T) {
-		var got bookcmd.RegisterCommand
-		h := &httpbook.Handler{RegisterUC: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+		var got bookcmd.RegisterBookCommand
+		h := &httpbook.Handler{RegisterBookUsecase: fakeRegister(func(_ context.Context, cmd bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error) {
 			got = cmd
 			return detail, nil
 		})}
@@ -329,7 +332,7 @@ func TestHandlerRegister(t *testing.T) {
 
 	t.Run("ログインしていなければ401でusecaseを呼ばない", func(t *testing.T) {
 		called := mustNotCall(t)
-		h := &httpbook.Handler{RegisterUC: fakeRegister(func(context.Context, bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+		h := &httpbook.Handler{RegisterBookUsecase: fakeRegister(func(context.Context, bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error) {
 			called()
 			return nil, nil
 		})}
@@ -355,7 +358,7 @@ func TestHandlerRegister(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			called := mustNotCall(t)
-			h := &httpbook.Handler{RegisterUC: fakeRegister(func(context.Context, bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+			h := &httpbook.Handler{RegisterBookUsecase: fakeRegister(func(context.Context, bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error) {
 				called()
 				return nil, nil
 			})}
@@ -378,7 +381,7 @@ func TestHandlerRegister(t *testing.T) {
 		{name: "同時登録で一意制約に当たったときは409", err: domaincommon.ErrConflict, want: http.StatusConflict},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &httpbook.Handler{RegisterUC: fakeRegister(func(context.Context, bookcmd.RegisterCommand) (*domainbook.BookDetail, error) { return nil, tt.err })}
+			h := &httpbook.Handler{RegisterBookUsecase: fakeRegister(func(context.Context, bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error) { return nil, tt.err })}
 			if rec := serve(t, h, http.MethodPost, "/api/books", body, true); rec.Code != tt.want {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.want)
 			}
@@ -386,7 +389,7 @@ func TestHandlerRegister(t *testing.T) {
 	}
 
 	t.Run("usecaseが集めた相関ルールの違反は400でerrorsに全件載る", func(t *testing.T) {
-		h := &httpbook.Handler{RegisterUC: fakeRegister(func(context.Context, bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+		h := &httpbook.Handler{RegisterBookUsecase: fakeRegister(func(context.Context, bookcmd.RegisterBookCommand) (*domainbook.BookDetail, error) {
 			return nil, domaincommon.Violations{{Field: "isbn", Rule: "isbnDuplicated"}, {Field: "tagIds", Rule: "tagIdsNotFound"}}
 		})}
 		rec := serve(t, h, http.MethodPost, "/api/books", body, true)
@@ -404,8 +407,8 @@ func TestHandlerUpdate(t *testing.T) {
 	body := `{"summary":"読み返してのまとめ","comment":"読み返した","rating":4,"version":2}`
 
 	t.Run("ログイン済みならパスのIDとバージョンをusecaseに渡し200で返す", func(t *testing.T) {
-		var got bookcmd.UpdateCommand
-		h := &httpbook.Handler{UpdateUC: fakeUpdate(func(_ context.Context, cmd bookcmd.UpdateCommand) (*domainbook.BookDetail, error) {
+		var got bookcmd.UpdateBookCommand
+		h := &httpbook.Handler{UpdateBookUsecase: fakeUpdate(func(_ context.Context, cmd bookcmd.UpdateBookCommand) (*domainbook.BookDetail, error) {
 			got = cmd
 			return detail, nil
 		})}
@@ -413,7 +416,7 @@ func TestHandlerUpdate(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
 		}
-		if want := (bookcmd.UpdateCommand{ID: 5, Summary: "読み返してのまとめ", Comment: "読み返した", Rating: 4, Version: 2}); !reflect.DeepEqual(got, want) {
+		if want := (bookcmd.UpdateBookCommand{ID: 5, Summary: "読み返してのまとめ", Comment: "読み返した", Rating: 4, Version: 2}); !reflect.DeepEqual(got, want) {
 			t.Fatalf("usecase received %+v, want %+v", got, want)
 		}
 	})
@@ -435,7 +438,7 @@ func TestHandlerUpdate(t *testing.T) {
 		{name: "usecaseが集めた違反は400", path: "/api/books/5", body: body, withSession: true, err: domaincommon.Violations{{Field: "tagIds", Rule: "tagIdsNotFound"}}, want: http.StatusBadRequest},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &httpbook.Handler{UpdateUC: fakeUpdate(func(context.Context, bookcmd.UpdateCommand) (*domainbook.BookDetail, error) {
+			h := &httpbook.Handler{UpdateBookUsecase: fakeUpdate(func(context.Context, bookcmd.UpdateBookCommand) (*domainbook.BookDetail, error) {
 				if tt.err == nil {
 					t.Error("usecase must not be called")
 				}
@@ -451,7 +454,7 @@ func TestHandlerUpdate(t *testing.T) {
 func TestHandlerDelete(t *testing.T) {
 	t.Run("ログイン済みなら削除して204", func(t *testing.T) {
 		var gotID int64
-		h := &httpbook.Handler{DeleteUC: fakeDelete(func(_ context.Context, id int64) error { gotID = id; return nil })}
+		h := &httpbook.Handler{DeleteBookUsecase: fakeDelete(func(_ context.Context, id int64) error { gotID = id; return nil })}
 		rec := serve(t, h, http.MethodDelete, "/api/books/5", "", true)
 		if rec.Code != http.StatusNoContent || gotID != 5 {
 			t.Fatalf("status = %d id = %d, want 204 for id 5", rec.Code, gotID)
@@ -468,7 +471,7 @@ func TestHandlerDelete(t *testing.T) {
 		{name: "存在しない本は404", withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &httpbook.Handler{DeleteUC: fakeDelete(func(context.Context, int64) error {
+			h := &httpbook.Handler{DeleteBookUsecase: fakeDelete(func(context.Context, int64) error {
 				if tt.err == nil {
 					t.Error("usecase must not be called")
 				}

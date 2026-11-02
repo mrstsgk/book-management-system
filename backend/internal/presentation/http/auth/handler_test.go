@@ -68,7 +68,7 @@ func sessionCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 func TestHandlerLogin(t *testing.T) {
 	t.Run("合っていれば204でhttpOnlyのCookieを返す", func(t *testing.T) {
 		var got authcmd.LoginCommand
-		h := &httpauth.Handler{LoginUC: fakeLogin(func(_ context.Context, cmd authcmd.LoginCommand) (string, error) {
+		h := &httpauth.Handler{LoginUsecase: fakeLogin(func(_ context.Context, cmd authcmd.LoginCommand) (string, error) {
 			got = cmd
 			return strings.Repeat("a", 43), nil
 		})}
@@ -86,7 +86,7 @@ func TestHandlerLogin(t *testing.T) {
 	})
 
 	t.Run("Originが別サイトなら403でUseCaseを呼ばない", func(t *testing.T) {
-		h := &httpauth.Handler{LoginUC: fakeLogin(func(context.Context, authcmd.LoginCommand) (string, error) {
+		h := &httpauth.Handler{LoginUsecase: fakeLogin(func(context.Context, authcmd.LoginCommand) (string, error) {
 			t.Error("usecase must not be called")
 			return "", nil
 		})}
@@ -116,7 +116,7 @@ func TestHandlerLogin(t *testing.T) {
 		{name: "UseCaseの障害は500", body: `{"id":"admin","password":"pw"}`, err: errors.New("db down"), want: http.StatusInternalServerError},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &httpauth.Handler{LoginUC: fakeLogin(func(context.Context, authcmd.LoginCommand) (string, error) {
+			h := &httpauth.Handler{LoginUsecase: fakeLogin(func(context.Context, authcmd.LoginCommand) (string, error) {
 				if tt.err == nil {
 					t.Error("usecase must not be called")
 				}
@@ -138,7 +138,7 @@ func TestHandlerLogin(t *testing.T) {
 func TestHandlerLogout(t *testing.T) {
 	t.Run("Cookieがあれば削除して204、Cookieを消す", func(t *testing.T) {
 		var gotID string
-		h := &httpauth.Handler{LogoutUC: fakeLogout(func(_ context.Context, id string) error { gotID = id; return nil })}
+		h := &httpauth.Handler{LogoutUsecase: fakeLogout(func(_ context.Context, id string) error { gotID = id; return nil })}
 		rec := serve(t, h, http.MethodPost, "/api/auth/logout", "", "sid")
 		if rec.Code != http.StatusNoContent || gotID != "sid" {
 			t.Fatalf("status = %d id = %q", rec.Code, gotID)
@@ -149,7 +149,7 @@ func TestHandlerLogout(t *testing.T) {
 	})
 
 	t.Run("Cookieが無くても204でUseCaseを呼ばない", func(t *testing.T) {
-		h := &httpauth.Handler{LogoutUC: fakeLogout(func(context.Context, string) error {
+		h := &httpauth.Handler{LogoutUsecase: fakeLogout(func(context.Context, string) error {
 			t.Error("usecase must not be called")
 			return nil
 		})}
@@ -159,7 +159,7 @@ func TestHandlerLogout(t *testing.T) {
 	})
 
 	t.Run("UseCaseの障害は500", func(t *testing.T) {
-		h := &httpauth.Handler{LogoutUC: fakeLogout(func(context.Context, string) error { return errors.New("db down") })}
+		h := &httpauth.Handler{LogoutUsecase: fakeLogout(func(context.Context, string) error { return errors.New("db down") })}
 		if rec := serve(t, h, http.MethodPost, "/api/auth/logout", "", "sid"); rec.Code != http.StatusInternalServerError {
 			t.Fatalf("status = %d, want 500", rec.Code)
 		}
@@ -183,7 +183,7 @@ func TestHandlerSession(t *testing.T) {
 		{name: "Cookieが無ければ401", cookie: "", want: http.StatusUnauthorized},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &httpauth.Handler{CheckUC: check}
+			h := &httpauth.Handler{CheckSessionUsecase: check}
 			if rec := serve(t, h, http.MethodGet, "/api/auth/session", "", tt.cookie); rec.Code != tt.want {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.want)
 			}

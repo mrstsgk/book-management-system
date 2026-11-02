@@ -27,20 +27,20 @@ func (f *fakeQuery) FindDetailByID(_ context.Context, id book.ID) (*book.BookDet
 
 func (f *fakeQuery) ExistsByISBN(context.Context, book.ISBN) (bool, error) { return false, nil }
 
-func (f *fakeQuery) FindList(_ context.Context, c book.ListCondition, r common.ListRange) (*book.BookList, error) {
+func (f *fakeQuery) Search(_ context.Context, c book.ListCondition, r common.ListRange) (*book.BookList, error) {
 	f.gotCond = &c
 	f.gotRange = &r
 	return f.list, f.err
 }
 
-func TestGetUsecase_Execute(t *testing.T) {
+func TestReadBookUsecase_Execute(t *testing.T) {
 	t.Parallel()
 
 	t.Run("指定したIDの詳細を返す", func(t *testing.T) {
 		t.Parallel()
 		want := &book.BookDetail{ID: 3}
 		q := &fakeQuery{detail: want}
-		got, err := (&query.GetUsecaseImpl{Books: q}).Execute(context.Background(), 3)
+		got, err := (&query.ReadBookUsecaseImpl{Books: q}).Execute(context.Background(), 3)
 		if err != nil || got != want || q.gotID != 3 {
 			t.Fatalf("got (%+v, %v) for id %d", got, err, q.gotID)
 		}
@@ -48,7 +48,7 @@ func TestGetUsecase_Execute(t *testing.T) {
 
 	t.Run("存在しない本はNotFound", func(t *testing.T) {
 		t.Parallel()
-		if _, err := (&query.GetUsecaseImpl{Books: &fakeQuery{err: common.ErrNotFound}}).Execute(context.Background(), 3); !errors.Is(err, common.ErrNotFound) {
+		if _, err := (&query.ReadBookUsecaseImpl{Books: &fakeQuery{err: common.ErrNotFound}}).Execute(context.Background(), 3); !errors.Is(err, common.ErrNotFound) {
 			t.Fatalf("err = %v, want ErrNotFound", err)
 		}
 	})

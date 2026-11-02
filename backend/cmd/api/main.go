@@ -103,35 +103,35 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 
 	api := e.Group("/api")
 	(&httpauth.Handler{
-		LoginUC: &authcmd.LoginUsecaseImpl{
+		LoginUsecase: &authcmd.LoginUsecaseImpl{
 			Admin:    authcmd.AdminAccount{ID: cfg.Admin.ID, PasswordHash: cfg.Admin.PasswordHash},
 			Verifier: infraauth.NewBcryptVerifier(),
 			Sessions: sessions,
 			Now:      time.Now,
 		},
-		LogoutUC:   &authcmd.LogoutUsecaseImpl{Sessions: sessions},
-		CheckUC:    checkSession,
-		SameOrigin: httpcommon.RequireSameOrigin(),
+		LogoutUsecase:       &authcmd.LogoutUsecaseImpl{Sessions: sessions},
+		CheckSessionUsecase: checkSession,
+		SameOrigin:          httpcommon.RequireSameOrigin(),
 	}).Register(api.Group("/auth"))
 	(&httpbook.Handler{
-		RegisterUC: &bookcmd.RegisterUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
-		UpdateUC:   &bookcmd.UpdateUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
-		DeleteUC:   &bookcmd.DeleteUsecaseImpl{Books: books},
-		GetUC:      &bookqry.GetUsecaseImpl{Books: bookQuery},
-		ListUC:     &bookqry.ListUsecaseImpl{Books: bookQuery},
-		AdminOnly:  adminOnly,
+		RegisterBookUsecase: &bookcmd.RegisterBookUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
+		UpdateBookUsecase:   &bookcmd.UpdateBookUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
+		DeleteBookUsecase:   &bookcmd.DeleteBookUsecaseImpl{Books: books},
+		ReadBookUsecase:     &bookqry.ReadBookUsecaseImpl{Books: bookQuery},
+		SearchBooksUsecase:  &bookqry.SearchBooksUsecaseImpl{Books: bookQuery},
+		AdminOnly:           adminOnly,
 	}).Register(api.Group("/books"))
 	(&httpcatalog.Handler{
-		LookupUC:  &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},
-		AdminOnly: httpcommon.RequireAdminSession(checkSession), // GET なので Origin 検証は要らない
+		LookupCatalogUsecase: &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},
+		AdminOnly:            httpcommon.RequireAdminSession(checkSession), // GET なので Origin 検証は要らない
 	}).Register(api.Group("/catalog"))
 
 	(&httptag.Handler{
-		RegisterUC:   &tagcmd.RegisterUsecaseImpl{Tags: tags, TagQuery: tagQuery},
-		RenameUC:     &tagcmd.RenameUsecaseImpl{Tags: tags, TagQuery: tagQuery},
-		DeleteUC:     &tagcmd.DeleteUsecaseImpl{Tags: tags},
-		ListUC:       &tagqry.ListUsecaseImpl{Tags: tagQuery},
-		CountBooksUC: &tagqry.CountBooksUsecaseImpl{Tags: tagQuery},
-		AdminOnly:    adminOnly,
+		RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: tags, TagQuery: tagQuery},
+		RenameTagUsecase:   &tagcmd.RenameTagUsecaseImpl{Tags: tags, TagQuery: tagQuery},
+		DeleteTagUsecase:   &tagcmd.DeleteTagUsecaseImpl{Tags: tags},
+		SearchTagsUsecase:  &tagqry.SearchTagsUsecaseImpl{Tags: tagQuery},
+		CountBooksUsecase:  &tagqry.CountBooksUsecaseImpl{Tags: tagQuery},
+		AdminOnly:          adminOnly,
 	}).Register(api.Group("/tags"))
 }

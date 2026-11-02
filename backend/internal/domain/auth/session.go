@@ -54,10 +54,10 @@ func (s *Session) Extend(now time.Time) {
 
 // SessionRepository はセッションを永続化するポート。
 type SessionRepository interface {
-	// Save は s を新規保存する。
-	Save(ctx context.Context, s *Session) error
-	// Find は id のセッションを返す。無ければ common.ErrNotFound を返す（期限切れでも行があれば返す）。
-	Find(ctx context.Context, id SessionID) (*Session, error)
+	// Create は s を新規保存する。
+	Create(ctx context.Context, s *Session) error
+	// FindByID は id のセッションを返す。無ければ common.ErrNotFound を返す（期限切れでも行があれば返す）。
+	FindByID(ctx context.Context, id SessionID) (*Session, error)
 	// Delete は id のセッションを消す。無くてもエラーにしない。
 	Delete(ctx context.Context, id SessionID) error
 	// UpdateExpiry は id のアイドル期限を expiresAt にする。

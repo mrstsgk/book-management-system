@@ -61,7 +61,7 @@ type fakeTagQuery struct {
 	gotExclude tag.ID
 }
 
-func (f *fakeTagQuery) FindList(context.Context) (*tag.TagList, error)         { return nil, nil }
+func (f *fakeTagQuery) FindAll(context.Context) (*tag.TagList, error)          { return nil, nil }
 func (f *fakeTagQuery) CountBooks(context.Context) (*tag.TagBookCounts, error) { return nil, nil }
 func (f *fakeTagQuery) ExistsAll(context.Context, []tag.ID) (bool, error)      { return true, nil }
 func (f *fakeTagQuery) ExistsByName(_ context.Context, name string, exclude tag.ID) (bool, error) {
@@ -79,16 +79,16 @@ func violationsOf(t *testing.T, err error) common.Violations {
 	return vs
 }
 
-func TestRegisterUsecase_Execute(t *testing.T) {
+func TestRegisterTagUsecase_Execute(t *testing.T) {
 	t.Parallel()
 
 	t.Run("タグ名を登録して返す", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{}
 		q := &fakeTagQuery{}
-		uc := &command.RegisterUsecaseImpl{Tags: tags, TagQuery: q}
+		uc := &command.RegisterTagUsecaseImpl{Tags: tags, TagQuery: q}
 
-		got, err := uc.Execute(context.Background(), command.RegisterCommand{Name: "データベース"})
+		got, err := uc.Execute(context.Background(), command.RegisterTagCommand{Name: "データベース"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -107,9 +107,9 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{}
 		q := &fakeTagQuery{existsErr: errors.New("must not be called")}
-		uc := &command.RegisterUsecaseImpl{Tags: tags, TagQuery: q}
+		uc := &command.RegisterTagUsecaseImpl{Tags: tags, TagQuery: q}
 
-		_, err := uc.Execute(context.Background(), command.RegisterCommand{Name: " "})
+		_, err := uc.Execute(context.Background(), command.RegisterTagCommand{Name: " "})
 		if want := (common.Violations{{Field: "name", Rule: "invalid"}}); !reflect.DeepEqual(violationsOf(t, err), want) {
 			t.Fatalf("err = %v, want %+v", err, want)
 		}
@@ -121,9 +121,9 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 	t.Run("同名のタグがあれば保存を呼ばずに tagNameDuplicated の違反", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{}
-		uc := &command.RegisterUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{nameExists: true}}
+		uc := &command.RegisterTagUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{nameExists: true}}
 
-		_, err := uc.Execute(context.Background(), command.RegisterCommand{Name: "データベース"})
+		_, err := uc.Execute(context.Background(), command.RegisterTagCommand{Name: "データベース"})
 		if want := (common.Violations{{Field: "name", Rule: "tagNameDuplicated"}}); !reflect.DeepEqual(violationsOf(t, err), want) {
 			t.Fatalf("err = %v, want %+v", err, want)
 		}
@@ -135,8 +135,8 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 	t.Run("重複検査の障害はそのまま返す", func(t *testing.T) {
 		t.Parallel()
 		wantErr := errors.New("db: timeout")
-		uc := &command.RegisterUsecaseImpl{Tags: &fakeTags{}, TagQuery: &fakeTagQuery{existsErr: wantErr}}
-		if _, err := uc.Execute(context.Background(), command.RegisterCommand{Name: "データベース"}); !errors.Is(err, wantErr) {
+		uc := &command.RegisterTagUsecaseImpl{Tags: &fakeTags{}, TagQuery: &fakeTagQuery{existsErr: wantErr}}
+		if _, err := uc.Execute(context.Background(), command.RegisterTagCommand{Name: "データベース"}); !errors.Is(err, wantErr) {
 			t.Fatalf("err = %v, want %v", err, wantErr)
 		}
 	})
@@ -144,9 +144,9 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 	t.Run("同時追加で一意制約に当たったときはConflict", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTags{createErr: common.ErrConflict}
-		uc := &command.RegisterUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{}}
+		uc := &command.RegisterTagUsecaseImpl{Tags: tags, TagQuery: &fakeTagQuery{}}
 
-		if _, err := uc.Execute(context.Background(), command.RegisterCommand{Name: "データベース"}); !errors.Is(err, common.ErrConflict) {
+		if _, err := uc.Execute(context.Background(), command.RegisterTagCommand{Name: "データベース"}); !errors.Is(err, common.ErrConflict) {
 			t.Fatalf("err = %v, want ErrConflict", err)
 		}
 	})

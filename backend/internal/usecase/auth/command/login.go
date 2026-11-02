@@ -64,7 +64,7 @@ func (u *LoginUsecaseImpl) Execute(ctx context.Context, cmd LoginCommand) (strin
 		return "", err
 	}
 	s := auth.NewSession(id, now)
-	if err := u.Sessions.Save(ctx, s); err != nil {
+	if err := u.Sessions.Create(ctx, s); err != nil {
 		return "", err
 	}
 	return string(id), nil

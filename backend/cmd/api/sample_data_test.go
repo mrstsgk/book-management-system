@@ -93,7 +93,7 @@ func (f *fakeSeedQuery) ExistsByISBN(context.Context, domainbook.ISBN) (bool, er
 	return false, nil
 }
 
-func (f *fakeSeedQuery) FindList(context.Context, domainbook.ListCondition, common.ListRange) (*domainbook.BookList, error) {
+func (f *fakeSeedQuery) Search(context.Context, domainbook.ListCondition, common.ListRange) (*domainbook.BookList, error) {
 	if f.err != nil {
 		return nil, f.err
 	}

@@ -17,9 +17,9 @@ type LoginRequest struct {
 
 // Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
 type Handler struct {
-	LoginUC  authcmd.LoginUsecase
-	LogoutUC authcmd.LogoutUsecase
-	CheckUC  authqry.CheckSessionUsecase
+	LoginUsecase        authcmd.LoginUsecase
+	LogoutUsecase       authcmd.LogoutUsecase
+	CheckSessionUsecase authqry.CheckSessionUsecase
 	// SameOrigin は状態を変える要求（login / logout）に掛ける CSRF 対策。
 	SameOrigin echo.MiddlewareFunc
 }
@@ -27,7 +27,7 @@ type Handler struct {
 func (h *Handler) Register(g *echo.Group) {
 	g.POST("/login", h.Login, h.SameOrigin)
 	g.POST("/logout", h.Logout, h.SameOrigin)
-	g.GET("/session", h.Session, common.RequireAdminSession(h.CheckUC))
+	g.GET("/session", h.Session, common.RequireAdminSession(h.CheckSessionUsecase))
 }
 
 // Login godoc
@@ -48,7 +48,7 @@ func (h *Handler) Login(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	id, err := h.LoginUC.Execute(c.Request().Context(), authcmd.LoginCommand{ID: req.ID, Password: req.Password})
+	id, err := h.LoginUsecase.Execute(c.Request().Context(), authcmd.LoginCommand{ID: req.ID, Password: req.Password})
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (h *Handler) Login(c echo.Context) error {
 // @Router       /api/auth/logout [post]
 func (h *Handler) Logout(c echo.Context) error {
 	if ck, err := c.Cookie(common.SessionCookieName); err == nil && ck.Value != "" {
-		if err := h.LogoutUC.Execute(c.Request().Context(), ck.Value); err != nil {
+		if err := h.LogoutUsecase.Execute(c.Request().Context(), ck.Value); err != nil {
 			return err
 		}
 	}

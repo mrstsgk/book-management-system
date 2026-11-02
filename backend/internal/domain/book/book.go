@@ -120,8 +120,8 @@ type BookList struct {
 type Query interface {
 	// FindDetailByID は存在しなければ ErrNotFound を返す。
 	FindDetailByID(ctx context.Context, id ID) (*BookDetail, error)
-	// FindList は条件 c に合う本を新しく登録した順に、取得範囲 r の分だけ返す。総件数も c に合う件数。
-	FindList(ctx context.Context, c ListCondition, r common.ListRange) (*BookList, error)
+	// Search は条件 c に合う本を新しく登録した順に、取得範囲 r の分だけ返す。総件数も c に合う件数。
+	Search(ctx context.Context, c ListCondition, r common.ListRange) (*BookList, error)
 	// ExistsByISBN は同じ ISBN の本が登録済みかを返す（登録時の相関ルール isbnDuplicated の判定に使う）。
 	ExistsByISBN(ctx context.Context, isbn ISBN) (bool, error)
 }

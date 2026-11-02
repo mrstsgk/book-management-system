@@ -19,7 +19,7 @@ type fakeTagQuery struct {
 	called    int
 }
 
-func (f *fakeTagQuery) FindList(context.Context) (*tag.TagList, error) { return nil, nil }
+func (f *fakeTagQuery) FindAll(context.Context) (*tag.TagList, error) { return nil, nil }
 
 func (f *fakeTagQuery) CountBooks(context.Context) (*tag.TagBookCounts, error) { return nil, nil }
 

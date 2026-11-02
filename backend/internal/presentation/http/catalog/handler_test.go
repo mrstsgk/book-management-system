@@ -78,7 +78,7 @@ func TestHandlerLookup(t *testing.T) {
 			t.Fatal(err)
 		}
 		var gotISBN string
-		h := &httpcatalog.Handler{LookupUC: fakeLookup(func(_ context.Context, isbn string) (*domainbook.CatalogEntry, error) {
+		h := &httpcatalog.Handler{LookupCatalogUsecase: fakeLookup(func(_ context.Context, isbn string) (*domainbook.CatalogEntry, error) {
 			gotISBN = isbn
 			return entry(t, "9784873118703", &cover), nil
 		})}
@@ -105,7 +105,7 @@ func TestHandlerLookup(t *testing.T) {
 	})
 
 	t.Run("書影が無く979のISBNなら書影もAmazonリンクもnull", func(t *testing.T) {
-		h := &httpcatalog.Handler{LookupUC: fakeLookup(func(context.Context, string) (*domainbook.CatalogEntry, error) {
+		h := &httpcatalog.Handler{LookupCatalogUsecase: fakeLookup(func(context.Context, string) (*domainbook.CatalogEntry, error) {
 			return entry(t, "9791032305690", nil), nil
 		})}
 		var got httpcatalog.Response
@@ -130,7 +130,7 @@ func TestHandlerLookup(t *testing.T) {
 		{name: "該当なしは404", path: "/api/catalog/9784873118703", withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &httpcatalog.Handler{LookupUC: fakeLookup(func(context.Context, string) (*domainbook.CatalogEntry, error) {
+			h := &httpcatalog.Handler{LookupCatalogUsecase: fakeLookup(func(context.Context, string) (*domainbook.CatalogEntry, error) {
 				if tt.err == nil {
 					t.Error("usecase must not be called")
 				}

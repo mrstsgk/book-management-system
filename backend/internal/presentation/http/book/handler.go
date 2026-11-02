@@ -89,18 +89,18 @@ type ListResponse struct {
 
 // Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
 type Handler struct {
-	RegisterUC bookcmd.RegisterUsecase
-	UpdateUC   bookcmd.UpdateUsecase
-	DeleteUC   bookcmd.DeleteUsecase
-	GetUC      bookqry.GetUsecase
-	ListUC     bookqry.ListUsecase
+	RegisterBookUsecase bookcmd.RegisterBookUsecase
+	UpdateBookUsecase   bookcmd.UpdateBookUsecase
+	DeleteBookUsecase   bookcmd.DeleteBookUsecase
+	ReadBookUsecase     bookqry.ReadBookUsecase
+	SearchBooksUsecase  bookqry.SearchBooksUsecase
 	// AdminOnly は登録・更新・削除に掛ける認証（閲覧は誰でもできる）。
 	AdminOnly echo.MiddlewareFunc
 }
 
 func (h *Handler) Register(g *echo.Group) {
-	g.GET("", h.List)
-	g.GET("/:id", h.Get)
+	g.GET("", h.Search)
+	g.GET("/:id", h.Read)
 	g.POST("", h.RegisterBook, h.AdminOnly)
 	g.PUT("/:id", h.Update, h.AdminOnly)
 	g.DELETE("/:id", h.Delete, h.AdminOnly)
@@ -119,7 +119,7 @@ func (h *Handler) Register(g *echo.Group) {
 // @Failure      400 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
 // @Router       /api/books [get]
-func (h *Handler) List(c echo.Context) error {
+func (h *Handler) Search(c echo.Context) error {
 	req, err := common.BindValidate[ListRequest](c)
 	if err != nil {
 		return err
@@ -131,7 +131,7 @@ func (h *Handler) List(c echo.Context) error {
 	if req.Offset != nil {
 		offset = *req.Offset
 	}
-	out, err := h.ListUC.Execute(c.Request().Context(), bookqry.ListInput{Keyword: req.Q, TagID: req.TagID, Limit: limit, Offset: offset})
+	out, err := h.SearchBooksUsecase.Execute(c.Request().Context(), bookqry.SearchBooksInput{Keyword: req.Q, TagID: req.TagID, Limit: limit, Offset: offset})
 	if err != nil {
 		return err
 	}
@@ -155,12 +155,12 @@ func (h *Handler) List(c echo.Context) error {
 // @Failure      404 {object} common.ErrorResponse
 // @Failure      500 {object} common.ErrorResponse
 // @Router       /api/books/{id} [get]
-func (h *Handler) Get(c echo.Context) error {
+func (h *Handler) Read(c echo.Context) error {
 	id, err := common.ParseID(c, "id")
 	if err != nil {
 		return err
 	}
-	out, err := h.GetUC.Execute(c.Request().Context(), id)
+	out, err := h.ReadBookUsecase.Execute(c.Request().Context(), id)
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	out, err := h.RegisterUC.Execute(c.Request().Context(), bookcmd.RegisterCommand{
+	out, err := h.RegisterBookUsecase.Execute(c.Request().Context(), bookcmd.RegisterBookCommand{
 		ISBN: req.ISBN, Summary: req.Summary, TitleOverride: req.TitleOverride, TagIDs: req.TagIDs, Comment: req.Comment, Rating: *req.Rating,
 	})
 	if err != nil {
@@ -222,7 +222,7 @@ func (h *Handler) Update(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	out, err := h.UpdateUC.Execute(c.Request().Context(), bookcmd.UpdateCommand{
+	out, err := h.UpdateBookUsecase.Execute(c.Request().Context(), bookcmd.UpdateBookCommand{
 		ID: id, Summary: req.Summary, TitleOverride: req.TitleOverride, TagIDs: req.TagIDs, Comment: req.Comment, Rating: *req.Rating, Version: *req.Version,
 	})
 	if err != nil {
@@ -247,7 +247,7 @@ func (h *Handler) Delete(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := h.DeleteUC.Execute(c.Request().Context(), id); err != nil {
+	if err := h.DeleteBookUsecase.Execute(c.Request().Context(), id); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)

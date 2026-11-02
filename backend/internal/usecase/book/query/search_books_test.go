@@ -13,14 +13,14 @@ import (
 
 func int64Ptr(v int64) *int64 { return &v }
 
-func TestListUsecase_Execute(t *testing.T) {
+func TestSearchBooksUsecase_Execute(t *testing.T) {
 	t.Parallel()
 
 	t.Run("指定した取得範囲で一覧を返す", func(t *testing.T) {
 		t.Parallel()
 		want := &book.BookList{Total: 30}
 		q := &fakeQuery{list: want}
-		got, err := (&query.ListUsecaseImpl{Books: q}).Execute(context.Background(), query.ListInput{Limit: 10, Offset: 20})
+		got, err := (&query.SearchBooksUsecaseImpl{Books: q}).Execute(context.Background(), query.SearchBooksInput{Limit: 10, Offset: 20})
 		if err != nil || got != want {
 			t.Fatalf("got (%+v, %v)", got, err)
 		}
@@ -35,8 +35,8 @@ func TestListUsecase_Execute(t *testing.T) {
 	t.Run("キーワードと分野タグを条件として渡す", func(t *testing.T) {
 		t.Parallel()
 		q := &fakeQuery{list: &book.BookList{}}
-		in := query.ListInput{Keyword: " 設計 ", TagID: int64Ptr(3), Limit: 20}
-		if _, err := (&query.ListUsecaseImpl{Books: q}).Execute(context.Background(), in); err != nil {
+		in := query.SearchBooksInput{Keyword: " 設計 ", TagID: int64Ptr(3), Limit: 20}
+		if _, err := (&query.SearchBooksUsecaseImpl{Books: q}).Execute(context.Background(), in); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if q.gotCond.Keyword() != "設計" {
@@ -49,18 +49,18 @@ func TestListUsecase_Execute(t *testing.T) {
 
 	for _, tt := range []struct {
 		name string
-		in   query.ListInput
+		in   query.SearchBooksInput
 	}{
-		{name: "limit上限超過", in: query.ListInput{Limit: common.MaxListLimit + 1}},
-		{name: "limit 0", in: query.ListInput{Limit: 0}},
-		{name: "offset負", in: query.ListInput{Limit: 10, Offset: -1}},
-		{name: "キーワード101文字", in: query.ListInput{Keyword: strings.Repeat("あ", 101), Limit: 10}},
-		{name: "タグID 0", in: query.ListInput{TagID: int64Ptr(0), Limit: 10}},
+		{name: "limit上限超過", in: query.SearchBooksInput{Limit: common.MaxListLimit + 1}},
+		{name: "limit 0", in: query.SearchBooksInput{Limit: 0}},
+		{name: "offset負", in: query.SearchBooksInput{Limit: 10, Offset: -1}},
+		{name: "キーワード101文字", in: query.SearchBooksInput{Keyword: strings.Repeat("あ", 101), Limit: 10}},
+		{name: "タグID 0", in: query.SearchBooksInput{TagID: int64Ptr(0), Limit: 10}},
 	} {
 		t.Run(tt.name+"はエラーで検索しない", func(t *testing.T) {
 			t.Parallel()
 			q := &fakeQuery{}
-			if _, err := (&query.ListUsecaseImpl{Books: q}).Execute(context.Background(), tt.in); !errors.Is(err, common.ErrInvalid) {
+			if _, err := (&query.SearchBooksUsecaseImpl{Books: q}).Execute(context.Background(), tt.in); !errors.Is(err, common.ErrInvalid) {
 				t.Fatalf("err = %v, want ErrInvalid", err)
 			}
 			if q.gotRange != nil {
@@ -73,7 +73,7 @@ func TestListUsecase_Execute(t *testing.T) {
 		t.Parallel()
 		wantErr := errors.New("db: timeout")
 		q := &fakeQuery{err: wantErr}
-		if _, err := (&query.ListUsecaseImpl{Books: q}).Execute(context.Background(), query.ListInput{Limit: 10}); !errors.Is(err, wantErr) {
+		if _, err := (&query.SearchBooksUsecaseImpl{Books: q}).Execute(context.Background(), query.SearchBooksInput{Limit: 10}); !errors.Is(err, wantErr) {
 			t.Fatalf("err = %v, want %v", err, wantErr)
 		}
 	})
