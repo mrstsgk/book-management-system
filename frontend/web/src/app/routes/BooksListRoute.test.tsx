@@ -218,4 +218,45 @@ describe('BooksListRoute', () => {
     expect(await screen.findByRole('group', { name: '分野タグ' })).toBeVisible()
     expect(tagsCalls).toBe(2)
   })
+
+  it('101文字のキーワードで検索すると入力欄の下で上限を伝え、一覧を読みに行かない', async () => {
+    const requests = serveBooks()
+    renderWithProviders(<AppRoutes />, { route: '/' })
+    await screen.findByText('25冊中 20冊を表示')
+    const before = requests.length
+
+    // 1 文字ずつ打つと遅いので貼り付けで入れる
+    await userEvent.click(screen.getByRole('searchbox'))
+    await userEvent.paste('あ'.repeat(101))
+    await userEvent.click(screen.getByRole('button', { name: '検索' }))
+
+    const searchbox = await screen.findByRole('searchbox', {
+      description: 'キーワードは100文字以内で入力してください',
+    })
+    expect(searchbox).toHaveAttribute('aria-invalid', 'true')
+    expect(requests).toHaveLength(before)
+    expect(
+      screen.queryByText('本の一覧を読み込めませんでした'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('API が q の 400 を返したら、エラーの画面ではなく入力欄の下で上限を伝える', async () => {
+    server.use(
+      http.get('*/api/books', () =>
+        HttpResponse.json(
+          { message: 'invalid request', errors: [{ field: 'q', rule: 'max' }] },
+          { status: 400 },
+        ),
+      ),
+      getGetApiTagsMockHandler({ items: [] }),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/?q=設計' })
+
+    expect(
+      await screen.findByText('キーワードは100文字以内で入力してください'),
+    ).toBeVisible()
+    expect(
+      screen.queryByText('本の一覧を読み込めませんでした'),
+    ).not.toBeInTheDocument()
+  })
 })

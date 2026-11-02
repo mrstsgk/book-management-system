@@ -136,4 +136,24 @@ describe('useBooksList', () => {
     await waitFor(() => expect(result.current.books).toHaveLength(20))
     expect(result.current.books[0].id).toBe(1)
   })
+
+  it('URL の q が100文字を超えるなら一覧を読まず、queryTooLong を返す', async () => {
+    const requests = serveBooks()
+    const { result } = renderUseBooksList(`/?q=${'あ'.repeat(101)}`)
+
+    expect(result.current.queryTooLong).toBe(true)
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.isError).toBe(false)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(requests).toHaveLength(0)
+  })
+
+  it('q が100文字ちょうどなら一覧を読み、queryTooLong は false', async () => {
+    const requests = serveBooks()
+    const { result } = renderUseBooksList(`/?q=${'あ'.repeat(100)}`)
+
+    await waitFor(() => expect(result.current.books).toHaveLength(20))
+    expect(requests[0].get('q')).toBe('あ'.repeat(100))
+    expect(result.current.queryTooLong).toBe(false)
+  })
 })

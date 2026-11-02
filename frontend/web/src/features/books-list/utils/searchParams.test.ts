@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeQuery, parseTagParam } from './searchParams'
+import { isQueryTooLong, normalizeQuery, parseTagParam } from './searchParams'
+
+describe('isQueryTooLong', () => {
+  // 上限は要件の 100 文字。文字数は Unicode のコードポイントで数える（補助平面の絵文字 1 つは 1 文字）
+  it.each([
+    ['99文字', 'あ'.repeat(99), false],
+    ['100文字ちょうど', 'あ'.repeat(100), false],
+    ['101文字', 'あ'.repeat(101), true],
+    ['補助平面の絵文字100文字', '😀'.repeat(100), false],
+    ['補助平面の絵文字101文字', '😀'.repeat(101), true],
+    ['前後の空白を除くと100文字', ` ${'あ'.repeat(100)}　`, false],
+    ['空', '', false],
+  ])('%s なら上限超過=%s', (_name, input, want) => {
+    expect(isQueryTooLong(input)).toBe(want)
+  })
+
+  it('キーワードなし（undefined）は上限超過にしない', () => {
+    expect(isQueryTooLong(undefined)).toBe(false)
+  })
+})
 
 describe('parseTagParam', () => {
   it.each([

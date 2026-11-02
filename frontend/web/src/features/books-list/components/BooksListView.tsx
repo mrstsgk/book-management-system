@@ -16,6 +16,8 @@ interface BooksListViewProps {
   tagId?: number
   tags?: TagResponse[]
   hasFilter: boolean
+  /** 検索キーワードが上限を超えているか（一覧は出さず、入力欄の下で伝える）。 */
+  queryTooLong?: boolean
   isLoading: boolean
   isError: boolean
   onRetry: () => void
@@ -46,6 +48,7 @@ function SearchPanel({
   query,
   tagId,
   tags,
+  queryTooLong,
   onSearch,
   onSelectTag,
 }: BooksListViewProps) {
@@ -73,6 +76,9 @@ function SearchPanel({
             type="search"
             defaultValue={query}
             placeholder="例: 設計、Kleppmann"
+            // maxLength は UTF-16 単位で数え、IME の変換途中でも切るため使わない。送信後に上限を伝える
+            aria-invalid={queryTooLong || undefined}
+            aria-describedby={queryTooLong ? 'books-q-error' : undefined}
             className="h-12 min-w-0 flex-1 rounded-lg border border-ink-500 px-4 text-base"
           />
           <button
@@ -82,6 +88,11 @@ function SearchPanel({
             検索
           </button>
         </div>
+        {queryTooLong && (
+          <p id="books-q-error" role="alert" className="text-[13px] text-brand-800">
+            キーワードは100文字以内で入力してください
+          </p>
+        )}
       </form>
       {tags && (
         <div
@@ -142,6 +153,7 @@ function BooksListBody({
   books,
   total,
   hasFilter,
+  queryTooLong,
   isLoading,
   isError,
   onRetry,
@@ -150,6 +162,8 @@ function BooksListBody({
   onLoadMore,
   onClear,
 }: BooksListViewProps) {
+  // 一覧は読んでいないので、0 件の案内を出すと条件に合う本が無いように見える
+  if (queryTooLong) return null
   if (isLoading) return <LoadingState />
   if (isError) {
     return (

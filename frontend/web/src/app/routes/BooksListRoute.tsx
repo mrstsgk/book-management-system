@@ -11,6 +11,7 @@ export function BooksListRoute() {
       tagId={list.tagId}
       tags={list.tags}
       hasFilter={list.hasFilter}
+      queryTooLong={list.queryTooLong}
       isLoading={list.isLoading}
       isError={list.isError}
       onRetry={list.retry}
