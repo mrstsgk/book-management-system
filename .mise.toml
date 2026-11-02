@@ -1,5 +1,6 @@
 # Node / pnpm / Go のチーム共通ピン。ディレクトリに入ったら `mise install`。
-# 上げるときは本ファイル・frontend の packageManager / engines を同じ PR で更新する。
+# 上げるときは本ファイル・frontend の packageManager / engines・CI を同じ PR で更新する。
+# 版は原則として公開から 2 週間以上たったものを選ぶ（セキュリティ修正版は例外として早めに取り込む）。
 
 [tools]
 node = "26.13.0"

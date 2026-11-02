@@ -4,9 +4,9 @@
 
 | | |
 |---|---|
-| 対象要件 | [`docs/specifications.md`](../specifications.md) §1・§2 |
-| 関連する設計 | [`2026-09-29-public-screens-design.md`](../superpowers/specs/2026-09-29-public-screens-design.md)・[`2026-09-28-book-list-search-design.md`](../superpowers/specs/2026-09-28-book-list-search-design.md)・[`2026-09-28-book-tags-design.md`](../superpowers/specs/2026-09-28-book-tags-design.md) |
-| モック | [`docs/design/public-screens/`](./public-screens/README.md) |
+| 対象ストーリー | US-001・US-002・US-003（[backlog.md](../requirements/backlog.md)） |
+| 関連する論点 | 未決 1 件（検索キーワードが 100 文字を超えたときの伝え方。[status-map.md](../requirements/status-map.md)「未決の論点」） |
+| 合意済みモック | [mock/public-screens/v1/](../../mock/public-screens/v1/index.html) |
 | Updated | 2026-11-02 |
 
 ---
@@ -36,7 +36,7 @@ flowchart LR
   X["上記以外の URL"] --> NF
 ```
 
-読み込みに失敗した画面は、同じ画面にエラーの表示と「再試行」を出し、押すと取り直す（要件 §2.4）。
+読み込みに失敗した画面は、同じ画面にエラーの表示と「再試行」を出し、押すと取り直す（US-001〜US-003 の受け入れ条件）。
 
 ## 3. 権限
 
@@ -51,10 +51,10 @@ flowchart LR
 ### 4-1. 一覧
 
 ![一覧（PC）](./public-screens/images/list.png)
-*モック `list.html` / 通常表示。番号は図に無い。表の No. は項目の並び順*
+*モック v1 `list.html` / 通常表示。番号は図に無い。表の No. は項目の並び順*
 
 ![一覧（スマホ幅）](./public-screens/images/list-mobile.png)
-*モック `list-mobile.html` / 幅 390。1 列になり、分野タグは横にスクロールする*
+*モック v1 `list-mobile.html` / 幅 390。1 列になり、分野タグは横にスクロールする*
 
 | No. | 項目名 | 対応データ | 入力制御 | 表示桁数 | 入力桁数★ | データ型★ | 文字種★ | 入力制約★ | 初期表示 | 出力仕様 | 必須★ |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -78,7 +78,7 @@ flowchart LR
 ### 4-2. 詳細
 
 ![詳細](./public-screens/images/detail.png)
-*モック `detail.html` / 通常表示。番号は図に無い。表の No. は項目の並び順*
+*モック v1 `detail.html` / 通常表示。番号は図に無い。表の No. は項目の並び順*
 
 | No. | 項目名 | 対応データ | 入力制御 | 表示桁数 | 入力桁数★ | データ型★ | 文字種★ | 入力制約★ | 初期表示 | 出力仕様 | 必須★ |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -103,7 +103,7 @@ flowchart LR
 ### 4-3. 分野別の集計
 
 ![分野別の集計](./public-screens/images/counts.png)
-*モック `counts.html` / 通常表示。番号は図に無い。表の No. は項目の並び順*
+*モック v1 `counts.html` / 通常表示。番号は図に無い。表の No. は項目の並び順*
 
 | No. | 項目名 | 対応データ | 入力制御 | 表示桁数 | 入力桁数★ | データ型★ | 文字種★ | 入力制約★ | 初期表示 | 出力仕様 | 必須★ |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -145,5 +145,5 @@ flowchart LR
 | 一覧 | 新しく登録した順 | 20 冊（API は `limit` 1〜100・既定 20、`offset`） | `q`（書名（上書きがあれば上書き）・著者の部分一致、大文字小文字を区別しない、前後の空白を除いて 100 文字以内）と `tagId`（1 以上）。両方を満たす本。存在しない `tagId` は 0 件 | 本が無ければ「まだ本が登録されていません」、条件に合わなければ「条件に当てはまる本はありません。…」と「検索と絞り込みを外す」 |
 | 分野別の集計 | 冊数の多い順（同数ならタグ名順） | 全件 | なし | 「分野タグの付いた本はまだありません」 |
 
-- `q`・`tag` が変わると先頭から読み直す（要件 §2.1）
+- `q`・`tag` が変わると先頭から読み直す（US-001）
 - 次の `offset` は「読み込んだ冊数」。総件数以上なら読み込まない

@@ -1,6 +1,6 @@
 # コードのコメントの書き方
 
-実装にコメントを残すときの規則。生成物（`backend/api/gen/`・`openapi/dist/`・`frontend/*/src/api/generated/`）は対象外（手編集しないため）。本リポジトリのコードのコメントはすべて日本語で書く。
+実装にコメントを残すときの規則。OpenAPI などから自動生成したファイルは対象外（手編集しないため）。
 
 ## 何をどこに書くか
 
@@ -13,6 +13,8 @@
 | コミットログ | Why（変更の動機。[コミットメッセージ規約](./git-commit-message.md)） |
 | **コードのコメント** | **Why not**（採らなかった案、コードから読み取れない制約）。ただし下の「概要のドキュメントコメント」は What |
 
+コメントはすべて日本語で書く。
+
 ## Why not
 
 コードを読めば分かる処理の説明は書かない。書くのは、読んだ人が「なぜこう書かなかったのか」と迷う箇所だけにする。
@@ -21,15 +23,15 @@
 - コードから読み取れない制約（外部 API の仕様、ライブラリの不具合の回避、版を固定している理由など）
 
 ```go
-// 書影の URL は保存しない（openBD 側の削除・差し替えを次回の取り直しで反映するため）
-cover := catalog.CoverURL
+// 生成 IF を埋め込まないのは、未実装の operation が実行時エラーになるため
+var _ adminapi.ServerInterface = (*server)(nil)
 ```
 
 ## 概要のドキュメントコメント
 
 下の「バックエンド」「フロントエンド」の表にあるものには、何の知識か・何をするかの概要を、日本語のドキュメントコメントで 1 行書く。読む人が、ほかのファイルを開かずに、その場やエディタのホバーで意味を確かめられるようにするため。
 
-- 概要だけを書き、制約・条件（文字数、重複しないこと、件数の上限など）は書かない。詳細はコード（VO のコンストラクタ・UseCase・OpenAPI の YAML・zod など）で表す。コメントに書くと、コードを直したときにコメントだけが古くなるため
+- 概要だけを書き、制約・条件（文字数、重複しないこと、件数の上限など）は書かない。詳細はコード（VO のコンストラクタ・UseCase・zod など）で表す。コメントに書くと、コードを直したときにコメントだけが古くなるため
 - 同じ層の中では書き方を揃える。種類ごとに書く・書かないを変えると、どれに当たるかを見分ける手間が増えるため
 - 層を問わず、複雑な関数・メソッド（流れが追いにくい、分岐が多い、自明でないアルゴリズム）にも 1 行の概要を書く
 
@@ -40,43 +42,44 @@ cover := catalog.CoverURL
 | Go | 宣言の直前の行に `//`（空行を挟まない）。型・関数・メソッドは識別子の名前で始める（`// Book は、…`）。フィールドは概要だけでよい |
 | TypeScript | 宣言の直前に TSDoc の `/** … */`。値の集合（文字列のユニオン型）の各値の意味は、型のコメントに箇条書きで書く（ユニオンの各値に付けたコメントはホバーに出ないため） |
 
-以下の例の名前と型は説明のためのもので、実装の決定ではない。UseCase の例は [`backend/architecture.md`](../../backend/architecture.md) の命名規則（`<動詞><業務対象>Usecase`）で書いている。
+以下の例の名前と型は説明のためのもので、実装の決定ではない。
 
 ## バックエンド
-
-層・ディレクトリは `internal/<area>/{domain,usecase/{command,query},infrastructure/{postgres,gateway},presentation/http/<channel>}`（[`backend/architecture.md`](../../backend/architecture.md) §2）。
 
 | 層 | 1 行の概要を書くもの |
 |---|---|
 | Domain（Entity・VO・Read Model） | 型と各フィールド |
 | Domain（Repository・Query・ExternalGateway の IF） | 型と各メソッド |
 | UseCase | IF の型（メソッドは `Execute` だけなので書かない）。Command DTO の型と各フィールド |
-| Presentation（Handler） | 型と各メソッド。メソッドには HTTP メソッドとパスを添える（Request／Response 型は生成物なので書かない。意味は YAML の `description` に書く） |
+| Presentation（Handler） | 型と各メソッド。メソッドには HTTP メソッドとパスを添える |
 | Infrastructure | Repository・Query・ExternalGateway の実装の型と各メソッド |
-| 上記以外（`cmd`・`platform/httpserver`・`platform/postgres`・`domainerr`・`apitest`・変換関数など） | 書かない（Why not だけ） |
+| 上記以外（`cmd`・`platform`・`domainerr`・変換関数など） | 書かない（Why not だけ） |
 
 UseCase の実装の型（`XxxUsecaseImpl`）は IF を見れば分かるので書かない。Persistence Model（`gorm` タグの付いた型）はカラムの意味の正が migration の `COMMENT ON COLUMN` と [`docs/db/backend-schema.md`](../db/backend-schema.md)（[DB 資料の規則](./db-documentation.md)）なので書かない。
 
 ### Domain（Entity・VO・Read Model）
 
 ```go
-// Book は、自分が読んだ本と、それに添える感想・評価。
+// Book は、読んだ本と、それに添えた感想・評価・分野タグ。
 type Book struct {
-	// 本を区別する ISBN。
+	// 本を区別する ID。
+	ID ID
+	// 本を特定する ISBN。
 	ISBN ISBN
-	// 画面に出す書名（上書きがあればそれ）。
-	Title Title
-	// 一言まとめ・感想・評価。
-	Review Review
-	// 同時編集を見つけるための版。
-	Version int64
+	// 一覧に出す一言まとめ。
+	Summary Summary
+	// 同時更新を見つけるための版。
+	Version int
 }
 
-// Title は、本の書名。
-type Title struct{ value string }
+// Summary は、一覧に出す一言まとめ。
+type Summary struct {
+	// まとめの本文。
+	value string
+}
 
-// BookSummary は、一覧の 1 行。
-type BookSummary struct {
+// BookListItem は、本の一覧の 1 行。
+type BookListItem struct {
 	// 本を区別する ID。
 	ID int64
 	// 画面に出す書名。
@@ -84,25 +87,19 @@ type BookSummary struct {
 }
 ```
 
-### Domain（Repository・Query・ExternalGateway の IF）
+### Domain（Repository・Query の IF）
 
 ```go
 // Repository は、読んだ本を保存する。
 type Repository interface {
 	// FindByID は、ID で本を 1 件取り出す。
-	FindByID(ctx context.Context, id int64) (*Book, error)
+	FindByID(ctx context.Context, id ID) (*Book, error)
 }
 
 // Query は、本の一覧と詳細を画面に出すために読み取る。
 type Query interface {
-	// Search は、条件に合う本を新しい順に探す。
-	Search(ctx context.Context, cond ListCondition) ([]BookSummary, error)
-}
-
-// BookCatalog は、ISBN から書誌と書影を取ってくる外部カタログ。
-type BookCatalog interface {
-	// Lookup は、ISBN で書誌と書影を 1 件探す。
-	Lookup(ctx context.Context, isbn ISBN) (*Bibliography, error)
+	// Search は、条件に合う本を探す。
+	Search(ctx context.Context, c ListCondition, r ListRange) (*BookList, error)
 }
 ```
 
@@ -111,19 +108,18 @@ type BookCatalog interface {
 ```go
 // RegisterBookUsecase は、読んだ本を新しく登録する。
 type RegisterBookUsecase interface {
-	Execute(ctx context.Context, cmd RegisterCommand) (int64, error)
+	Execute(ctx context.Context, cmd RegisterBookCommand) (*domain.BookDetail, error)
 }
 
 type RegisterBookUsecaseImpl struct {
-	Books   bookdomain.Repository
-	Catalog bookdomain.BookCatalog
+	Books domain.Repository
 }
 
-// RegisterCommand は、本の新規登録の入力。
-type RegisterCommand struct {
+// RegisterBookCommand は、読んだ本の登録の入力。
+type RegisterBookCommand struct {
 	// 登録する本の ISBN。
 	ISBN string
-	// 一覧で見せる一言まとめ。
+	// 一覧に出す一言まとめ。
 	Summary string
 	// 付ける分野タグの ID。
 	TagIDs []int64
@@ -133,16 +129,16 @@ type RegisterCommand struct {
 ### Presentation（Handler）
 
 ```go
-// Handler は、読んだ本の API を処理する。
+// Handler は、管理画面の本の API を処理する。
 type Handler struct {
-	SearchBooksUsecase  bookquery.SearchBooksUsecase
+	SearchBooksUsecase  bookqry.SearchBooksUsecase
 	RegisterBookUsecase bookcmd.RegisterBookUsecase
 }
 
-// SearchBooks は、読んだ本を検索する（GET /api/books）。
-func (h *Handler) SearchBooks(c echo.Context, params webapi.SearchBooksParams) error { ... }
+// SearchBooks は、本を検索する（GET /api/admin/books）。
+func (h *Handler) SearchBooks(c echo.Context, params adminapi.SearchBooksParams) error { ... }
 
-// RegisterBook は、読んだ本を登録する（POST /api/admin/books）。
+// RegisterBook は、読んだ本を新しく登録する（POST /api/admin/books）。
 func (h *Handler) RegisterBook(c echo.Context) error { ... }
 ```
 
@@ -153,13 +149,13 @@ func (h *Handler) RegisterBook(c echo.Context) error { ... }
 type repository struct{ db *gorm.DB }
 
 // FindByID は、ID で本を 1 件取り出す。
-func (r *repository) FindByID(ctx context.Context, id int64) (*bookdomain.Book, error) { ... }
+func (r *repository) FindByID(ctx context.Context, id domain.ID) (*domain.Book, error) { ... }
 
 // query は、本の一覧と詳細を PostgreSQL から読み取る。
 type query struct{ db *gorm.DB }
 
-// Search は、条件に合う本を新しい順に探す。
-func (q *query) Search(ctx context.Context, cond bookdomain.ListCondition) ([]bookdomain.BookSummary, error) { ... }
+// Search は、条件に合う本を探す。
+func (q *query) Search(ctx context.Context, c domain.ListCondition, r domain.ListRange) (*domain.BookList, error) { ... }
 ```
 
 ## フロントエンド
@@ -178,22 +174,22 @@ func (q *query) Search(ctx context.Context, cond bookdomain.ListCondition) ([]bo
  * - `newest`: 新しく登録した順
  * - `rating`: 評価の高い順
  */
-export type SortKey = 'newest' | 'rating'
+export type BookSort = 'newest' | 'rating'
 
-/** 一覧の 1 冊分の表示項目。 */
-export interface BookListItem {
+/** 本の一覧の 1 枚のカード。 */
+export interface BookCardProps {
   /** 画面に出す書名。 */
   title: string
-  /** 書影の URL。無ければ書影なしの枠を出す。 */
-  coverUrl?: string
+  /** 押したときの移動先。 */
+  to: string
 }
 
-/** 読んだ本を一覧に並べ、検索とタグの絞り込みを受け付ける。 */
-export function BooksListView({ items, onSearch }: BooksListViewProps) { ... }
+/** 本の書影・書名・一言まとめを 1 枚のカードで見せる。 */
+export function BookCard({ title, to }: BookCardProps) { ... }
 
-/** 本の一覧を取得し、検索・絞り込み・追加読み込みの状態を提供する。 */
+/** 本の一覧を取得し、画面用の形にして提供する。 */
 export function useBooksList() { ... }
 
-/** タグ名から選択済みのタグ ID を引く。 */
-export function tagIdsByName(tags: Tag[], names: string[]): number[] { ... }
+/** 文字数を Unicode のコードポイントで数える。 */
+export function codePointLength(value: string): number { ... }
 ```

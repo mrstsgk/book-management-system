@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// ローカル実行のみ（ADR: docs/adr/2026-09-30-introduce-playwright-e2e.md）。
+// ローカル実行のみ（CI に載せない理由は frontend/architecture.md §8）。
 // 実バックエンド（:8080）と実フロントエンド開発サーバー（:3000）が起動済みである前提で、
 // このファイルからは起動しない（バックエンドはフロントエンドの管理外のプロセスのため）。
 export default defineConfig({

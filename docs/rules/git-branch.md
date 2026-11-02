@@ -2,6 +2,7 @@
 
 本プロジェクトのブランチ運用ルール。Git Flow ベースで、`develop` に開発を集約し、リリース時に `main` へマージする。
 
+
 ## 永続ブランチ（直接コミット禁止）
 
 - `main`: 本番。リリース時のみ `develop` か `hotfix/*` からマージ
@@ -32,14 +33,14 @@
 - 英語で簡潔に内容を表す
 - **ブランチ名に Issue 番号を含めない**（`issue-83` 等）。人が見て何の作業かわかる名前にする。Issue との紐付けは PR 本文で行う
 
-✅ `chore/setup-golangci-lint` / `refactor/cleanup-book-usecase` / `feat/author-book-list`
+✅ `chore/setup-golangci-lint` / `refactor/cleanup-book-usecase` / `feat/tag-book-counts`
 ❌ `fix/bug`（不明確）/ `feature/foo`（プレフィックス違反）/ `feat/issue-83-xxx`（Issue 番号）
 
 ## 通常フロー
 
 1. `develop` から作業ブランチを切る
 2. 実装 → PR を `develop` へ
-3. CI・CodeRabbit・確認事項のチェックボックスがすべて OK になったらレビュー依頼し、承認後にマージ（手順は [開発の流れ](./development-flow.md) §5、マージ条件は [PR 運用ルール](./git-pull-request.md)）
+3. CI・CodeRabbit・確認事項のチェックボックスがすべて OK になったらオーナーへレビュー依頼し、承認後にマージ（手順は [開発の流れ](./development-flow.md) §5、マージ条件は [PR 運用ルール](./git-pull-request.md)）
 
 ## 緊急修正フロー（hotfix）
 

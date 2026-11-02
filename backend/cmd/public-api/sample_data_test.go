@@ -29,7 +29,7 @@ func TestSampleBooks_AreValidAndDistinct(t *testing.T) {
 	}
 }
 
-// 一言まとめ・感想は仮の下書き文言（ADR: 2026-09-30-sample-book-comments-as-drafts）だが、
+// 一言まとめ・感想は仮の下書き文言（docs/specifications.md §4.3 の未充足として明記）だが、
 // それぞれ書誌に沿った内容にする方針のため、旧仮文言や本同士の使い回しへの回帰を防ぐ。
 func TestSampleBooks_SummaryAndCommentAreDistinctPerBook(t *testing.T) {
 	seenSummary := map[string]string{}
