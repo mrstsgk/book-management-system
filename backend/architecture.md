@@ -70,7 +70,7 @@ infrastructure/postgres/{common,<domain>}, infrastructure/gateway/{<domain>}
 - **`Impl` は IF と実装が同じパッケージにあるときだけ付ける**（命名に迷わず全ドメインで同じ形にするため、条件を 1 つに決めておく）
   - UseCase: 同じパッケージに IF `XxxUsecase` と公開 struct `XxxUsecaseImpl` を置き、`cmd` で struct リテラル（`&bookcmd.RegisterUsecaseImpl{Books: ..., Catalog: ...}`）から組み立てる。Handler は IF にだけ依存するので、実装を変えても Handler は変わらない
   - Infrastructure: IF は Domain にあるので名前は衝突しない。非公開 struct（`repository` / `query`）+ Domain の IF を返す `NewRepository(db)` / `NewQuery(db)` で作り、`Impl` は付けない。呼び出し側は Domain の IF にしか依存できない
-- ファイル名は小文字（区切りは `_`）。ドメイン名や `_impl` を付けない（ディレクトリで分かる）。`_linux` / `_js` 等の OS・アーキテクチャ名で終わらせない（Go のビルド制約として解釈される）。テストは `_test.go` にし、テスト以外のファイルを `_test` で終わらせない。例: `register.go` / `register_test.go` / `query.go` / `repository.go`
+- ファイル名は小文字（区切りは `_`）。ドメイン名や `_impl` を付けない（ディレクトリで分かる）。`_linux` / `_js` 等の OS・アーキテクチャ名で終わらせない（Go のビルド制約として解釈される）。テストは `_test.go` にし、テスト以外のファイルを `_test` で終わらせない。例: `register_book.go` / `register_book_test.go` / `query.go` / `repository.go`
 - 会話・レビューでは同名を区別するためパッケージ名付きで呼ぶ（`book.Repository` = IF、`pgbook.NewRepository` = 実装、`bookcmd.RegisterBookUsecase` = UseCase）
 - テストは対象と同じディレクトリに置く（[テスト規約](../docs/rules/testing.md)）
 - **新しいドメインの追加・境界の変更は設計レビューの対象**。要件と実際の変更理由から決め、予測で空パッケージを量産しない。ディレクトリは `book` を写し、今必要な層だけ作る
@@ -125,8 +125,8 @@ Query（読み取り側）は Read Model を返し、業務の状態を変えな
 | 層 | 置き場・ファイル名 | 型・関数の命名 | テスト |
 |---|---|---|---|
 | **Domain** | `internal/domain/<domain>/`。Entity と IF は `<domain>.go`、VO は概念ごとのファイル（実例: `book/{book,isbn,review,summary,title}.go`、`tag/{tag,name}.go`、`auth/{session,credentials}.go`、`common/{error,list_range}.go`） | 書き込み IF `Repository`・読み取り IF `Query`・外部連携 IF は業務の能力で名付ける（実例: `book.BookCatalog`、`auth.PasswordVerifier`）。Read Model は `XxxDetail` / `XxxList` / `XxxListItem` / `XxxSummary` など用途が分かる名前（実例: `BookDetail`、`TagListItem`）。VO の不変条件は `NewXxx` で保証 | DB・HTTP に依存しない。不変条件・業務ルール・境界値と、不正な状態を作れないこと |
-| **UseCase（参照）** | `internal/usecase/<domain>/query/`。1 UseCase 1 ファイル（実例: `book/query/{get,list,lookup_catalog}.go`、`tag/query/{list,count_books}.go`） | IF `XxxUsecase` + 公開 struct `XxxUsecaseImpl`、メソッドは `Execute`、依存は公開フィールド（`Books book.Query`）。`cmd` で struct リテラルから組み立てる | 手書き Fake を注入し DB 無しで動かす。下位層のエラーが伝播すること |
-| **UseCase（更新）** | `internal/usecase/<domain>/command/`（実例: `book/command/{register,update,delete}.go`、`auth/command/{login,logout}.go`） | 参照と同じ。データを持つ入力は Command DTO `RegisterCommand` / `UpdateCommand`、ID だけなら scalar 引数 | 参照と同じに加え、失敗時に状態が変わらないこと、入力エラー時に下位層が呼ばれないこと |
+| **UseCase（参照）** | `internal/usecase/<domain>/query/`。1 UseCase 1 ファイル（実例: `book/query/{read_book,search_books,lookup_catalog}.go`、`tag/query/{search_tags,count_books}.go`） | IF `XxxUsecase` + 公開 struct `XxxUsecaseImpl`、メソッドは `Execute`、依存は公開フィールド（`Books book.Query`）。`cmd` で struct リテラルから組み立てる | 手書き Fake を注入し DB 無しで動かす。下位層のエラーが伝播すること |
+| **UseCase（更新）** | `internal/usecase/<domain>/command/`（実例: `book/command/{register_book,update_book,delete_book}.go`、`tag/command/{register_tag,rename_tag,delete_tag}.go`、`auth/command/{login,logout}.go`） | 参照と同じ。データを持つ入力は Command DTO `RegisterBookCommand` / `UpdateBookCommand`（UseCase の名前から `Usecase` を除き `Command` を付ける）、ID だけなら scalar 引数 | 参照と同じに加え、失敗時に状態が変わらないこと、入力エラー時に下位層が呼ばれないこと |
 | **Infrastructure（DB）** | `internal/infrastructure/postgres/<domain>/`。実装は `repository.go` / `query.go`、Persistence Model（`gorm` タグ）は同じファイルの非公開 `model`（実例: `book/{repository,query}.go`）。DB 接続は `postgres/common` | 非公開 struct（`repository` / `query`）+ Domain の IF を返す `NewRepository` / `NewQuery`。`Impl` は付けない。**型と各メソッドに日本語で概要の 1 行コメント** | 実際の PostgreSQL への契約テスト（繋がらなければ失敗）。SQL が複雑なもの（JOIN・集計・トランザクション）を優先し、Query は Read Model への詰め替えと書き込み側の型に依存しないことも確認 |
 | **Infrastructure（外部連携）** | `internal/infrastructure/gateway/<提供元>/`（実例: `gateway/openbd/catalog.go`）。ハッシュ照合は `infrastructure/auth/bcrypt.go` | Domain の IF（`book.BookCatalog` 等）を実装。実装には提供元の名前を使ってよい | 偽の HTTP サーバ（`httptest`）に対する契約テスト |
 | **Presentation** | `internal/presentation/http/<domain>/handler.go`。Request／Response DTO（`validate` タグ・swag コメント）も同じファイル（実例: `book/handler.go` の `RegisterRequest` / `Response` / `ListResponse`）。`presentation/http/common` = Echo・`BindValidate`・`HTTPErrorHandler`・セッション／同一オリジンの middleware | struct `Handler`、`Register(g *echo.Group)` でルート登録、メソッドは UseCase と同じ目的の名前。依存は公開フィールドで UseCase の IF | `handler_test.go`（Fake の UseCase で 400 と domain error → ステータスの変換）と `handler_integration_test.go`（実 DB で、返しうるステータスごとに 1 件） |
@@ -147,7 +147,7 @@ Query（読み取り側）は Read Model を返し、業務の状態を変えな
 ### 設計原則（目的駆動）
 
 - **目的駆動名前設計**: 名前は「存在」ではなく「目的」で付ける。1 手段に対して目的は 1 つ
-- **1 クラス 1 目的**: 目的が増えるほど変更の影響が広がる。目的ごとに分離する（例: 書籍の新規登録と更新で入力・検証が異なるなら `CreateCommand` / `UpdateCommand` と UseCase を分ける）
+- **1 クラス 1 目的**: 目的が増えるほど変更の影響が広がる。目的ごとに分離する（例: 書籍の新規登録と更新で入力・検証が異なるなら `RegisterBookCommand` / `UpdateBookCommand` と UseCase を分ける）
 - 共通化より「変更理由の分離」を優先する（似ているだけの処理を無理に1つへまとめない。「同じ理由で変更されるか？」で判断し、`Common` / `Util` / `Manager` / `Helper` / `BaseService` のような曖昧な共通クラスを安易に作らない）
 - **Domain は外部技術に依存しない**（§2 表の「他層に依存しない」の具体化）: Web Framework（Echo）／Controller／Request・Response／ORM（GORM）／SQL／DB 固有型／外部 API SDK／Infrastructure 実装のいずれも Domain から直接参照しない。外部との通信が要るときは Repository／Query／ExternalGateway の Interface を経由する
 - **業務ルールは Domain（VO・Entity）に閉じ込め、不正な状態を生成できない設計を優先する**: 呼び出し側の複数箇所に同じ範囲チェックを書く（例: `if price >= 0 && price <= 99999999` があちこちに存在する）のではなく、VO のコンストラクタ1箇所で不変条件を保証する（例: 書籍価格 VO のコンストラクタが 0 以上を保証する）
@@ -171,7 +171,7 @@ Query（読み取り側）は Read Model を返し、業務の状態を変えな
 - DB は1つ（アプリでの Writer/Reader 必須分離はしない）
 - イベント／投影は必要なドメインだけ。分散イベントバス・全体 ES はしない
 - 複数テーブルにまたがる更新など厳密整合は同一トランザクションの Command
-- **更新系**: 境界は **Command DTO**（`usecase/<domain>/command` が定義。例: `CreateCommand` / `UpdateCommand`）で受け渡す。UseCase 内で DTO → ドメインモデル（Entity/Aggregate）へ変換してから Repository に渡す
+- **更新系**: 境界は **Command DTO**（`usecase/<domain>/command` が定義。例: `RegisterBookCommand` / `UpdateBookCommand`）で受け渡す。UseCase 内で DTO → ドメインモデル（Entity/Aggregate）へ変換してから Repository に渡す
   - Presentation の Request 構造体・ORM Entity・DB Entity・Framework 依存オブジェクト（`echo.Context` 等）を UseCase／Domain へ直接渡さない。Handler は Request から値を取り出して Command DTO を組み立てる
   - Command DTO 自身に業務ロジック（バリデーション・状態遷移・DB／外部 API アクセス）を書かない。責務はデータの受け渡しのみで、判定は Domain（VO のコンストラクタ等）に置く
 - **参照系**: **Read Model**（参照専用モデル）中心で設計する。表示・検索用途に最適化した形を返し、更新系 DTO やドメインモデルを無理に再利用しない
