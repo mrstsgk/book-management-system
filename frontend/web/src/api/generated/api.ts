@@ -525,7 +525,7 @@ export const getPostApiBooksUrl = () => {
 }
 
 /**
- * 書誌と書影は ISBN で openBD から取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409
+ * 書誌と書影は ISBN で openBD から取得する。入力・VO・相関ルールの違反は独立して判定できるものをすべて 400 の errors[{field, rule}] で返す（rule: validate のキーワード / isbn の format / isbnDuplicated / isbnNotInCatalog / tagIdsNotFound / tagIdsDuplicated）。外部カタログの照会は他の違反が無いときだけ行う
  * @summary 読んだ本を登録する（自分だけ）
  */
 export const postApiBooks = async (registerBookRequest: RegisterBookRequest, options?: Parameters<typeof apiMutator>[1]): Promise<BookResponse> => {
@@ -789,7 +789,7 @@ export const getPutApiBooksIdUrl = (id: number,) => {
 }
 
 /**
- * あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。version が一致しない場合は 409
+ * あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。入力・VO・相関ルールの違反は独立して判定できるものをすべて 400 の errors[{field, rule}] で返す（rule: validate のキーワード / tagIdsNotFound / tagIdsDuplicated）。version が一致しない場合は 409
  * @summary 感想と評価を更新する（自分だけ）
  */
 export const putApiBooksId = async (id: number,
@@ -1082,7 +1082,7 @@ export const getPostApiTagsUrl = () => {
 }
 
 /**
- * 同じ名前のタグは登録できない（409）
+ * 同じ名前のタグは追加できない。入力・VO・相関ルールの違反は 400 の errors[{field, rule}] で返す（rule: validate のキーワード / invalid / tagNameDuplicated）
  * @summary 分野タグを追加する（自分だけ）
  */
 export const postApiTags = async (registerTagRequest: RegisterTagRequest, options?: Parameters<typeof apiMutator>[1]): Promise<TagResponse> => {
@@ -1246,7 +1246,7 @@ export const getPutApiTagsIdUrl = (id: number,) => {
 }
 
 /**
- * version が一致しない場合は 409
+ * 自分以外に同じ名前のタグがあると変更できない。入力・VO・相関ルールの違反は 400 の errors[{field, rule}] で返す（rule: validate のキーワード / invalid / tagNameDuplicated）。version が一致しない場合は 409
  * @summary 分野タグの名前を変更する（自分だけ）
  */
 export const putApiTagsId = async (id: number,

@@ -55,7 +55,7 @@ describe('AdminBookNewRoute', () => {
 
     expect(
       await screen.findByText(
-        'この ISBN の本は外部カタログに見つかりませんでした。',
+        'この ISBN の本は外部カタログに見つかりませんでした。ISBN を確かめてください。',
       ),
     ).toBeVisible()
   })
@@ -143,14 +143,22 @@ describe('AdminBookNewRoute', () => {
     expect(await screen.findByText('本を登録しました')).toBeVisible()
   })
 
-  it('同じISBNの本が既にあれば409の文言を出す', async () => {
+  it('登録済みのISBN（400）は ISBN 欄の下に出し、再送信はしない', async () => {
     const user = userEvent.setup()
+    let calls = 0
     server.use(
       getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
       getGetApiTagsMockHandler({ items: [] }),
-      http.post('*/api/books', () =>
-        HttpResponse.json({ message: 'conflict' }, { status: 409 }),
-      ),
+      http.post('*/api/books', () => {
+        calls += 1
+        return HttpResponse.json(
+          {
+            message: 'invalid request',
+            errors: [{ field: 'isbn', rule: 'isbnDuplicated' }],
+          },
+          { status: 400 },
+        )
+      }),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
     await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
@@ -163,6 +171,56 @@ describe('AdminBookNewRoute', () => {
     expect(
       await screen.findByText('この ISBN の本はすでに登録されています。'),
     ).toBeVisible()
+    expect(screen.getByLabelText(/ISBN/)).toHaveAttribute(
+      'aria-describedby',
+      'isbn-error',
+    )
+    expect(screen.getByLabelText(/ISBN/)).toBeInvalid()
+    expect(calls).toBe(1)
+  })
+
+  it('カタログに無いISBNと無いタグの400は、両方を項目の下に出し、要約に2か所と出す', async () => {
+    const user = userEvent.setup()
+    server.use(
+      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
+      getGetApiTagsMockHandler({
+        items: [{ id: 9, name: '設計', version: 1 }],
+      }),
+      http.post('*/api/books', () =>
+        HttpResponse.json(
+          {
+            message: 'invalid request',
+            errors: [
+              { field: 'isbn', rule: 'isbnNotInCatalog' },
+              { field: 'tagIds', rule: 'tagIdsNotFound' },
+            ],
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
+    await user.click(screen.getByRole('button', { name: '確かめる' }))
+    await screen.findByText('本', { selector: 'dd' })
+    await fillValidForm(user)
+    await user.click(screen.getByRole('checkbox', { name: '設計' }))
+
+    await user.click(screen.getByRole('button', { name: '登録する' }))
+
+    expect(
+      await screen.findByText(
+        'この ISBN の本は外部カタログに見つかりませんでした。ISBN を確かめてください。',
+      ),
+    ).toBeVisible()
+    expect(
+      screen.getByText(
+        '選んだ分野タグのうち、すでに削除されたものがあります。タグを選び直してください。',
+        { selector: 'p' },
+      ),
+    ).toBeVisible()
+    // ISBN はフォームの外の入力欄なので、要約（BookForm）は分野タグの 1 か所だけを数える
+    expect(screen.getByText('1か所の入力を直してください。')).toBeVisible()
   })
 
   it('サーバーのフィールドエラーを項目の文言として出す', async () => {

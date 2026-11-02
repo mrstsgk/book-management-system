@@ -12,17 +12,16 @@ import {
   type BookFormErrors,
   type BookFormValues,
 } from '@/features/admin-book-editor/types'
-import { toFieldMessages } from '@/features/admin-book-editor/utils/serverFieldErrors'
+import { toFieldMessages } from '@/utils/serverFieldErrors'
 import { validateBookForm } from '@/features/admin-book-editor/utils/validateBookForm'
 import { visibleLocalErrors } from '@/features/admin-book-editor/utils/visibleErrors'
 
-// 登録が失敗したとき、フィールドの誤り以外（カタログに無い・二重登録など）の一般的な文言にする
+// 登録が失敗したとき、項目に対応しない誤りを画面上部の一般的な文言にする。
+// 登録済み・カタログに無い・タグが無いは 400 の errors[{field, rule}] で項目ごとに返るので、
+// ここに来る 400 は項目に対応しないもの、409 は一意制約に当たった想定外の競合
 function generalRegisterMessage(error: ApiError | null): string | undefined {
   if (!error) return undefined
   if (error.fieldErrors.length > 0) return undefined
-  if (error.status === 409) return 'この ISBN の本はすでに登録されています。'
-  if (error.status === 400)
-    return 'この ISBN の本は外部カタログに見つかりませんでした。'
   return '登録できませんでした。時間をおいてもう一度お試しください。'
 }
 
@@ -100,7 +99,8 @@ export function useBookRegistration() {
     )
   }
 
-  const serverErrors = registerMutation.error
+  // isbn はフォーム（BookFormValues）の外の入力欄なので、項目のエラーから分けて ISBN 欄の下に出す
+  const { isbn: isbnError, ...serverErrors } = registerMutation.error
     ? toFieldMessages(registerMutation.error.fieldErrors)
     : {}
   const errors: BookFormErrors = {
@@ -122,6 +122,7 @@ export function useBookRegistration() {
     values,
     setValues,
     errors,
+    isbnError,
     generalError: generalRegisterMessage(registerMutation.error),
     submit,
     submitting: registerMutation.isPending,

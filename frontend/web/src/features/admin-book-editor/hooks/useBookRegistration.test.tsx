@@ -106,7 +106,7 @@ describe('useBookRegistration', () => {
     await waitFor(() => expect(result.current.registered).toBe(true))
   })
 
-  it('登録の409は「すでに登録されています」の一般エラーにする', async () => {
+  it('登録の409（想定外の競合）は画面上部の一般エラーにし、ISBN 欄には出さない', async () => {
     server.use(
       getGetApiCatalogIsbnMockHandler({
         isbn: '9784297146221',
@@ -134,9 +134,98 @@ describe('useBookRegistration', () => {
 
     await waitFor(() =>
       expect(result.current.generalError).toBe(
+        '登録できませんでした。時間をおいてもう一度お試しください。',
+      ),
+    )
+    expect(result.current.isbnError).toBeUndefined()
+  })
+
+  it('登録済みの ISBN（400 の isbnDuplicated）は ISBN 欄の誤りにし、一般エラーは出さない', async () => {
+    let calls = 0
+    server.use(
+      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.post('*/api/books', () => {
+        calls += 1
+        return HttpResponse.json(
+          {
+            message: 'invalid request',
+            errors: [{ field: 'isbn', rule: 'isbnDuplicated' }],
+          },
+          { status: 400 },
+        )
+      }),
+    )
+    const { result } = renderUseBookRegistration()
+    act(() => result.current.setIsbn('9784297146221'))
+    act(() => result.current.confirm())
+    await waitFor(() => expect(result.current.catalog.confirmed).toBe(true))
+    act(() =>
+      result.current.setValues({
+        titleOverride: '',
+        summary: 'まとめ',
+        comment: '感想',
+        rating: 4,
+        tagIds: [],
+      }),
+    )
+    act(() => result.current.submit())
+
+    await waitFor(() =>
+      expect(result.current.isbnError).toBe(
         'この ISBN の本はすでに登録されています。',
       ),
     )
+    expect(result.current.generalError).toBeUndefined()
+    expect(result.current.errors).toEqual({})
+    expect(result.current.registered).toBe(false)
+    expect(calls).toBe(1)
+  })
+
+  it('カタログに無い ISBN と無いタグの 400 は、両方を項目ごとの誤りにする', async () => {
+    server.use(
+      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
+      getGetApiTagsMockHandler({
+        items: [{ id: 9, name: '設計', version: 1 }],
+      }),
+      http.post('*/api/books', () =>
+        HttpResponse.json(
+          {
+            message: 'invalid request',
+            errors: [
+              { field: 'isbn', rule: 'isbnNotInCatalog' },
+              { field: 'tagIds', rule: 'tagIdsNotFound' },
+            ],
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+    const { result } = renderUseBookRegistration()
+    act(() => result.current.setIsbn('9784297146221'))
+    act(() => result.current.confirm())
+    await waitFor(() => expect(result.current.catalog.confirmed).toBe(true))
+    act(() =>
+      result.current.setValues({
+        titleOverride: '',
+        summary: 'まとめ',
+        comment: '感想',
+        rating: 4,
+        tagIds: [9],
+      }),
+    )
+    act(() => result.current.submit())
+
+    await waitFor(() =>
+      expect(result.current.isbnError).toBe(
+        'この ISBN の本は外部カタログに見つかりませんでした。ISBN を確かめてください。',
+      ),
+    )
+    expect(result.current.errors).toEqual({
+      tagIds:
+        '選んだ分野タグのうち、すでに削除されたものがあります。タグを選び直してください。',
+    })
+    expect(result.current.generalError).toBeUndefined()
   })
 
   it('ISBN を確かめる要求が401（セッション切れ）ならログイン画面へ送る', async () => {

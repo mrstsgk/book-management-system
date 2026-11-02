@@ -116,7 +116,35 @@ describe('useAdminTags', () => {
     expect(current.state).toEqual({ from: '/admin/tags' })
   })
 
-  it('同じ名前が既にあれば409をタグ名入りの文言にする', async () => {
+  it('同じ名前が既にあれば（400 の tagNameDuplicated）名前の誤りの文言にする', async () => {
+    serveList([{ id: 1, name: '設計', version: 1 }])
+    server.use(
+      http.post('*/api/tags', () =>
+        HttpResponse.json(
+          {
+            message: 'invalid request',
+            errors: [{ field: 'name', rule: 'tagNameDuplicated' }],
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+
+    const { result } = renderHook(() => useAdminTags(), { wrapper })
+    await waitFor(() => expect(result.current.isPending).toBe(false))
+
+    let outcome
+    await act(async () => {
+      outcome = await result.current.addTag('設計')
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      message: 'この名前の分野タグはすでにあります。別の名前にしてください。',
+    })
+  })
+
+  it('追加の409（想定外の競合）は一般の文言にする', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
       http.post('*/api/tags', () =>
@@ -134,7 +162,7 @@ describe('useAdminTags', () => {
 
     expect(outcome).toEqual({
       ok: false,
-      message: '「設計」というタグはすでにあります',
+      message: '追加できませんでした。時間をおいてもう一度お試しください。',
     })
   })
 
@@ -169,13 +197,7 @@ describe('useAdminTags', () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
       http.put('*/api/tags/1', () =>
-        HttpResponse.json(
-          {
-            message:
-              'conflict: タグの更新に失敗しました（他の更新と競合しました）',
-          },
-          { status: 409 },
-        ),
+        HttpResponse.json({ message: 'conflict' }, { status: 409 }),
       ),
     )
 
@@ -199,7 +221,7 @@ describe('useAdminTags', () => {
     )
   })
 
-  it('名前の変更が409（同じ名前が既にある）ならタグ名入りの文言にする', async () => {
+  it('名前の変更で同じ名前が既にあれば（400）名前の誤りの文言にし、一覧は取り直さない', async () => {
     serveList([
       { id: 1, name: '設計', version: 1 },
       { id: 2, name: 'データ', version: 1 },
@@ -207,8 +229,11 @@ describe('useAdminTags', () => {
     server.use(
       http.put('*/api/tags/1', () =>
         HttpResponse.json(
-          { message: 'conflict: 同じ名前のタグが既にあります' },
-          { status: 409 },
+          {
+            message: 'invalid request',
+            errors: [{ field: 'name', rule: 'tagNameDuplicated' }],
+          },
+          { status: 400 },
         ),
       ),
     )
@@ -223,7 +248,7 @@ describe('useAdminTags', () => {
 
     expect(outcome).toEqual({
       ok: false,
-      message: '「データ」というタグはすでにあります',
+      message: 'この名前の分野タグはすでにあります。別の名前にしてください。',
     })
   })
 

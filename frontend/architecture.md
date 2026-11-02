@@ -87,7 +87,15 @@ API はバックエンド（Go/Echo）へ。フロントは静的アセットの
 3. **専門用語を使わない**: 「Null」「Undefined」「トークンが無効です」のようなシステムの言葉を使わず、誰でもわかる言葉にする
 4. **入力欄のすぐ近くに表示する**: 該当する入力欄のすぐ下か横に出す。画面の上部にまとめるだけにしない。入力欄に対応しないもの（API の 400 で `errors` を含まないもの、通信失敗）は画面の上部に出す
 
-API の `ErrorResponse` の `message` は開発者向けなので、そのまま画面に出さない。文言は FE が `errors[].field` / `rule` から引く（実例: `features/admin-book-editor/utils/serverFieldErrors.ts`）。
+API の `ErrorResponse` の `message` は開発者向けなので、そのまま画面に出さない。文言は FE が `errors[].field` / `rule` から引く。文言の正は次のとおり。
+
+| 文言 | 正 |
+|---|---|
+| 制約の種類ごとの共通の文言（`rule` が `required`・`max`・`min`・`format` など） | FE の対応表 `web/src/utils/serverFieldErrors.ts`（本の登録・編集・タグで共有。feature 間 import を避けるため shared に置く） |
+| 相関ルール・業務ルールに固有の文言（`rule` が `isbnDuplicated` などの id） | 概要設計 `docs/design/<機能>.md` のメッセージ一覧（MSG-xx）。同じ対応表に写す |
+| 5xx・通信失敗・`errors` の無い 400 | FE 共通の文言（画面上部） |
+
+`errors[]` は順序に依存せず全件を表示し、`field` に対応する入力欄のすぐ下に出す（[`docs/architecture.md`](../docs/architecture.md) §4「バリデーションの全件返却」）。
 
 ## 3. 設計パターン
 

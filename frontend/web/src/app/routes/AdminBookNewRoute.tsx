@@ -17,7 +17,8 @@ function CatalogPreview({ catalog }: { catalog: BookRegistration['catalog'] }) {
   if (catalog.isNotFound) {
     return (
       <p role="alert" className="text-sm text-brand-800">
-        この ISBN の本は外部カタログに見つかりませんでした。
+        この ISBN の本は外部カタログに見つかりませんでした。ISBN
+        を確かめてください。
       </p>
     )
   }
@@ -99,6 +100,8 @@ export function AdminBookNewRoute() {
             <input
               id="isbn"
               value={reg.isbn}
+              aria-invalid={reg.isbnError ? true : undefined}
+              aria-describedby="isbn-error"
               onChange={(e) => reg.setIsbn(e.target.value)}
               className="h-12 w-80 rounded-lg border border-ink-400 px-4 text-base"
             />
@@ -111,6 +114,15 @@ export function AdminBookNewRoute() {
               確かめる
             </button>
           </div>
+          {reg.isbnError && (
+            <p
+              id="isbn-error"
+              role="alert"
+              className="text-[13px] text-brand-800"
+            >
+              {reg.isbnError}
+            </p>
+          )}
         </div>
         <CatalogPreview catalog={reg.catalog} />
       </div>

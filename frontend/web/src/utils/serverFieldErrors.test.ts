@@ -11,6 +11,7 @@ describe('toFieldMessages', () => {
         { field: 'tagIds', rule: 'max' },
         { field: 'titleOverride', rule: 'max' },
         { field: 'isbn', rule: 'required' },
+        { field: 'name', rule: 'max' },
       ]),
     ).toEqual({
       summary: '一言まとめを入力してください',
@@ -19,14 +20,54 @@ describe('toFieldMessages', () => {
       tagIds: '分野タグは10個までにしてください',
       titleOverride: '255文字以内にしてください',
       isbn: 'ISBNを入力してください',
+      name: '30文字以内にしてください',
     })
   })
 
-  it('未知の rule は汎用の文言にする', () => {
+  it.each([
+    ['isbn', 'isbnDuplicated', 'この ISBN の本はすでに登録されています。'],
+    [
+      'isbn',
+      'isbnNotInCatalog',
+      'この ISBN の本は外部カタログに見つかりませんでした。ISBN を確かめてください。',
+    ],
+    ['isbn', 'format', 'ISBN は 13 桁か 10 桁で入力してください。'],
+    [
+      'tagIds',
+      'tagIdsNotFound',
+      '選んだ分野タグのうち、すでに削除されたものがあります。タグを選び直してください。',
+    ],
+    [
+      'name',
+      'tagNameDuplicated',
+      'この名前の分野タグはすでにあります。別の名前にしてください。',
+    ],
+  ])('相関ルール %s.%s を文言にする', (field, rule, message) => {
+    expect(toFieldMessages([{ field, rule }])).toEqual({ [field]: message })
+  })
+
+  it('複数の field を同時に返す', () => {
     expect(
-      toFieldMessages([{ field: 'summary', rule: 'unknown_rule' }]),
+      toFieldMessages([
+        { field: 'isbn', rule: 'isbnNotInCatalog' },
+        { field: 'tagIds', rule: 'tagIdsNotFound' },
+      ]),
+    ).toEqual({
+      isbn: 'この ISBN の本は外部カタログに見つかりませんでした。ISBN を確かめてください。',
+      tagIds:
+        '選んだ分野タグのうち、すでに削除されたものがあります。タグを選び直してください。',
+    })
+  })
+
+  it('未知の rule は汎用の文言にする（tagIdsDuplicated は FE から送らないので共通文言）', () => {
+    expect(
+      toFieldMessages([
+        { field: 'summary', rule: 'unknown_rule' },
+        { field: 'tagIds', rule: 'tagIdsDuplicated' },
+      ]),
     ).toEqual({
       summary: '入力を見直してください',
+      tagIds: '入力を見直してください',
     })
   })
 

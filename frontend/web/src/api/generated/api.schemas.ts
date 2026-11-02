@@ -86,7 +86,7 @@ export interface FieldError {
 }
 
 export interface ErrorResponse {
-  /** Field-level details; only set for request validation errors. */
+  /** Errors は項目ごとの違反。入力検証・VO・相関ルールの違反（400）だけに付く。rule は validate のキーワードか相関ルールの id。 */
   errors?: FieldError[];
   message?: string;
 }

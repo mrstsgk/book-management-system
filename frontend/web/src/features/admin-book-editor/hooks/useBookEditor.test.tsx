@@ -116,6 +116,41 @@ describe('useBookEditor', () => {
     expect(sentVersion).toBe(5)
   })
 
+  it('保存の400（無いタグ）は分野タグの誤りにし、競合扱いにしない', async () => {
+    server.use(
+      getGetApiBooksIdMockHandler({
+        id: 1,
+        title: '本',
+        summary: 'まとめ',
+        comment: '感想',
+        rating: 3,
+        version: 5,
+      }),
+      getGetApiTagsMockHandler({ items: [] }),
+      http.put('*/api/books/:id', () =>
+        HttpResponse.json(
+          {
+            message: 'invalid request',
+            errors: [{ field: 'tagIds', rule: 'tagIdsNotFound' }],
+          },
+          { status: 400 },
+        ),
+      ),
+    )
+    const { result } = renderUseBookEditor('1')
+    await waitFor(() => expect(result.current.values).not.toBeNull())
+
+    act(() => result.current.submit())
+
+    await waitFor(() =>
+      expect(result.current.errors.tagIds).toBe(
+        '選んだ分野タグのうち、すでに削除されたものがあります。タグを選び直してください。',
+      ),
+    )
+    expect(result.current.conflict).toBe(false)
+    expect(result.current.saved).toBe(false)
+  })
+
   it('保存が409なら競合フラグを立て、入力は消えない', async () => {
     server.use(
       getGetApiBooksIdMockHandler({

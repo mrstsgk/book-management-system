@@ -13,7 +13,7 @@ import type {
   BookFormValues,
 } from '@/features/admin-book-editor/types'
 import { parseBookId } from '@/features/admin-book-editor/utils/parseBookId'
-import { toFieldMessages } from '@/features/admin-book-editor/utils/serverFieldErrors'
+import { toFieldMessages } from '@/utils/serverFieldErrors'
 import { tagIdsByName } from '@/features/admin-book-editor/utils/tagIds'
 import { validateBookForm } from '@/features/admin-book-editor/utils/validateBookForm'
 import { visibleLocalErrors } from '@/features/admin-book-editor/utils/visibleErrors'

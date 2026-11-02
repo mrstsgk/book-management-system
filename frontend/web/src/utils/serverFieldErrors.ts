@@ -2,11 +2,17 @@ import type { FieldErrorDetail } from '@/api/mutator'
 
 const GENERIC_MESSAGE = '入力を見直してください'
 
-// field ごとの rule → 日本語の文言。フロントの validateBookForm と表記を揃える
+// field ごとの rule → 日本語の文言。rule は validate タグのキーワード（required / max …）、
+// VO 由来の format、相関ルールの id（docs/design/admin-screens.md の CR-xx と MSG-Axx）。
+// 本の登録・編集とタグの両方で使うため、feature ではなく共有に置く
 const MESSAGES: Record<string, Record<string, string>> = {
   isbn: {
     required: 'ISBNを入力してください',
     max: '17文字以内にしてください',
+    format: 'ISBN は 13 桁か 10 桁で入力してください。',
+    isbnDuplicated: 'この ISBN の本はすでに登録されています。',
+    isbnNotInCatalog:
+      'この ISBN の本は外部カタログに見つかりませんでした。ISBN を確かめてください。',
   },
   summary: {
     required: '一言まとめを入力してください',
@@ -23,9 +29,17 @@ const MESSAGES: Record<string, Record<string, string>> = {
   },
   tagIds: {
     max: '分野タグは10個までにしてください',
+    tagIdsNotFound:
+      '選んだ分野タグのうち、すでに削除されたものがあります。タグを選び直してください。',
   },
   titleOverride: {
     max: '255文字以内にしてください',
+  },
+  name: {
+    required: 'タグの名前を入力してください',
+    max: '30文字以内にしてください',
+    tagNameDuplicated:
+      'この名前の分野タグはすでにあります。別の名前にしてください。',
   },
 }
 
