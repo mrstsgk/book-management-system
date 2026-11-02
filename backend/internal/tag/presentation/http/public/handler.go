@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	publicapi "github.com/mrstsgk/book-management-system/backend/api/gen/public"
 	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
 
@@ -21,11 +21,11 @@ func (h *Handler) SearchTags(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	items := make([]webapi.TagResponse, 0, len(out.Items))
+	items := make([]publicapi.TagResponse, 0, len(out.Items))
 	for _, it := range out.Items {
-		items = append(items, webapi.TagResponse{ID: int64(it.ID), Name: it.Name, Version: it.Version})
+		items = append(items, publicapi.TagResponse{ID: int64(it.ID), Name: it.Name, Version: it.Version})
 	}
-	return c.JSON(http.StatusOK, webapi.SearchTagsResponse{Items: items})
+	return c.JSON(http.StatusOK, publicapi.SearchTagsResponse{Items: items})
 }
 
 // CountBooks は、分野タグごとの冊数を返す（GET /api/tags/counts）。
@@ -34,9 +34,9 @@ func (h *Handler) CountBooks(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	items := make([]webapi.TagBookCountResponse, 0, len(out.Items))
+	items := make([]publicapi.TagBookCountResponse, 0, len(out.Items))
 	for _, it := range out.Items {
-		items = append(items, webapi.TagBookCountResponse{ID: int64(it.ID), Name: it.Name, BookCount: it.BookCount})
+		items = append(items, publicapi.TagBookCountResponse{ID: int64(it.ID), Name: it.Name, BookCount: it.BookCount})
 	}
-	return c.JSON(http.StatusOK, webapi.CountBooksResponse{Items: items})
+	return c.JSON(http.StatusOK, publicapi.CountBooksResponse{Items: items})
 }

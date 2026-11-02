@@ -13,7 +13,7 @@ import (
 
 	"gorm.io/gorm"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	adminapi "github.com/mrstsgk/book-management-system/backend/api/gen/admin"
 	"github.com/mrstsgk/book-management-system/backend/internal/apitest"
 	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/postgres"
@@ -61,7 +61,7 @@ func (skipDuplicateCheck) ExistsByISBN(context.Context, bookdomain.ISBN) (bool, 
 }
 
 type testServer struct {
-	apitest.Unimplemented
+	apitest.AdminUnimplemented
 	*bookadmin.Handler
 	*bookadmin.CatalogHandler
 }
@@ -74,8 +74,10 @@ func newServer(t *testing.T, db *gorm.DB, catalog bookdomain.BookCatalog, detail
 		details = pgbook.NewQuery(db)
 	}
 	tagQuery := pgtag.NewQuery(db)
-	return apitest.NewServer(t, &testServer{
+	return apitest.NewAdminServer(t, &testServer{
 		Handler: &bookadmin.Handler{
+			ReadBookUsecase:     &bookqry.ReadBookUsecaseImpl{Books: details},
+			SearchBooksUsecase:  &bookqry.SearchBooksUsecaseImpl{Books: details},
 			RegisterBookUsecase: &bookcmd.RegisterBookUsecaseImpl{Books: books, Catalog: catalog, Details: details, Tags: tagQuery},
 			UpdateBookUsecase:   &bookcmd.UpdateBookUsecaseImpl{Books: books, Catalog: catalog, Details: details, Tags: tagQuery},
 			DeleteBookUsecase:   &bookcmd.DeleteBookUsecaseImpl{Books: books},
@@ -148,7 +150,7 @@ func TestRegisterBook(t *testing.T) {
 		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session,
 			Body: `{"isbn":"` + isbn + `","summary":"要約","titleOverride":"上書きの書名","comment":"良書","rating":5}`})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		got := apitest.Decode[webapi.BookResponse](t, rec)
+		got := apitest.Decode[adminapi.BookResponse](t, rec)
 		t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", got.ID) })
 		if got.Isbn != isbn || got.Title != "上書きの書名" || got.Summary != "要約" || got.Comment != "良書" || got.Rating != 5 ||
 			got.Authors != "結合テスト著者" || got.Publisher != "結合テスト出版社" || got.PublishedOn != "202609" ||
@@ -296,7 +298,7 @@ func TestUpdateBook(t *testing.T) {
 		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, isbn)}, nil)
 		rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: "/api/admin/books/" + itoa(int64(b.ID)), Cookie: apitest.Session, Body: updateBody(b.Version)})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		got := apitest.Decode[webapi.BookResponse](t, rec)
+		got := apitest.Decode[adminapi.BookResponse](t, rec)
 		if got.Summary != "読み返した要約" || got.Comment != "読み返した感想" || got.Rating != 3 || got.Version != b.Version+1 {
 			t.Fatalf("response = %+v", got)
 		}
@@ -438,7 +440,7 @@ func TestLookupCatalog(t *testing.T) {
 		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, "9784873118703")}, nil)
 		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/catalog/978-4-87311-870-3", Cookie: apitest.Session})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		got := apitest.Decode[webapi.CatalogResponse](t, rec)
+		got := apitest.Decode[adminapi.CatalogResponse](t, rec)
 		if got.Isbn != "9784873118703" || got.Title != "結合テストの書名" || got.Authors != "結合テスト著者" || got.AmazonURL == nil || got.CoverURL != nil {
 			t.Fatalf("response = %+v", got)
 		}
@@ -472,6 +474,84 @@ func TestLookupCatalog(t *testing.T) {
 	t.Run("500: 外部カタログの障害", func(t *testing.T) {
 		s := newServer(t, db, &fakeCatalog{err: errors.New("openbd down")}, nil)
 		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/catalog/9784873118703", Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
+}
+
+func TestSearchBooks(t *testing.T) {
+	db := connectIntegrationDB(t)
+
+	t.Run("200: 登録した本が一覧に載る", func(t *testing.T) {
+		b := mustCreateBook(t, db, nextISBN(t))
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/books?limit=100", Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		got := apitest.Decode[adminapi.SearchBooksResponse](t, rec)
+		found := false
+		for _, it := range got.Items {
+			if it.ID == int64(b.ID) {
+				found = it.Isbn == b.ISBN.String() && it.Title == "結合テストの書名" && it.Summary == "結合テスト用の一言まとめ" && it.Rating == 4
+			}
+		}
+		if !found || got.Limit != 100 || got.Offset != 0 {
+			t.Fatalf("book %d not listed as expected: %+v", b.ID, got)
+		}
+	})
+
+	t.Run("400: limit が 0", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/books?limit=0", Cookie: apitest.Session})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("limit", "minimum"))
+	})
+
+	t.Run("401: 未ログイン", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/books"})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/books", Cookie: apitest.Session, Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
+}
+
+func TestReadBook(t *testing.T) {
+	db := connectIntegrationDB(t)
+
+	t.Run("200: 本の詳細と版を返す", func(t *testing.T) {
+		b := mustCreateBook(t, db, nextISBN(t))
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/books/" + itoa(int64(b.ID)), Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		got := apitest.Decode[adminapi.BookResponse](t, rec)
+		if got.ID != int64(b.ID) || got.Isbn != b.ISBN.String() || got.Comment != "結合テスト用の感想" || got.Version != 1 {
+			t.Fatalf("got %+v", got)
+		}
+	})
+
+	t.Run("400: id が 0", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/books/0", Cookie: apitest.Session})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("id", "minimum"))
+	})
+
+	t.Run("401: 未ログイン", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/books/1"})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("404: 存在しない ID は bookNotFound", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/books/999999999", Cookie: apitest.Session})
+		apitest.AssertCode(t, rec, http.StatusNotFound, "bookNotFound")
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/books/1", Cookie: apitest.Session, Cancelled: true})
 		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
 	})
 }

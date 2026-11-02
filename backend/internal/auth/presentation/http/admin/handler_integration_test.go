@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	adminapi "github.com/mrstsgk/book-management-system/backend/api/gen/admin"
 	"github.com/mrstsgk/book-management-system/backend/internal/apitest"
 	authbcrypt "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/bcrypt"
 	pgauth "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/postgres"
@@ -41,7 +41,7 @@ func connectTestDB(t *testing.T) *gorm.DB {
 
 // testServer は、ログインの Handler と、セッションが要る書き込みの例として分野タグの管理の Handler を載せる。
 type testServer struct {
-	apitest.Unimplemented
+	apitest.AdminUnimplemented
 	*authadmin.Handler
 	tagHandler
 }
@@ -58,7 +58,7 @@ func newServer(t *testing.T, db *gorm.DB) *apitest.Server {
 	}
 	sessions := pgauth.NewRepository(db)
 	repo := pgtag.NewRepository(db)
-	return apitest.NewServer(t, &testServer{
+	return apitest.NewAdminServer(t, &testServer{
 		Handler: &authadmin.Handler{
 			LoginUsecase: &authcmd.LoginUsecaseImpl{
 				Admin: authcmd.AdminAccount{ID: "admin", PasswordHash: string(hash)}, Verifier: authbcrypt.NewBcryptVerifier(),
@@ -131,7 +131,7 @@ func TestLogin(t *testing.T) {
 		}
 		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/login", Body: `{"id":"admin","password":"pw"}`})
 		apitest.AssertCode(t, rec, http.StatusTooManyRequests, "tooManyLoginAttempts")
-		body := apitest.Decode[webapi.ErrorResponse](t, rec)
+		body := apitest.Decode[adminapi.ErrorResponse](t, rec)
 		if body.Params == nil {
 			t.Fatal("params must carry retryAfterSeconds")
 		}

@@ -118,7 +118,8 @@ jobs:
 
       - name: Build
         run: |
-          go build -o /dev/null ./cmd/api
+          go build -o /dev/null ./cmd/public-api
+          go build -o /dev/null ./cmd/admin-api
 
       # 版は backend/Makefile の OAPI_CODEGEN_VERSION
       - name: Generated code drift check (oapi-codegen)

@@ -3,7 +3,7 @@
 # 生成物（backend/api/gen・frontend/*/src/api/generated）はテストもレビューもしないが、
 # それを実装・利用するコードのテストは必須。
 #
-# バンドル（実行サービス）は openapi/dist/<bundle>.yaml から取り、operation の一覧と名前は推測せず生成物から読む
+# バンドル（チャネル。実行サービス cmd/<channel>-api ごと）は openapi/dist/<bundle>.yaml から取り、operation の一覧と名前は推測せず生成物から読む
 # （CI の生成物ドリフト検査で openapi/dist と一致している）。
 #   - BE: backend/api/gen/<bundle>/api.gen.go のルート登録
 #         router.GET(options.BaseURL+"/api/books", wrapper.SearchBooks, options.OperationMiddlewares["searchBooks"]...)
@@ -32,7 +32,7 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 fail=0
 
-# バンドル名 → フロントエンドのアプリのディレクトリ名（今は同じ名前）
+# バンドル（チャネル）名 → フロントエンドのアプリのディレクトリ名（public → frontend/public、admin → frontend/admin。同じ名前）
 app_of() {
   echo "$1"
 }
