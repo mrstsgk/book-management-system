@@ -201,12 +201,27 @@ func TestHandlerRegister(t *testing.T) {
 		})
 	}
 
-	t.Run("同名の登録済みは409", func(t *testing.T) {
+	t.Run("同時追加で一意制約に当たったときは409", func(t *testing.T) {
 		h := &httptag.Handler{RegisterUC: fakeRegister(func(context.Context, tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
 			return nil, domaincommon.ErrConflict
 		})}
 		if rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"データベース"}`, true); rec.Code != http.StatusConflict {
 			t.Fatalf("status = %d, want 409", rec.Code)
+		}
+	})
+
+	t.Run("同名のタグはusecaseの違反として400でerrorsに載る", func(t *testing.T) {
+		h := &httptag.Handler{RegisterUC: fakeRegister(func(context.Context, tagcmd.RegisterCommand) (*tagcmd.TagView, error) {
+			return nil, domaincommon.Violations{{Field: "name", Rule: "tagNameDuplicated"}}
+		})}
+		rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"データベース"}`, true)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
+		}
+		var e common.ErrorResponse
+		_ = json.Unmarshal(rec.Body.Bytes(), &e)
+		if want := []common.FieldError{{Field: "name", Rule: "tagNameDuplicated"}}; !reflect.DeepEqual(e.Errors, want) {
+			t.Fatalf("errors = %+v, want %+v", e.Errors, want)
 		}
 	})
 }
@@ -242,6 +257,7 @@ func TestHandlerRename(t *testing.T) {
 		{name: "バージョンなしは400", path: "/api/tags/5", body: `{"name":"新名"}`, withSession: true, want: http.StatusBadRequest},
 		{name: "存在しないタグは404", path: "/api/tags/5", body: body, withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
 		{name: "楽観的ロックの競合は409", path: "/api/tags/5", body: body, withSession: true, err: domaincommon.ErrConflict, want: http.StatusConflict},
+		{name: "他のタグと同名はusecaseの違反として400", path: "/api/tags/5", body: body, withSession: true, err: domaincommon.Violations{{Field: "name", Rule: "tagNameDuplicated"}}, want: http.StatusBadRequest},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &httptag.Handler{RenameUC: fakeRename(func(context.Context, tagcmd.RenameCommand) (*tagcmd.TagView, error) {

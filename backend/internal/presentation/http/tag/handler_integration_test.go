@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/tag"
+	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
 	tagqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/query"
@@ -44,8 +46,8 @@ func newIntegrationHandler(db *gorm.DB) *httptag.Handler {
 	repo := pgtag.NewRepository(db)
 	q := pgtag.NewQuery(db)
 	return &httptag.Handler{
-		RegisterUC:   &tagcmd.RegisterUsecaseImpl{Tags: repo},
-		RenameUC:     &tagcmd.RenameUsecaseImpl{Tags: repo},
+		RegisterUC:   &tagcmd.RegisterUsecaseImpl{Tags: repo, TagQuery: q},
+		RenameUC:     &tagcmd.RenameUsecaseImpl{Tags: repo, TagQuery: q},
 		DeleteUC:     &tagcmd.DeleteUsecaseImpl{Tags: repo},
 		ListUC:       &tagqry.ListUsecaseImpl{Tags: q},
 		CountBooksUC: &tagqry.CountBooksUsecaseImpl{Tags: q},
@@ -190,7 +192,7 @@ func TestIntegration_RegisterTag_401(t *testing.T) {
 	}
 }
 
-func TestIntegration_RegisterTag_409(t *testing.T) {
+func TestIntegration_RegisterTag_400_Duplicated(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
@@ -200,8 +202,41 @@ func TestIntegration_RegisterTag_409(t *testing.T) {
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", firstTag.ID) })
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", body, true)
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want 409 (body=%s)", rec.Code, rec.Body.String())
+	assertFieldErrors(t, rec, []common.FieldError{{Field: "name", Rule: "tagNameDuplicated"}})
+}
+
+func TestIntegration_Rename_400_Duplicated(t *testing.T) {
+	db := connectTestDB(t)
+	h := newIntegrationHandler(db)
+
+	otherName := uniqueTagName(t, "改名先の既存")
+	other := decodeOK[httptag.Response](t, serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, otherName), true), http.StatusOK)
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", other.ID) })
+	created := decodeOK[httptag.Response](t, serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "改名元")), true), http.StatusOK)
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
+
+	rec := serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
+		fmt.Sprintf(`{"name":%q,"version":%d}`, otherName, created.Version), true)
+	assertFieldErrors(t, rec, []common.FieldError{{Field: "name", Rule: "tagNameDuplicated"}})
+	var got struct{ Name string }
+	db.Table("tag").Select("name").Where("id = ?", created.ID).Scan(&got)
+	if got.Name == otherName {
+		t.Fatal("the tag must not be renamed when the name is duplicated")
+	}
+}
+
+// assertFieldErrors は 400 と errors[{field, rule}] の内容を確かめる。
+func assertFieldErrors(t *testing.T, rec *httptest.ResponseRecorder, want []common.FieldError) {
+	t.Helper()
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var e common.ErrorResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
+		t.Fatalf("invalid JSON body %q: %v", rec.Body.String(), err)
+	}
+	if !reflect.DeepEqual(e.Errors, want) {
+		t.Fatalf("errors = %+v, want %+v", e.Errors, want)
 	}
 }
 

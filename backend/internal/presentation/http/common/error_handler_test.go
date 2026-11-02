@@ -75,6 +75,13 @@ func TestHTTPErrorHandler(t *testing.T) {
 			wantErrors:  []common.FieldError{{Field: "title", Rule: "required"}},
 		},
 		{
+			name:        "domain Violations is 400 with field errors",
+			err:         fmt.Errorf("wrap: %w", domaincommon.Violations{{Field: "isbn", Rule: "isbnDuplicated"}, {Field: "tagIds", Rule: "tagIdsNotFound"}}),
+			wantStatus:  http.StatusBadRequest,
+			wantMessage: "invalid request",
+			wantErrors:  []common.FieldError{{Field: "isbn", Rule: "isbnDuplicated"}, {Field: "tagIds", Rule: "tagIdsNotFound"}},
+		},
+		{
 			name:        "echo 4xx keeps its code and message",
 			err:         echo.NewHTTPError(http.StatusBadRequest, "invalid id"),
 			wantStatus:  http.StatusBadRequest,

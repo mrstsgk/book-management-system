@@ -325,3 +325,34 @@ func TestQuery_FindList_Condition(t *testing.T) {
 		})
 	}
 }
+
+func TestQuery_ExistsByISBN(t *testing.T) {
+	db := connectTestDB(t)
+	qry := pgbook.NewQuery(db)
+	createBook(t, db, newBook(t, "9780000000057", "query-test-重複確認", nil, 4))
+
+	tests := []struct {
+		name string
+		isbn string
+		want bool
+	}{
+		{name: "登録済みのISBNはtrue", isbn: "9780000000057", want: true},
+		{name: "ハイフン付きでも正規化した13桁で比べる", isbn: "978-0-00-000005-7", want: true},
+		{name: "未登録のISBNはfalse", isbn: "9791032305690", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isbn, err := domainbook.NewISBN(tt.isbn)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := qry.ExistsByISBN(context.Background(), isbn)
+			if err != nil {
+				t.Fatalf("ExistsByISBN: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

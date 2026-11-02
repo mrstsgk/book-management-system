@@ -12,7 +12,7 @@ import (
 
 type ErrorResponse struct {
 	Message string `json:"message" example:"invalid"`
-	// Field-level details; only set for request validation errors.
+	// Errors は項目ごとの違反。入力検証・VO・相関ルールの違反（400）だけに付く。rule は validate のキーワードか相関ルールの id。
 	Errors []FieldError `json:"errors,omitempty"`
 } // @name ErrorResponse
 
@@ -72,6 +72,15 @@ func toErrorResponse(err error) (int, ErrorResponse) {
 	var ve *ValidationError
 	if errors.As(err, &ve) {
 		return http.StatusBadRequest, ErrorResponse{Message: ve.Error(), Errors: ve.Fields}
+	}
+	// UseCase が集めた相関ルール・VO の違反も、入力検証と同じ形（400 + errors[{field, rule}]）で返す
+	var vs domaincommon.Violations
+	if errors.As(err, &vs) {
+		fields := make([]FieldError, 0, len(vs))
+		for _, v := range vs {
+			fields = append(fields, FieldError{Field: v.Field, Rule: v.Rule})
+		}
+		return http.StatusBadRequest, ErrorResponse{Message: "invalid request", Errors: fields}
 	}
 	for _, m := range sentinelStatuses {
 		if errors.Is(err, m.err) {

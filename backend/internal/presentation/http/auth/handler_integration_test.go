@@ -67,7 +67,7 @@ func newIntegrationEcho(t *testing.T, db *gorm.DB) *echo.Echo {
 	}).Register(api.Group("/auth"))
 	repo := pgtag.NewRepository(db)
 	(&httptag.Handler{
-		RegisterUC: &tagcmd.RegisterUsecaseImpl{Tags: repo}, DeleteUC: &tagcmd.DeleteUsecaseImpl{Tags: repo}, AdminOnly: adminOnly,
+		RegisterUC: &tagcmd.RegisterUsecaseImpl{Tags: repo, TagQuery: pgtag.NewQuery(db)}, DeleteUC: &tagcmd.DeleteUsecaseImpl{Tags: repo}, AdminOnly: adminOnly,
 	}).Register(api.Group("/tags"))
 	return e
 }

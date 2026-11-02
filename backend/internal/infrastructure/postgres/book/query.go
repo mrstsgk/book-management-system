@@ -40,6 +40,15 @@ func (q *query) FindDetailByID(ctx context.Context, id domainbook.ID) (*domainbo
 	}, nil
 }
 
+// ExistsByISBN は同じ ISBN の行が 1 件以上あるかを返す。
+func (q *query) ExistsByISBN(ctx context.Context, isbn domainbook.ISBN) (bool, error) {
+	var count int64
+	if err := q.db.WithContext(ctx).Model(&model{}).Where("isbn = ?", isbn.String()).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // displayTitle は画面に出す書名を決める。自分で上書きした書名があればそれ、無ければ外部カタログの書名。
 func displayTitle(override *string, catalogTitle string) string {
 	if override != nil {

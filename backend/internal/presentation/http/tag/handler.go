@@ -99,17 +99,18 @@ func (h *Handler) CountBooks(c echo.Context) error {
 
 // RegisterTag godoc
 // @Summary      分野タグを追加する（自分だけ）
-// @Description  同じ名前のタグは登録できない（409）
+// @Description  同じ名前のタグは追加できない。入力・VO・相関ルールの違反は 400 の errors[{field, rule}] で返す（rule: validate のキーワード / invalid / tagNameDuplicated）
 // @Tags         tags
 // @Accept       json
 // @Produce      json
 // @Param        body body RegisterRequest true "body"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse
+// @Failure      400 {object} common.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
 // @Failure      401 {object} common.ErrorResponse
 // @Failure      403 {object} common.ErrorResponse
-// @Failure      409 {object} common.ErrorResponse
+// @Failure      409 {object} common.ErrorResponse "同じ名前のタグと同時に追加されたとき（一意制約。通常は 400 の tagNameDuplicated）"
 // @Failure      500 {object} common.ErrorResponse
+// @x-correlation-rules [{"id":"tagNameDuplicated","field":"name","rule":"タグ名は他のタグと重複しない","message":"MSG-A04"}]
 // @Router       /api/tags [post]
 func (h *Handler) RegisterTag(c echo.Context) error {
 	req, err := common.BindValidate[RegisterRequest](c)
@@ -125,19 +126,20 @@ func (h *Handler) RegisterTag(c echo.Context) error {
 
 // Rename godoc
 // @Summary      分野タグの名前を変更する（自分だけ）
-// @Description  version が一致しない場合は 409
+// @Description  自分以外に同じ名前のタグがあると変更できない。入力・VO・相関ルールの違反は 400 の errors[{field, rule}] で返す（rule: validate のキーワード / invalid / tagNameDuplicated）。version が一致しない場合は 409
 // @Tags         tags
 // @Accept       json
 // @Produce      json
 // @Param        id   path int           true "タグのID"
 // @Param        body body RenameRequest true "body"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse
+// @Failure      400 {object} common.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
 // @Failure      401 {object} common.ErrorResponse
 // @Failure      403 {object} common.ErrorResponse
 // @Failure      404 {object} common.ErrorResponse
-// @Failure      409 {object} common.ErrorResponse
+// @Failure      409 {object} common.ErrorResponse "version が一致しない（他で先に更新された）"
 // @Failure      500 {object} common.ErrorResponse
+// @x-correlation-rules [{"id":"tagNameDuplicated","field":"name","rule":"タグ名は自分以外のタグと重複しない","message":"MSG-A04"}]
 // @Router       /api/tags/{id} [put]
 func (h *Handler) Rename(c echo.Context) error {
 	id, err := common.ParseID(c, "id")

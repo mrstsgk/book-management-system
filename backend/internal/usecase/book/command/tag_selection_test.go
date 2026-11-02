@@ -5,6 +5,7 @@ package command
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
@@ -28,15 +29,18 @@ func (f *fakeTagQuery) ExistsAll(_ context.Context, ids []tag.ID) (bool, error) 
 	return f.exists, f.existsErr
 }
 
+func (f *fakeTagQuery) ExistsByName(context.Context, string, tag.ID) (bool, error) { return false, nil }
+
 func TestParseTagSelection(t *testing.T) {
 	t.Parallel()
 
 	t.Run("0個は空のTagSelectionを返す（実在確認は空配列で呼ばれる）", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTagQuery{exists: true}
-		got, err := parseTagSelection(context.Background(), tags, nil)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		var vs common.Violations
+		got, err := parseTagSelection(context.Background(), &vs, tags, nil)
+		if err != nil || len(vs) != 0 {
+			t.Fatalf("err = %v, violations = %+v", err, vs)
 		}
 		if tags.called != 1 || len(tags.gotIDs) != 0 {
 			t.Fatalf("ExistsAll called=%d with %v, want called once with an empty slice", tags.called, tags.gotIDs)
@@ -49,10 +53,10 @@ func TestParseTagSelection(t *testing.T) {
 	t.Run("10個は実在確認して返す", func(t *testing.T) {
 		t.Parallel()
 		tags := &fakeTagQuery{exists: true}
-		raw := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-		got, err := parseTagSelection(context.Background(), tags, raw)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		var vs common.Violations
+		got, err := parseTagSelection(context.Background(), &vs, tags, []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+		if err != nil || len(vs) != 0 {
+			t.Fatalf("err = %v, violations = %+v", err, vs)
 		}
 		if ids := got.IDs(); len(ids) != 10 {
 			t.Fatalf("IDs = %v, want 10 ids", ids)
@@ -62,42 +66,47 @@ func TestParseTagSelection(t *testing.T) {
 		}
 	})
 
-	t.Run("11個は上限違反でExistsAllを呼ばずにエラー", func(t *testing.T) {
-		t.Parallel()
-		tags := &fakeTagQuery{exists: true}
-		raw := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
-		if _, err := parseTagSelection(context.Background(), tags, raw); !errors.Is(err, common.ErrInvalid) {
-			t.Fatalf("err = %v, want ErrInvalid", err)
-		}
-		if tags.called != 0 {
-			t.Fatal("ExistsAll must not be called when the count is already invalid")
-		}
-	})
+	// 上限超過・重複は前提が成立しないので実在確認をせず、違反だけを集める
+	for _, tt := range []struct {
+		name string
+		ids  []int64
+		want common.Violation
+	}{
+		{name: "11個は max の違反", ids: []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, want: common.Violation{Field: "tagIds", Rule: "max"}},
+		{name: "重複したIDは tagIdsDuplicated の違反", ids: []int64{1, 1}, want: common.Violation{Field: "tagIds", Rule: "tagIdsDuplicated"}},
+	} {
+		t.Run(tt.name+"でExistsAllを呼ばない", func(t *testing.T) {
+			t.Parallel()
+			tags := &fakeTagQuery{exists: true}
+			var vs common.Violations
+			if _, err := parseTagSelection(context.Background(), &vs, tags, tt.ids); err != nil {
+				t.Fatalf("err = %v, want nil (violations are collected, not returned)", err)
+			}
+			if !reflect.DeepEqual(vs, common.Violations{tt.want}) {
+				t.Fatalf("violations = %+v, want [%+v]", vs, tt.want)
+			}
+			if tags.called != 0 {
+				t.Fatal("ExistsAll must not be called when the input is already invalid")
+			}
+		})
+	}
 
-	t.Run("重複したIDはExistsAllを呼ばずにエラー", func(t *testing.T) {
+	t.Run("存在しないIDが混じると tagIdsNotFound の違反", func(t *testing.T) {
 		t.Parallel()
-		tags := &fakeTagQuery{exists: true}
-		if _, err := parseTagSelection(context.Background(), tags, []int64{1, 1}); !errors.Is(err, common.ErrInvalid) {
-			t.Fatalf("err = %v, want ErrInvalid", err)
+		var vs common.Violations
+		if _, err := parseTagSelection(context.Background(), &vs, &fakeTagQuery{exists: false}, []int64{999}); err != nil {
+			t.Fatalf("err = %v", err)
 		}
-		if tags.called != 0 {
-			t.Fatal("ExistsAll must not be called when the input already has duplicates")
-		}
-	})
-
-	t.Run("存在しないIDが混じるとErrInvalid", func(t *testing.T) {
-		t.Parallel()
-		tags := &fakeTagQuery{exists: false}
-		if _, err := parseTagSelection(context.Background(), tags, []int64{999}); !errors.Is(err, common.ErrInvalid) {
-			t.Fatalf("err = %v, want ErrInvalid", err)
+		if want := (common.Violations{{Field: "tagIds", Rule: "tagIdsNotFound"}}); !reflect.DeepEqual(vs, want) {
+			t.Fatalf("violations = %+v, want %+v", vs, want)
 		}
 	})
 
 	t.Run("ExistsAllの障害はそのまま返す", func(t *testing.T) {
 		t.Parallel()
 		wantErr := errors.New("db: timeout")
-		tags := &fakeTagQuery{existsErr: wantErr}
-		if _, err := parseTagSelection(context.Background(), tags, []int64{1}); !errors.Is(err, wantErr) {
+		var vs common.Violations
+		if _, err := parseTagSelection(context.Background(), &vs, &fakeTagQuery{existsErr: wantErr}, []int64{1}); !errors.Is(err, wantErr) {
 			t.Fatalf("err = %v, want %v", err, wantErr)
 		}
 	})

@@ -3,6 +3,7 @@ package command_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/domain/book"
@@ -141,7 +142,7 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		}
 	})
 
-	t.Run("存在しないタグIDはカタログも保存も呼ばずにエラー", func(t *testing.T) {
+	t.Run("存在しないタグIDはカタログも保存も呼ばずに tagIdsNotFound の違反", func(t *testing.T) {
 		t.Parallel()
 		books := &fakeBooks{findByID: existingBook(t)}
 		catalog := &fakeCatalog{}
@@ -149,11 +150,30 @@ func TestUpdateUsecase_Execute(t *testing.T) {
 		c.TagIDs = []int64{999}
 		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: false}}
 
-		if _, err := uc.Execute(context.Background(), c); !errors.Is(err, common.ErrInvalid) {
-			t.Fatalf("err = %v, want ErrInvalid", err)
+		_, err := uc.Execute(context.Background(), c)
+		if want := (common.Violations{{Field: "tagIds", Rule: "tagIdsNotFound"}}); !reflect.DeepEqual(violationsOf(t, err), want) {
+			t.Fatalf("err = %v, want %+v", err, want)
 		}
 		if catalog.called != 0 || books.updated != nil {
 			t.Fatal("neither the catalog nor the repository may be called for invalid input")
+		}
+	})
+
+	t.Run("複数の違反は一度にすべて返し、本は変わらない", func(t *testing.T) {
+		t.Parallel()
+		existing := existingBook(t)
+		books := &fakeBooks{findByID: existing}
+		c := cmd
+		c.Summary, c.Rating, c.TagIDs = "", 9, []int64{999}
+		uc := &command.UpdateUsecaseImpl{Books: books, Catalog: &fakeCatalog{}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: false}}
+
+		_, err := uc.Execute(context.Background(), c)
+		want := common.Violations{{Field: "summary", Rule: "invalid"}, {Field: "rating", Rule: "invalid"}, {Field: "tagIds", Rule: "tagIdsNotFound"}}
+		if got := violationsOf(t, err); !reflect.DeepEqual(got, want) {
+			t.Fatalf("violations = %+v, want %+v", got, want)
+		}
+		if books.updated != nil || existing.Summary.String() != "最初のまとめ" || existing.Rating.Int() != 3 {
+			t.Fatal("nothing may change when the input is invalid")
 		}
 	})
 

@@ -25,6 +25,8 @@ func (f *fakeQuery) FindDetailByID(_ context.Context, id book.ID) (*book.BookDet
 	return f.detail, f.err
 }
 
+func (f *fakeQuery) ExistsByISBN(context.Context, book.ISBN) (bool, error) { return false, nil }
+
 func (f *fakeQuery) FindList(_ context.Context, c book.ListCondition, r common.ListRange) (*book.BookList, error) {
 	f.gotCond = &c
 	f.gotRange = &r

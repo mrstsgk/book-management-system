@@ -127,8 +127,8 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 	}).Register(api.Group("/catalog"))
 
 	(&httptag.Handler{
-		RegisterUC:   &tagcmd.RegisterUsecaseImpl{Tags: tags},
-		RenameUC:     &tagcmd.RenameUsecaseImpl{Tags: tags},
+		RegisterUC:   &tagcmd.RegisterUsecaseImpl{Tags: tags, TagQuery: tagQuery},
+		RenameUC:     &tagcmd.RenameUsecaseImpl{Tags: tags, TagQuery: tagQuery},
 		DeleteUC:     &tagcmd.DeleteUsecaseImpl{Tags: tags},
 		ListUC:       &tagqry.ListUsecaseImpl{Tags: tagQuery},
 		CountBooksUC: &tagqry.CountBooksUsecaseImpl{Tags: tagQuery},

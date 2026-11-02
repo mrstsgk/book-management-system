@@ -3,6 +3,7 @@ package command_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -72,6 +73,13 @@ func (f *fakeCatalog) Lookup(context.Context, book.ISBN) (*book.CatalogEntry, er
 type fakeDetails struct {
 	detail *book.BookDetail
 	gotID  book.ID
+	// isbnExists は ExistsByISBN の応答（登録済みの ISBN を模す）。
+	isbnExists bool
+	existsErr  error
+}
+
+func (f *fakeDetails) ExistsByISBN(context.Context, book.ISBN) (bool, error) {
+	return f.isbnExists, f.existsErr
 }
 
 func (f *fakeDetails) FindDetailByID(_ context.Context, id book.ID) (*book.BookDetail, error) {
@@ -107,6 +115,18 @@ func (f *fakeTagQuery) CountBooks(context.Context) (*tag.TagBookCounts, error) {
 func (f *fakeTagQuery) ExistsAll(_ context.Context, ids []tag.ID) (bool, error) {
 	f.gotIDs = ids
 	return f.exists, f.existsErr
+}
+
+func (f *fakeTagQuery) ExistsByName(context.Context, string, tag.ID) (bool, error) { return false, nil }
+
+// violationsOf はエラーから違反の一覧を取り出す（Violations でなければテストを落とす）。
+func violationsOf(t *testing.T, err error) common.Violations {
+	t.Helper()
+	var vs common.Violations
+	if !errors.As(err, &vs) {
+		t.Fatalf("err = %v, want Violations", err)
+	}
+	return vs
 }
 
 func mustCover(t *testing.T, url string) *book.Cover {
@@ -184,23 +204,36 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 	invalid := []struct {
 		name string
 		cmd  command.RegisterCommand
+		tags *fakeTagQuery
+		want common.Violations
 	}{
-		{name: "不正なISBN", cmd: command.RegisterCommand{ISBN: "123", Summary: "要約", Comment: "良書", Rating: 5}},
-		{name: "空の感想", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", Comment: " ", Rating: 5}},
-		{name: "範囲外の評価", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", Comment: "良書", Rating: 6}},
-		{name: "空の一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: " ", Comment: "良書", Rating: 5}},
-		{name: "改行を含む一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "a\nb", Comment: "良書", Rating: 5}},
-		{name: "256文字の書名の上書き", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TitleOverride: strings.Repeat("あ", 256), Comment: "良書", Rating: 5}},
+		{name: "不正なISBN", cmd: command.RegisterCommand{ISBN: "123", Summary: "要約", Comment: "良書", Rating: 5}, want: common.Violations{{Field: "isbn", Rule: "format"}}},
+		{name: "空の感想", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", Comment: " ", Rating: 5}, want: common.Violations{{Field: "comment", Rule: "invalid"}}},
+		{name: "範囲外の評価", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", Comment: "良書", Rating: 6}, want: common.Violations{{Field: "rating", Rule: "invalid"}}},
+		{name: "空の一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: " ", Comment: "良書", Rating: 5}, want: common.Violations{{Field: "summary", Rule: "invalid"}}},
+		{name: "改行を含む一言まとめ", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "a\nb", Comment: "良書", Rating: 5}, want: common.Violations{{Field: "summary", Rule: "invalid"}}},
+		{name: "256文字の書名の上書き", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TitleOverride: strings.Repeat("あ", 256), Comment: "良書", Rating: 5}, want: common.Violations{{Field: "titleOverride", Rule: "invalid"}}},
+		{name: "存在しないタグID", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TagIDs: []int64{999}, Comment: "良書", Rating: 5}, tags: &fakeTagQuery{exists: false}, want: common.Violations{{Field: "tagIds", Rule: "tagIdsNotFound"}}},
+		{name: "タグ11個", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TagIDs: []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, Comment: "良書", Rating: 5}, want: common.Violations{{Field: "tagIds", Rule: "max"}}},
+		{name: "重複したタグID", cmd: command.RegisterCommand{ISBN: "4873118700", Summary: "要約", TagIDs: []int64{1, 1}, Comment: "良書", Rating: 5}, want: common.Violations{{Field: "tagIds", Rule: "tagIdsDuplicated"}}},
 	}
 	for _, tt := range invalid {
-		t.Run(tt.name+"はカタログも保存も呼ばずにエラー", func(t *testing.T) {
+		t.Run(tt.name+"はカタログも保存も呼ばずに違反を返す", func(t *testing.T) {
 			t.Parallel()
 			books := &fakeBooks{}
 			catalog := &fakeCatalog{}
-			uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
+			tags := tt.tags
+			if tags == nil {
+				tags = &fakeTagQuery{exists: true}
+			}
+			uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: tags}
 
-			if _, err := uc.Execute(context.Background(), tt.cmd); !errors.Is(err, common.ErrInvalid) {
+			_, err := uc.Execute(context.Background(), tt.cmd)
+			if !errors.Is(err, common.ErrInvalid) {
 				t.Fatalf("err = %v, want ErrInvalid", err)
+			}
+			if got := violationsOf(t, err); !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("violations = %+v, want %+v", got, tt.want)
 			}
 			if catalog.called != 0 || books.created != nil {
 				t.Fatal("neither the catalog nor the repository may be called for invalid input")
@@ -208,47 +241,73 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		})
 	}
 
-	t.Run("存在しないタグIDはカタログも保存も呼ばずにエラー", func(t *testing.T) {
+	t.Run("複数の違反は一度にすべて返す（評価・タグ・ISBN の重複）", func(t *testing.T) {
 		t.Parallel()
 		books := &fakeBooks{}
 		catalog := &fakeCatalog{}
-		tags := &fakeTagQuery{exists: false}
-		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: tags}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{isbnExists: true}, Tags: &fakeTagQuery{exists: false}}
 		cmd := valid
+		cmd.Rating = 0
 		cmd.TagIDs = []int64{999}
 
-		if _, err := uc.Execute(context.Background(), cmd); !errors.Is(err, common.ErrInvalid) {
-			t.Fatalf("err = %v, want ErrInvalid", err)
+		_, err := uc.Execute(context.Background(), cmd)
+		want := common.Violations{{Field: "rating", Rule: "invalid"}, {Field: "tagIds", Rule: "tagIdsNotFound"}, {Field: "isbn", Rule: "isbnDuplicated"}}
+		if got := violationsOf(t, err); !reflect.DeepEqual(got, want) {
+			t.Fatalf("violations = %+v, want %+v", got, want)
 		}
 		if catalog.called != 0 || books.created != nil {
-			t.Fatal("neither the catalog nor the repository may be called for invalid input")
+			t.Fatal("neither the catalog nor the repository may be called when there are violations")
 		}
 	})
 
-	t.Run("タグを11個指定するとカタログも保存も呼ばずにエラー", func(t *testing.T) {
+	t.Run("登録済みのISBNはカタログを呼ばず isbnDuplicated の違反", func(t *testing.T) {
 		t.Parallel()
 		books := &fakeBooks{}
-		catalog := &fakeCatalog{}
-		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
-		cmd := valid
-		cmd.TagIDs = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
+		catalog := &fakeCatalog{entry: catalogEntry(t, "x", nil)}
+		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: catalog, Details: &fakeDetails{isbnExists: true}, Tags: &fakeTagQuery{exists: true}}
 
-		if _, err := uc.Execute(context.Background(), cmd); !errors.Is(err, common.ErrInvalid) {
-			t.Fatalf("err = %v, want ErrInvalid", err)
+		_, err := uc.Execute(context.Background(), valid)
+		if want := (common.Violations{{Field: "isbn", Rule: "isbnDuplicated"}}); !reflect.DeepEqual(violationsOf(t, err), want) {
+			t.Fatalf("err = %v, want %+v", err, want)
 		}
 		if catalog.called != 0 || books.created != nil {
-			t.Fatal("neither the catalog nor the repository may be called for invalid input")
+			t.Fatal("neither the catalog nor the repository may be called for a duplicated ISBN")
 		}
 	})
 
-	t.Run("カタログに無いISBNは登録できない入力として扱う", func(t *testing.T) {
+	t.Run("不正なISBNでは重複の検査をしない", func(t *testing.T) {
+		t.Parallel()
+		details := &fakeDetails{existsErr: errors.New("must not be called")}
+		uc := &command.RegisterUsecaseImpl{Books: &fakeBooks{}, Catalog: &fakeCatalog{}, Details: details, Tags: &fakeTagQuery{exists: true}}
+		cmd := valid
+		cmd.ISBN = "123"
+
+		_, err := uc.Execute(context.Background(), cmd)
+		if want := (common.Violations{{Field: "isbn", Rule: "format"}}); !reflect.DeepEqual(violationsOf(t, err), want) {
+			t.Fatalf("err = %v, want %+v", err, want)
+		}
+	})
+
+	t.Run("重複検査の障害はそのまま返す", func(t *testing.T) {
+		t.Parallel()
+		wantErr := errors.New("db: timeout")
+		uc := &command.RegisterUsecaseImpl{Books: &fakeBooks{}, Catalog: &fakeCatalog{}, Details: &fakeDetails{existsErr: wantErr}, Tags: &fakeTagQuery{exists: true}}
+		if _, err := uc.Execute(context.Background(), valid); !errors.Is(err, wantErr) {
+			t.Fatalf("err = %v, want %v", err, wantErr)
+		}
+	})
+
+	t.Run("カタログに無いISBNは isbnNotInCatalog の違反（NotFound ではない）", func(t *testing.T) {
 		t.Parallel()
 		books := &fakeBooks{}
 		uc := &command.RegisterUsecaseImpl{Books: books, Catalog: &fakeCatalog{err: common.ErrNotFound}, Details: &fakeDetails{}, Tags: &fakeTagQuery{exists: true}}
 
 		_, err := uc.Execute(context.Background(), valid)
-		if !errors.Is(err, common.ErrInvalid) || errors.Is(err, common.ErrNotFound) {
-			t.Fatalf("err = %v, want ErrInvalid (not ErrNotFound: the resource being created isn't missing)", err)
+		if errors.Is(err, common.ErrNotFound) {
+			t.Fatalf("err = %v, must not be ErrNotFound (the resource being created isn't missing)", err)
+		}
+		if want := (common.Violations{{Field: "isbn", Rule: "isbnNotInCatalog"}}); !reflect.DeepEqual(violationsOf(t, err), want) {
+			t.Fatalf("err = %v, want %+v", err, want)
 		}
 		if books.created != nil {
 			t.Fatal("Repository.Create must not be called")
@@ -269,7 +328,7 @@ func TestRegisterUsecase_Execute(t *testing.T) {
 		}
 	})
 
-	t.Run("同じISBNの登録済みはConflictを返し詳細は取得しない", func(t *testing.T) {
+	t.Run("同時登録で一意制約に当たったときはConflictを返し詳細は取得しない", func(t *testing.T) {
 		t.Parallel()
 		details := &fakeDetails{}
 		uc := &command.RegisterUsecaseImpl{Books: &fakeBooks{createErr: common.ErrConflict}, Catalog: &fakeCatalog{entry: catalogEntry(t, "x", nil)}, Details: details, Tags: &fakeTagQuery{exists: true}}

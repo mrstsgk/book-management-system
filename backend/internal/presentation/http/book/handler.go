@@ -169,17 +169,18 @@ func (h *Handler) Get(c echo.Context) error {
 
 // RegisterBook godoc
 // @Summary      読んだ本を登録する（自分だけ）
-// @Description  書誌と書影は ISBN で openBD から取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409
+// @Description  書誌と書影は ISBN で openBD から取得する。入力・VO・相関ルールの違反は独立して判定できるものをすべて 400 の errors[{field, rule}] で返す（rule: validate のキーワード / isbn の format / isbnDuplicated / isbnNotInCatalog / tagIdsNotFound / tagIdsDuplicated）。外部カタログの照会は他の違反が無いときだけ行う
 // @Tags         books
 // @Accept       json
 // @Produce      json
 // @Param        body body RegisterRequest true "body"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse
+// @Failure      400 {object} common.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
 // @Failure      401 {object} common.ErrorResponse
 // @Failure      403 {object} common.ErrorResponse
-// @Failure      409 {object} common.ErrorResponse
+// @Failure      409 {object} common.ErrorResponse "同じ ISBN の本と同時に登録されたとき（一意制約。通常は 400 の isbnDuplicated）"
 // @Failure      500 {object} common.ErrorResponse
+// @x-correlation-rules [{"id":"isbnDuplicated","field":"isbn","rule":"登録する ISBN の本は未登録である","message":"MSG-A01"},{"id":"isbnNotInCatalog","field":"isbn","rule":"登録する ISBN は外部カタログに存在する","message":"MSG-A02"},{"id":"tagIdsNotFound","field":"tagIds","rule":"指定した分野タグ ID はすべて存在する","message":"MSG-A03"},{"id":"tagIdsDuplicated","field":"tagIds","rule":"分野タグ ID に重複が無い","message":"（共通）"}]
 // @Router       /api/books [post]
 func (h *Handler) RegisterBook(c echo.Context) error {
 	req, err := common.BindValidate[RegisterRequest](c)
@@ -197,19 +198,20 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 
 // Update godoc
 // @Summary      感想と評価を更新する（自分だけ）
-// @Description  あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。version が一致しない場合は 409
+// @Description  あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。入力・VO・相関ルールの違反は独立して判定できるものをすべて 400 の errors[{field, rule}] で返す（rule: validate のキーワード / tagIdsNotFound / tagIdsDuplicated）。version が一致しない場合は 409
 // @Tags         books
 // @Accept       json
 // @Produce      json
 // @Param        id   path int           true "読んだ本のID"
 // @Param        body body UpdateRequest true "body"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse
+// @Failure      400 {object} common.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
 // @Failure      401 {object} common.ErrorResponse
 // @Failure      403 {object} common.ErrorResponse
 // @Failure      404 {object} common.ErrorResponse
-// @Failure      409 {object} common.ErrorResponse
+// @Failure      409 {object} common.ErrorResponse "version が一致しない（他で先に更新された）"
 // @Failure      500 {object} common.ErrorResponse
+// @x-correlation-rules [{"id":"tagIdsNotFound","field":"tagIds","rule":"指定した分野タグ ID はすべて存在する","message":"MSG-A03"},{"id":"tagIdsDuplicated","field":"tagIds","rule":"分野タグ ID に重複が無い","message":"（共通）"}]
 // @Router       /api/books/{id} [put]
 func (h *Handler) Update(c echo.Context) error {
 	id, err := common.ParseID(c, "id")

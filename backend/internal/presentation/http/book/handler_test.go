@@ -374,8 +374,8 @@ func TestHandlerRegister(t *testing.T) {
 		err  error
 		want int
 	}{
-		{name: "カタログに無いISBNなどドメインの不正は400", err: domaincommon.ErrInvalid, want: http.StatusBadRequest},
-		{name: "同じISBNの登録済みは409", err: domaincommon.ErrConflict, want: http.StatusConflict},
+		{name: "ドメインの不正は400", err: domaincommon.ErrInvalid, want: http.StatusBadRequest},
+		{name: "同時登録で一意制約に当たったときは409", err: domaincommon.ErrConflict, want: http.StatusConflict},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &httpbook.Handler{RegisterUC: fakeRegister(func(context.Context, bookcmd.RegisterCommand) (*domainbook.BookDetail, error) { return nil, tt.err })}
@@ -384,6 +384,20 @@ func TestHandlerRegister(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("usecaseが集めた相関ルールの違反は400でerrorsに全件載る", func(t *testing.T) {
+		h := &httpbook.Handler{RegisterUC: fakeRegister(func(context.Context, bookcmd.RegisterCommand) (*domainbook.BookDetail, error) {
+			return nil, domaincommon.Violations{{Field: "isbn", Rule: "isbnDuplicated"}, {Field: "tagIds", Rule: "tagIdsNotFound"}}
+		})}
+		rec := serve(t, h, http.MethodPost, "/api/books", body, true)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
+		}
+		want := []common.FieldError{{Field: "isbn", Rule: "isbnDuplicated"}, {Field: "tagIds", Rule: "tagIdsNotFound"}}
+		if got := decode[common.ErrorResponse](t, rec).Errors; !reflect.DeepEqual(got, want) {
+			t.Fatalf("errors = %+v, want %+v", got, want)
+		}
+	})
 }
 
 func TestHandlerUpdate(t *testing.T) {
@@ -418,6 +432,7 @@ func TestHandlerUpdate(t *testing.T) {
 		{name: "バージョンなしは400", path: "/api/books/5", body: `{"comment":"x","rating":4}`, withSession: true, want: http.StatusBadRequest},
 		{name: "存在しない本は404", path: "/api/books/5", body: body, withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
 		{name: "楽観的ロックの競合は409", path: "/api/books/5", body: body, withSession: true, err: domaincommon.ErrConflict, want: http.StatusConflict},
+		{name: "usecaseが集めた違反は400", path: "/api/books/5", body: body, withSession: true, err: domaincommon.Violations{{Field: "tagIds", Rule: "tagIdsNotFound"}}, want: http.StatusBadRequest},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &httpbook.Handler{UpdateUC: fakeUpdate(func(context.Context, bookcmd.UpdateCommand) (*domainbook.BookDetail, error) {

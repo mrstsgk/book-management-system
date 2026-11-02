@@ -89,6 +89,10 @@ func (f *fakeSeedQuery) FindDetailByID(context.Context, domainbook.ID) (*domainb
 	return nil, common.ErrNotFound
 }
 
+func (f *fakeSeedQuery) ExistsByISBN(context.Context, domainbook.ISBN) (bool, error) {
+	return false, nil
+}
+
 func (f *fakeSeedQuery) FindList(context.Context, domainbook.ListCondition, common.ListRange) (*domainbook.BookList, error) {
 	if f.err != nil {
 		return nil, f.err

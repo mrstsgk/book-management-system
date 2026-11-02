@@ -9,8 +9,11 @@ package book_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -23,6 +26,7 @@ import (
 	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/tag"
 	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
+	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
 	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
 )
@@ -219,13 +223,23 @@ func TestBookHandlerIntegration_Register(t *testing.T) {
 		}
 	})
 
-	t.Run("409: 同じISBNの登録済み", func(t *testing.T) {
+	t.Run("400: 同じISBNの登録済みは相関ルール isbnDuplicated", func(t *testing.T) {
 		isbn := nextIntegrationISBN(t)
 		mustCreateIntegrationBook(t, db, isbn)
 		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
 		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+isbn+`","summary":"要約","comment":"良書","rating":5}`, true)
-		if rec.Code != http.StatusConflict {
-			t.Fatalf("status = %d, want 409 (body=%s)", rec.Code, rec.Body.String())
+		assertFieldErrors(t, rec, []common.FieldError{{Field: "isbn", Rule: "isbnDuplicated"}})
+	})
+
+	t.Run("400: 存在しない分野タグは相関ルール tagIdsNotFound", func(t *testing.T) {
+		isbn := nextIntegrationISBN(t)
+		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
+		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+isbn+`","summary":"要約","tagIds":[999999999],"comment":"良書","rating":5}`, true)
+		assertFieldErrors(t, rec, []common.FieldError{{Field: "tagIds", Rule: "tagIdsNotFound"}})
+		var count int64
+		db.Table("book").Where("isbn = ?", isbn).Count(&count)
+		if count != 0 {
+			t.Fatal("the book must not be saved when a violation exists")
 		}
 	})
 }
@@ -332,4 +346,19 @@ func TestBookHandlerIntegration_Delete(t *testing.T) {
 			t.Fatalf("status = %d, want 404 (body=%s)", rec.Code, rec.Body.String())
 		}
 	})
+}
+
+// assertFieldErrors は 400 と errors[{field, rule}] の内容（順序込み）を確かめる。
+func assertFieldErrors(t *testing.T, rec *httptest.ResponseRecorder, want []common.FieldError) {
+	t.Helper()
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var e common.ErrorResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
+		t.Fatalf("invalid JSON body %q: %v", rec.Body.String(), err)
+	}
+	if !reflect.DeepEqual(e.Errors, want) {
+		t.Fatalf("errors = %+v, want %+v", e.Errors, want)
+	}
 }

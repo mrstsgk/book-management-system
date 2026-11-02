@@ -22,6 +22,7 @@ type UpdateCommand struct {
 	Version       int
 }
 
+// UpdateUsecase は、読んだ本の感想・評価・書名の上書き・分野タグを更新する。
 type UpdateUsecase interface {
 	Execute(ctx context.Context, cmd UpdateCommand) (*book.BookDetail, error)
 }
@@ -33,35 +34,25 @@ type UpdateUsecaseImpl struct {
 	Tags    tag.Query
 }
 
-// Execute は感想と評価を差し替え、あわせて書誌と書影を外部カタログから取り直して保存する。
+// Execute は入力の違反（VO・相関ルール）をすべて集めてから、感想と評価を差し替え、あわせて書誌と書影を外部カタログから取り直して保存する。
 func (u *UpdateUsecaseImpl) Execute(ctx context.Context, cmd UpdateCommand) (*book.BookDetail, error) {
 	b, err := u.Books.FindByID(ctx, book.ID(cmd.ID))
 	if err != nil {
 		return nil, err
 	}
-	summary, err := book.NewSummary(cmd.Summary)
+	var vs common.Violations
+	review := parseReviewFields(&vs, cmd.Summary, cmd.TitleOverride, cmd.Comment, cmd.Rating)
+	tags, err := parseTagSelection(ctx, &vs, u.Tags, cmd.TagIDs)
 	if err != nil {
 		return nil, err
 	}
-	override, err := parseTitleOverride(cmd.TitleOverride)
-	if err != nil {
+	if err := vs.Err(); err != nil {
 		return nil, err
 	}
-	comment, err := book.NewComment(cmd.Comment)
-	if err != nil {
-		return nil, err
-	}
-	rating, err := book.NewRating(cmd.Rating)
-	if err != nil {
-		return nil, err
-	}
-	tags, err := parseTagSelection(ctx, u.Tags, cmd.TagIDs)
-	if err != nil {
-		return nil, err
-	}
-	b.ChangeReview(summary, comment, rating, tags, cmd.Version)
-	b.OverrideTitle(override)
+	b.ChangeReview(review.summary, review.comment, review.rating, tags, cmd.Version)
+	b.OverrideTitle(review.override)
 	u.refreshCatalog(ctx, b)
+	// version の不一致は Repository が ErrConflict にする（409）
 	if err := u.Books.Update(ctx, b); err != nil {
 		return nil, err
 	}

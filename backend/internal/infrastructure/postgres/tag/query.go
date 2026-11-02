@@ -67,3 +67,16 @@ func (q *query) ExistsAll(ctx context.Context, ids []domaintag.ID) (bool, error)
 	}
 	return int(count) == len(ids), nil
 }
+
+// ExistsByName は name と同じ名前の行（excludeID の行を除く）が 1 件以上あるかを返す。比較は保存された名前と完全一致。
+func (q *query) ExistsByName(ctx context.Context, name string, excludeID domaintag.ID) (bool, error) {
+	var count int64
+	tx := q.db.WithContext(ctx).Model(&model{}).Where("name = ?", name)
+	if excludeID != 0 {
+		tx = tx.Where("id <> ?", int64(excludeID))
+	}
+	if err := tx.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

@@ -13,25 +13,28 @@ type RenameCommand struct {
 	Version int
 }
 
+// RenameUsecase は、分野タグの名前を変える。
 type RenameUsecase interface {
 	Execute(ctx context.Context, cmd RenameCommand) (*TagView, error)
 }
 
 type RenameUsecaseImpl struct {
-	Tags tag.Repository
+	Tags     tag.Repository
+	TagQuery tag.Query
 }
 
-// Execute はタグの名前を検証してから差し替える。
+// Execute はタグの名前を検証し、自分以外に同名のタグが無いことを確かめてから差し替える。
 func (u *RenameUsecaseImpl) Execute(ctx context.Context, cmd RenameCommand) (*TagView, error) {
 	t, err := u.Tags.FindByID(ctx, tag.ID(cmd.ID))
 	if err != nil {
 		return nil, err
 	}
-	name, err := tag.NewName(cmd.Name)
+	name, err := parseUniqueName(ctx, u.TagQuery, cmd.Name, t.ID)
 	if err != nil {
 		return nil, err
 	}
 	t.Rename(name, cmd.Version)
+	// version の不一致は Repository が ErrConflict にする（409）
 	if err := u.Tags.Update(ctx, t); err != nil {
 		return nil, err
 	}

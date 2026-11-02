@@ -20,6 +20,8 @@ func (f *fakeTagQuery) FindList(context.Context) (*tag.TagList, error) {
 	return f.list, nil
 }
 
+func (f *fakeTagQuery) ExistsByName(context.Context, string, tag.ID) (bool, error) { return false, nil }
+
 func (f *fakeTagQuery) ExistsAll(context.Context, []tag.ID) (bool, error) {
 	return true, nil
 }

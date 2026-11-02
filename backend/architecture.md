@@ -110,7 +110,7 @@ infrastructure/postgres/{common,<domain>}, infrastructure/gateway/{<domain>}
 | 固定の条件に合うものを全件 | `FindAllByTagID` | 一致したものを**すべて**返すときだけ。ページングした一部には使わない |
 | 利用者が変えられる条件での検索 | `Search(criteria, range)` | キーワード・絞り込み・ページングなど。`WHERE` があるだけでは使わない |
 | 件数 | `CountByTag` | 数値を返す |
-| 存在するか | `ExistsAll` | `bool` を返す |
+| 存在するか | `ExistsAll` / `ExistsByISBN` / `ExistsByName` | `bool` を返す |
 
 Query（読み取り側）は Read Model を返し、業務の状態を変えない。現状の `FindList`（`book.Query` / `tag.Query`）は条件付き・範囲付きの取得なので `Search` が規則どおりの名前、`auth.SessionRepository` の `Find` は `FindByID`、`Save` は `Create` に当たる。これらも上の移行中の改名に含める。
 
@@ -193,7 +193,8 @@ Repository／Query／ExternalGateway の IF はすべて **Domain** に置き、
 
 | 要素 | 内容 |
 |---|---|
-| 入力 | 共通 `BindValidate[T]`（`Bind` + `validate.Struct`）。失敗時は 400 + フィールド単位 `errors[{field, rule}]`（`field` は JSON 名） |
+| 入力 | 共通 `BindValidate[T]`（`Bind` + `validate.Struct`）。失敗時は 400 + フィールド単位 `errors[{field, rule}]`（`field` は JSON 名）。Domain VO・UseCase（相関ルール）の違反も `domain/common.Violations` として同じ 400 の `errors` に集約し、独立して判定できる違反をすべて返す（[`docs/architecture.md`](../docs/architecture.md) §4「バリデーションの全件返却」） |
+| 相関ルール | Handler の swag 拡張 `@x-correlation-rules`（JSON 配列 `[{"id","field","rule","message"}]`）が詳細設計。`swagger.yaml` の operation に `x-correlation-rules` として出る。実装は UseCase、`id` が `errors[].rule` になる |
 | Handler | path パース → BindValidate（必要時）→ **UseCase** → JSON。エラーは `return err` するだけ |
 | エラー | Echo の `HTTPErrorHandler` に1か所で登録（domain error → 4xx/5xx）。各 Handler に分岐を散らさない。5xx は error ログ＋メッセージ秘匿、4xx は warn ログ |
 | OpenAPI | **swag で排出**（`backend/api/docs/` 等。手編集しない） |
@@ -259,14 +260,14 @@ backend/
 |---|---|---|---|
 | `GET` | `/api/books` | 読んだ本の一覧（新しく登録した順。`limit` 1〜100・既定20、`offset`。`q`（書名・著者の部分一致）と `tagId`（分野タグ）で絞り込める。総件数は条件に合う件数。感想の本文は含めない） | 不要 |
 | `GET` | `/api/books/{id}` | 読んだ本の詳細（書誌・書影・Amazon リンク・感想・評価） | 不要 |
-| `POST` | `/api/books` | 読んだ本を登録する（`isbn`・`summary`・`comment`・`rating`、任意で `titleOverride`・分野タグ（`tagIds`）。書誌と書影は ISBN で外部カタログから取得。openBD に無ければ 400、同じ ISBN は 409） | 必要 |
-| `PUT` | `/api/books/{id}` | 一言まとめ・感想・評価・書名の上書き・分野タグ（`tagIds`）を更新する（楽観的ロック。書誌と書影を取り直す） | 必要 |
+| `POST` | `/api/books` | 読んだ本を登録する（`isbn`・`summary`・`comment`・`rating`、任意で `titleOverride`・分野タグ（`tagIds`）。書誌と書影は ISBN で外部カタログから取得。openBD に無ければ 400（`isbnNotInCatalog`）、同じ ISBN は 400（`isbnDuplicated`）、存在しないタグは 400（`tagIdsNotFound`）） | 必要 |
+| `PUT` | `/api/books/{id}` | 一言まとめ・感想・評価・書名の上書き・分野タグ（`tagIds`）を更新する（楽観的ロック（409）。存在しないタグは 400（`tagIdsNotFound`）。書誌と書影を取り直す） | 必要 |
 | `DELETE` | `/api/books/{id}` | 読んだ本を削除する | 必要 |
 | `GET` | `/api/catalog/{isbn}` | 登録前に、ISBN で外部カタログの書誌と書影を確かめる | 必要 |
 | `GET` | `/api/tags` | 分野タグの一覧 | 不要 |
 | `GET` | `/api/tags/counts` | 分野タグごとの冊数（本が付いていないタグは含めない。冊数の多い順、同数ならタグ名順） | 不要 |
-| `POST` | `/api/tags` | 分野タグを追加する（同名は409） | 必要 |
-| `PUT` | `/api/tags/{id}` | 分野タグの名前を変更する（楽観的ロック） | 必要 |
+| `POST` | `/api/tags` | 分野タグを追加する（同名は 400（`tagNameDuplicated`）） | 必要 |
+| `PUT` | `/api/tags/{id}` | 分野タグの名前を変更する（楽観的ロック（409）。同名は 400（`tagNameDuplicated`）） | 必要 |
 | `DELETE` | `/api/tags/{id}` | 分野タグを削除する（付いていた本からは自動で外れる） | 必要 |
 | `POST` | `/api/auth/login` | ID とパスワードでログインし、セッション Cookie を発行する（失敗が続くと一時的に拒否） | 不要 |
 | `POST` | `/api/auth/logout` | セッションを破棄して Cookie を消す | 不要 |

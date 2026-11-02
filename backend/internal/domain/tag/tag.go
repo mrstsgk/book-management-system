@@ -65,6 +65,8 @@ type Query interface {
 	FindList(ctx context.Context) (*TagList, error)
 	// ExistsAll は ids がすべて実在するかを返す（本の登録・更新時の入力検証に使う）。
 	ExistsAll(ctx context.Context, ids []ID) (bool, error)
+	// ExistsByName は同じ名前のタグ（excludeID のタグを除く。0 なら除外なし）があるかを返す（追加・改名時の相関ルール tagNameDuplicated の判定に使う）。
+	ExistsByName(ctx context.Context, name string, excludeID ID) (bool, error)
 	// CountBooks はタグごとの冊数を、冊数の多い順（同数ならタグ名順）に返す。
 	CountBooks(ctx context.Context) (*TagBookCounts, error)
 }

@@ -129,3 +129,36 @@ func TestQuery_CountBooks(t *testing.T) {
 		t.Fatalf("names = %v", names)
 	}
 }
+
+func TestQuery_ExistsByName(t *testing.T) {
+	db := connectTestDB(t)
+	repo := pgtag.NewRepository(db)
+	q := pgtag.NewQuery(db)
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'query-test-%'") })
+
+	a := createTag(t, repo, "query-test-同名A")
+
+	tests := []struct {
+		name    string
+		query   string
+		exclude domaintag.ID
+		want    bool
+	}{
+		{name: "同じ名前があればtrue", query: "query-test-同名A", want: true},
+		{name: "無い名前はfalse", query: "query-test-同名Z", want: false},
+		{name: "保存された名前と完全一致で比べる（部分一致ではない）", query: "query-test-同名", want: false},
+		{name: "自分を除くと自分の名前はfalse（改名で同じ名前を送っても重複にしない）", query: "query-test-同名A", exclude: a.ID, want: false},
+		{name: "別のIDを除いても自分の名前はtrue", query: "query-test-同名A", exclude: domaintag.ID(-1), want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := q.ExistsByName(context.Background(), tt.query, tt.exclude)
+			if err != nil {
+				t.Fatalf("ExistsByName: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

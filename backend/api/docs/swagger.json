@@ -176,7 +176,7 @@
                 }
             },
             "post": {
-                "description": "書誌と書影は ISBN で openBD から取得する。openBD に無い ISBN は 400、同じ ISBN の登録済みは 409",
+                "description": "書誌と書影は ISBN で openBD から取得する。入力・VO・相関ルールの違反は独立して判定できるものをすべて 400 の errors[{field, rule}] で返す（rule: validate のキーワード / isbn の format / isbnDuplicated / isbnNotInCatalog / tagIdsNotFound / tagIdsDuplicated）。外部カタログの照会は他の違反が無いときだけ行う",
                 "consumes": [
                     "application/json"
                 ],
@@ -206,7 +206,7 @@
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "入力・VO・相関ルールの違反（errors に全件）",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -224,7 +224,7 @@
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "同じ ISBN の本と同時に登録されたとき（一意制約。通常は 400 の isbnDuplicated）",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -235,7 +235,33 @@
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     }
-                }
+                },
+                "x-correlation-rules": [
+                    {
+                        "field": "isbn",
+                        "id": "isbnDuplicated",
+                        "message": "MSG-A01",
+                        "rule": "登録する ISBN の本は未登録である"
+                    },
+                    {
+                        "field": "isbn",
+                        "id": "isbnNotInCatalog",
+                        "message": "MSG-A02",
+                        "rule": "登録する ISBN は外部カタログに存在する"
+                    },
+                    {
+                        "field": "tagIds",
+                        "id": "tagIdsNotFound",
+                        "message": "MSG-A03",
+                        "rule": "指定した分野タグ ID はすべて存在する"
+                    },
+                    {
+                        "field": "tagIds",
+                        "id": "tagIdsDuplicated",
+                        "message": "（共通）",
+                        "rule": "分野タグ ID に重複が無い"
+                    }
+                ]
             }
         },
         "/api/books/{id}": {
@@ -284,7 +310,7 @@
                 }
             },
             "put": {
-                "description": "あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。version が一致しない場合は 409",
+                "description": "あわせて書誌と書影を外部カタログから取り直す（取り直せなければ今のまま）。titleOverride を省略・空にすると上書きを外す。入力・VO・相関ルールの違反は独立して判定できるものをすべて 400 の errors[{field, rule}] で返す（rule: validate のキーワード / tagIdsNotFound / tagIdsDuplicated）。version が一致しない場合は 409",
                 "consumes": [
                     "application/json"
                 ],
@@ -321,7 +347,7 @@
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "入力・VO・相関ルールの違反（errors に全件）",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -345,7 +371,7 @@
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "version が一致しない（他で先に更新された）",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -356,7 +382,21 @@
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     }
-                }
+                },
+                "x-correlation-rules": [
+                    {
+                        "field": "tagIds",
+                        "id": "tagIdsNotFound",
+                        "message": "MSG-A03",
+                        "rule": "指定した分野タグ ID はすべて存在する"
+                    },
+                    {
+                        "field": "tagIds",
+                        "id": "tagIdsDuplicated",
+                        "message": "（共通）",
+                        "rule": "分野タグ ID に重複が無い"
+                    }
+                ]
             },
             "delete": {
                 "tags": [
@@ -487,7 +527,7 @@
                 }
             },
             "post": {
-                "description": "同じ名前のタグは登録できない（409）",
+                "description": "同じ名前のタグは追加できない。入力・VO・相関ルールの違反は 400 の errors[{field, rule}] で返す（rule: validate のキーワード / invalid / tagNameDuplicated）",
                 "consumes": [
                     "application/json"
                 ],
@@ -517,7 +557,7 @@
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "入力・VO・相関ルールの違反（errors に全件）",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -535,7 +575,7 @@
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "同じ名前のタグと同時に追加されたとき（一意制約。通常は 400 の tagNameDuplicated）",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -546,7 +586,15 @@
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     }
-                }
+                },
+                "x-correlation-rules": [
+                    {
+                        "field": "name",
+                        "id": "tagNameDuplicated",
+                        "message": "MSG-A04",
+                        "rule": "タグ名は他のタグと重複しない"
+                    }
+                ]
             }
         },
         "/api/tags/counts": {
@@ -577,7 +625,7 @@
         },
         "/api/tags/{id}": {
             "put": {
-                "description": "version が一致しない場合は 409",
+                "description": "自分以外に同じ名前のタグがあると変更できない。入力・VO・相関ルールの違反は 400 の errors[{field, rule}] で返す（rule: validate のキーワード / invalid / tagNameDuplicated）。version が一致しない場合は 409",
                 "consumes": [
                     "application/json"
                 ],
@@ -614,7 +662,7 @@
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "入力・VO・相関ルールの違反（errors に全件）",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -638,7 +686,7 @@
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "version が一致しない（他で先に更新された）",
                         "schema": {
                             "$ref": "#/definitions/ErrorResponse"
                         }
@@ -649,7 +697,15 @@
                             "$ref": "#/definitions/ErrorResponse"
                         }
                     }
-                }
+                },
+                "x-correlation-rules": [
+                    {
+                        "field": "name",
+                        "id": "tagNameDuplicated",
+                        "message": "MSG-A04",
+                        "rule": "タグ名は自分以外のタグと重複しない"
+                    }
+                ]
             },
             "delete": {
                 "description": "付いていた本からは自動で外れる",
@@ -905,7 +961,7 @@
             "type": "object",
             "properties": {
                 "errors": {
-                    "description": "Field-level details; only set for request validation errors.",
+                    "description": "Errors は項目ごとの違反。入力検証・VO・相関ルールの違反（400）だけに付く。rule は validate のキーワードか相関ルールの id。",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/FieldError"
