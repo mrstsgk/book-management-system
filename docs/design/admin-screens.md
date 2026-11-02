@@ -4,9 +4,9 @@
 
 | | |
 |---|---|
-| 対象要件 | [`docs/specifications.md`](../specifications.md) §1・§3 |
-| 関連する設計 | [`2026-09-30-admin-screens-design.md`](../superpowers/specs/2026-09-30-admin-screens-design.md)・[`2026-09-30-admin-login-design.md`](../superpowers/specs/2026-09-30-admin-login-design.md)・[`2026-09-28-reading-api-design.md`](../superpowers/specs/2026-09-28-reading-api-design.md)・[`2026-09-28-title-override-summary-design.md`](../superpowers/specs/2026-09-28-title-override-summary-design.md) |
-| モック | [`docs/design/admin-screens/`](./admin-screens/README.md)（ログイン画面のモックは無い） |
+| 対象ストーリー | US-004〜US-008（[backlog.md](../requirements/backlog.md)） |
+| 関連する論点 | 未決 1 件（ログイン済みでログイン画面を開いたときの遷移。[status-map.md](../requirements/status-map.md)「未決の論点」） |
+| 合意済みモック | [mock/admin-screens/v1/](../../mock/admin-screens/v1/index.html)（ログイン画面のモックは無い） |
 | Updated | 2026-11-02 |
 
 ---
@@ -66,7 +66,7 @@ flowchart LR
 
 ### 4-1. ログイン
 
-モック無し（設計は [ログインの設計](../superpowers/specs/2026-09-30-admin-login-design.md)）。
+モック無し（要件は US-004）。
 
 | No. | 項目名 | 対応データ | 入力制御 | 表示桁数 | 入力桁数★ | データ型★ | 文字種★ | 入力制約★ | 初期表示 | 出力仕様 | 必須★ |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -78,13 +78,13 @@ flowchart LR
 
 | 状態 | 見え方 | 押せるもの・次にできること | モックでの出し方 |
 |---|---|---|---|
-| ID またはパスワードが違う（401）・ロック中（429）・ID 未設定（403） | 画面上部に MSG-A09（どちらが違うかは伝えない。要件 §3.1） | 入力を直してもう一度 | モック無し |
+| ID またはパスワードが違う（401）・ロック中（429）・ID 未設定（403） | 画面上部に MSG-A09（どちらが違うかは伝えない。US-004） | 入力を直してもう一度 | モック無し |
 | 通信失敗・5xx | 画面上部に MSG-A09 | もう一度 | モック無し |
 
 ### 4-2. 本の一覧（管理）
 
 ![本の一覧（管理）](./admin-screens/images/books.png)
-*モック `books.html` / 通常表示。番号は図に無い。表の No. は項目の並び順*
+*モック v1 `books.html` / 通常表示。番号は図に無い。表の No. は項目の並び順*
 
 | No. | 項目名 | 対応データ | 入力制御 | 表示桁数 | 入力桁数★ | データ型★ | 文字種★ | 入力制約★ | 初期表示 | 出力仕様 | 必須★ |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -103,7 +103,7 @@ flowchart LR
 ### 4-3. 本の登録
 
 ![本の登録](./admin-screens/images/book-new.png)
-*モック `book-new.html` / 入力エラーと ISBN のエラーの例を重ねて描いている。番号は図に無い。表の No. は項目の並び順*
+*モック v1 `book-new.html` / 入力エラーと ISBN のエラーの例を重ねて描いている。番号は図に無い。表の No. は項目の並び順*
 
 | No. | 項目名 | 対応データ | 入力制御 | 表示桁数 | 入力桁数★ | データ型★ | 文字種★ | 入力制約★ | 初期表示 | 出力仕様 | 必須★ |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -137,7 +137,7 @@ flowchart LR
 ### 4-4. 本の編集・削除
 
 ![本の編集](./admin-screens/images/book-edit.png)
-*モック `book-edit.html` / 先に更新されていたときの表示と削除の確認ダイアログを重ねて描いている。番号は図に無い。表の No. は項目の並び順*
+*モック v1 `book-edit.html` / 先に更新されていたときの表示と削除の確認ダイアログを重ねて描いている。番号は図に無い。表の No. は項目の並び順*
 
 | No. | 項目名 | 対応データ | 入力制御 | 表示桁数 | 入力桁数★ | データ型★ | 文字種★ | 入力制約★ | 初期表示 | 出力仕様 | 必須★ |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -168,7 +168,7 @@ flowchart LR
 ### 4-5. タグの管理
 
 ![タグの管理](./admin-screens/images/tags.png)
-*モック `tags.html` / 同名の追加・名前の変更中の行・削除の確認ダイアログを重ねて描いている。番号は図に無い。表の No. は項目の並び順*
+*モック v1 `tags.html` / 同名の追加・名前の変更中の行・削除の確認ダイアログを重ねて描いている。番号は図に無い。表の No. は項目の並び順*
 
 | No. | 項目名 | 対応データ | 入力制御 | 表示桁数 | 入力桁数★ | データ型★ | 文字種★ | 入力制約★ | 初期表示 | 出力仕様 | 必須★ |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -225,13 +225,13 @@ flowchart LR
 | ログイン（`POST /api/admin/auth/login`） | - | - | - | C |
 | ログアウト（`POST /api/admin/auth/logout`） | - | - | - | D |
 | 管理画面の表示（`GET /api/admin/auth/session`） | - | - | - | R・U（期限の延長） |
-| 本の一覧（管理）（`GET /api/books`） | R | R | R | R |
+| 本の一覧（管理）（`GET /api/admin/books`） | R | R | R | R |
 | ISBN を確かめる（`GET /api/admin/catalog/{isbn}`） | - | - | - | R |
 | 本の登録（`POST /api/admin/books`） | R（重複）・C | R（存在） | C | R |
-| 本の編集の初期値（`GET /api/books/{id}`・`GET /api/tags`） | R | R | R | R |
+| 本の編集の初期値（`GET /api/admin/books/{id}`・`GET /api/admin/tags`） | R | R | R | R |
 | 本の保存（`PUT /api/admin/books/{id}`） | R・U | R（存在） | D・C（入れ直し） | R |
 | 本の削除（`DELETE /api/admin/books/{id}`） | D | - | D（CASCADE） | R |
-| タグの一覧（`GET /api/tags`・`GET /api/tags/counts`） | - | R | R | R |
+| タグの一覧（`GET /api/admin/tags`・`GET /api/admin/tags/counts`） | - | R | R | R |
 | タグの追加（`POST /api/admin/tags`） | - | R（重複）・C | - | R |
 | タグの改名（`PUT /api/admin/tags/{id}`） | - | R（重複）・U | - | R |
 | タグの削除（`DELETE /api/admin/tags/{id}`） | - | D | D（CASCADE） | R |
