@@ -35,7 +35,7 @@
 |---|---|---|
 | OpenAPI Design First | リポジトリ直下に手書きの YAML を置き、BE（oapi-codegen）・FE（Orval）をそこから生成する | **保留**。契約を実装より先に合意でき、`required`・`enum` を契約に書ける利点はあるが、Handler・入力検証・テストの全面書き換えになる。規則の見直しと混ぜず、別 PR で判断する |
 | `internal/<業務領域>/<層>` への再編 | 層ではなく業務領域を第一階層にし、1 つの変更で触るディレクトリを局所化する | **保留**。1 変更が層の数だけのディレクトリに散る問題はあるが、ドメインが 3 つ（book・tag・auth）で局所化の利点が小さい。領域が増えたら再検討 |
-| UseCase 名の一括改名 | `ListUsecase` / `GetUsecase` 等を `<動詞><業務対象>Usecase`（`SearchBooksUsecase` / `ReadBookUsecase`）に揃える | **規則は採用、改名は別 PR**。規則の変更と大規模なリネームを同じ PR にするとレビューしにくい |
+| UseCase 名の一括改名 | `ListUsecase` / `GetUsecase` 等を `<動詞><業務対象>Usecase`（`SearchBooksUsecase` / `ReadBookUsecase`）に揃える | **規則は採用。改名は PR `refactor/align-naming-with-rules` で実施**。規則の変更と大規模なリネームは同じ PR にせず、規則の PR の上に積む |
 | Node / pnpm / Go の版上げ | ツールチェーンの版を最新に上げる | **見送り**。規則の変更と混ぜない。依存更新の PR で行う |
 | CodeRabbit CLI を CI で回す | CI から CLI を実行し、結果を PR にコメントする | **不採用**。GitHub 連携の自動レビューで足りる。レビュー回数の制限を消費するだけ |
 | `gocyclo` / ESLint `complexity` の撤去 | 複雑度の上限（10）を外す | **不採用**。分岐の多すぎる関数を読みにくさとして弾く目的は変わらないので維持する |

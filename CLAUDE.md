@@ -34,7 +34,7 @@ Docs are MECE. Repo boundaries → `docs/architecture.md`. Backend detail → `b
 
 Before generating/changing backend code, answer: (1) what is this change's purpose, (2) is it a command or a query, (3) which UseCase does it belong to, (4) which model owns the responsibility (Domain / Read Model / Persistence Model — don't blur them), (5) does it mix a new change-reason into an existing class, (6) does it needlessly share a Domain Model with a Read Model, (7) does DB/Framework detail leak into Domain, (8) can the blast radius be made smaller.
 
-If existing code violates these, don't blindly preserve it — check compatibility with callers, then propose the more purpose-driven, lower-blast-radius design. Detail (design principles, naming, CQRS/Command DTO/Read Model rules): `backend/architecture.md` §2. New UseCases are named `<Verb><Subject>Usecase` (`ReadBookUsecase` / `SearchBooksUsecase` / `RegisterBookUsecase`); existing names that predate the rule are renamed in a separate PR.
+If existing code violates these, don't blindly preserve it — check compatibility with callers, then propose the more purpose-driven, lower-blast-radius design. Detail (design principles, naming, CQRS/Command DTO/Read Model rules): `backend/architecture.md` §2. UseCases are named `<Verb><Subject>Usecase` (`ReadBookUsecase` / `SearchBooksUsecase` / `RegisterBookUsecase`).
 
 ## Digital Agency DS (when to read usage)
 

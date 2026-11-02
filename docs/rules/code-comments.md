@@ -40,7 +40,7 @@ cover := catalog.CoverURL
 | Go | 宣言の直前の行に `//`（空行を挟まない）。型・関数・メソッドは識別子の名前で始める（`// Book は、…`）。フィールドは概要だけでよい |
 | TypeScript | 宣言の直前に TSDoc の `/** … */`。値の集合（文字列のユニオン型）の各値の意味は、型のコメントに箇条書きで書く（ユニオンの各値に付けたコメントはホバーに出ないため） |
 
-以下の例の名前と型は説明のためのもので、実装の決定ではない。UseCase の例は [`backend/architecture.md`](../../backend/architecture.md) の命名規則（`<動詞><業務対象>Usecase`）で書いている。既存の `ListUsecase` / `GetUsecase` 等は別の PR で移行する。
+以下の例の名前と型は説明のためのもので、実装の決定ではない。UseCase の例は [`backend/architecture.md`](../../backend/architecture.md) の命名規則（`<動詞><業務対象>Usecase`）で書いている。
 
 ## バックエンド
 
@@ -95,8 +95,8 @@ type Repository interface {
 
 // Query は、本の一覧と詳細を画面に出すために読み取る。
 type Query interface {
-	// FindList は、条件に合う本を新しい順に探す。
-	FindList(ctx context.Context, cond ListCondition) ([]BookSummary, error)
+	// Search は、条件に合う本を新しい順に探す。
+	Search(ctx context.Context, cond ListCondition) ([]BookSummary, error)
 }
 
 // BookCatalog は、ISBN から書誌と書影を取ってくる外部カタログ。
@@ -158,8 +158,8 @@ func (r *repository) FindByID(ctx context.Context, id int64) (*book.Book, error)
 // query は、本の一覧と詳細を PostgreSQL から読み取る。
 type query struct{ db *gorm.DB }
 
-// FindList は、条件に合う本を新しい順に探す。
-func (q *query) FindList(ctx context.Context, cond book.ListCondition) ([]book.BookSummary, error) { ... }
+// Search は、条件に合う本を新しい順に探す。
+func (q *query) Search(ctx context.Context, cond book.ListCondition) ([]book.BookSummary, error) { ... }
 ```
 
 ## フロントエンド
