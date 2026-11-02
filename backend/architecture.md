@@ -4,8 +4,8 @@
 
 | 文書 | 管轄 |
 |---|---|
-| [`docs/architecture.md`](../docs/architecture.md) | リポジトリ全体・トップレベル構成・OpenAPI／FE との契約の境界 |
-| **本書** | バックエンドのスタック・層・HTTP/OpenAPI・ディレクトリ・永続化 |
+| [`docs/architecture.md`](../docs/architecture.md) | リポジトリ全体の方針・チャネル境界・API 契約（`openapi/`）の配置と規則 |
+| **本書** | バックエンドのスタック・層・HTTP（OpenAPI からの BE 生成）・ディレクトリ・永続化 |
 | [`frontend/architecture.md`](../frontend/architecture.md) | フロントのスタック・設計。OpenAPI **生成物の利用**のみ |
 
 人が読む方針は **日本語**（AI 入口は `CLAUDE.md` / `.cursor/rules`）。
@@ -19,10 +19,10 @@
 | 設計 | **オニオン** + DDD 戦術 + **CQRS**（単一 DB。全体 Event Sourcing はしない）。`internal/` の第一階層は**業務領域別**（`book` / `tag` / `auth`）、層は領域の中（§2） |
 | 永続化 | **PostgreSQL + GORM**（現在状態が正）。**GORM AutoMigrate は使わない** |
 | マイグレーション | **golang-migrate**（`backend/migrations/` が SQL の正。アプリ起動時 migrate しない） |
-| HTTP / OpenAPI | Echo + validator + swag。**Go の DTO／Handler が BE の正** |
-| FE 契約 | swag **排出 OpenAPI → TypeScript 生成は必須**（手編集禁止・CI ドリフト検知） |
+| HTTP / OpenAPI | Echo。**OpenAPI Design First**: `openapi/` の YAML が正で、oapi-codegen で HTTP 境界（型・Server IF・ルート登録・埋め込み spec）を生成。入力検証は kin-openapi（§3） |
+| FE 契約 | FE は同じ `openapi/dist/web.yaml` から Orval で生成（手編集禁止・CI ドリフト検知） |
 | 書誌・書影 | 外部カタログ。Domain の `bookdomain.BookCatalog`（ExternalGateway）を `book/infrastructure/gateway/openbd` が実装する。画像は保存しない。openBD に書影が無ければ書影なし（[ADR](../docs/adr/2026-09-30-cover-from-openbd-only.md)） |
-| 認証 | 書き込み系はログイン済みのセッション Cookie（`platform/httpserver.RequireAdminSession` + `RequireSameOrigin`）。閲覧は認証なし |
+| 認証 | 管理（`/api/admin`）はログイン済みのセッション Cookie。spec の `security`（`adminSession`）とパスから、operation ごとに `RequireSameOrigin`・`RequireAdminSession` を掛ける（`platform/httpserver.OperationMiddlewares`）。閲覧（`/api`）は認証なし |
 | ツールチェーン | **mise で Go 版を固定**（リポジトリ直下 `.mise.toml`。`go.mod` と揃える） |
 | ローカル開発 | API は**ホストの Go**、DB は **Docker Compose**。Dev Container なし |
 | 旧スタック | Kotlin / Spring Boot / jOOQ / Flyway と、旧仕様（書籍・著者の管理 API）の Go 版は**削除済み**（[ADR](../docs/adr/2026-09-28-rebuild-as-reading-portfolio.md)） |
@@ -49,7 +49,7 @@ internal/
     presentation/http/<channel>/   → usecase/{command,query}/ → domain/
     infrastructure/{postgres,gateway,bcrypt}/ ──（domain の IF を実装）──↗
   platform/{httpserver,postgres}/  # 技術基盤（業務ルールを持たない）
-  domainerr/                       # ErrNotFound 等の分類と Violations（stdlib のみ）
+  domainerr/                       # ErrNotFound 等の分類・Violations・CodedError（stdlib のみ）
 ```
 
 **存在しない層は作らない**。例えば `auth` に閲覧（`public`）の入口は無く、`tag` に外部連携は無い。必要になった時点で足す。
@@ -87,14 +87,14 @@ flowchart LR
 | `<area>/usecase/query` | 参照シナリオ。Read Model の取得・整形 | 更新系 Domain Model の無理な流用 |
 | `<area>/infrastructure/postgres` | Repository／Query の実装と Persistence Model（`gorm` タグ） | 業務ルールの実装、他領域から直接呼ばれる入口になること |
 | `<area>/infrastructure/{gateway,bcrypt}` | ExternalGateway・パスワード照合など外部の技術の実装 | 同上 |
-| `<area>/presentation/http/<channel>` | HTTP リクエスト／レスポンスの変換（Request／Response DTO・`BindValidate`・swag の注釈）と UseCase の呼び出し | **業務上の認可**・状態遷移・永続化 |
-| `platform/httpserver` | Echo の初期化・`BindValidate`・`HTTPErrorHandler`・`ErrorResponse`・セッション／同一オリジンの middleware・graceful shutdown | 業務領域に固有のルール |
+| `<area>/presentation/http/<channel>` | 生成 Server IF のうち担当分の実装（生成型 ↔ UseCase の入出力の変換）と UseCase の呼び出し | **業務上の認可**・状態遷移・永続化・入力制約の手書き（制約は YAML） |
+| `platform/httpserver` | Echo の初期化・OpenAPI の入力検証（`ValidateRequest`）・`HTTPErrorHandler`・`ErrorResponse`・operation ごとの認証の middleware（`OperationMiddlewares`）・graceful shutdown | 業務領域に固有のルール、生成物（`api/gen`）の import |
 | `platform/postgres` | DB 接続・プール設定 | 同上 |
-| `domainerr` | `ErrNotFound` / `ErrInvalid` / `ErrConflict` / `ErrUnauthorized` / `ErrTooManyAttempts` と `Violations`（stdlib のみ） | 業務ロジック・外部技術への依存 |
+| `domainerr` | `ErrNotFound` / `ErrInvalid` / `ErrConflict` / `ErrUnauthorized` / `ErrTooManyAttempts` と `Violations`・`CodedError`（業務ルールの違反のコードと差し込む値。stdlib のみ） | 業務ロジック・外部技術への依存 |
 
 - Domain Service はエンティティに載せにくい業務ルール
-- 命名目安: UseCase は IF `RegisterBookUsecase` + 公開の実装 `RegisterBookUsecaseImpl`、Handler は `Handler`（詳細は下の「配置と命名のルール」「型・メソッドの名前の付け方」）
-- `cmd/api/main.go` で手書き DI（コンテナなし）: config → platform → infrastructure → usecase → presentation（`registerRoutes`）
+- 命名目安: UseCase は IF `RegisterBookUsecase` + 公開の実装 `RegisterBookUsecaseImpl`、Handler は `Handler`（Request／Response 型は生成物を使い、手書きの DTO は作らない。詳細は下の「配置と命名のルール」「型・メソッドの名前の付け方」）
+- `cmd/api` で手書き DI（コンテナなし）: `main.go` が config → platform → infrastructure を作り、`server.go` の `buildEcho` が usecase → presentation を組み立てて生成 IF に束ねる
 - 外部 API・SaaS 呼び出しは UseCase から **ExternalGateway IF**（Domain 定義）経由で行う。Repository／Query と同じ理由（Domain が具体的な HTTP クライアント実装に依存しないため）で Domain に IF を置く
 
 ### 領域間のルール
@@ -166,13 +166,13 @@ Query（読み取り側）は Read Model を返し、業務の状態を変えな
 
 | 層 | 置き場・ファイル名 | 型・関数の命名 | テスト |
 |---|---|---|---|
-| **Domain** | `internal/<area>/domain/`。Entity と IF は `<area>.go`、VO は概念ごとのファイル（実例: `book/domain/{book,isbn,review,summary,title,list_range}.go`、`tag/domain/{tag,name}.go`、`auth/domain/{session,credentials}.go`）。エラーの分類は `internal/domainerr/{error,violation}.go` | 書き込み IF `Repository`・読み取り IF `Query`・外部連携 IF は業務の能力で名付ける（実例: `bookdomain.BookCatalog`、`authdomain.PasswordVerifier`）。Read Model は `XxxDetail` / `XxxList` / `XxxListItem` / `XxxSummary` など用途が分かる名前（実例: `BookDetail`、`TagListItem`）。VO の不変条件は `NewXxx` で保証 | DB・HTTP に依存しない。不変条件・業務ルール・境界値と、不正な状態を作れないこと |
+| **Domain** | `internal/<area>/domain/`。Entity と IF は `<area>.go`、VO は概念ごとのファイル（実例: `book/domain/{book,isbn,review,summary,title,list_range}.go`、`tag/domain/{tag,name}.go`、`auth/domain/{session,credentials}.go`）。エラーの分類は `internal/domainerr/{error,violation,coded}.go` | 書き込み IF `Repository`・読み取り IF `Query`・外部連携 IF は業務の能力で名付ける（実例: `bookdomain.BookCatalog`、`authdomain.PasswordVerifier`）。Read Model は `XxxDetail` / `XxxList` / `XxxListItem` / `XxxSummary` など用途が分かる名前（実例: `BookDetail`、`TagListItem`）。VO の不変条件は `NewXxx` で保証 | DB・HTTP に依存しない。不変条件・業務ルール・境界値と、不正な状態を作れないこと |
 | **UseCase（参照）** | `internal/<area>/usecase/query/`。1 UseCase 1 ファイル（実例: `book/usecase/query/{read_book,search_books,lookup_catalog}.go`、`tag/usecase/query/{search_tags,count_books}.go`） | IF `XxxUsecase` + 公開 struct `XxxUsecaseImpl`、メソッドは `Execute`、依存は公開フィールド（`Books bookdomain.Query`）。`cmd` で struct リテラルから組み立てる | 手書き Fake を注入し DB 無しで動かす。下位層のエラーが伝播すること |
 | **UseCase（更新）** | `internal/<area>/usecase/command/`（実例: `book/usecase/command/{register_book,update_book,delete_book}.go`、`tag/usecase/command/{register_tag,rename_tag,delete_tag}.go`、`auth/usecase/command/{login,logout}.go`） | 参照と同じ。データを持つ入力は Command DTO `RegisterBookCommand` / `UpdateBookCommand`（UseCase の名前から `Usecase` を除き `Command` を付ける）、ID だけなら scalar 引数 | 参照と同じに加え、失敗時に状態が変わらないこと、入力エラー時に下位層が呼ばれないこと |
 | **Infrastructure（DB）** | `internal/<area>/infrastructure/postgres/`。実装は `repository.go` / `query.go`、Persistence Model（`gorm` タグ）は同じファイルの非公開 `model`（実例: `book/infrastructure/postgres/{repository,query}.go`）。DB 接続は `internal/platform/postgres` | 非公開 struct（`repository` / `query`）+ Domain の IF を返す `NewRepository` / `NewQuery`。`Impl` は付けない。**型と各メソッドに日本語で概要の 1 行コメント** | 実際の PostgreSQL への契約テスト（繋がらなければ失敗）。SQL が複雑なもの（JOIN・集計・トランザクション）を優先し、Query は Read Model への詰め替えと書き込み側の型に依存しないことも確認 |
 | **Infrastructure（外部連携）** | `internal/<area>/infrastructure/gateway/<提供元>/`（実例: `book/infrastructure/gateway/openbd/catalog.go`）。ハッシュ照合は `auth/infrastructure/bcrypt/bcrypt.go` | Domain の IF（`bookdomain.BookCatalog` 等）を実装。実装には提供元の名前を使ってよい | 偽の HTTP サーバ（`httptest`）に対する契約テスト |
-| **Presentation** | `internal/<area>/presentation/http/<channel>/handler.go`（`public` = 閲覧、`admin` = 管理）。Request／Response DTO（`validate` タグ・swag コメント）も同じファイル（実例: `book/presentation/http/public/handler.go` の `Response` / `ListResponse`、`book/presentation/http/admin/handler.go` の `RegisterRequest`）。Echo・`BindValidate`・`HTTPErrorHandler`・セッション／同一オリジンの middleware は `internal/platform/httpserver` | struct `Handler`（同じチャネルに入口が 2 つあるときは `CatalogHandler` のように目的を付ける）、`Register(g *echo.Group)` でルート登録、メソッドは UseCase と同じ目的の名前。依存は公開フィールドで UseCase の IF。管理側が閲覧側と同じレスポンスを返すときは閲覧側の型（`bookpublic.Response`）を使う | `handler_test.go`（Fake の UseCase で 400 と domain error → ステータスの変換）と `handler_integration_test.go`（実 DB で、返しうるステータスごとに 1 件） |
-| **cmd** | `cmd/api/main.go`（設定・DB 接続・起動・`registerRoutes`）、`sample_data.go`（見本データ） | import の別名は `<area><役割>`（上の「配置と命名のルール」） | `main_test.go`（in-package）で配線（依存の nil・middleware の適用）を実リクエストで検証 |
+| **Presentation** | `internal/<area>/presentation/http/<channel>/handler.go`（`public` = 閲覧、`admin` = 管理）。Request／Response 型は生成物（`api/gen/web`、別名 `webapi`）を使い、手書きの DTO は作らない。Echo・入力検証・`HTTPErrorHandler`・認証の middleware は `internal/platform/httpserver` | struct `Handler`（同じチャネルに入口が 2 つあるときは `CatalogHandler` のように目的を付ける）。メソッド名は operationId（`searchBooks` → `SearchBooks`）で、生成 Server IF の担当分を実装する。依存は公開フィールドで、名前は UseCase の型名を略さずに使う（`SearchBooksUsecase`）。管理側が閲覧側と同じレスポンスを返すときは閲覧側の変換（`bookpublic.ToBookResponse`）を使う | `handler_integration_test.go` に一本化（Fake の Handler テストは書かない）。`internal/apitest` で、本物の spec の入力検証・認証・生成されたルート登録と実 DB で組み立て、全レスポンスを spec で検証する。返しうるステータスごとに最低 1 件、YAML の入力の制約 1 つにつき通る値と弾かれる値の 1 組 |
+| **cmd** | `cmd/api/main.go`（設定・DB 接続・依存の生成・起動）、`server.go`（Handler の束ねと組み立て関数 `buildEcho`）、`sample_data.go`（見本データ） | `server` struct に各領域の Handler を埋め込み（型名が重なるので別名を付ける）、`var _ webapi.ServerInterface = (*server)(nil)`。生成 IF 自体は埋め込まない。import の別名は `<area><役割>` | Server IF の実装漏れは `var _` でコンパイル時に検出する。`main_test.go`（in-package）で、`buildEcho` に Fake を渡して全ルートの応答（依存の nil・登録漏れ）・認証の middleware・入力検証（spec 違反が 400）を検証 |
 | **全層共通** | ファイル名は小文字・`_` 区切り。領域名・`_impl` を付けない | パッケージ名 = ディレクトリ名。会話ではパッケージ名付きで呼ぶ | 対象と同じディレクトリ。原則は外部テストパッケージ `<対象>_test`。入力違いはテーブルドリブン。DB・環境変数・グローバル状態を共有しないテストには `t.Parallel()` |
 
 ### 未決の規則（初めて作るときに決める）
@@ -183,7 +183,7 @@ Query（読み取り側）は Read Model を返し、業務の状態を変えな
 |---|---|
 | ID の型 | 今は `bookdomain.ID` / `tagdomain.ID` の型（`int64` の別名）。VO にするか |
 | 領域間の import の検査 | 他領域の `infrastructure` を import しないことを golangci-lint の `depguard` で検査するか |
-| Fake の置き場 | 各テストファイルに書くか、共有のテスト用パッケージを作るか（今は各ファイル） |
+| Fake の置き場 | UseCase の Fake は各テストファイルに書いている。共有のテスト用パッケージを作るか（Presentation の結合テストの共通部品は `internal/apitest` にまとめた） |
 | テスト関数名 | `TestRepository_FindByID_NotFound` 形式（英語）と `TestXxx_日本語の振る舞い` の混在をどちらに揃えるか |
 | DB を使うテストの並列実行 | 接続先・片付けは決定済み（[テスト規約](../docs/rules/testing.md)）。`t.Parallel()` を付けるか |
 
@@ -230,50 +230,58 @@ Repository／Query／ExternalGateway の IF はすべて **Domain** に置き、
 
 ## 3. HTTP / OpenAPI
 
-**BE の正**: Go のリクエスト／レスポンス DTO（`validate` タグ）と薄い Handler（swag コメント付き）
+**API 契約の正**: リポジトリ直下 `openapi/` の手書き YAML（OpenAPI Design First）。正本の配置・`operationId` の規則・CI・採用理由は [`docs/architecture.md`](../docs/architecture.md) §4。
 
-| 要素 | 内容 |
-|---|---|
-| 入力 | 共通 `BindValidate[T]`（`Bind` + `validate.Struct`）。失敗時は 400 + フィールド単位 `errors[{field, rule}]`（`field` は JSON 名）。Domain VO・UseCase（相関ルール）の違反も `domainerr.Violations` として同じ 400 の `errors` に集約し、独立して判定できる違反をすべて返す（[`docs/architecture.md`](../docs/architecture.md) §4「バリデーションの全件返却」） |
-| 相関ルール | Handler の swag 拡張 `@x-correlation-rules`（JSON 配列 `[{"id","field","rule","message"}]`）が詳細設計。`swagger.yaml` の operation に `x-correlation-rules` として出る。実装は UseCase、`id` が `errors[].rule` になる |
-| Handler | path パース → BindValidate（必要時）→ **UseCase** → JSON。エラーは `return err` するだけ |
-| エラー | Echo の `HTTPErrorHandler` に1か所で登録（domain error → 4xx/5xx）。各 Handler に分岐を散らさない。5xx は error ログ＋メッセージ秘匿、4xx は warn ログ |
-| OpenAPI | **swag で排出**（`backend/api/docs/` 等。手編集しない） |
-| FE | 排出 OpenAPI → **openapi-typescript または orval**（必須） |
-| 共通エラー形 | `ErrorResponse` を DTO で1か所 |
-| ログ | `slog` のテキスト形式（デプロイしないので環境ごとに切り替えない）。アクセスログは RequestID 付き |
-| 終了 | SIGINT / SIGTERM で graceful shutdown |
+BE は `openapi/dist/web.yaml` から **oapi-codegen**（`echo-server` + `models` + `embedded-spec`）で HTTP 境界だけを生成する。
+
+| 要素 | 生成／手書き | 内容 |
+|---|---|---|
+| Request／Response 型・パラメータ型 | 生成 | `backend/api/gen/web/`（パッケージ名は `web`、import 時の別名は `webapi`）。Presentation・`cmd`・テストの共通部品（`internal/apitest`）だけが使う。UseCase・Domain・Infrastructure は import しない。手書きの DTO は作らない |
+| Server IF・ルート登録 | 生成 | `ServerInterface` と `RegisterHandlersWithOptions`。メソッド名は `operationId`（`searchBooks` → `SearchBooks`） |
+| Handler | 手書き | 各領域の `presentation/http/<channel>` が担当する operationId のメソッドを実装する。処理は「生成型 → UseCase の入力（Command DTO・scalar）→ **UseCase** → Read Model 等 → 生成型」。エラーは `return err` するだけ |
+| 合成 | 手書き | `cmd/api/server.go` で各領域の Handler を struct 埋め込みで束ね、`var _ webapi.ServerInterface = (*server)(nil)` で未実装をコンパイル時に検出する。生成 IF 自体は埋め込まない（未実装が実行時エラーに化けるため） |
+| 認証 | 手書き | `httpserver.OperationMiddlewares` が spec から operation ごとに掛ける。`security` に `adminSession` があれば `RequireAdminSession`、`/api/admin` 配下の GET 以外は `RequireSameOrigin`。順は Origin → セッション → 入力検証（未ログインの要求に入力の形の情報を返さないため）。一覧を手で書かないので、operation を足しても認証の掛け忘れが起きない |
+| 入力検証 | 生成 spec + 手書きの変換 | `httpserver.ValidateRequest`（kin-openapi）に埋め込み spec（`GetSpec()`）を `cmd` から渡す。違反は 400 + 項目ごとの `errors[{field, rule}]` にすべて返す（`field` は JSON 名・入れ子はドット区切り・パラメータ名、`rule` は OpenAPI のキーワード）。Handler は生成型に `c.Bind` するだけで、制約を手書きしない。HTTP 境界の違反があるときは UseCase に進まない。VO・相関ルールの違反は境界を通った後に UseCase が `domainerr.Violations` で集め、同じ形の 400 にする |
+| エラー | 手書き | Echo の `HTTPErrorHandler` に 1 か所で登録（domain error → 4xx/5xx）。各 Handler に分岐を散らさない。業務ルールの違反は `domainerr.CodedError`（分類 + `code` + `params`）で返し、`code` は operation の `x-error-codes` に列挙したもの。5xx は error ログ＋説明を隠し、4xx は warn ログ |
+| 共通エラー形 | 手書き | `ErrorResponse` / `FieldError` は `platform/httpserver` に置き、`openapi/common/schemas/` に同じ形を書く。platform は生成物を import しない。形のずれはレスポンスを spec で検証する結合テストで検知する |
+| ログ | 手書き | `slog` のテキスト形式（デプロイしないので環境ごとに切り替えない）。アクセスログは RequestID 付き |
+| 終了 | 手書き | SIGINT / SIGTERM で graceful shutdown |
 
 ```text
-Go DTO + validate + 薄い Handler + swag
-  → swag init（OpenAPI 排出）
-  → TypeScript 生成（必須）
-  → FE は生成物のみ
-  → CI: 排出 + TS gen → git diff --exit-code
+openapi/ の YAML を変更
+  → Redocly でバンドル（openapi/dist/web.yaml）
+  → oapi-codegen（backend/api/gen/web/）と Orval（frontend）で再生成
+  → CI: lint・破壊的変更・バンドルと生成物の git diff --exit-code
+  → ここまでを詳細設計の PR として出す（Handler の無い operation は、cmd の var _ が通るよう未実装のスタブを置く）
+  → 別の PR でスタブを消して Handler を実装する（docs/rules/development-flow.md §3）
 ```
 
 ### やらないこと（HTTP）
 
-- ルート手書き `openapi/` を正とし **oapi-codegen で Server IF を生成**する方式（OpenAPI Design First）。契約を先に合意できる利点はあるが、全 Handler の書き換えになるため**保留**（[ADR](../docs/adr/2026-11-02-revise-development-rules.md)）
-- **Huma**
+- Go のコード（DTO・コメント）から OpenAPI を排出して正とする方式（swag。廃止済み。コメントとルート登録のずれを検知できず、Swagger 2.0 では `required`・`nullable`・Cookie の認証を書き切れないため。[`docs/architecture.md`](../docs/architecture.md) §4）
+- **strict-server**（当面）。エラーを型付きレスポンスで返す形になり、`HTTPErrorHandler` の一括変換と二重になる
+- **ogen**（Echo を使わない独自の HTTP サーバーになり、middleware とエラー処理を作り直すことになる）/ **Huma**（Go のコードから仕様を排出する Code First のままで、実装より先に契約を合意できない）
+- 生成 IF を埋め込んで未実装を隠すこと
+- UseCase・Domain・Infrastructure から生成型を import すること
 - 各 Handler に Bind / validate / ステータス分岐を冗長コピペする方式
 - FE で API 型を手書きして正とする運用
-- TS／swag 排出物の手編集
+- 生成物（`openapi/dist/`・`backend/api/gen/`・FE）の手編集
 
 ### 漏れにくくする
 
-- 文字数など業務制約は **domain VO** でも保証（HTTP タグだけに頼らない）
+- 文字数など業務制約は **domain VO** でも保証（OpenAPI の制約だけに頼らない。OpenAPI の検証は HTTP 入力の検証であり、Domain の不変条件の代わりではない）
 - HTTP ステータスは `HTTPErrorHandler` に集約
+- oapi-codegen の設定（`api/gen/web/config.yaml`）で外部 URL の `$ref` を禁止する（`allow-remote-refs-from: []`）
 
 ## 4. ディレクトリ（目安）
 
 ```
 backend/
   cmd/
-    api/main.go
+    api/                          # main.go（設定・DB・起動）・server.go（buildEcho）・sample_data.go
   config/
-  api/docs/                 # swag 排出 OpenAPI（手編集しない）
-  migrations/               # golang-migrate
+  api/gen/web/                    # ../openapi/dist/web.yaml から oapi-codegen で生成（手編集しない）。設定は config.yaml
+  migrations/                     # golang-migrate
   internal/
     book/                         # 業務領域: 読んだ本
       domain/                     # Entity・VO・Repository/Query/BookCatalog IF・Read Model・ListRange
@@ -282,8 +290,8 @@ backend/
         postgres/                 # Repository/Query 実装・Persistence Model
         gateway/openbd/           # BookCatalog の実装（外部カタログ）
       presentation/http/
-        public/                   # GET /api/books・/api/books/{id}
-        admin/                    # POST・PUT・DELETE /api/books、GET /api/catalog/{isbn}
+        public/                   # searchBooks・readBook
+        admin/                    # registerBook・updateBook・deleteBook・lookupCatalog
     tag/                          # 業務領域: 分野タグ（gateway は無い）
       domain/ usecase/{command,query}/ infrastructure/postgres/
       presentation/http/{public,admin}/
@@ -292,9 +300,10 @@ backend/
       infrastructure/{postgres,bcrypt}/
       presentation/http/admin/
     platform/
-      httpserver/                 # Echo・BindValidate・HTTPErrorHandler・ErrorResponse・認証 middleware・Serve
+      httpserver/                 # Echo・入力検証・HTTPErrorHandler・ErrorResponse・認証 middleware・Serve
       postgres/                   # DB 接続・プール設定
-    domainerr/                    # ErrNotFound 等の分類と Violations
+    domainerr/                    # ErrNotFound 等の分類・Violations・CodedError
+    apitest/                      # Presentation の結合テストの共通部品（テスト専用）
   docker-compose.yml
   Makefile
   go.mod
@@ -305,24 +314,26 @@ backend/
 
 ### プロダクト API 範囲
 
-| Method | Path | 用途 | 認証 |
-|---|---|---|---|
-| `GET` | `/api/books` | 読んだ本の一覧（新しく登録した順。`limit` 1〜100・既定20、`offset`。`q`（書名・著者の部分一致）と `tagId`（分野タグ）で絞り込める。総件数は条件に合う件数。感想の本文は含めない） | 不要 |
-| `GET` | `/api/books/{id}` | 読んだ本の詳細（書誌・書影・Amazon リンク・感想・評価） | 不要 |
-| `POST` | `/api/books` | 読んだ本を登録する（`isbn`・`summary`・`comment`・`rating`、任意で `titleOverride`・分野タグ（`tagIds`）。書誌と書影は ISBN で外部カタログから取得。openBD に無ければ 400（`isbnNotInCatalog`）、同じ ISBN は 400（`isbnDuplicated`）、存在しないタグは 400（`tagIdsNotFound`）） | 必要 |
-| `PUT` | `/api/books/{id}` | 一言まとめ・感想・評価・書名の上書き・分野タグ（`tagIds`）を更新する（楽観的ロック（409）。存在しないタグは 400（`tagIdsNotFound`）。書誌と書影を取り直す） | 必要 |
-| `DELETE` | `/api/books/{id}` | 読んだ本を削除する | 必要 |
-| `GET` | `/api/catalog/{isbn}` | 登録前に、ISBN で外部カタログの書誌と書影を確かめる | 必要 |
-| `GET` | `/api/tags` | 分野タグの一覧 | 不要 |
-| `GET` | `/api/tags/counts` | 分野タグごとの冊数（本が付いていないタグは含めない。冊数の多い順、同数ならタグ名順） | 不要 |
-| `POST` | `/api/tags` | 分野タグを追加する（同名は 400（`tagNameDuplicated`）） | 必要 |
-| `PUT` | `/api/tags/{id}` | 分野タグの名前を変更する（楽観的ロック（409）。同名は 400（`tagNameDuplicated`）） | 必要 |
-| `DELETE` | `/api/tags/{id}` | 分野タグを削除する（付いていた本からは自動で外れる） | 必要 |
-| `POST` | `/api/auth/login` | ID とパスワードでログインし、セッション Cookie を発行する（失敗が続くと一時的に拒否） | 不要 |
-| `POST` | `/api/auth/logout` | セッションを破棄して Cookie を消す | 不要 |
-| `GET` | `/api/auth/session` | ログイン済みか確かめる（未ログインは 401） | 必要 |
+正は `openapi/`（[`docs/architecture.md`](../docs/architecture.md) §4）。ここは一覧だけ。
 
-- 認証は httpOnly Cookie `admin_session`。ID とパスワードのハッシュは環境変数（`ADMIN_ID` / `ADMIN_PASSWORD_HASH`）。自分だけが書き込めればよいので、ユーザー管理は持たない
+| Method | Path | operationId | 用途 | 認証 |
+|---|---|---|---|---|
+| `GET` | `/api/books` | `searchBooks` | 読んだ本の一覧（新しく登録した順。`limit` 1〜100・既定20、`offset`。`q`（書名・著者の部分一致）と `tagId`（分野タグ）で絞り込める。総件数は条件に合う件数。感想の本文は含めない） | 不要 |
+| `GET` | `/api/books/{id}` | `readBook` | 読んだ本の詳細（書誌・書影・Amazon リンク・感想・評価） | 不要 |
+| `GET` | `/api/tags` | `searchTags` | 分野タグの一覧 | 不要 |
+| `GET` | `/api/tags/counts` | `countBooks` | 分野タグごとの冊数（本が付いていないタグは含めない。冊数の多い順、同数ならタグ名順） | 不要 |
+| `POST` | `/api/admin/books` | `registerBook` | 読んだ本を登録する（書誌と書影は ISBN で外部カタログから取得。openBD に無ければ 400（`isbnNotInCatalog`）、同じ ISBN は 400（`isbnDuplicated`）、存在しないタグは 400（`tagIdsNotFound`）） | 必要 |
+| `PUT` | `/api/admin/books/{id}` | `updateBook` | 一言まとめ・感想・評価・書名の上書き・分野タグを更新する（楽観的ロック（409 `versionConflict`）。書誌と書影を取り直す） | 必要 |
+| `DELETE` | `/api/admin/books/{id}` | `deleteBook` | 読んだ本を削除する | 必要 |
+| `GET` | `/api/admin/catalog/{isbn}` | `lookupCatalog` | 登録前に、ISBN で外部カタログの書誌と書影を確かめる（無ければ 404 `catalogEntryNotFound`） | 必要 |
+| `POST` | `/api/admin/tags` | `registerTag` | 分野タグを追加する（同名は 400 `tagNameDuplicated`） | 必要 |
+| `PUT` | `/api/admin/tags/{id}` | `renameTag` | 分野タグの名前を変更する（楽観的ロック（409 `versionConflict`）。同名は 400 `tagNameDuplicated`） | 必要 |
+| `DELETE` | `/api/admin/tags/{id}` | `deleteTag` | 分野タグを削除する（付いていた本からは自動で外れる） | 必要 |
+| `POST` | `/api/admin/auth/login` | `login` | ID とパスワードでログインし、セッション Cookie を発行する（違えば 401 `loginFailed`、失敗が続くと 429 `tooManyLoginAttempts`） | 不要 |
+| `POST` | `/api/admin/auth/logout` | `logout` | セッションを破棄して Cookie を消す | 不要 |
+| `GET` | `/api/admin/auth/session` | `checkSession` | ログイン済みか確かめる（未ログインは 401 `unauthenticated`） | 必要 |
+
+- 認証は httpOnly Cookie `admin_session`（Path=`/api/admin`）。ID とパスワードのハッシュは環境変数（`ADMIN_ID` / `ADMIN_PASSWORD_HASH`）。自分だけが書き込めればよいので、ユーザー管理は持たない
 - 書影は提供元の URL をそのまま返す（[ADR](../docs/adr/2026-09-28-book-cover-from-external-catalogs.md)）。登録と更新のたびに取り直す
 
 ## 5. やらないこと（全体）
@@ -337,12 +348,13 @@ backend/
 
 日常の品質チェックは `make fmt-check lint vuln test`（CI と同じ。一覧は `make help`）。
 
-### OpenAPI 排出
+### OpenAPI（Design First）
 
 ```bash
-make tools          # swag / migrate / golangci-lint / govulncheck を版固定で導入
-make swagger        # 排出
-make swagger-check  # ドリフト検査（CI と同じ）
+make openapi        # ../openapi/ の lint・バンドル → api/gen/ を再生成（YAML を変えたらこれ）
+make api-gen        # api/gen/ だけ再生成
+make api-gen-check  # 生成物のドリフト検査（CI と同じ）
+make tools          # migrate / golangci-lint / govulncheck を版固定で導入（oapi-codegen は go run で版固定）
 ```
 
-排出物は `api/docs/swagger.yaml` / `swagger.json`（手編集しない。`.gitattributes` の `linguist-generated` で PR の差分では折りたたまれる）。FE はこれを入力に TypeScript を生成する。
+lint・バンドル・破壊的変更の確認は `openapi/Makefile`（`make -C ../openapi help`）。Redocly は Node、oasdiff と oapi-codegen は Go で、版は各 Makefile に固定している。生成物（`api/gen/`・`openapi/dist/`）は `.gitattributes` の `linguist-generated` で PR の差分では折りたたまれる。

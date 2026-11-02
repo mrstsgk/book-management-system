@@ -23,7 +23,7 @@
 #   frontend  frontend/{web,packages/ui}/src/**/*.{ts,tsx}
 #             （*.test.* / *.stories.* / *.d.ts / src/testing/ / 生成物 src/api/generated/・src/types/api.ts を除く）
 #
-# swag 排出物（backend/api/docs/）は internal/cmd の外なので対象にならない。
+# oapi-codegen の生成物（backend/api/gen/）は internal/cmd の外なので対象にならない。
 #
 # バイパス: SKIP_TEST_CHECK=1
 

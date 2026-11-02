@@ -9,15 +9,14 @@
 - 他に「正」がある情報は、ここを正にしない（下の「正の線引き」）
 - 桁数の単位は文字数（Unicode のコードポイント。Go の utf8.RuneCountInString と同じ）
 - 実装・モックの変更で内容が変わったら、同じ PR でこのファイルも更新する。版フォルダは作らない（git の履歴で管理する）
-- 本リポジトリの「詳細設計」は別の文書ではなく、Go の Request DTO の validate タグ・Domain の VO・Handler の swag コメントそのもの（Code First）。
-  swag が backend/api/docs/swagger.yaml に排出した OpenAPI が契約で、FE はそこから生成する（docs/architecture.md §4）
+- 詳細設計は openapi/ の YAML（OpenAPI Design First。docs/architecture.md §4）。BE・FE はそこから生成する
 
 正の線引き
 | 情報 | 正 | このファイルでの扱い |
 |---|---|---|
 | 画面の見た目・文言・状態別の表示 | HTML モック docs/design/<機能>/*.html | 通常表示の画像を載せる。状態ごとの見え方は表に書き、画像にしない |
-| 入力桁数・データ型・文字種・入力制約・必須（表の ★ 列） | 詳細設計（Request DTO の validate タグ + Domain VO）。swag が swagger.yaml に排出する | ここで決め、詳細設計に転記する。食い違ったら swagger.yaml が正 |
-| 相関ルール（複数の項目・レコードにまたがる、あってはならない状態） | 詳細設計（Handler の swag 拡張 @x-correlation-rules）。実装は UseCase | 条件付きの「相関ルール」に業務の言葉で書き、詳細設計に「常に真になる条件」として転記する。id は CR の rule id と揃える |
+| 入力桁数・データ型・文字種・入力制約・必須（表の ★ 列） | 詳細設計の後は OpenAPI（openapi/ の YAML）。業務の制約は Domain の VO でも保証する | ここで決め、詳細設計で OpenAPI に転記する。食い違ったら OpenAPI が正 |
+| 相関ルール（複数の項目・レコードにまたがる、あってはならない状態） | 詳細設計の後は OpenAPI の x-correlation-rules。実装は UseCase | 条件付きの「相関ルール」に業務の言葉で書き、詳細設計で「常に真になる条件」として転記する。id は CR の rule id と揃える |
 | 入力制御・表示桁数・初期表示・出力仕様 | このファイル | 最後までここが正 |
 | テーブル・カラム | backend/migrations/*.sql（docs/db は副次資料） | 使うテーブルへのリンクと、新規・変更の案だけ書く |
 -->
@@ -68,8 +67,8 @@ flowchart LR
 <!--
 - 1 画面ごとに「画像（通常表示）→ 入出力項目一覧 → 状態」の順に並べる
 - モックに番号バッジは無い。表の No. は項目の並び順
-- ★ の列は詳細設計（validate タグ・VO・swag コメント）に転記する
-- 入力制約★ は 1 つの項目で完結する制約だけ。複数の項目・レコードにまたがる規則は、業務上あってはならない状態なら条件付きの「相関ルール」に書き、詳細設計で @x-correlation-rules に転記する。システムとして担保するだけの規則（タグ ID に重複が無い など）はここに書かず、詳細設計の @x-correlation-rules にだけ書く
+- ★ の列は詳細設計で OpenAPI に転記する
+- 入力制約★ は 1 つの項目で完結する制約だけ。複数の項目・レコードにまたがる規則は、業務上あってはならない状態なら条件付きの「相関ルール」に書き、詳細設計で x-correlation-rules に転記する。システムとして担保するだけの規則（タグ ID に重複が無い など）はここに書かず、詳細設計の x-correlation-rules にだけ書く
 - 対応データ: テーブル.カラム。画面だけで持つ値は「-」
 -->
 
@@ -96,7 +95,7 @@ flowchart LR
 - 入力チェックのメッセージは frontend/architecture.md §2.2 の 4 つを守る（責めない・形式や条件を示す・専門用語を使わない・入力欄のすぐ近くに出す）
 - 制約の種類ごとの共通のメッセージ（「〇〇を入力してください」「100 文字以内にしてください」など）は書かない（FE の対応表 web/src/utils/serverFieldErrors.ts が正）
 - 書くのは機能に固有のもの（相関ルールの違反・業務ルールの違反・確認・完了など）。モックに出る文言はモックから書き写し、モックに出ないものはここで決める
-- ここの ID（MSG-xx）は、詳細設計の @x-correlation-rules の message から参照され、FE の対応表に写す
+- ここの ID（MSG-xx）は、詳細設計で OpenAPI の x-correlation-rules・x-error-codes の message から参照され、FE の対応表に写す
 -->
 
 | ID | 種類 | 文言 | 表示するとき | 表示場所 |
@@ -132,7 +131,7 @@ flowchart LR
 <!--
 条件: 複数の項目・レコードにまたがる、業務上あってはならない状態があるとき
 - 「あってはならない状態」を業務の言葉で書く（例: 同じ ISBN の本が 2 冊登録される）
-- 詳細設計で Handler の @x-correlation-rules に、常に真になる条件として実装に寄せて転記する（例: 登録する ISBN の本は未登録である）。id は下の rule id と揃え、違反は 400 の errors[{field, rule}] で返す（docs/architecture.md §4）
+- 詳細設計で OpenAPI の x-correlation-rules に、常に真になる条件として実装に寄せて転記する（例: 登録する ISBN の本は未登録である）。id は下の rule id と揃え、違反は 400 の errors[{field, rule}] で返す（docs/architecture.md §4）
 -->
 
 | ID | rule id | あってはならない状態 | 関係する項目・データ | 起こりうる操作 | メッセージ |

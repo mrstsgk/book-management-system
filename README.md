@@ -22,8 +22,8 @@
 
 | 順 | 資料 | 何が書いてあるか |
 |---|---|---|
-| 1 | [`docs/architecture.md`](./docs/architecture.md) | リポジトリ全体の方針、バックエンド／フロントエンドの境界、API 契約（swag → Orval）の流れ |
-| 2 | [`docs/rules/development-flow.md`](./docs/rules/development-flow.md) | 要求・要件 → 設計 → 実装（TDD）→ PR → リリースの流れ |
+| 1 | [`docs/architecture.md`](./docs/architecture.md) | リポジトリ全体の方針、バックエンド／フロントエンドの境界、API 契約（`openapi/` の YAML → BE・FE の生成）の流れ |
+| 2 | [`docs/rules/development-flow.md`](./docs/rules/development-flow.md) | 要求・要件 → 設計 → 詳細設計（OpenAPI）→ 実装（TDD）→ PR → リリースの流れ |
 | 3 | [`docs/rules/git-branch.md`](./docs/rules/git-branch.md)・[`git-commit-message.md`](./docs/rules/git-commit-message.md)・[`git-pull-request.md`](./docs/rules/git-pull-request.md) | ブランチ・コミット・PR の規則（レビュー分類を含む） |
 | 4 | [`docs/rules/testing.md`](./docs/rules/testing.md) | テストの書き方・置き場所 |
 | 5 | [`docs/rules/code-comments.md`](./docs/rules/code-comments.md) | コードのコメントの書き方 |
@@ -38,11 +38,11 @@
 | | [`docs/design/`](./docs/design/) | 機能ごとの概要設計 `docs/design/<機能>.md`（テンプレート `_template.md`）と、画面の HTML モック（公開画面・管理画面） |
 | | [`docs/adr/`](./docs/adr/)・[`docs/rules/adr.md`](./docs/rules/adr.md) | 自明でない判断の記録と、その残し方 |
 | バックエンド | [`backend/README.md`](./backend/README.md) | ローカルでの起動とコマンド |
-| | [`backend/architecture.md`](./backend/architecture.md) | 層・命名・HTTP／OpenAPI（swag）・ディレクトリ |
+| | [`backend/architecture.md`](./backend/architecture.md) | 層・命名・HTTP（OpenAPI からの生成）・ディレクトリ |
 | | [`docs/rules/db-documentation.md`](./docs/rules/db-documentation.md) | migration を変えたときの DB 資料の更新 |
 | フロントエンド | [`frontend/README.md`](./frontend/README.md) | ローカルでの起動とコマンド・E2E の実行 |
 | | [`frontend/architecture.md`](./frontend/architecture.md) | 設計・ディレクトリ・命名・デジタル庁 DS の使い方 |
-| API 契約 | [`docs/architecture.md`](./docs/architecture.md) §4 | Go の DTO／Handler を正とし、swag で排出した OpenAPI から Orval で TypeScript を生成する流れ |
+| API 契約 | [`docs/architecture.md`](./docs/architecture.md) §4 | `openapi/` の手書き YAML を正とし、oapi-codegen（BE）と Orval（FE）で生成する流れ（Design First） |
 
 ## 3. 必要になったら引く
 
@@ -65,7 +65,7 @@ make tools
 make db-up                # PostgreSQL（使えるようになるまで待つ）
 make migrate-up
 make run                  # http://localhost:8080/health
-# 書き込み系 API はログイン（POST /api/auth/login）で得た Cookie が要る
+# 管理の API（/api/admin）はログイン（POST /api/admin/auth/login）で得た Cookie が要る
 
 # フロントエンド（別ターミナル）
 cd frontend
@@ -84,9 +84,10 @@ pnpm dev                  # http://localhost:3000
 ├── backend/               # Go / Echo の API（backend/architecture.md）
 │   ├── cmd/               #   実行ポイント（api）と手書き DI、見本データ
 │   ├── internal/          #   業務領域別（book・tag・auth）の中に domain / usecase / infrastructure / presentation、技術基盤（platform/）、エラー分類（domainerr/）
-│   ├── api/docs/          #   swag が排出した OpenAPI（手編集しない）
+│   ├── api/gen/           #   openapi/ から oapi-codegen で生成した型・Server IF（手編集しない）
 │   ├── migrations/        #   DB マイグレーション（SQL）
 │   └── config/            #   設定の読み込み
+├── openapi/               # API 契約の正本（手書き YAML）と dist/（バンドル。docs/architecture.md §4）
 ├── frontend/              # React + Vite の Web（frontend/architecture.md）
 │   ├── web/               #   読んだ本の紹介画面と、自分用の登録・編集画面
 │   └── packages/          #   アプリ横断の共有（ui/ = デジタル庁 DS）
@@ -140,9 +141,8 @@ pnpm dev                  # http://localhost:3000
 |---|---|
 | Domain | VO・Entity の単体テスト（不変条件・境界値） |
 | UseCase | 手書きの Fake を注入したテスト（DB に繋がない） |
-| Handler | `httptest` で実リクエストを送り、入力エラーとドメインのエラーが HTTP ステータスに変わることを確かめる |
 | Repository／Query／外部ゲートウェイ | 実際の PostgreSQL や外部サービスの mock に対する契約テスト（Repository／Query は SQL が複雑なものを優先） |
-| Presentation → Infrastructure | Handler ごとに、返しうる HTTP ステータスごとの結合テスト（実 DB。ローカルでも CI でも実行し、DB に繋がらなければ失敗にする） |
+| Presentation → Infrastructure | Handler ごとに、返しうる HTTP ステータスごとと、YAML の入力の制約ごとの結合テスト（本物の spec の入力検証・認証・実 DB。全レスポンスを spec で検証する。DB に繋がらなければ失敗にする） |
 | フロントエンド | Vitest + React Testing Library。API の境界は MSW（Orval が生成したハンドラ）で差し替える |
 | E2E | Playwright。本の登録・編集・削除、タグの追加・本への付与・分野別集計への反映・改名・削除の重要導線だけを実バックエンド・実 DB に対して確認（[ADR](./docs/adr/2026-09-30-introduce-playwright-e2e.md)）。**ローカル実行のみ、CI には含めない**。手順は [`frontend/README.md`](./frontend/README.md#e2e-テストplaywrightローカル実行のみ) |
 
@@ -150,7 +150,8 @@ pnpm dev                  # http://localhost:3000
 
 | | 実行するもの |
 |---|---|
-| Backend CI | gofmt、go vet、golangci-lint（gosec・modernize・循環的複雑度の上限10など）、govulncheck、PostgreSQL を起動して migration を当ててからテスト（DB を使うテストも実行）、ビルド、OpenAPI のずれの検査 |
+| Backend CI | gofmt、go vet、golangci-lint（gosec・modernize・循環的複雑度の上限10など）、govulncheck、PostgreSQL を起動して migration を当ててからテスト（DB を使うテストも実行）、ビルド、生成物（`backend/api/gen/`）のずれの検査 |
+| OpenAPI CI | Redocly の lint、バンドル（`openapi/dist/`）のずれの検査、oasdiff による破壊的変更の検出（公開までは警告のみ） |
 | Frontend CI | 依存の脆弱性検査、OpenAPI から生成した型のずれの検査、型検査、ESLint（依存の向き・default export の禁止を含む）、Prettier、テスト、ビルド、Storybook のビルド |
 | Test Presence | API の operation ごとに、それを実装・利用するコード（Handler・画面）のテストがあるか（無ければ失敗）。変更したソースと同じディレクトリのテストが変わっていなければ警告 |
 | Review Policy | レビュー分類のラベルが1つだけ付いているか。CodeRabbit の設定（`.coderabbit.config.ts`）の型検査とテスト |

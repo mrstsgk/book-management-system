@@ -222,19 +222,19 @@ flowchart LR
 
 | 操作 | book | tag | book_tag | admin_session |
 |---|---|---|---|---|
-| ログイン（`POST /api/auth/login`） | - | - | - | C |
-| ログアウト（`POST /api/auth/logout`） | - | - | - | D |
-| 管理画面の表示（`GET /api/auth/session`） | - | - | - | R・U（期限の延長） |
+| ログイン（`POST /api/admin/auth/login`） | - | - | - | C |
+| ログアウト（`POST /api/admin/auth/logout`） | - | - | - | D |
+| 管理画面の表示（`GET /api/admin/auth/session`） | - | - | - | R・U（期限の延長） |
 | 本の一覧（管理）（`GET /api/books`） | R | R | R | R |
-| ISBN を確かめる（`GET /api/catalog/{isbn}`） | - | - | - | R |
-| 本の登録（`POST /api/books`） | R（重複）・C | R（存在） | C | R |
+| ISBN を確かめる（`GET /api/admin/catalog/{isbn}`） | - | - | - | R |
+| 本の登録（`POST /api/admin/books`） | R（重複）・C | R（存在） | C | R |
 | 本の編集の初期値（`GET /api/books/{id}`・`GET /api/tags`） | R | R | R | R |
-| 本の保存（`PUT /api/books/{id}`） | R・U | R（存在） | D・C（入れ直し） | R |
-| 本の削除（`DELETE /api/books/{id}`） | D | - | D（CASCADE） | R |
+| 本の保存（`PUT /api/admin/books/{id}`） | R・U | R（存在） | D・C（入れ直し） | R |
+| 本の削除（`DELETE /api/admin/books/{id}`） | D | - | D（CASCADE） | R |
 | タグの一覧（`GET /api/tags`・`GET /api/tags/counts`） | - | R | R | R |
-| タグの追加（`POST /api/tags`） | - | R（重複）・C | - | R |
-| タグの改名（`PUT /api/tags/{id}`） | - | R（重複）・U | - | R |
-| タグの削除（`DELETE /api/tags/{id}`） | - | D | D（CASCADE） | R |
+| タグの追加（`POST /api/admin/tags`） | - | R（重複）・C | - | R |
+| タグの改名（`PUT /api/admin/tags/{id}`） | - | R（重複）・U | - | R |
+| タグの削除（`DELETE /api/admin/tags/{id}`） | - | D | D（CASCADE） | R |
 
 ---
 
@@ -242,14 +242,14 @@ flowchart LR
 
 ## 相関ルール（あってはならない状態）
 
-詳細設計（Handler の swag 拡張 `@x-correlation-rules`）に「常に真になる条件」として転記し、UseCase で実装する。違反は 400 の `errors[{field, rule}]` で返し、独立して判定できる違反はまとめて返す（[`docs/architecture.md`](../architecture.md) §4「バリデーションの全件返却」）。
+詳細設計（OpenAPI の `x-correlation-rules`。[`openapi/book/admin/paths/books.yaml`](../../openapi/book/admin/paths/books.yaml) ほか）に「常に真になる条件」として転記し、UseCase で実装する。違反は 400 の `errors[{field, rule}]` で返し、独立して判定できる違反はまとめて返す（[`docs/architecture.md`](../architecture.md) §4「バリデーションの全件返却」）。
 
 | ID | rule id | あってはならない状態 | 関係する項目・データ | 起こりうる操作 | メッセージ |
 |---|---|---|---|---|---|
-| CR-01 | `isbnDuplicated` | 同じ ISBN の本が 2 冊登録される | 入力の ISBN と `book.isbn` | 本の登録（`POST /api/books`） | MSG-A01 |
-| CR-02 | `isbnNotInCatalog` | 外部カタログに無い ISBN の本が登録される（書名すら分からない） | 入力の ISBN と外部カタログ（openBD） | 本の登録（`POST /api/books`） | MSG-A02 |
-| CR-03 | `tagIdsNotFound` | 存在しない（削除済みの）分野タグが本に付く | 入力の分野タグ ID と `tag.id` | 本の登録・保存（`POST /api/books`・`PUT /api/books/{id}`） | MSG-A03 |
-| CR-04 | `tagNameDuplicated` | 同じ名前の分野タグが 2 つある | 入力の名前と `tag.name`（改名では自分以外） | タグの追加・改名（`POST /api/tags`・`PUT /api/tags/{id}`） | MSG-A04 |
+| CR-01 | `isbnDuplicated` | 同じ ISBN の本が 2 冊登録される | 入力の ISBN と `book.isbn` | 本の登録（`POST /api/admin/books`） | MSG-A01 |
+| CR-02 | `isbnNotInCatalog` | 外部カタログに無い ISBN の本が登録される（書名すら分からない） | 入力の ISBN と外部カタログ（openBD） | 本の登録（`POST /api/admin/books`） | MSG-A02 |
+| CR-03 | `tagIdsNotFound` | 存在しない（削除済みの）分野タグが本に付く | 入力の分野タグ ID と `tag.id` | 本の登録・保存（`POST /api/admin/books`・`PUT /api/admin/books/{id}`） | MSG-A03 |
+| CR-04 | `tagNameDuplicated` | 同じ名前の分野タグが 2 つある | 入力の名前と `tag.name`（改名では自分以外） | タグの追加・改名（`POST /api/admin/tags`・`PUT /api/admin/tags/{id}`） | MSG-A04 |
 
 - システムとして担保するだけの規則（分野タグ ID に重複が無い `tagIdsDuplicated`）はここに書かず、詳細設計にだけ書く。FE は重複を送らないので、文言は共通の「入力を見直してください」
 - 前提が成立しない検査はしない: ISBN の形式が不正なら CR-01・CR-02 は検査しない。外部カタログへの照会（CR-02）は他の違反が 1 つも無いときだけ行う
@@ -258,7 +258,7 @@ flowchart LR
 
 | 連携先 | 何をやりとりするか | タイミング | エラー時の処理 | リトライ |
 |---|---|---|---|---|
-| openBD（書誌・書影） | ISBN を渡し、書名・著者・出版社・出版日・書影の URL を受け取る。画像は保存しない | 「確かめる」（`GET /api/catalog/{isbn}`）・本の登録・本の保存のたび | 登録: 無ければ CR-02 の違反（400）。保存: 取り直せなければ今の書誌と書影のままにし、保存は止めない（要件 §1.1）。障害（タイムアウト・5xx）は登録では 5xx、保存では今の値のまま | しない |
+| openBD（書誌・書影） | ISBN を渡し、書名・著者・出版社・出版日・書影の URL を受け取る。画像は保存しない | 「確かめる」（`GET /api/admin/catalog/{isbn}`）・本の登録・本の保存のたび | 登録: 無ければ CR-02 の違反（400）。保存: 取り直せなければ今の書誌と書影のままにし、保存は止めない（要件 §1.1）。障害（タイムアウト・5xx）は登録では 5xx、保存では今の値のまま | しない |
 
 ## 状態遷移図と、同時実行・冪等の方針
 
@@ -285,7 +285,7 @@ stateDiagram-v2
 
 | No. | イベント | 処理 | 結果・遷移先 | メッセージ |
 |---|---|---|---|---|
-| 1 | 管理画面を表示 | `GET /api/auth/session` でログイン済みか確かめる | 401 ならログイン画面へ（元の URL を添える） | - |
-| 2 | ログインを送信 | `POST /api/auth/login`。成功でセッション Cookie を受け取る | 元の URL があればそこへ、無ければ本の一覧（管理）へ | 失敗は MSG-A09 |
+| 1 | 管理画面を表示 | `GET /api/admin/auth/session` でログイン済みか確かめる | 401 ならログイン画面へ（元の URL を添える） | - |
+| 2 | ログインを送信 | `POST /api/admin/auth/login`。成功でセッション Cookie を受け取る | 元の URL があればそこへ、無ければ本の一覧（管理）へ | 失敗は MSG-A09 |
 | 3 | 管理画面の API が 401 を返す | セッション切れとしてログイン画面へ | ログイン画面（元の URL を添える） | - |
-| 4 | ログアウト | `POST /api/auth/logout`。サーバーのセッションを消し Cookie を消す | ログイン画面 | - |
+| 4 | ログアウト | `POST /api/admin/auth/logout`。サーバーのセッションを消し Cookie を消す | ログイン画面 | - |
