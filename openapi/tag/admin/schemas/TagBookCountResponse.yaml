@@ -1,0 +1,16 @@
+type: object
+required:
+  - id
+  - name
+  - bookCount
+properties:
+  id:
+    type: integer
+    format: int64
+    example: 1
+  name:
+    type: string
+    example: データベース
+  bookCount:
+    type: integer
+    example: 3

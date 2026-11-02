@@ -1,0 +1,55 @@
+type: object
+required:
+  - id
+  - isbn
+  - title
+  - summary
+  - tags
+  - authors
+  - amazonUrl
+  - coverUrl
+  - coverSource
+  - rating
+properties:
+  id:
+    type: integer
+    format: int64
+    example: 1
+  isbn:
+    type: string
+    example: '9784873118703'
+  title:
+    type: string
+    description: 表示する書名（上書きがあればそれ、無ければ外部カタログの書名）
+    example: データ指向アプリケーションデザイン
+  summary:
+    type: string
+    example: 分散データの設計を体系的に学べる
+  tags:
+    type: array
+    items:
+      type: string
+    example:
+      - データベース
+  authors:
+    type: string
+    example: Kleppmann,Martin 斉藤,太郎 玉川,竜司
+  amazonUrl:
+    type: string
+    nullable: true
+    example: https://www.amazon.co.jp/dp/4873118700
+  coverUrl:
+    type: string
+    nullable: true
+    example: https://cover.openbd.jp/9784873118703.jpg
+  coverSource:
+    type: string
+    nullable: true
+    enum:
+      - openbd
+    example: openbd
+  rating:
+    type: integer
+    minimum: 1
+    maximum: 5
+    example: 5

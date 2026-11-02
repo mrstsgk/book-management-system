@@ -1,11 +1,14 @@
 # OpenAPI の lint とバンドルの設定。
-# dist/ は実行サービス（cmd/api）ごとにまとめた生成物で、oapi-codegen（backend）と Orval（frontend）が読む。
+# dist/ はチャネル（実行サービス cmd/public-api・cmd/admin-api）ごとにまとめた生成物で、oapi-codegen（backend）と Orval（frontend）が読む。
 extends:
   - recommended
 apis:
-  web:
-    root: web.yaml
-    output: dist/web.yaml
+  public:
+    root: public.yaml
+    output: dist/public.yaml
+  admin:
+    root: admin.yaml
+    output: dist/admin.yaml
 rules:
   # 生成コードのメソッド名・hook 名になるため必須
   operation-operationId: error

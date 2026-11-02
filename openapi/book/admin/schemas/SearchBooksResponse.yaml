@@ -1,0 +1,21 @@
+type: object
+required:
+  - items
+  - total
+  - limit
+  - offset
+properties:
+  items:
+    type: array
+    items:
+      $ref: BookListItemResponse.yaml
+  total:
+    type: integer
+    description: 条件に合う総件数（取得範囲外も含む）
+    example: 1
+  limit:
+    type: integer
+    example: 20
+  offset:
+    type: integer
+    example: 0

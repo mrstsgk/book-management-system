@@ -52,7 +52,7 @@ put:
       content:
         application/json:
           schema:
-            $ref: ../../public/schemas/TagResponse.yaml
+            $ref: ../schemas/TagResponse.yaml
     '400':
       description: '入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）'
       content:
