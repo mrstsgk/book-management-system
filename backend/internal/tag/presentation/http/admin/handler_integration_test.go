@@ -11,13 +11,14 @@ import (
 
 	"gorm.io/gorm"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	adminapi "github.com/mrstsgk/book-management-system/backend/api/gen/admin"
 	"github.com/mrstsgk/book-management-system/backend/internal/apitest"
 	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 	tagdomain "github.com/mrstsgk/book-management-system/backend/internal/tag/domain"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
 	tagadmin "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/admin"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
+	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
 
 // connectTestDB はローカルの開発用 DB に接続する。繋がらなければ skip せず失敗にする（docs/rules/testing.md）。
@@ -44,7 +45,7 @@ func (skipDuplicateCheck) ExistsByName(context.Context, string, tagdomain.ID) (b
 }
 
 type testServer struct {
-	apitest.Unimplemented
+	apitest.AdminUnimplemented
 	*tagadmin.Handler
 }
 
@@ -55,7 +56,9 @@ func newServer(t *testing.T, db *gorm.DB, q tagdomain.Query) *apitest.Server {
 	if q == nil {
 		q = pgtag.NewQuery(db)
 	}
-	return apitest.NewServer(t, &testServer{Handler: &tagadmin.Handler{
+	return apitest.NewAdminServer(t, &testServer{Handler: &tagadmin.Handler{
+		SearchTagsUsecase:  &tagqry.SearchTagsUsecaseImpl{Tags: q},
+		CountBooksUsecase:  &tagqry.CountBooksUsecaseImpl{Tags: q},
 		RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: repo, TagQuery: q},
 		RenameTagUsecase:   &tagcmd.RenameTagUsecaseImpl{Tags: repo, TagQuery: q},
 		DeleteTagUsecase:   &tagcmd.DeleteTagUsecaseImpl{Tags: repo},
@@ -98,7 +101,7 @@ func TestRegisterTag(t *testing.T) {
 		name := uniqueTagName(t, "reg")
 		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: apitest.Session, Body: `{"name":"` + name + `"}`})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		got := apitest.Decode[webapi.TagResponse](t, rec)
+		got := apitest.Decode[adminapi.TagResponse](t, rec)
 		t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", got.ID) })
 		if got.Name != name || got.Version != 1 || got.ID < 1 {
 			t.Fatalf("response = %+v", got)
@@ -176,7 +179,7 @@ func TestRenameTag(t *testing.T) {
 		newName := uniqueTagName(t, "new")
 		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPut, Path: path(id), Cookie: apitest.Session, Body: `{"name":"` + newName + `","version":` + strconv.Itoa(version) + `}`})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		got := apitest.Decode[webapi.TagResponse](t, rec)
+		got := apitest.Decode[adminapi.TagResponse](t, rec)
 		if got.ID != id || got.Name != newName || got.Version != version+1 {
 			t.Fatalf("response = %+v", got)
 		}
@@ -256,6 +259,60 @@ func TestDeleteTag(t *testing.T) {
 
 	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
 		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodDelete, Path: path(1), Cookie: apitest.Session, Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
+}
+
+func TestSearchTags(t *testing.T) {
+	db := connectTestDB(t)
+
+	t.Run("200: 追加したタグが一覧に載る", func(t *testing.T) {
+		name := uniqueTagName(t, "search")
+		id, _ := mustCreateTag(t, db, name)
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/tags", Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		found := false
+		for _, it := range apitest.Decode[adminapi.SearchTagsResponse](t, rec).Items {
+			if it.ID == id {
+				found = it.Name == name && it.Version == 1
+			}
+		}
+		if !found {
+			t.Fatalf("tag %d (%s) not listed", id, name)
+		}
+	})
+
+	t.Run("401: 未ログイン", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/tags"})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/tags", Cookie: apitest.Session, Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
+}
+
+func TestCountBooks(t *testing.T) {
+	db := connectTestDB(t)
+
+	t.Run("200: 本の付いたタグだけを冊数付きで返す", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/tags/counts", Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		for _, it := range apitest.Decode[adminapi.CountBooksResponse](t, rec).Items {
+			if it.BookCount < 1 {
+				t.Fatalf("tags without books must not be counted: %+v", it)
+			}
+		}
+	})
+
+	t.Run("401: 未ログイン", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/tags/counts"})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/tags/counts", Cookie: apitest.Session, Cancelled: true})
 		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
 	})
 }

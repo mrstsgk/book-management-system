@@ -1,15 +1,14 @@
-# Web（frontend/web・cmd/api）の API 契約の正本。
+# admin チャネル（cmd/admin-api・frontend/admin）の API 契約の正本。自分だけが使う管理の API（/api/admin 配下）。
 # 編集後は `make -C backend openapi`（lint・バンドル・BE 再生成）と
 # `pnpm -C frontend gen:api`（FE 再生成）を実行する。dist/ は生成物で手編集しない。
-# チャネル: public（閲覧。誰でも）・admin（自分だけ。/api/admin 配下。ログイン・ログアウト以外はセッション Cookie が要る）
 openapi: 3.0.3
 info:
-  title: Book Management System API
+  title: Book Management System API (admin)
   version: 0.1.0
   description: |
-    読んだ本の紹介（閲覧）と、自分用の登録・編集の API。
-    管理（/api/admin）の API は POST /api/admin/auth/login で得た httpOnly Cookie（admin_session）が要る。
-    管理の状態を変える要求（GET 以外）は Origin が自分と同じでなければ 403。
+    自分用の登録・編集の API。
+    ログイン・ログアウト以外は POST /api/admin/auth/login で得た httpOnly Cookie（admin_session）が要る。
+    状態を変える要求（GET 以外）は Origin が自分と同じでなければ 403。
 servers:
   - url: /
 tags:
@@ -29,14 +28,6 @@ components:
       name: admin_session
       description: ログインで発行するセッション ID（httpOnly・SameSite=Lax・Path=/api/admin）
 paths:
-  /api/books:
-    $ref: book/public/paths/books.yaml
-  /api/books/{id}:
-    $ref: book/public/paths/book.yaml
-  /api/tags:
-    $ref: tag/public/paths/tags.yaml
-  /api/tags/counts:
-    $ref: tag/public/paths/tag-counts.yaml
   /api/admin/books:
     $ref: book/admin/paths/books.yaml
   /api/admin/books/{id}:
@@ -45,6 +36,8 @@ paths:
     $ref: book/admin/paths/catalog.yaml
   /api/admin/tags:
     $ref: tag/admin/paths/tags.yaml
+  /api/admin/tags/counts:
+    $ref: tag/admin/paths/tag-counts.yaml
   /api/admin/tags/{id}:
     $ref: tag/admin/paths/tag.yaml
   /api/admin/auth/login:

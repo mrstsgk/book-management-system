@@ -12,7 +12,7 @@ import (
 
 	"gorm.io/gorm"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	publicapi "github.com/mrstsgk/book-management-system/backend/api/gen/public"
 	"github.com/mrstsgk/book-management-system/backend/internal/apitest"
 	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/postgres"
@@ -39,7 +39,7 @@ func connectIntegrationDB(t *testing.T) *gorm.DB {
 }
 
 type testServer struct {
-	apitest.Unimplemented
+	apitest.PublicUnimplemented
 	*bookpublic.Handler
 }
 
@@ -47,10 +47,10 @@ type testServer struct {
 func newServer(t *testing.T, db *gorm.DB) *apitest.Server {
 	t.Helper()
 	bookQuery := pgbook.NewQuery(db)
-	return apitest.NewServer(t, &testServer{Handler: &bookpublic.Handler{
+	return apitest.NewPublicServer(t, &testServer{Handler: &bookpublic.Handler{
 		ReadBookUsecase:    &bookqry.ReadBookUsecaseImpl{Books: bookQuery},
 		SearchBooksUsecase: &bookqry.SearchBooksUsecaseImpl{Books: bookQuery},
-	}}, apitest.AcceptSession{})
+	}})
 }
 
 // mustCreateBook は Repository へ直接（外部カタログを経由せず）本を 1 冊作る。閲覧の API の準備のため。
@@ -100,11 +100,11 @@ func TestSearchBooks(t *testing.T) {
 	t.Run("200: 条件に合う本を一覧の項目で返す", func(t *testing.T) {
 		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/books?q=" + isbn + "&limit=5"})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		got := apitest.Decode[webapi.SearchBooksResponse](t, rec)
+		got := apitest.Decode[publicapi.SearchBooksResponse](t, rec)
 		if got.Limit != 5 || got.Offset != 0 {
 			t.Fatalf("limit/offset = %d/%d, want 5/0", got.Limit, got.Offset)
 		}
-		var found *webapi.BookListItemResponse
+		var found *publicapi.BookListItemResponse
 		for i := range got.Items {
 			if got.Items[i].ID == int64(b.ID) {
 				found = &got.Items[i]
@@ -118,7 +118,7 @@ func TestSearchBooks(t *testing.T) {
 	t.Run("200: 書名で絞り込むと全項目が載る", func(t *testing.T) {
 		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/books?q=" + "結合テストの書名" + "&limit=100"})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		got := apitest.Decode[webapi.SearchBooksResponse](t, rec)
+		got := apitest.Decode[publicapi.SearchBooksResponse](t, rec)
 		for _, it := range got.Items {
 			if it.ID == int64(b.ID) {
 				if it.Isbn != isbn || it.Title != "結合テストの書名" || it.Authors != "結合テスト著者" || it.Summary != "結合テスト用の一言まとめ" ||
@@ -181,7 +181,7 @@ func TestReadBook(t *testing.T) {
 	t.Run("200: 詳細の全項目を返す", func(t *testing.T) {
 		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/books/" + strconv.FormatInt(int64(b.ID), 10)})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		got := apitest.Decode[webapi.BookResponse](t, rec)
+		got := apitest.Decode[publicapi.BookResponse](t, rec)
 		if got.Isbn != isbn || got.Title != "結合テストの書名" || got.Authors != "結合テスト著者" || got.Publisher != "結合テスト出版社" ||
 			got.PublishedOn != "202609" || got.Summary != "結合テスト用の一言まとめ" || got.Comment != "結合テスト用の感想" || got.Rating != 4 ||
 			got.TitleOverride != nil || len(got.Tags) != 0 || got.Version != 1 || got.CoverURL != nil || got.CoverSource != nil || got.AmazonURL == nil {

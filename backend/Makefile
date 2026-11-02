@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help tidy run db-up db-down migrate-up migrate-down migrate-create openapi api-gen api-gen-check fmt-check lint vuln test build tools
+.PHONY: help tidy run-public run-admin db-up db-down migrate-up migrate-down migrate-create openapi api-gen api-gen-check fmt-check lint vuln test build docker-build-public docker-build-admin tools
 
 # CLI ツールは go.mod に入れず go install / go run する。版はここで固定し、CI と揃える。
 OAPI_CODEGEN_VERSION := v2.8.1
@@ -16,8 +16,11 @@ help: ## このヘルプを表示
 tidy: ## go mod tidy
 	go mod tidy
 
-run: ## API を起動（:8080）
-	go run ./cmd/api
+run-public: ## 閲覧の API（public-api）を起動（:8080）
+	go run ./cmd/public-api
+
+run-admin: ## 管理の API（admin-api）を起動（:8081）
+	go run ./cmd/admin-api
 
 db-up: ## PostgreSQL を起動（docker compose。healthcheck が通るまで待つ）
 	docker compose up -d --wait
@@ -42,7 +45,9 @@ openapi: ## OpenAPI を lint・バンドルし、BE のコードを再生成（Y
 
 api-gen: ## ../openapi/dist から HTTP 境界のコードを生成（api/gen は手編集禁止）
 	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) \
-		-config api/gen/web/config.yaml ../openapi/dist/web.yaml
+		-config api/gen/public/config.yaml ../openapi/dist/public.yaml
+	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) \
+		-config api/gen/admin/config.yaml ../openapi/dist/admin.yaml
 
 api-gen-check: api-gen ## 生成物にドリフトがないか検査（CI と同じ）
 	git diff --exit-code -- api/gen/
@@ -63,7 +68,15 @@ test: ## 全テストを実行（DB を使うテストは make db-up migrate-up 
 	go test -p 1 -count=1 ./...
 
 build: ## API をビルド（bin/）
-	go build -o bin/api ./cmd/api
+	go build -o bin/public-api ./cmd/public-api
+	go build -o bin/admin-api ./cmd/admin-api
+
+# 本番の形のイメージ（日常の開発では使わない。デプロイはしない）
+docker-build-public: ## public-api のイメージをビルド
+	docker build -f Dockerfile.api --build-arg CMD=public-api -t book-management-public-api:local .
+
+docker-build-admin: ## admin-api のイメージをビルド
+	docker build -f Dockerfile.api --build-arg CMD=admin-api -t book-management-admin-api:local .
 
 tools: ## CLI ツールを導入（migrate / golangci-lint / govulncheck。oapi-codegen は go run で版固定）
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@$(MIGRATE_VERSION)

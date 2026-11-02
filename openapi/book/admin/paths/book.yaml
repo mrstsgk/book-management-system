@@ -8,6 +8,54 @@ parameters:
       format: int64
       minimum: 1
     example: 1
+get:
+  operationId: readBook
+  summary: Read a book
+  description: 読んだ本の詳細（書誌・書影・Amazon リンク・一言まとめ・感想・評価・分野タグ）を返す。
+  tags:
+    - book
+  security:
+    - adminSession: []
+  x-error-codes:
+    - code: unauthenticated
+      status: 401
+      rule: ログインしていない、またはセッションの期限が切れている
+      message: （ログイン画面へ移る。文言は出さない）
+    - code: bookNotFound
+      status: 404
+      rule: 指定した ID の本が無い
+      message: この本は見つかりませんでした
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/BookResponse.yaml
+    '400':
+      description: 'path・query パラメータの入力検証の違反（errors[{field, rule}]）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '401':
+      description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '404':
+      description: '対象が無い（code: bookNotFound）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
 put:
   operationId: updateBook
   summary: Update a book
@@ -54,7 +102,7 @@ put:
       content:
         application/json:
           schema:
-            $ref: ../../public/schemas/BookResponse.yaml
+            $ref: ../schemas/BookResponse.yaml
     '400':
       description: '入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）'
       content:

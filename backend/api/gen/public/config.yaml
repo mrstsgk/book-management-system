@@ -1,6 +1,6 @@
-# oapi-codegen の設定（make api-gen が使う）。入力は openapi/dist/web.yaml。
-package: web
-output: api/gen/web/api.gen.go
+# oapi-codegen の設定（make api-gen が使う）。入力は openapi/dist/public.yaml。
+package: public
+output: api/gen/public/api.gen.go
 generate:
   echo-server: true
   models: true

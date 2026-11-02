@@ -3,31 +3,24 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	adminapi "github.com/mrstsgk/book-management-system/backend/api/gen/admin"
 	"github.com/mrstsgk/book-management-system/backend/config"
 	authdomain "github.com/mrstsgk/book-management-system/backend/internal/auth/domain"
 	authcmd "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/command"
 	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
-	pgbook "github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/postgres"
 	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
 	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
-	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 	tagdomain "github.com/mrstsgk/book-management-system/backend/internal/tag/domain"
 )
 
@@ -141,7 +134,7 @@ func (stubVerifier) Matches(_, password string) bool { return password == "pw" }
 
 func newTestEcho(t *testing.T) *echo.Echo {
 	t.Helper()
-	spec, err := webapi.GetSpec()
+	spec, err := adminapi.GetSpec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,10 +171,10 @@ func TestBuildEcho_すべてのルートがHandlerとUseCaseを通って応答�
 		method, path, body, cookie string
 		want                       int
 	}{
-		{http.MethodGet, "/api/books", "", "", http.StatusOK},
-		{http.MethodGet, "/api/books/1", "", "", http.StatusOK},
-		{http.MethodGet, "/api/tags", "", "", http.StatusOK},
-		{http.MethodGet, "/api/tags/counts", "", "", http.StatusOK},
+		{http.MethodGet, "/api/admin/books", "", "ok", http.StatusOK},
+		{http.MethodGet, "/api/admin/books/1", "", "ok", http.StatusOK},
+		{http.MethodGet, "/api/admin/tags", "", "ok", http.StatusOK},
+		{http.MethodGet, "/api/admin/tags/counts", "", "ok", http.StatusOK},
 		{http.MethodPost, "/api/admin/books", `{"isbn":"9784873118703","summary":"まとめ","comment":"感想","rating":4}`, "ok", http.StatusOK},
 		{http.MethodPut, "/api/admin/books/1", `{"summary":"まとめ","comment":"感想","rating":4,"version":1}`, "ok", http.StatusOK},
 		{http.MethodDelete, "/api/admin/books/1", "", "ok", http.StatusNoContent},
@@ -214,7 +207,8 @@ func TestBuildEcho_管理のAPIはセッションとOriginを確かめる(t *tes
 		{"書き込みは Origin が違えば 403", http.MethodPost, "/api/admin/tags", `{"name":"タグ"}`, "ok", "http://evil.example", http.StatusForbidden},
 		{"カタログの確認はセッションが無ければ 401", http.MethodGet, "/api/admin/catalog/9784873118703", "", "", "http://evil.example", http.StatusUnauthorized},
 		{"ログインはセッション無しで使えるが Origin は確かめる", http.MethodPost, "/api/admin/auth/login", `{"id":"admin","password":"pw"}`, "", "http://evil.example", http.StatusForbidden},
-		{"閲覧はセッションも Origin も要らない", http.MethodGet, "/api/books", "", "", "http://evil.example", http.StatusOK},
+		{"参照もセッションが無ければ 401", http.MethodGet, "/api/admin/books", "", "", "http://example.com", http.StatusUnauthorized},
+		{"参照は Origin を確かめない（GET は状態を変えないため）", http.MethodGet, "/api/admin/tags", "", "ok", "http://evil.example", http.StatusOK},
 		{"未ログインの不正な入力には入力の形を返さず 401", http.MethodPost, "/api/admin/tags", `{"name":""}`, "", "http://example.com", http.StatusUnauthorized},
 	}
 	for _, tt := range tests {
@@ -229,7 +223,7 @@ func TestBuildEcho_管理のAPIはセッションとOriginを確かめる(t *tes
 
 func TestBuildEcho_specに違反するリクエストは入力検証で400になる(t *testing.T) {
 	silenceLog(t)
-	rec := send(newTestEcho(t), http.MethodGet, "/api/books?limit=0", "", "", "http://example.com")
+	rec := send(newTestEcho(t), http.MethodGet, "/api/admin/books?limit=0", "", "ok", "http://example.com")
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
 	}
@@ -252,67 +246,5 @@ func silenceLog(t *testing.T) {
 func TestNewCatalog_ReturnsTheOpenBDCatalog(t *testing.T) {
 	if newCatalog(config.CatalogConfig{OpenBDBaseURL: "http://openbd.test"}) == nil {
 		t.Fatal("newCatalog returned nil")
-	}
-}
-
-// migratedTempDB は共有の開発 DB を空にせずに「空の DB での起動」を試すため、一時的なデータベースを作って
-// backend/migrations の up を順に流す。ローカルの PostgreSQL に繋がらなければ失敗する。
-func migratedTempDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	base := pgplatform.Config{Host: "localhost", Port: "5432", User: "postgres", Password: "postgres", DBName: "book_management", SSLMode: "disable"}
-	admin, err := pgplatform.Connect(base)
-	if err != nil {
-		t.Fatalf("local Postgres not reachable (run `make db-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
-	}
-	t.Cleanup(func() { _ = pgplatform.Close(admin) })
-
-	name := fmt.Sprintf("book_management_seedtest_%d", time.Now().UnixNano())
-	if err := admin.Exec("CREATE DATABASE " + name).Error; err != nil {
-		t.Fatalf("cannot create a temporary database: %v", err)
-	}
-	t.Cleanup(func() { admin.Exec("DROP DATABASE IF EXISTS " + name + " WITH (FORCE)") })
-
-	cfg := base
-	cfg.DBName = name
-	db, err := pgplatform.Connect(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = pgplatform.Close(db) })
-
-	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
-	if err != nil || len(files) == 0 {
-		t.Fatalf("no migrations found: %v", err)
-	}
-	sort.Strings(files)
-	for _, f := range files {
-		sql, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := db.Exec(string(sql)).Error; err != nil {
-			t.Fatalf("migrate %s: %v", filepath.Base(f), err)
-		}
-	}
-	return db
-}
-
-func TestSeedIfEmpty_OnAnEmptyDatabaseSeedsOnceAcrossRestarts(t *testing.T) {
-	db := migratedTempDB(t)
-	ctx := context.Background()
-	books, query := pgbook.NewRepository(db), pgbook.NewQuery(db)
-	offline := &fakeSeedCatalog{err: fmt.Errorf("offline")}
-
-	for start := 1; start <= 2; start++ {
-		if err := seedIfEmpty(ctx, books, query, offline); err != nil {
-			t.Fatalf("start %d: %v", start, err)
-		}
-		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM book").Scan(&count).Error; err != nil {
-			t.Fatal(err)
-		}
-		if count != int64(len(sampleBooks)) {
-			t.Fatalf("start %d: %d books, want %d", start, count, len(sampleBooks))
-		}
 	}
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	adminapi "github.com/mrstsgk/book-management-system/backend/api/gen/admin"
 	authcmd "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/command"
 	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 )
@@ -18,7 +18,7 @@ type Handler struct {
 
 // Login は、ID とパスワードでログインしてセッション Cookie を発行する（POST /api/admin/auth/login）。
 func (h *Handler) Login(c echo.Context) error {
-	var req webapi.LoginRequest
+	var req adminapi.LoginRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}

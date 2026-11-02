@@ -5,13 +5,15 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
-	bookpublic "github.com/mrstsgk/book-management-system/backend/internal/book/presentation/http/public"
+	adminapi "github.com/mrstsgk/book-management-system/backend/api/gen/admin"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/command"
+	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
 )
 
-// Handler は、読んだ本の登録・更新・削除の API を処理する（自分だけ）。
+// Handler は、読んだ本の参照・登録・更新・削除の API を処理する（自分だけ）。
 type Handler struct {
+	ReadBookUsecase     bookqry.ReadBookUsecase
+	SearchBooksUsecase  bookqry.SearchBooksUsecase
 	RegisterBookUsecase bookcmd.RegisterBookUsecase
 	UpdateBookUsecase   bookcmd.UpdateBookUsecase
 	DeleteBookUsecase   bookcmd.DeleteBookUsecase
@@ -19,7 +21,7 @@ type Handler struct {
 
 // RegisterBook は、読んだ本を登録する（POST /api/admin/books）。
 func (h *Handler) RegisterBook(c echo.Context) error {
-	var req webapi.RegisterBookRequest
+	var req adminapi.RegisterBookRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -29,12 +31,12 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, bookpublic.ToBookResponse(out))
+	return c.JSON(http.StatusOK, toBookResponse(out))
 }
 
 // UpdateBook は、読んだ本の一言まとめ・感想・評価・書名の上書き・分野タグを更新する（PUT /api/admin/books/{id}）。
 func (h *Handler) UpdateBook(c echo.Context, id int64) error {
-	var req webapi.UpdateBookRequest
+	var req adminapi.UpdateBookRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -44,7 +46,7 @@ func (h *Handler) UpdateBook(c echo.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, bookpublic.ToBookResponse(out))
+	return c.JSON(http.StatusOK, toBookResponse(out))
 }
 
 // DeleteBook は、読んだ本を削除する（DELETE /api/admin/books/{id}）。

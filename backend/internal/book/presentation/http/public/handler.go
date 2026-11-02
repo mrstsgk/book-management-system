@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	publicapi "github.com/mrstsgk/book-management-system/backend/api/gen/public"
 	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
 	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
 )
@@ -17,7 +17,7 @@ type Handler struct {
 }
 
 // SearchBooks は、読んだ本を検索する（GET /api/books）。
-func (h *Handler) SearchBooks(c echo.Context, params webapi.SearchBooksParams) error {
+func (h *Handler) SearchBooks(c echo.Context, params publicapi.SearchBooksParams) error {
 	// 既定値は spec にも書いてあるが、生成コードは既定値を入れないのでここで補う
 	limit, offset := bookdomain.DefaultListLimit, 0
 	if params.Limit != nil {
@@ -34,14 +34,14 @@ func (h *Handler) SearchBooks(c echo.Context, params webapi.SearchBooksParams) e
 	if err != nil {
 		return err
 	}
-	items := make([]webapi.BookListItemResponse, 0, len(out.Items))
+	items := make([]publicapi.BookListItemResponse, 0, len(out.Items))
 	for _, it := range out.Items {
-		items = append(items, webapi.BookListItemResponse{
+		items = append(items, publicapi.BookListItemResponse{
 			ID: int64(it.ID), Isbn: it.ISBN, Title: it.Title, Summary: it.Summary, Tags: it.Tags, Authors: it.Authors,
-			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: (*webapi.BookListItemResponseCoverSource)(it.CoverSource), Rating: it.Rating,
+			AmazonURL: it.AmazonURL, CoverURL: it.CoverURL, CoverSource: (*publicapi.BookListItemResponseCoverSource)(it.CoverSource), Rating: it.Rating,
 		})
 	}
-	return c.JSON(http.StatusOK, webapi.SearchBooksResponse{Items: items, Total: out.Total, Limit: limit, Offset: offset})
+	return c.JSON(http.StatusOK, publicapi.SearchBooksResponse{Items: items, Total: out.Total, Limit: limit, Offset: offset})
 }
 
 // ReadBook は、読んだ本を 1 件参照する（GET /api/books/{id}）。
@@ -50,14 +50,13 @@ func (h *Handler) ReadBook(c echo.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, ToBookResponse(out))
+	return c.JSON(http.StatusOK, toBookResponse(out))
 }
 
-// ToBookResponse は、読んだ本の詳細をレスポンスの形にする（管理の登録・更新の応答も同じ形）。
-func ToBookResponse(d *bookdomain.BookDetail) webapi.BookResponse {
-	return webapi.BookResponse{
+func toBookResponse(d *bookdomain.BookDetail) publicapi.BookResponse {
+	return publicapi.BookResponse{
 		ID: int64(d.ID), Isbn: d.ISBN, Title: d.Title, Authors: d.Authors, Publisher: d.Publisher,
-		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: (*webapi.BookResponseCoverSource)(d.CoverSource),
+		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: (*publicapi.BookResponseCoverSource)(d.CoverSource),
 		TitleOverride: d.TitleOverride, Summary: d.Summary, Tags: d.Tags, Comment: d.Comment, Rating: d.Rating, Version: d.Version,
 	}
 }

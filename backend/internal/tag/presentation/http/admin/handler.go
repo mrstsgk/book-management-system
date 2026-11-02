@@ -5,12 +5,15 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	adminapi "github.com/mrstsgk/book-management-system/backend/api/gen/admin"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
+	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
 
-// Handler は、分野タグの追加・改名・削除の API を処理する（自分だけ）。
+// Handler は、分野タグの参照・追加・改名・削除の API を処理する（自分だけ）。
 type Handler struct {
+	SearchTagsUsecase  tagqry.SearchTagsUsecase
+	CountBooksUsecase  tagqry.CountBooksUsecase
 	RegisterTagUsecase tagcmd.RegisterTagUsecase
 	RenameTagUsecase   tagcmd.RenameTagUsecase
 	DeleteTagUsecase   tagcmd.DeleteTagUsecase
@@ -18,7 +21,7 @@ type Handler struct {
 
 // RegisterTag は、分野タグを追加する（POST /api/admin/tags）。
 func (h *Handler) RegisterTag(c echo.Context) error {
-	var req webapi.RegisterTagRequest
+	var req adminapi.RegisterTagRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -31,7 +34,7 @@ func (h *Handler) RegisterTag(c echo.Context) error {
 
 // RenameTag は、分野タグの名前を変える（PUT /api/admin/tags/{id}）。
 func (h *Handler) RenameTag(c echo.Context, id int64) error {
-	var req webapi.RenameTagRequest
+	var req adminapi.RenameTagRequest
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
@@ -50,6 +53,6 @@ func (h *Handler) DeleteTag(c echo.Context, id int64) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func toTagResponse(v *tagcmd.TagView) webapi.TagResponse {
-	return webapi.TagResponse{ID: v.ID, Name: v.Name, Version: v.Version}
+func toTagResponse(v *tagcmd.TagView) adminapi.TagResponse {
+	return adminapi.TagResponse{ID: v.ID, Name: v.Name, Version: v.Version}
 }

@@ -1,3 +1,35 @@
+get:
+  operationId: searchTags
+  summary: Search tags
+  description: 分野タグをすべて返す。
+  tags:
+    - tag
+  security:
+    - adminSession: []
+  x-error-codes:
+    - code: unauthenticated
+      status: 401
+      rule: ログインしていない、またはセッションの期限が切れている
+      message: （ログイン画面へ移る。文言は出さない）
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/SearchTagsResponse.yaml
+    '401':
+      description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
 post:
   operationId: registerTag
   summary: Register a tag
@@ -32,7 +64,7 @@ post:
       content:
         application/json:
           schema:
-            $ref: ../../public/schemas/TagResponse.yaml
+            $ref: ../schemas/TagResponse.yaml
     '400':
       description: '入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）'
       content:

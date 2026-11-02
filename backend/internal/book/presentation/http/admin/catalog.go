@@ -5,7 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	adminapi "github.com/mrstsgk/book-management-system/backend/api/gen/admin"
 	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
 	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
 )
@@ -24,16 +24,16 @@ func (h *CatalogHandler) LookupCatalog(c echo.Context, isbn string) error {
 	return c.JSON(http.StatusOK, toCatalogResponse(out))
 }
 
-func toCatalogResponse(e *bookdomain.CatalogEntry) webapi.CatalogResponse {
+func toCatalogResponse(e *bookdomain.CatalogEntry) adminapi.CatalogResponse {
 	b := e.Bibliography
-	res := webapi.CatalogResponse{
+	res := adminapi.CatalogResponse{
 		Isbn: e.ISBN.String(), Title: b.Title(), Authors: b.Authors(), Publisher: b.Publisher(), PublishedOn: b.PublishedOn(),
 	}
 	if u, ok := e.ISBN.AmazonURL(); ok {
 		res.AmazonURL = &u
 	}
 	if e.Cover != nil {
-		u, src := e.Cover.URL(), webapi.CatalogResponseCoverSource(e.Cover.Source())
+		u, src := e.Cover.URL(), adminapi.CatalogResponseCoverSource(e.Cover.Source())
 		res.CoverURL, res.CoverSource = &u, &src
 	}
 	return res

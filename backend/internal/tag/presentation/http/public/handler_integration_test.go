@@ -8,7 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
-	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	publicapi "github.com/mrstsgk/book-management-system/backend/api/gen/public"
 	"github.com/mrstsgk/book-management-system/backend/internal/apitest"
 	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
@@ -33,17 +33,17 @@ func connectTestDB(t *testing.T) *gorm.DB {
 }
 
 type testServer struct {
-	apitest.Unimplemented
+	apitest.PublicUnimplemented
 	*tagpublic.Handler
 }
 
 func newServer(t *testing.T, db *gorm.DB) *apitest.Server {
 	t.Helper()
 	q := pgtag.NewQuery(db)
-	return apitest.NewServer(t, &testServer{Handler: &tagpublic.Handler{
+	return apitest.NewPublicServer(t, &testServer{Handler: &tagpublic.Handler{
 		SearchTagsUsecase: &tagqry.SearchTagsUsecaseImpl{Tags: q},
 		CountBooksUsecase: &tagqry.CountBooksUsecaseImpl{Tags: q},
-	}}, apitest.AcceptSession{})
+	}})
 }
 
 // uniqueTagName は実行のたびに異なる、上限（30 文字）に収まるタグ名を返す。
@@ -97,7 +97,7 @@ func TestSearchTags(t *testing.T) {
 		id := mustCreateTag(t, db, name)
 		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/tags"})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		for _, it := range apitest.Decode[webapi.SearchTagsResponse](t, rec).Items {
+		for _, it := range apitest.Decode[publicapi.SearchTagsResponse](t, rec).Items {
 			if it.ID == id {
 				if it.Name != name || it.Version != 1 {
 					t.Fatalf("item = %+v", it)
@@ -125,8 +125,8 @@ func TestCountBooks(t *testing.T) {
 
 		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/tags/counts"})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		byID := map[int64]webapi.TagBookCountResponse{}
-		for _, it := range apitest.Decode[webapi.CountBooksResponse](t, rec).Items {
+		byID := map[int64]publicapi.TagBookCountResponse{}
+		for _, it := range apitest.Decode[publicapi.CountBooksResponse](t, rec).Items {
 			byID[it.ID] = it
 		}
 		if it, ok := byID[tagged]; !ok || it.BookCount != 1 || it.Name != taggedName {
