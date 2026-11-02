@@ -248,7 +248,7 @@ describe('BooksListRoute', () => {
           { status: 400 },
         ),
       ),
-      getGetApiTagsMockHandler({ items: [] }),
+      getSearchTagsMockHandler({ items: [] }),
     )
     renderWithProviders(<AppRoutes />, { route: '/?q=設計' })
 
