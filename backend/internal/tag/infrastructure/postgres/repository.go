@@ -21,10 +21,10 @@ type model struct {
 }
 
 func (model) TableName() string {
-	return "tag"
+	return "tags"
 }
 
-// repository は tag テーブルに対して tagdomain.Repository を実装する。
+// repository は tags テーブルに対して tagdomain.Repository を実装する。
 type repository struct {
 	db *gorm.DB
 }
@@ -73,7 +73,7 @@ func (r *repository) Update(ctx context.Context, t *tagdomain.Tag) error {
 	return nil
 }
 
-// Delete は id の行を削除する。存在しなければ common.ErrNotFound を返す。付いていた本からは book_tag の
+// Delete は id の行を削除する。存在しなければ common.ErrNotFound を返す。付いていた本からは book_tags の
 // ON DELETE CASCADE で自動的に外れる。
 func (r *repository) Delete(ctx context.Context, id tagdomain.ID) error {
 	res := r.db.WithContext(ctx).Delete(&model{}, int64(id))
@@ -91,7 +91,7 @@ const uniqueViolation = "23505"
 // translateDuplicateName はタグ名の一意制約違反を ErrConflict にする（500 ではなく 409 にするため）。
 func translateDuplicateName(err error) error {
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == "uq_tag_name" {
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == "uq_tags_name" {
 		return domainerr.New(domainerr.ErrConflict, "tagNameDuplicated", "同じ名前のタグが既にあります")
 	}
 	return err

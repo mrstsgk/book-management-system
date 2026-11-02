@@ -36,7 +36,7 @@ func connectIntegrationDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
-	if err := db.Exec("SELECT 1 FROM book LIMIT 0").Error; err != nil {
+	if err := db.Exec("SELECT 1 FROM books LIMIT 0").Error; err != nil {
 		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db
@@ -112,7 +112,7 @@ func mustCreateBook(t *testing.T, db *gorm.DB, isbn string) *bookdomain.Book {
 	if err := pgbook.NewRepository(db).Create(context.Background(), b); err != nil {
 		t.Fatalf("create book: %v", err)
 	}
-	t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", int64(b.ID)) })
+	t.Cleanup(func() { db.Exec("DELETE FROM books WHERE id = ?", int64(b.ID)) })
 	return b
 }
 
@@ -151,7 +151,7 @@ func TestRegisterBook(t *testing.T) {
 			Body: `{"isbn":"` + isbn + `","summary":"要約","titleOverride":"上書きの書名","comment":"良書","rating":5}`})
 		apitest.AssertStatus(t, rec, http.StatusOK)
 		got := apitest.Decode[adminapi.BookResponse](t, rec)
-		t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", got.ID) })
+		t.Cleanup(func() { db.Exec("DELETE FROM books WHERE id = ?", got.ID) })
 		if got.Isbn != isbn || got.Title != "上書きの書名" || got.Summary != "要約" || got.Comment != "良書" || got.Rating != 5 ||
 			got.Authors != "結合テスト著者" || got.Publisher != "結合テスト出版社" || got.PublishedOn != "202609" ||
 			got.TitleOverride == nil || *got.TitleOverride != "上書きの書名" || len(got.Tags) != 0 || got.Version != 1 || got.CoverURL != nil {
@@ -174,7 +174,7 @@ func TestRegisterBook(t *testing.T) {
 		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session, Body: registerBody(isbn)})
 		apitest.AssertFieldErrors(t, rec, apitest.FieldError("isbn", "isbnNotInCatalog"))
 		var count int64
-		db.Table("book").Where("isbn = ?", isbn).Count(&count)
+		db.Table("books").Where("isbn = ?", isbn).Count(&count)
 		if count != 0 {
 			t.Fatal("the book must not be saved when a violation exists")
 		}
@@ -396,7 +396,7 @@ func TestDeleteBook(t *testing.T) {
 		rec := s.Do(t, apitest.Request{Method: http.MethodDelete, Path: "/api/admin/books/" + itoa(int64(b.ID)), Cookie: apitest.Session})
 		apitest.AssertStatus(t, rec, http.StatusNoContent)
 		var count int64
-		db.Table("book").Where("id = ?", int64(b.ID)).Count(&count)
+		db.Table("books").Where("id = ?", int64(b.ID)).Count(&count)
 		if count != 0 {
 			t.Fatal("the book must be deleted")
 		}

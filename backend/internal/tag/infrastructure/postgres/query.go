@@ -31,18 +31,18 @@ func (q *query) FindAll(ctx context.Context) (*tagdomain.TagList, error) {
 	return list, nil
 }
 
-// CountBooks は tag と book_tag を内部結合して数える（結合しない tag、つまり0冊のタグは結果に出ない）。
+// CountBooks は tags と book_tags を内部結合して数える（結合しない tags、つまり0冊のタグは結果に出ない）。
 func (q *query) CountBooks(ctx context.Context) (*tagdomain.TagBookCounts, error) {
 	var rows []struct {
 		ID        int64
 		Name      string
 		BookCount int
 	}
-	err := q.db.WithContext(ctx).Table("tag").
-		Select("tag.id AS id, tag.name AS name, COUNT(*) AS book_count").
-		Joins("JOIN book_tag ON book_tag.tag_id = tag.id").
-		Group("tag.id, tag.name").
-		Order("book_count DESC, tag.name").
+	err := q.db.WithContext(ctx).Table("tags").
+		Select("tags.id AS id, tags.name AS name, COUNT(*) AS book_count").
+		Joins("JOIN book_tags ON book_tags.tag_id = tags.id").
+		Group("tags.id, tags.name").
+		Order("book_count DESC, tags.name").
 		Find(&rows).Error
 	if err != nil {
 		return nil, err

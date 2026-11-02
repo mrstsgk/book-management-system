@@ -32,7 +32,7 @@ func connectIntegrationDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
-	if err := db.Exec("SELECT 1 FROM book LIMIT 0").Error; err != nil {
+	if err := db.Exec("SELECT 1 FROM books LIMIT 0").Error; err != nil {
 		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db
@@ -69,7 +69,7 @@ func mustCreateBook(t *testing.T, db *gorm.DB, isbn string) *bookdomain.Book {
 	if err := pgbook.NewRepository(db).Create(context.Background(), b); err != nil {
 		t.Fatalf("create book: %v", err)
 	}
-	t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", int64(b.ID)) })
+	t.Cleanup(func() { db.Exec("DELETE FROM books WHERE id = ?", int64(b.ID)) })
 	return b
 }
 

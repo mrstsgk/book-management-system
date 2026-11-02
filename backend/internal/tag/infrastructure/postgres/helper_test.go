@@ -20,7 +20,7 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
-	if err := db.Exec("SELECT 1 FROM tag LIMIT 0").Error; err != nil {
+	if err := db.Exec("SELECT 1 FROM tags LIMIT 0").Error; err != nil {
 		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db

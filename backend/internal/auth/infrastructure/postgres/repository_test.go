@@ -24,7 +24,7 @@ func TestRepository_CreateThenFindByID(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgauth.NewRepository(db)
 	s := newSession(t)
-	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(s.ID)) })
+	t.Cleanup(func() { db.Exec("DELETE FROM sessions WHERE id = ?", string(s.ID)) })
 
 	if err := repo.Create(context.Background(), s); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -49,7 +49,7 @@ func TestRepository_UpdateExpiry(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgauth.NewRepository(db)
 	s := newSession(t)
-	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(s.ID)) })
+	t.Cleanup(func() { db.Exec("DELETE FROM sessions WHERE id = ?", string(s.ID)) })
 	if err := repo.Create(context.Background(), s); err != nil {
 		t.Fatal(err)
 	}
@@ -90,12 +90,12 @@ func TestRepository_Delete(t *testing.T) {
 func TestRepository_TableHasNoSecretColumns(t *testing.T) {
 	db := connectTestDB(t)
 	var cols []string
-	if err := db.Raw("SELECT column_name FROM information_schema.columns WHERE table_name = 'admin_session'").Scan(&cols).Error; err != nil {
+	if err := db.Raw("SELECT column_name FROM information_schema.columns WHERE table_name = 'sessions'").Scan(&cols).Error; err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range cols {
 		if c == "password" || c == "password_hash" {
-			t.Fatalf("admin_session must not have column %q", c)
+			t.Fatalf("sessions must not have column %q", c)
 		}
 	}
 }

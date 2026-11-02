@@ -33,7 +33,7 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
-	if err := db.Exec("SELECT 1 FROM admin_session LIMIT 0").Error; err != nil {
+	if err := db.Exec("SELECT 1 FROM sessions LIMIT 0").Error; err != nil {
 		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db
@@ -88,7 +88,7 @@ func login(t *testing.T, db *gorm.DB, s *apitest.Server) string {
 	rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/login", Body: `{"id":"admin","password":"pw"}`})
 	apitest.AssertStatus(t, rec, http.StatusNoContent)
 	session := sessionOf(t, rec)
-	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", session) })
+	t.Cleanup(func() { db.Exec("DELETE FROM sessions WHERE id = ?", session) })
 	return session
 }
 
@@ -102,7 +102,7 @@ func TestLogin(t *testing.T) {
 		name := fmt.Sprintf("pt-auth-%09d", time.Now().UnixNano()%1_000_000_000)
 		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: session, Body: fmt.Sprintf(`{"name":%q}`, name)})
 		apitest.AssertStatus(t, rec, http.StatusOK)
-		t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name = ?", name) })
+		t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name = ?", name) })
 
 		apitest.AssertStatus(t, s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/logout", Cookie: session}), http.StatusNoContent)
 		rec = s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: session, Body: `{"name":"after-logout"}`})

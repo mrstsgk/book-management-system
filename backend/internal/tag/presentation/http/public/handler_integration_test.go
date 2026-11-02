@@ -26,7 +26,7 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
-	if err := db.Exec("SELECT 1 FROM tag LIMIT 0").Error; err != nil {
+	if err := db.Exec("SELECT 1 FROM tags LIMIT 0").Error; err != nil {
 		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db
@@ -56,10 +56,10 @@ func uniqueTagName(t *testing.T, label string) string {
 func mustCreateTag(t *testing.T, db *gorm.DB, name string) int64 {
 	t.Helper()
 	var id int64
-	if err := db.Raw("INSERT INTO tag (name, version) VALUES (?, 1) RETURNING id", name).Scan(&id).Error; err != nil {
+	if err := db.Raw("INSERT INTO tags (name, version) VALUES (?, 1) RETURNING id", name).Scan(&id).Error; err != nil {
 		t.Fatalf("setup: insert tag %q: %v", name, err)
 	}
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", id) })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE id = ?", id) })
 	return id
 }
 
@@ -78,14 +78,14 @@ func mustCreateTaggedBook(t *testing.T, db *gorm.DB, tagID int64) {
 	isbn := twelve + string(byte((10-sum%10)%10)+'0')
 	var bookID int64
 	if err := db.Raw(
-		"INSERT INTO book (isbn, title, summary, comment, rating, version) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+		"INSERT INTO books (isbn, title, summary, comment, rating, version) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
 		isbn, "pres-tag-test-書名", "pres-tag-test-まとめ", "pres-tag-test-感想", 5, 1,
 	).Scan(&bookID).Error; err != nil {
 		t.Fatalf("setup: insert book: %v", err)
 	}
-	t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", bookID) })
-	if err := db.Exec("INSERT INTO book_tag (book_id, tag_id) VALUES (?, ?)", bookID, tagID).Error; err != nil {
-		t.Fatalf("setup: insert book_tag: %v", err)
+	t.Cleanup(func() { db.Exec("DELETE FROM books WHERE id = ?", bookID) })
+	if err := db.Exec("INSERT INTO book_tags (book_id, tag_id) VALUES (?, ?)", bookID, tagID).Error; err != nil {
+		t.Fatalf("setup: insert book_tags: %v", err)
 	}
 }
 

@@ -57,7 +57,7 @@ func createBook(t *testing.T, db *gorm.DB, b *bookdomain.Book) {
 	if err := pgbook.NewRepository(db).Create(context.Background(), b); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", int64(b.ID)) })
+	t.Cleanup(func() { db.Exec("DELETE FROM books WHERE id = ?", int64(b.ID)) })
 }
 
 func TestRepository_CreateThenFindByID(t *testing.T) {
@@ -102,7 +102,7 @@ func TestRepository_Create_DuplicateISBNIsConflict(t *testing.T) {
 	dup := newBook(t, "9780000000026", "repo-test-dup", nil, 3)
 	if err := pgbook.NewRepository(db).Create(context.Background(), dup); !errors.Is(err, domainerr.ErrConflict) {
 		if dup.ID != 0 {
-			db.Exec("DELETE FROM book WHERE id = ?", int64(dup.ID))
+			db.Exec("DELETE FROM books WHERE id = ?", int64(dup.ID))
 		}
 		t.Fatalf("err = %v, want ErrConflict", err)
 	}
@@ -216,7 +216,7 @@ func TestRepository_TitleOverrideAndSummary(t *testing.T) {
 			t.Fatalf("Update: %v", err)
 		}
 		var override *string
-		db.Raw("SELECT title_override FROM book WHERE id = ?", int64(b.ID)).Scan(&override)
+		db.Raw("SELECT title_override FROM books WHERE id = ?", int64(b.ID)).Scan(&override)
 		if override != nil {
 			t.Fatalf("title_override = %q, want NULL", *override)
 		}
@@ -254,7 +254,7 @@ func TestRepository_Tags(t *testing.T) {
 	// テスト用のタグを2つ作る
 	tagA := mustCreateTag(t, db, "repo-test-タグA")
 	tagB := mustCreateTag(t, db, "repo-test-タグB")
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'repo-test-%'") })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name LIKE 'repo-test-%'") })
 
 	t.Run("タグ付きで作成して読み込める", func(t *testing.T) {
 		b := newBook(t, "9780000002419", "カタログの書名", nil, 4, tagdomain.ID(tagA), tagdomain.ID(tagB))
@@ -298,7 +298,7 @@ func TestRepository_Tags(t *testing.T) {
 		b := newBook(t, "9780000002433", "カタログの書名", nil, 4, tagdomain.ID(soloTag))
 		createBook(t, db, b)
 
-		db.Exec("DELETE FROM tag WHERE id = ?", soloTag)
+		db.Exec("DELETE FROM tags WHERE id = ?", soloTag)
 
 		got, err := repo.FindByID(context.Background(), b.ID)
 		if err != nil {
@@ -385,8 +385,8 @@ func TestRepository_CreateAll(t *testing.T) {
 	repo := pgbook.NewRepository(db)
 	ctx := context.Background()
 	t.Cleanup(func() {
-		db.Exec("DELETE FROM book WHERE title LIKE 'seed-test-%'")
-		db.Exec("DELETE FROM tag WHERE name LIKE 'seed-test-%'")
+		db.Exec("DELETE FROM books WHERE title LIKE 'seed-test-%'")
+		db.Exec("DELETE FROM tags WHERE name LIKE 'seed-test-%'")
 	})
 
 	t.Run("全冊をタグごと保存し、IDとバージョンを設定する", func(t *testing.T) {
@@ -422,7 +422,7 @@ func TestRepository_CreateAll(t *testing.T) {
 			t.Fatalf("err = %v, want ErrConflict", err)
 		}
 		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM book WHERE isbn = ?", "9780000003324").Scan(&count).Error; err != nil {
+		if err := db.Raw("SELECT COUNT(*) FROM books WHERE isbn = ?", "9780000003324").Scan(&count).Error; err != nil {
 			t.Fatal(err)
 		}
 		if count != 0 {

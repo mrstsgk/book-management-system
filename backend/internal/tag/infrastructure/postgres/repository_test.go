@@ -31,7 +31,7 @@ func createTag(t *testing.T, repo tagdomain.Repository, name string) *tagdomain.
 func TestRepository_CreateThenFindByID(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgtag.NewRepository(db)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'repo-test-%'") })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name LIKE 'repo-test-%'") })
 
 	tg := createTag(t, repo, "repo-test-データベース")
 	if tg.ID == 0 || tg.Version != 1 {
@@ -57,7 +57,7 @@ func TestRepository_FindByID_NotFound(t *testing.T) {
 func TestRepository_Create_DuplicateNameIsConflict(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgtag.NewRepository(db)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'repo-test-%'") })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name LIKE 'repo-test-%'") })
 	createTag(t, repo, "repo-test-重複")
 
 	dup := tagdomain.New(mustName(t, "repo-test-重複"))
@@ -69,7 +69,7 @@ func TestRepository_Create_DuplicateNameIsConflict(t *testing.T) {
 func TestRepository_Update(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgtag.NewRepository(db)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'repo-test-%'") })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name LIKE 'repo-test-%'") })
 
 	t.Run("バージョン一致なら名前を変えバージョンが進む", func(t *testing.T) {
 		tg := createTag(t, repo, "repo-test-旧名")

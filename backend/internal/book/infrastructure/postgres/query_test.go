@@ -160,7 +160,7 @@ func TestQuery_Tags(t *testing.T) {
 	tagA := mustCreateTag(t, db, "query-test-タグA")
 	tagB := mustCreateTag(t, db, "query-test-タグB")
 	tagC := mustCreateTag(t, db, "query-test-タグC")
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'query-test-%'") })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name LIKE 'query-test-%'") })
 
 	tagged := newBook(t, "9780000002440", "タグ付きの本", nil, 4, tagdomain.ID(tagA), tagdomain.ID(tagB))
 	createBook(t, db, tagged)
@@ -241,7 +241,7 @@ func TestQuery_Search_Condition(t *testing.T) {
 
 	tagA := tagdomain.ID(mustCreateTag(t, db, "search-test-タグA"))
 	tagB := tagdomain.ID(mustCreateTag(t, db, "search-test-タグB"))
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'search-test-%'") })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name LIKE 'search-test-%'") })
 
 	create := func(isbn, title string, tagIDs ...tagdomain.ID) *bookdomain.Book {
 		b := newBook(t, isbn, title, nil, 4, tagIDs...)
@@ -250,7 +250,7 @@ func TestQuery_Search_Condition(t *testing.T) {
 	}
 	design := create("9780000003003", "search-test-データ設計入門", tagA, tagB)
 	network := create("9780000003010", "search-test-ネットワーク", tagA)
-	if err := db.Exec("UPDATE book SET authors = ? WHERE id = ?", "search-test-戸根勤", int64(network.ID)).Error; err != nil {
+	if err := db.Exec("UPDATE books SET authors = ? WHERE id = ?", "search-test-戸根勤", int64(network.ID)).Error; err != nil {
 		t.Fatal(err)
 	}
 	overridden := newBook(t, "9780000003027", "search-test-元の書名", nil, 4)

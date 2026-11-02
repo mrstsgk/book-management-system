@@ -200,7 +200,7 @@ func TestSeedIfEmpty_OnAnEmptyDatabaseSeedsOnceAcrossRestarts(t *testing.T) {
 			t.Fatalf("start %d: %v", start, err)
 		}
 		var count int64
-		if err := db.Raw("SELECT COUNT(*) FROM book").Scan(&count).Error; err != nil {
+		if err := db.Raw("SELECT COUNT(*) FROM books").Scan(&count).Error; err != nil {
 			t.Fatal(err)
 		}
 		if count != int64(len(sampleBooks)) {

@@ -25,7 +25,7 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
-	if err := db.Exec("SELECT 1 FROM book LIMIT 0").Error; err != nil {
+	if err := db.Exec("SELECT 1 FROM books LIMIT 0").Error; err != nil {
 		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db
@@ -36,7 +36,7 @@ func connectTestDB(t *testing.T) *gorm.DB {
 func mustCreateTag(t *testing.T, db *gorm.DB, name string) int64 {
 	t.Helper()
 	var id int64
-	if err := db.Raw("INSERT INTO tag (name, version) VALUES (?, 1) RETURNING id", name).Scan(&id).Error; err != nil {
+	if err := db.Raw("INSERT INTO tags (name, version) VALUES (?, 1) RETURNING id", name).Scan(&id).Error; err != nil {
 		t.Fatalf("insert tag %q: %v", name, err)
 	}
 	return id

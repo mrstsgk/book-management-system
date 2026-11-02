@@ -20,10 +20,10 @@ type model struct {
 }
 
 func (model) TableName() string {
-	return "admin_session"
+	return "sessions"
 }
 
-// repository は admin_session テーブルに対して authdomain.SessionRepository を実装する。
+// repository は sessions テーブルに対して authdomain.SessionRepository を実装する。
 type repository struct {
 	db *gorm.DB
 }

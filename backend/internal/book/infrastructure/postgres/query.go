@@ -59,7 +59,7 @@ func displayTitle(override *string, catalogTitle string) string {
 	return catalogTitle
 }
 
-// bookTagRow は book_tag と tag を結合した1行（どの本にどのタグ名が付くか）。
+// bookTagRow は book_tags と tags を結合した1行（どの本にどのタグ名が付くか）。
 type bookTagRow struct {
 	BookID  int64
 	TagName string
@@ -72,11 +72,11 @@ func tagNamesByBookID(ctx context.Context, db *gorm.DB, bookIDs []int64) (map[in
 		return result, nil
 	}
 	var rows []bookTagRow
-	err := db.WithContext(ctx).Table("book_tag").
-		Select("book_tag.book_id AS book_id, tag.name AS tag_name").
-		Joins("JOIN tag ON tag.id = book_tag.tag_id").
-		Where("book_tag.book_id IN ?", bookIDs).
-		Order("tag.name").
+	err := db.WithContext(ctx).Table("book_tags").
+		Select("book_tags.book_id AS book_id, tags.name AS tag_name").
+		Joins("JOIN tags ON tags.id = book_tags.tag_id").
+		Where("book_tags.book_id IN ?", bookIDs).
+		Order("tags.name").
 		Find(&rows).Error
 	if err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func applyCondition(tx *gorm.DB, c bookdomain.ListCondition) *gorm.DB {
 		tx = tx.Where(`(COALESCE(title_override, title) ILIKE ? ESCAPE '\' OR authors ILIKE ? ESCAPE '\')`, p, p)
 	}
 	if id, ok := c.TagID(); ok {
-		tx = tx.Where("EXISTS (SELECT 1 FROM book_tag WHERE book_tag.book_id = book.id AND book_tag.tag_id = ?)", int64(id))
+		tx = tx.Where("EXISTS (SELECT 1 FROM book_tags WHERE book_tags.book_id = books.id AND book_tags.tag_id = ?)", int64(id))
 	}
 	return tx
 }

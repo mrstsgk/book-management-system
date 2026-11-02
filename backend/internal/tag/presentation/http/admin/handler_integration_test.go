@@ -31,7 +31,7 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
-	if err := db.Exec("SELECT 1 FROM tag LIMIT 0").Error; err != nil {
+	if err := db.Exec("SELECT 1 FROM tags LIMIT 0").Error; err != nil {
 		t.Fatalf("schema not migrated (run `make migrate-up` first): %v", err)
 	}
 	return db
@@ -78,17 +78,17 @@ func mustCreateTag(t *testing.T, db *gorm.DB, name string) (int64, int) {
 		ID      int64
 		Version int
 	}
-	if err := db.Raw("INSERT INTO tag (name, version) VALUES (?, 1) RETURNING id, version", name).Scan(&row).Error; err != nil {
+	if err := db.Raw("INSERT INTO tags (name, version) VALUES (?, 1) RETURNING id, version", name).Scan(&row).Error; err != nil {
 		t.Fatalf("insert tag: %v", err)
 	}
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", row.ID) })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE id = ?", row.ID) })
 	return row.ID, row.Version
 }
 
 func tagNameOf(t *testing.T, db *gorm.DB, id int64) string {
 	t.Helper()
 	var name string
-	db.Raw("SELECT name FROM tag WHERE id = ?", id).Scan(&name)
+	db.Raw("SELECT name FROM tags WHERE id = ?", id).Scan(&name)
 	return name
 }
 
@@ -102,7 +102,7 @@ func TestRegisterTag(t *testing.T) {
 		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: apitest.Session, Body: `{"name":"` + name + `"}`})
 		apitest.AssertStatus(t, rec, http.StatusOK)
 		got := apitest.Decode[adminapi.TagResponse](t, rec)
-		t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", got.ID) })
+		t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE id = ?", got.ID) })
 		if got.Name != name || got.Version != 1 || got.ID < 1 {
 			t.Fatalf("response = %+v", got)
 		}
@@ -162,7 +162,7 @@ func TestTagName_Constraints(t *testing.T) {
 			if tt.pass {
 				apitest.AssertNoFieldError(t, rec, tt.field, tt.rule)
 				if rec.Code == http.StatusOK {
-					db.Exec("DELETE FROM tag WHERE name = ?", strings.Repeat("あ", 30))
+					db.Exec("DELETE FROM tags WHERE name = ?", strings.Repeat("あ", 30))
 				}
 				return
 			}
@@ -236,7 +236,7 @@ func TestDeleteTag(t *testing.T) {
 		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodDelete, Path: path(id), Cookie: apitest.Session})
 		apitest.AssertStatus(t, rec, http.StatusNoContent)
 		var count int64
-		db.Table("tag").Where("id = ?", id).Count(&count)
+		db.Table("tags").Where("id = ?", id).Count(&count)
 		if count != 0 {
 			t.Fatal("the tag must be deleted")
 		}

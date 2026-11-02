@@ -13,7 +13,7 @@ func TestQuery_FindAll(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgtag.NewRepository(db)
 	q := pgtag.NewQuery(db)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'query-test-%'") })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name LIKE 'query-test-%'") })
 
 	a := createTag(t, repo, "query-test-データベース")
 	b := createTag(t, repo, "query-test-分散システム")
@@ -38,7 +38,7 @@ func TestQuery_ExistsAll(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgtag.NewRepository(db)
 	q := pgtag.NewQuery(db)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'query-test-%'") })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name LIKE 'query-test-%'") })
 
 	a := createTag(t, repo, "query-test-存在確認A")
 	b := createTag(t, repo, "query-test-存在確認B")
@@ -71,8 +71,8 @@ func TestQuery_CountBooks(t *testing.T) {
 	q := pgtag.NewQuery(db)
 	isbns := []string{"9780000003201", "9780000003218", "9780000003225"}
 	cleanup := func() {
-		db.Exec("DELETE FROM book WHERE isbn IN ?", isbns)
-		db.Exec("DELETE FROM tag WHERE name LIKE 'counts-test-%'")
+		db.Exec("DELETE FROM books WHERE isbn IN ?", isbns)
+		db.Exec("DELETE FROM tags WHERE name LIKE 'counts-test-%'")
 	}
 	cleanup()
 	t.Cleanup(cleanup)
@@ -85,12 +85,12 @@ func TestQuery_CountBooks(t *testing.T) {
 	insertBook := func(isbn string, tags ...*tagdomain.Tag) {
 		t.Helper()
 		var id int64
-		if err := db.Raw("INSERT INTO book (isbn, title, summary, comment, rating, version) VALUES (?, 'counts-test-書名', 'まとめ', '感想', 3, 1) RETURNING id", isbn).Scan(&id).Error; err != nil {
+		if err := db.Raw("INSERT INTO books (isbn, title, summary, comment, rating, version) VALUES (?, 'counts-test-書名', 'まとめ', '感想', 3, 1) RETURNING id", isbn).Scan(&id).Error; err != nil {
 			t.Fatalf("insert book: %v", err)
 		}
 		for _, tg := range tags {
-			if err := db.Exec("INSERT INTO book_tag (book_id, tag_id) VALUES (?, ?)", id, int64(tg.ID)).Error; err != nil {
-				t.Fatalf("insert book_tag: %v", err)
+			if err := db.Exec("INSERT INTO book_tags (book_id, tag_id) VALUES (?, ?)", id, int64(tg.ID)).Error; err != nil {
+				t.Fatalf("insert book_tags: %v", err)
 			}
 		}
 	}
@@ -134,7 +134,7 @@ func TestQuery_ExistsByName(t *testing.T) {
 	db := connectTestDB(t)
 	repo := pgtag.NewRepository(db)
 	q := pgtag.NewQuery(db)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name LIKE 'query-test-%'") })
+	t.Cleanup(func() { db.Exec("DELETE FROM tags WHERE name LIKE 'query-test-%'") })
 
 	a := createTag(t, repo, "query-test-同名A")
 

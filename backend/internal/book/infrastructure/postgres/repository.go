@@ -32,10 +32,10 @@ type model struct {
 }
 
 func (model) TableName() string {
-	return "book"
+	return "books"
 }
 
-// repository は book テーブルに対して bookdomain.Repository を実装する。
+// repository は books テーブルに対して bookdomain.Repository を実装する。
 type repository struct {
 	db *gorm.DB
 }
@@ -62,7 +62,7 @@ func (r *repository) FindByID(ctx context.Context, id bookdomain.ID) (*bookdomai
 }
 
 // Create は行を初期バージョン 1 で挿入し、採番した ID とバージョンを b に設定する。同じ ISBN があれば domainerr.ErrConflict を返す。
-// 本の行と book_tag の挿入は同一トランザクションで行う。
+// 本の行と book_tags の挿入は同一トランザクションで行う。
 func (r *repository) Create(ctx context.Context, b *bookdomain.Book) error {
 	return r.CreateAll(ctx, []*bookdomain.Book{b})
 }
@@ -91,7 +91,7 @@ func (r *repository) CreateAll(ctx context.Context, books []*bookdomain.Book) er
 	return nil
 }
 
-// insertBook は本の行（初期バージョン 1）と book_tag を tx で挿入し、採番した ID を返す。
+// insertBook は本の行（初期バージョン 1）と book_tags を tx で挿入し、採番した ID を返す。
 func insertBook(tx *gorm.DB, b *bookdomain.Book) (int64, error) {
 	row := toModel(b)
 	row.Version = 1
@@ -105,7 +105,7 @@ func insertBook(tx *gorm.DB, b *bookdomain.Book) (int64, error) {
 }
 
 // Update は ID とバージョンが一致する行を更新してバージョンを進める。一致しなければ domainerr.ErrConflict を返す。
-// book_tag はいったん全削除して入れ直す（付け外しの両方を単純な形で扱うため）。
+// book_tags はいったん全削除して入れ直す（付け外しの両方を単純な形で扱うため）。
 func (r *repository) Update(ctx context.Context, b *bookdomain.Book) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		row := toModel(b)
@@ -136,14 +136,14 @@ func (r *repository) Update(ctx context.Context, b *bookdomain.Book) error {
 	})
 }
 
-// bookTagModel は book_tag テーブルの1行。
+// bookTagModel は book_tags テーブルの1行。
 type bookTagModel struct {
 	BookID int64 `gorm:"column:book_id;primaryKey"`
 	TagID  int64 `gorm:"column:tag_id;primaryKey"`
 }
 
 func (bookTagModel) TableName() string {
-	return "book_tag"
+	return "book_tags"
 }
 
 // insertBookTags は bookID に tagIDs を付ける行を挿入する。tagIDs が空なら何もしない。
@@ -189,7 +189,7 @@ const uniqueViolation = "23505"
 // translateDuplicateISBN は ISBN の一意制約違反を ErrConflict にする（同じ本の二重登録を 500 ではなく 409 にするため）。
 func translateDuplicateISBN(err error) error {
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == "uq_book_isbn" {
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == "uq_books_isbn" {
 		return domainerr.New(domainerr.ErrConflict, "isbnDuplicated", "同じISBNの本が既に登録されています")
 	}
 	return err
