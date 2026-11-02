@@ -4,9 +4,9 @@ import type { TagResponse } from '@/api/generated/api.schemas'
 import { BookForm } from './BookForm'
 
 const tags: TagResponse[] = [
-  { id: 1, name: '設計' },
-  { id: 2, name: 'データ' },
-  { id: 3, name: 'クラウド' },
+  { id: 1, name: '設計', version: 1 },
+  { id: 2, name: 'データ', version: 1 },
+  { id: 3, name: 'クラウド', version: 1 },
 ]
 
 // 本の登録・編集で共用するフォーム。一覧の要約（ErrorSummary）と項目ごとの文言の両方で誤りを伝える

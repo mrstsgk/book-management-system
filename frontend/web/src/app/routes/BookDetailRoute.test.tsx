@@ -2,18 +2,23 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { getGetApiBooksIdMockHandler } from '@/api/generated/api.msw'
+import { getReadBookMockHandler } from '@/api/generated/api.msw'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
 import { server } from '@/testing/server'
+import { createBookFixture } from '@/testing/fixtures'
 
 describe('BookDetailRoute', () => {
   it('読み込み中を出したあと、URL の ID の本の詳細を見せる', async () => {
     let requestedId: string | undefined
     server.use(
-      getGetApiBooksIdMockHandler(({ params }) => {
+      getReadBookMockHandler(({ params }) => {
         requestedId = String(params.id)
-        return { id: 3, title: 'ネットワークはなぜつながるのか', rating: 3 }
+        return createBookFixture({
+          id: 3,
+          title: 'ネットワークはなぜつながるのか',
+          rating: 3,
+        })
       }),
     )
 

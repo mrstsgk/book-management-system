@@ -1,10 +1,10 @@
-import { useGetApiBooksId } from '@/api/generated/api'
+import { useReadBook } from '@/api/generated/api'
 import { parseBookId } from '@/features/book-detail/utils/parseBookId'
 
 export function useBookDetail(rawId: string | undefined) {
   const id = parseBookId(rawId)
   // ID が不正なら API を呼ばない（無効化中の 0 は使われない）
-  const query = useGetApiBooksId(id ?? 0, {
+  const query = useReadBook(id ?? 0, {
     query: { enabled: id !== undefined },
   })
   const notFound = id === undefined || query.error?.status === 404

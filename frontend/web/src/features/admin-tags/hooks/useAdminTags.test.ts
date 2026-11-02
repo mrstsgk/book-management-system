@@ -5,8 +5,8 @@ import { createElement, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import {
-  getGetApiTagsCountsMockHandler,
-  getGetApiTagsMockHandler,
+  getCountBooksMockHandler,
+  getSearchTagsMockHandler,
 } from '@/api/generated/api.msw'
 import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
@@ -41,8 +41,8 @@ function serveList(
   counts: { id: number; name: string; bookCount: number }[] = [],
 ) {
   server.use(
-    getGetApiTagsMockHandler({ items: tags }),
-    getGetApiTagsCountsMockHandler({ items: counts }),
+    getSearchTagsMockHandler({ items: tags }),
+    getCountBooksMockHandler({ items: counts }),
   )
 }
 
@@ -69,7 +69,7 @@ describe('useAdminTags', () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     let requests = 0
     server.use(
-      http.post('*/api/tags', async () => {
+      http.post('*/api/admin/tags', async () => {
         requests++
         return HttpResponse.json({ id: 2, name: 'データ', version: 1 })
       }),
@@ -99,7 +99,7 @@ describe('useAdminTags', () => {
   it('追加が401ならログイン画面へ送る', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
-      http.post('*/api/tags', () =>
+      http.post('*/api/admin/tags', () =>
         HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
       ),
     )
@@ -119,7 +119,7 @@ describe('useAdminTags', () => {
   it('同じ名前が既にあれば（400 の tagNameDuplicated）名前の誤りの文言にする', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
-      http.post('*/api/tags', () =>
+      http.post('*/api/admin/tags', () =>
         HttpResponse.json(
           {
             message: 'invalid request',
@@ -147,7 +147,7 @@ describe('useAdminTags', () => {
   it('追加の409（想定外の競合）は一般の文言にする', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
-      http.post('*/api/tags', () =>
+      http.post('*/api/admin/tags', () =>
         HttpResponse.json({ message: 'conflict' }, { status: 409 }),
       ),
     )
@@ -169,7 +169,7 @@ describe('useAdminTags', () => {
   it('名前の変更に成功すると一覧を取り直す', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
-      http.put('*/api/tags/1', async () => {
+      http.put('*/api/admin/tags/1', async () => {
         return HttpResponse.json({
           id: 1,
           name: 'ソフトウェア設計',
@@ -196,7 +196,7 @@ describe('useAdminTags', () => {
   it('名前の変更が409（他の更新と競合）なら最新を読み込んで伝える', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
-      http.put('*/api/tags/1', () =>
+      http.put('*/api/admin/tags/1', () =>
         HttpResponse.json({ message: 'conflict' }, { status: 409 }),
       ),
     )
@@ -227,7 +227,7 @@ describe('useAdminTags', () => {
       { id: 2, name: 'データ', version: 1 },
     ])
     server.use(
-      http.put('*/api/tags/1', () =>
+      http.put('*/api/admin/tags/1', () =>
         HttpResponse.json(
           {
             message: 'invalid request',
@@ -255,7 +255,7 @@ describe('useAdminTags', () => {
   it('削除に成功すると一覧を取り直す', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
-      http.delete('*/api/tags/1', async () => {
+      http.delete('*/api/admin/tags/1', async () => {
         return new HttpResponse(null, { status: 204 })
       }),
     )
@@ -276,7 +276,7 @@ describe('useAdminTags', () => {
   it('削除に失敗すれば分かる文言を返す', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
-      http.delete('*/api/tags/1', () =>
+      http.delete('*/api/admin/tags/1', () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )

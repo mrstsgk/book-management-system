@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
-import { useLogout } from './useLogout'
+import { useLogoutAction } from './useLogoutAction'
 
 let pathname = ''
 function Probe() {
@@ -26,16 +26,16 @@ function wrapper({ children }: { children: ReactNode }) {
   )
 }
 
-describe('useLogout', () => {
-  it('POST /api/auth/logout を呼び、成功したら /admin/login へ', async () => {
+describe('useLogoutAction', () => {
+  it('POST /api/admin/auth/logout を呼び、成功したら /admin/login へ', async () => {
     let called = false
     server.use(
-      http.post('*/api/auth/logout', () => {
+      http.post('*/api/admin/auth/logout', () => {
         called = true
         return new HttpResponse(null, { status: 204 })
       }),
     )
-    const { result } = renderHook(() => useLogout(), { wrapper })
+    const { result } = renderHook(() => useLogoutAction(), { wrapper })
     act(() => result.current.logout())
     await waitFor(() => expect(pathname).toBe('/admin/login'))
     expect(called).toBe(true)
@@ -44,13 +44,13 @@ describe('useLogout', () => {
   it('失敗したらその場に留まり、失敗を伝えて、再試行できる（サーバー側のセッションが残っているため）', async () => {
     let status = 500
     server.use(
-      http.post('*/api/auth/logout', () =>
+      http.post('*/api/admin/auth/logout', () =>
         status === 204
           ? new HttpResponse(null, { status: 204 })
           : HttpResponse.json({ message: 'x' }, { status }),
       ),
     )
-    const { result } = renderHook(() => useLogout(), { wrapper })
+    const { result } = renderHook(() => useLogoutAction(), { wrapper })
     act(() => result.current.logout())
     await waitFor(() => expect(result.current.failed).toBe(true))
     expect(pathname).toBe('/admin/tags')

@@ -10,7 +10,7 @@ describe('AdminLoginRoute', () => {
   it('/admin/login で ID とパスワードを入れてログインすると /admin の管理画面へ移る', async () => {
     server.use(
       http.post(
-        '*/api/auth/login',
+        '*/api/admin/auth/login',
         () => new HttpResponse(null, { status: 204 }),
       ),
     )
@@ -30,7 +30,7 @@ describe('AdminLoginRoute', () => {
 
   it('間違えると文言を出し、入力は残る', async () => {
     server.use(
-      http.post('*/api/auth/login', () =>
+      http.post('*/api/admin/auth/login', () =>
         HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
       ),
     )

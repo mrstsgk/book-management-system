@@ -1,8 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import {
-  getApiAuthSession,
-  getGetApiAuthSessionQueryKey,
-} from '@/api/generated/api'
+import { checkSession, getCheckSessionQueryKey } from '@/api/generated/api'
 
 export type SessionStatus = 'loading' | 'ok' | 'unauthorized'
 
@@ -12,9 +9,9 @@ export type SessionStatus = 'loading' | 'ok' | 'unauthorized'
 // 生成フックを使わない理由: 204 はボディ無しで undefined が返り、TanStack Query が「データ undefined」でエラー扱いにするため、true に置き換える
 export function useSession() {
   const query = useQuery({
-    queryKey: getGetApiAuthSessionQueryKey(),
+    queryKey: getCheckSessionQueryKey(),
     queryFn: async ({ signal }) => {
-      await getApiAuthSession({ signal })
+      await checkSession({ signal })
       return true
     },
     retry: false,

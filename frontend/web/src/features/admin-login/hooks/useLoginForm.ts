@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { usePostApiAuthLogin } from '@/api/generated/api'
+import { useLogin } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
 
 // 401 は ID とパスワードのどちらが違うかを出さない（バックエンドも区別して返さない）
@@ -12,7 +12,7 @@ function loginErrorMessage(error: unknown): string | undefined {
   return 'ログインできませんでした。時間をおいてもう一度お試しください。'
 }
 
-export function useLogin() {
+export function useLoginForm() {
   const navigate = useNavigate()
   const location = useLocation()
   // useLoginRedirect / AdminGuard が state.from に元の場所を入れる
@@ -20,7 +20,7 @@ export function useLogin() {
   const [id, setId] = useState('')
   const [password, setPassword] = useState('')
   const [localError, setLocalError] = useState<string | undefined>(undefined)
-  const mutation = usePostApiAuthLogin()
+  const mutation = useLogin()
 
   const submit = () => {
     if (mutation.isPending) return

@@ -3,10 +3,11 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { createElement, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
-import { getGetApiBooksIdMockHandler } from '@/api/generated/api.msw'
+import { getReadBookMockHandler } from '@/api/generated/api.msw'
 import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
 import { useBookDetail } from './useBookDetail'
+import { createBookFixture } from '@/testing/fixtures'
 
 // hook と同名の .test.ts に置くため JSX を使わない
 function wrapper({ children }: { children: ReactNode }) {
@@ -19,7 +20,9 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe('useBookDetail', () => {
   it('取得できた本を返す', async () => {
-    server.use(getGetApiBooksIdMockHandler({ id: 7, title: '設計入門' }))
+    server.use(
+      getReadBookMockHandler(createBookFixture({ id: 7, title: '設計入門' })),
+    )
 
     const { result } = renderHook(() => useBookDetail('7'), { wrapper })
 

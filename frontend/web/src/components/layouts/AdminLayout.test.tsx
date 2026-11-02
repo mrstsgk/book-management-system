@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { getGetApiBooksMockHandler } from '@/api/generated/api.msw'
+import { getSearchBooksMockHandler } from '@/api/generated/api.msw'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
 import { server } from '@/testing/server'
@@ -15,7 +15,7 @@ describe('AdminLayout', () => {
   // /admin の本一覧は faker の乱数データに頼らず、空の一覧に固定する
   beforeEach(() => {
     server.use(
-      getGetApiBooksMockHandler({ items: [], total: 0, limit: 20, offset: 0 }),
+      getSearchBooksMockHandler({ items: [], total: 0, limit: 20, offset: 0 }),
     )
   })
 
@@ -59,10 +59,10 @@ describe('AdminLayout', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('ログアウトを押すと POST /api/auth/logout を呼び、ログイン画面へ移る', async () => {
+  it('ログアウトを押すと POST /api/admin/auth/logout を呼び、ログイン画面へ移る', async () => {
     let called = false
     server.use(
-      http.post('*/api/auth/logout', () => {
+      http.post('*/api/admin/auth/logout', () => {
         called = true
         return new HttpResponse(null, { status: 204 })
       }),
@@ -79,7 +79,7 @@ describe('AdminLayout', () => {
 
   it('ログアウトに失敗したら管理画面に留まり、失敗を伝える（サーバー側のセッションが残っているため）', async () => {
     server.use(
-      http.post('*/api/auth/logout', () =>
+      http.post('*/api/admin/auth/logout', () =>
         HttpResponse.json({ message: 'internal' }, { status: 500 }),
       ),
     )

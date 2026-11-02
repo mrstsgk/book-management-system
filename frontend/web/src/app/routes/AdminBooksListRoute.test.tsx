@@ -2,16 +2,17 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { getGetApiBooksMockHandler } from '@/api/generated/api.msw'
-import type { BookListResponse } from '@/api/generated/api.schemas'
+import { getSearchBooksMockHandler } from '@/api/generated/api.msw'
+import type { SearchBooksResponse } from '@/api/generated/api.schemas'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
 import { server } from '@/testing/server'
+import { createBookListItemFixture } from '@/testing/fixtures'
 
 // total 冊ある DB を表す
 function serveBooks(total = 25) {
   server.use(
-    getGetApiBooksMockHandler(({ request }): BookListResponse => {
+    getSearchBooksMockHandler(({ request }): SearchBooksResponse => {
       const params = new URL(request.url).searchParams
       const offset = Number(params.get('offset') ?? 0)
       const limit = Number(params.get('limit') ?? 20)
@@ -20,13 +21,15 @@ function serveBooks(total = 25) {
         offset,
         limit,
         total,
-        items: Array.from({ length: count }, (_, i) => ({
-          id: offset + i + 1,
-          title: `本${offset + i + 1}`,
-          rating: 3,
-          tags: [],
-          summary: '一言まとめ',
-        })),
+        items: Array.from({ length: count }, (_, i) =>
+          createBookListItemFixture({
+            id: offset + i + 1,
+            title: `本${offset + i + 1}`,
+            rating: 3,
+            tags: [],
+            summary: '一言まとめ',
+          }),
+        ),
       }
     }),
   )

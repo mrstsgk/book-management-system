@@ -22,7 +22,7 @@ describe('useSession', () => {
     [500, 'unauthorized'],
   ])('%s なら %s（204 以外はログインし直す）', async (status, expected) => {
     server.use(
-      http.get('*/api/auth/session', () =>
+      http.get('*/api/admin/auth/session', () =>
         status === 204
           ? new HttpResponse(null, { status: 204 })
           : HttpResponse.json({ message: 'x' }, { status }),
@@ -47,7 +47,7 @@ describe('useSession', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     server.use(
-      http.get('*/api/auth/session', () =>
+      http.get('*/api/admin/auth/session', () =>
         HttpResponse.json({ message: 'x' }, { status: 401 }),
       ),
     )

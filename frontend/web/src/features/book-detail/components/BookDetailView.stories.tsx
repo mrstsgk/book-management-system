@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { MemoryRouter } from 'react-router-dom'
+import { createBookFixture } from '@/testing/fixtures'
 import { BookDetailView } from './BookDetailView'
 
 const meta = {
@@ -13,7 +14,7 @@ const meta = {
     ),
   ],
   args: {
-    book: {
+    book: createBookFixture({
       id: 1,
       isbn: '9784297146221',
       title: '改訂新版　良いコード／悪いコードで学ぶ設計入門',
@@ -25,7 +26,7 @@ const meta = {
       comment: '[感想の本文]\n\n[2段落目]',
       rating: 5,
       tags: ['設計'],
-    },
+    }),
   },
   parameters: {
     docs: {
@@ -44,6 +45,6 @@ export const OpenBD: Story = {}
 
 export const NoCover: Story = {
   args: {
-    book: { ...meta.args.book, coverSource: undefined, amazonUrl: undefined },
+    book: { ...meta.args.book, coverSource: null, amazonUrl: null },
   },
 }

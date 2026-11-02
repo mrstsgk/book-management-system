@@ -3,19 +3,20 @@ import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import {
-  getGetApiBooksMockHandler,
-  getGetApiTagsMockHandler,
+  getSearchBooksMockHandler,
+  getSearchTagsMockHandler,
 } from '@/api/generated/api.msw'
-import type { BookListResponse } from '@/api/generated/api.schemas'
+import type { SearchBooksResponse } from '@/api/generated/api.schemas'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
 import { server } from '@/testing/server'
+import { createBookListItemFixture } from '@/testing/fixtures'
 
 // total 冊ある DB を表し、受け取ったクエリを記録する
 function serveBooks(total = 25) {
   const requests: URLSearchParams[] = []
   server.use(
-    getGetApiBooksMockHandler(({ request }): BookListResponse => {
+    getSearchBooksMockHandler(({ request }): SearchBooksResponse => {
       const params = new URL(request.url).searchParams
       requests.push(params)
       const offset = Number(params.get('offset') ?? 0)
@@ -25,20 +26,22 @@ function serveBooks(total = 25) {
         offset,
         limit,
         total,
-        items: Array.from({ length: count }, (_, i) => ({
-          id: offset + i + 1,
-          title: `本${offset + i + 1}`,
-          authors: '著者',
-          summary: '一言まとめ',
-          rating: 3,
-          tags: [],
-        })),
+        items: Array.from({ length: count }, (_, i) =>
+          createBookListItemFixture({
+            id: offset + i + 1,
+            title: `本${offset + i + 1}`,
+            authors: '著者',
+            summary: '一言まとめ',
+            rating: 3,
+            tags: [],
+          }),
+        ),
       }
     }),
-    getGetApiTagsMockHandler({
+    getSearchTagsMockHandler({
       items: [
-        { id: 1, name: '設計' },
-        { id: 2, name: 'データ' },
+        { id: 1, name: '設計', version: 1 },
+        { id: 2, name: 'データ', version: 1 },
       ],
     }),
   )
@@ -132,12 +135,17 @@ describe('BooksListRoute', () => {
   it('検索結果が0件なら条件の外し方を示し、ボタンで全件に戻す', async () => {
     const requests: URLSearchParams[] = []
     server.use(
-      getGetApiBooksMockHandler(({ request }): BookListResponse => {
+      getSearchBooksMockHandler(({ request }): SearchBooksResponse => {
         const params = new URL(request.url).searchParams
         requests.push(params)
         return params.has('q')
           ? { offset: 0, limit: 20, total: 0, items: [] }
-          : { offset: 0, limit: 20, total: 1, items: [{ id: 1, title: '本1' }] }
+          : {
+              offset: 0,
+              limit: 20,
+              total: 1,
+              items: [createBookListItemFixture({ id: 1, title: '本1' })],
+            }
       }),
     )
     renderWithProviders(<AppRoutes />, { route: '/?q=Kubernetes' })
@@ -196,7 +204,7 @@ describe('BooksListRoute', () => {
         tagsCalls += 1
         return tagsCalls === 1
           ? HttpResponse.json({ message: 'boom' }, { status: 500 })
-          : HttpResponse.json({ items: [{ id: 1, name: '設計' }] })
+          : HttpResponse.json({ items: [{ id: 1, name: '設計', version: 1 }] })
       }),
     )
     renderWithProviders(<AppRoutes />, { route: '/' })

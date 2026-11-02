@@ -6,6 +6,9 @@ import { getBookManagementSystemAPIMock } from '@/api/generated/api.msw'
 // セッション確認だけは「ログイン済み（204）」を先頭で固定する（管理画面のテストの大半は
 // ログイン済み前提で、未ログインの分岐は AdminGuard のテストが server.use で上書きする）
 export const handlers = [
-  http.get('*/api/auth/session', () => new HttpResponse(null, { status: 204 })),
+  http.get(
+    '*/api/admin/auth/session',
+    () => new HttpResponse(null, { status: 204 }),
+  ),
   ...getBookManagementSystemAPIMock(),
 ]

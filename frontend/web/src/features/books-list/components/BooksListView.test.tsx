@@ -4,10 +4,11 @@ import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@/testing/render'
 import { BooksListView } from './BooksListView'
+import { createBookListItemFixture } from '@/testing/fixtures'
 
 type Props = ComponentProps<typeof BooksListView>
 
-const book = {
+const book = createBookListItemFixture({
   id: 7,
   title: 'データ指向アプリケーションデザイン 第2版',
   authors: 'Martin Kleppmann',
@@ -15,15 +16,15 @@ const book = {
   rating: 5,
   tags: ['データ', '設計'],
   coverUrl: 'https://cover.openbd.jp/9784814401802.jpg',
-}
+})
 
 function setupView(overrides: Partial<Props> = {}) {
   const props: Props = {
     books: [book],
     total: 1,
     tags: [
-      { id: 1, name: 'データ' },
-      { id: 2, name: '設計' },
+      { id: 1, name: 'データ', version: 1 },
+      { id: 2, name: '設計', version: 1 },
     ],
     hasFilter: false,
     isLoading: false,
@@ -67,7 +68,7 @@ describe('BooksListView', () => {
   })
 
   it('書影が無い本は「書影なし」の枠を出す', () => {
-    setupView({ books: [{ ...book, coverUrl: undefined }] })
+    setupView({ books: [{ ...book, coverUrl: null }] })
 
     const card = screen.getByRole('link', { name: /データ指向/ })
     expect(within(card).getByText('書影なし')).toBeVisible()

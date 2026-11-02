@@ -3,31 +3,34 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import {
-  getDeleteApiBooksIdMockHandler,
-  getGetApiBooksIdMockHandler,
-  getGetApiTagsMockHandler,
+  getDeleteBookMockHandler,
+  getReadBookMockHandler,
+  getSearchTagsMockHandler,
 } from '@/api/generated/api.msw'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
 import { server } from '@/testing/server'
+import { createBookFixture } from '@/testing/fixtures'
 
 describe('AdminBookEditRoute', () => {
   it('本とタグを読み込んで初期値を表示する（タグは名前からIDに引き直す）', async () => {
     server.use(
-      getGetApiBooksIdMockHandler({
-        id: 1,
-        title: '設計入門',
-        isbn: '9784297146221',
-        summary: 'まとめ',
-        comment: '感想の本文',
-        rating: 4,
-        tags: ['設計'],
-        version: 3,
-      }),
-      getGetApiTagsMockHandler({
+      getReadBookMockHandler(
+        createBookFixture({
+          id: 1,
+          title: '設計入門',
+          isbn: '9784297146221',
+          summary: 'まとめ',
+          comment: '感想の本文',
+          rating: 4,
+          tags: ['設計'],
+          version: 3,
+        }),
+      ),
+      getSearchTagsMockHandler({
         items: [
-          { id: 1, name: '設計' },
-          { id: 2, name: 'データ' },
+          { id: 1, name: '設計', version: 1 },
+          { id: 2, name: 'データ', version: 1 },
         ],
       }),
     )
@@ -59,16 +62,18 @@ describe('AdminBookEditRoute', () => {
   it('保存すると一覧へ戻る', async () => {
     const user = userEvent.setup()
     server.use(
-      getGetApiBooksIdMockHandler({
-        id: 1,
-        title: '本',
-        summary: 'まとめ',
-        comment: '感想',
-        rating: 3,
-        version: 5,
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.put('*/api/books/:id', () => HttpResponse.json({ id: 1 })),
+      getReadBookMockHandler(
+        createBookFixture({
+          id: 1,
+          title: '本',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 3,
+          version: 5,
+        }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.put('*/api/admin/books/:id', () => HttpResponse.json({ id: 1 })),
       // 戻り先の一覧画面（本の一覧管理）の描画を確かめるのが目的ではないので、
       // faker の乱数（評価が1〜5の範囲外になり得る）に頼らず空の一覧にする
       http.get('*/api/books', () =>
@@ -98,8 +103,8 @@ describe('AdminBookEditRoute', () => {
           version: getCalls === 1 ? 5 : 6,
         })
       }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.put('*/api/books/:id', () =>
+      getSearchTagsMockHandler({ items: [] }),
+      http.put('*/api/admin/books/:id', () =>
         HttpResponse.json({ message: 'conflict' }, { status: 409 }),
       ),
     )
@@ -131,13 +136,15 @@ describe('AdminBookEditRoute', () => {
     const user = userEvent.setup()
     let deleteCalled = false
     server.use(
-      getGetApiBooksIdMockHandler({
-        id: 1,
-        title: '削除対象の本',
-        version: 1,
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-      getDeleteApiBooksIdMockHandler(() => {
+      getReadBookMockHandler(
+        createBookFixture({
+          id: 1,
+          title: '削除対象の本',
+          version: 1,
+        }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      getDeleteBookMockHandler(() => {
         deleteCalled = true
       }),
       // 戻り先の一覧画面（本の一覧管理）の描画を確かめるのが目的ではないので、

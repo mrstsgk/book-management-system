@@ -4,24 +4,25 @@ import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@/testing/render'
 import { AdminBooksListView } from './AdminBooksListView'
+import { createBookListItemFixture } from '@/testing/fixtures'
 
 type Props = ComponentProps<typeof AdminBooksListView>
 
-const filledBook = {
+const filledBook = createBookListItemFixture({
   id: 7,
   title: 'データ指向アプリケーションデザイン 第2版',
   rating: 5,
   tags: ['データ', '設計'],
   summary: '分散システムの原理を整理した本',
-}
+})
 
-const unfilledBook = {
+const unfilledBook = createBookListItemFixture({
   id: 8,
   title: '改訂新版　良いコード／悪いコードで学ぶ設計入門',
   rating: 3,
   tags: [],
   summary: '（準備中）',
-}
+})
 
 function setup(overrides: Partial<Props> = {}) {
   const props: Props = {

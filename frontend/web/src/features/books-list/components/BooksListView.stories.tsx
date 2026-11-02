@@ -2,9 +2,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { MemoryRouter } from 'react-router-dom'
 import { fn } from 'storybook/test'
 import { BooksListView } from './BooksListView'
+import { createBookListItemFixture } from '@/testing/fixtures'
 
 const books = [
-  {
+  createBookListItemFixture({
     id: 1,
     title:
       '徹底攻略 AWS認定 ソリューションアーキテクト − アソシエイト教科書 第3版［SAA-C03］対応',
@@ -12,23 +13,23 @@ const books = [
     summary: '[一言まとめ]',
     rating: 4,
     tags: ['クラウド'],
-  },
-  {
+  }),
+  createBookListItemFixture({
     id: 2,
     title: '改訂新版　良いコード／悪いコードで学ぶ設計入門',
     authors: '仙塲大也',
     summary: '[一言まとめ]',
     rating: 5,
     tags: ['設計'],
-  },
-  {
+  }),
+  createBookListItemFixture({
     id: 3,
     title: 'データ指向アプリケーションデザイン 第2版',
     authors: 'Martin Kleppmann',
     summary: '[一言まとめ]',
     rating: 5,
     tags: ['データ', '設計'],
-  },
+  }),
 ]
 
 // 読んだ本の一覧（公開画面）。検索・分野タグの絞り込み・続きの読み込みと、読み込み中・0件・エラーの状態
@@ -48,9 +49,9 @@ const meta = {
     books,
     total: 12,
     tags: [
-      { id: 1, name: 'クラウド' },
-      { id: 2, name: '設計' },
-      { id: 3, name: 'データ' },
+      { id: 1, name: 'クラウド', version: 1 },
+      { id: 2, name: '設計', version: 1 },
+      { id: 3, name: 'データ', version: 1 },
     ],
     hasFilter: false,
     isLoading: false,

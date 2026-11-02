@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
-import { useLogin } from './useLogin'
+import { useLoginForm } from './useLoginForm'
 
 let pathname = ''
 function Probe() {
@@ -30,7 +30,7 @@ function makeWrapper(state?: unknown) {
 
 function serveLogin(status: number) {
   server.use(
-    http.post('*/api/auth/login', () =>
+    http.post('*/api/admin/auth/login', () =>
       status === 204
         ? new HttpResponse(null, { status: 204 })
         : HttpResponse.json({ message: 'x' }, { status }),
@@ -38,16 +38,18 @@ function serveLogin(status: number) {
   )
 }
 
-describe('useLogin', () => {
+describe('useLoginForm', () => {
   it('空欄があれば送信しない', async () => {
     let called = false
     server.use(
-      http.post('*/api/auth/login', () => {
+      http.post('*/api/admin/auth/login', () => {
         called = true
         return new HttpResponse(null, { status: 204 })
       }),
     )
-    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() })
+    const { result } = renderHook(() => useLoginForm(), {
+      wrapper: makeWrapper(),
+    })
     act(() => result.current.setId('admin'))
     act(() => result.current.submit())
     await waitFor(() =>
@@ -58,7 +60,7 @@ describe('useLogin', () => {
 
   it('成功したら from へ戻る', async () => {
     serveLogin(204)
-    const { result } = renderHook(() => useLogin(), {
+    const { result } = renderHook(() => useLoginForm(), {
       wrapper: makeWrapper({ from: '/admin/tags' }),
     })
     act(() => result.current.setId('admin'))
@@ -69,7 +71,9 @@ describe('useLogin', () => {
 
   it('from が無ければ /admin へ', async () => {
     serveLogin(204)
-    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() })
+    const { result } = renderHook(() => useLoginForm(), {
+      wrapper: makeWrapper(),
+    })
     act(() => result.current.setId('admin'))
     act(() => result.current.setPassword('pw'))
     act(() => result.current.submit())
@@ -82,7 +86,9 @@ describe('useLogin', () => {
     [500, 'ログインできませんでした。時間をおいてもう一度お試しください。'],
   ])('%s なら「%s」', async (status, message) => {
     serveLogin(status)
-    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() })
+    const { result } = renderHook(() => useLoginForm(), {
+      wrapper: makeWrapper(),
+    })
     act(() => result.current.setId('admin'))
     act(() => result.current.setPassword('pw'))
     act(() => result.current.submit())

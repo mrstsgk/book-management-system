@@ -3,17 +3,18 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { getGetApiBooksMockHandler } from '@/api/generated/api.msw'
-import type { BookListResponse } from '@/api/generated/api.schemas'
+import { getSearchBooksMockHandler } from '@/api/generated/api.msw'
+import type { SearchBooksResponse } from '@/api/generated/api.schemas'
 import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
 import { useAdminBooksList } from './useAdminBooksList'
+import { createBookListItemFixture } from '@/testing/fixtures'
 
 // total 冊ある DB を表し、受け取った offset を記録する
 function serveBooks(total = 25) {
   const requests: URLSearchParams[] = []
   server.use(
-    getGetApiBooksMockHandler(({ request }): BookListResponse => {
+    getSearchBooksMockHandler(({ request }): SearchBooksResponse => {
       const params = new URL(request.url).searchParams
       requests.push(params)
       const offset = Number(params.get('offset') ?? 0)
@@ -23,10 +24,12 @@ function serveBooks(total = 25) {
         offset,
         limit,
         total,
-        items: Array.from({ length: count }, (_, i) => ({
-          id: offset + i + 1,
-          title: `本${offset + i + 1}`,
-        })),
+        items: Array.from({ length: count }, (_, i) =>
+          createBookListItemFixture({
+            id: offset + i + 1,
+            title: `本${offset + i + 1}`,
+          }),
+        ),
       }
     }),
   )

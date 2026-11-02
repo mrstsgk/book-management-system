@@ -1,10 +1,10 @@
 import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import type { BookResponse } from '@/api/generated/api.schemas'
 import { renderWithProviders } from '@/testing/render'
 import { BookDetailView } from './BookDetailView'
+import { createBookFixture } from '@/testing/fixtures'
 
-const openbdBook: BookResponse = {
+const openbdBook = createBookFixture({
   id: 1,
   isbn: '9784297146221',
   title: '良いコード／悪いコードで学ぶ設計入門',
@@ -18,7 +18,7 @@ const openbdBook: BookResponse = {
   comment: '1段落目\n2段落目',
   rating: 4,
   tags: ['設計', 'リファクタリング'],
-}
+})
 
 describe('BookDetailView', () => {
   it('書誌・書影・評価・分野タグ・一言まとめ・感想を見せる', () => {
@@ -56,7 +56,7 @@ describe('BookDetailView', () => {
   it('出版社・出版日が無ければその行を出さない', () => {
     renderWithProviders(
       <BookDetailView
-        book={{ ...openbdBook, publisher: undefined, publishedOn: '' }}
+        book={{ ...openbdBook, publisher: '', publishedOn: '' }}
       />,
     )
 
@@ -68,7 +68,7 @@ describe('BookDetailView', () => {
   it('書影が無ければ「書影なし」の枠を出す', () => {
     renderWithProviders(
       <BookDetailView
-        book={{ ...openbdBook, coverUrl: undefined, coverSource: undefined }}
+        book={{ ...openbdBook, coverUrl: null, coverSource: null }}
       />,
     )
 
@@ -90,7 +90,7 @@ describe('BookDetailView', () => {
 
   it('Amazon の URL が無ければ Amazon のリンクを出さない', () => {
     renderWithProviders(
-      <BookDetailView book={{ ...openbdBook, amazonUrl: undefined }} />,
+      <BookDetailView book={{ ...openbdBook, amazonUrl: null }} />,
     )
 
     expect(

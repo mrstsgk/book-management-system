@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import {
-  getGetApiTagsCountsMockHandler,
-  getGetApiTagsMockHandler,
+  getCountBooksMockHandler,
+  getSearchTagsMockHandler,
 } from '@/api/generated/api.msw'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
@@ -15,8 +15,8 @@ function serveList(
   counts: { id: number; name: string; bookCount: number }[] = [],
 ) {
   server.use(
-    getGetApiTagsMockHandler({ items: tags }),
-    getGetApiTagsCountsMockHandler({ items: counts }),
+    getSearchTagsMockHandler({ items: tags }),
+    getCountBooksMockHandler({ items: counts }),
   )
 }
 
@@ -46,7 +46,7 @@ describe('AdminTagsRoute', () => {
           ? HttpResponse.json({ message: 'boom' }, { status: 500 })
           : HttpResponse.json({ items: [{ id: 1, name: '設計', version: 1 }] })
       }),
-      getGetApiTagsCountsMockHandler({ items: [] }),
+      getCountBooksMockHandler({ items: [] }),
     )
 
     renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
@@ -64,7 +64,7 @@ describe('AdminTagsRoute', () => {
   it('タグを追加すると一覧に増える', async () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
-      http.post('*/api/tags', () =>
+      http.post('*/api/admin/tags', () =>
         HttpResponse.json({ id: 2, name: 'データ', version: 1 }),
       ),
     )

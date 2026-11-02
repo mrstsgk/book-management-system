@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import type { BookListResponse } from '@/api/generated/api.schemas'
+import type { SearchBooksResponse } from '@/api/generated/api.schemas'
 import { nextOffset } from './paging'
+import { createBookListItemFixture } from '@/testing/fixtures'
 
 const page = (
   offset: number,
   count: number,
   total: number,
-): BookListResponse => ({
+): SearchBooksResponse => ({
   offset,
   limit: 20,
   total,
-  items: Array.from({ length: count }, (_, i) => ({ id: offset + i + 1 })),
+  items: Array.from({ length: count }, (_, i) =>
+    createBookListItemFixture({ id: offset + i + 1 }),
+  ),
 })
 
 describe('nextOffset', () => {

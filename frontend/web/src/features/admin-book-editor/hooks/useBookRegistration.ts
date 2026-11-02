@@ -1,9 +1,9 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  useGetApiCatalogIsbn,
-  useGetApiTags,
-  usePostApiBooks,
+  useLookupCatalog,
+  useSearchTags,
+  useRegisterBook,
 } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
 import { useLoginRedirect } from '@/hooks/useLoginRedirect'
@@ -47,7 +47,7 @@ export function useBookRegistration() {
   const [registered, setRegistered] = useState(false)
   const submittingRef = useRef(false)
 
-  const catalogQuery = useGetApiCatalogIsbn(confirmedIsbn || 'x', {
+  const catalogQuery = useLookupCatalog(confirmedIsbn || 'x', {
     query: { enabled: confirmedIsbn !== '' },
   })
   // ISBN の確認もログイン済みでないと通らない。画面を開いたままセッションが切れた場合、
@@ -61,8 +61,8 @@ export function useBookRegistration() {
   useEffect(() => {
     if (catalogError) onCatalogError(catalogError)
   }, [catalogError])
-  const tagsQuery = useGetApiTags()
-  const registerMutation = usePostApiBooks()
+  const tagsQuery = useSearchTags()
+  const registerMutation = useRegisterBook()
 
   const confirm = () => {
     setConfirmedIsbn(isbn.trim())

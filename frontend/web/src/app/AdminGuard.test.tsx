@@ -8,7 +8,7 @@ import { server } from '@/testing/server'
 
 function serveSession(status: number) {
   server.use(
-    http.get('*/api/auth/session', () =>
+    http.get('*/api/admin/auth/session', () =>
       status === 204
         ? new HttpResponse(null, { status: 204 })
         : HttpResponse.json({ message: 'x' }, { status }),
@@ -50,7 +50,7 @@ describe('AdminGuard', () => {
 
     server.use(
       http.post(
-        '*/api/auth/login',
+        '*/api/admin/auth/login',
         () => new HttpResponse(null, { status: 204 }),
       ),
     )

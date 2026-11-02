@@ -2,22 +2,23 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { MemoryRouter } from 'react-router-dom'
 import { fn } from 'storybook/test'
 import { AdminBooksListView } from './AdminBooksListView'
+import { createBookListItemFixture } from '@/testing/fixtures'
 
 const books = [
-  {
+  createBookListItemFixture({
     id: 1,
     title: 'データ指向アプリケーションデザイン 第2版',
     rating: 5,
     tags: ['データ', '設計'],
     summary: '分散システムの原理を整理した本',
-  },
-  {
+  }),
+  createBookListItemFixture({
     id: 2,
     title: '改訂新版　良いコード／悪いコードで学ぶ設計入門',
     rating: 3,
     tags: [],
     summary: '（準備中）',
-  },
+  }),
 ]
 
 // 本の一覧（管理）。表・読み込み中・お知らせ・0件・エラーの状態

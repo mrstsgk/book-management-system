@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { getGetApiTagsCountsMockHandler } from '@/api/generated/api.msw'
+import { getCountBooksMockHandler } from '@/api/generated/api.msw'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
 import { server } from '@/testing/server'
@@ -16,7 +16,7 @@ const counts = {
 
 describe('TagCountsRoute', () => {
   it('/tags を開くと、読み込み中を出したあと分野ごとの冊数を絞り込んだ一覧へのリンクとして並べる', async () => {
-    server.use(getGetApiTagsCountsMockHandler(counts))
+    server.use(getCountBooksMockHandler(counts))
 
     renderWithProviders(<AppRoutes />, { route: '/tags' })
 
@@ -33,7 +33,7 @@ describe('TagCountsRoute', () => {
   })
 
   it('本が付いた分野タグが無ければ、まだ無いことを伝える', async () => {
-    server.use(getGetApiTagsCountsMockHandler({ items: [] }))
+    server.use(getCountBooksMockHandler({ items: [] }))
 
     renderWithProviders(<AppRoutes />, { route: '/tags' })
 

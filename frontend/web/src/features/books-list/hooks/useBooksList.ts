@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
-import { useGetApiBooksInfinite, useGetApiTags } from '@/api/generated/api'
+import { useSearchBooksInfinite, useSearchTags } from '@/api/generated/api'
 import { nextOffset, PAGE_SIZE } from '@/features/books-list/utils/paging'
 import {
   normalizeQuery,
@@ -12,11 +12,11 @@ export function useBooksList() {
   const q = normalizeQuery(searchParams.get('q') ?? '')
   const tagId = parseTagParam(searchParams.get('tag'))
 
-  const books = useGetApiBooksInfinite(
+  const books = useSearchBooksInfinite(
     { limit: PAGE_SIZE, q, tagId },
     { query: { initialPageParam: 0, getNextPageParam: nextOffset } },
   )
-  const tags = useGetApiTags()
+  const tags = useSearchTags()
 
   const update = (next: { q?: string; tag?: number }) => {
     const params = new URLSearchParams()

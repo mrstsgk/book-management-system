@@ -3,9 +3,9 @@ import type { TagResponse } from '@/api/generated/api.schemas'
 import { tagIdsByName } from './tagIds'
 
 const tags: TagResponse[] = [
-  { id: 1, name: '設計' },
-  { id: 2, name: 'ソフトウェア設計' },
-  { id: 3, name: 'データ' },
+  { id: 1, name: '設計', version: 1 },
+  { id: 2, name: 'ソフトウェア設計', version: 1 },
+  { id: 3, name: 'データ', version: 1 },
 ]
 
 describe('tagIdsByName', () => {

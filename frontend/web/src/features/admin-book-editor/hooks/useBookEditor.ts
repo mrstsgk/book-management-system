@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  useDeleteApiBooksId,
-  useGetApiBooksId,
-  useGetApiTags,
-  usePutApiBooksId,
+  useDeleteBook,
+  useReadBook,
+  useSearchTags,
+  useUpdateBook,
 } from '@/api/generated/api'
 import type { BookResponse, TagResponse } from '@/api/generated/api.schemas'
 import { useLoginRedirect } from '@/hooks/useLoginRedirect'
@@ -57,12 +57,12 @@ export function useBookEditor(rawId: string | undefined) {
   const redirectIfUnauthorized = useLoginRedirect()
   const id = parseBookId(rawId)
 
-  const bookQuery = useGetApiBooksId(id ?? 0, {
+  const bookQuery = useReadBook(id ?? 0, {
     query: { enabled: id !== undefined },
   })
-  const tagsQuery = useGetApiTags()
-  const updateMutation = usePutApiBooksId()
-  const deleteMutation = useDeleteApiBooksId()
+  const tagsQuery = useSearchTags()
+  const updateMutation = useUpdateBook()
+  const deleteMutation = useDeleteBook()
 
   const [values, setValues] = useState<BookFormValues | null>(null)
   // 保存に使う version。編集開始時（またはreloadLatest時）に値とあわせて固定する。

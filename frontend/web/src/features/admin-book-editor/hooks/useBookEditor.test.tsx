@@ -5,13 +5,14 @@ import type { ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import {
-  getDeleteApiBooksIdMockHandler,
-  getGetApiBooksIdMockHandler,
-  getGetApiTagsMockHandler,
+  getDeleteBookMockHandler,
+  getReadBookMockHandler,
+  getSearchTagsMockHandler,
 } from '@/api/generated/api.msw'
 import { createQueryClient } from '@/lib/query-client'
 import { server } from '@/testing/server'
 import { useBookEditor } from './useBookEditor'
+import { createBookFixture } from '@/testing/fixtures'
 
 let current: { pathname: string; state: unknown } = {
   pathname: '',
@@ -41,19 +42,21 @@ function renderUseBookEditor(rawId: string | undefined) {
 describe('useBookEditor', () => {
   it('本とタグ一覧が揃ったら、タグ名をIDに引き直した初期値を作る', async () => {
     server.use(
-      getGetApiBooksIdMockHandler({
-        id: 1,
-        title: '設計入門',
-        summary: 'まとめ',
-        comment: '感想',
-        rating: 4,
-        tags: ['設計'],
-        version: 3,
-      }),
-      getGetApiTagsMockHandler({
+      getReadBookMockHandler(
+        createBookFixture({
+          id: 1,
+          title: '設計入門',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 4,
+          tags: ['設計'],
+          version: 3,
+        }),
+      ),
+      getSearchTagsMockHandler({
         items: [
-          { id: 1, name: '設計' },
-          { id: 2, name: 'データ' },
+          { id: 1, name: '設計', version: 1 },
+          { id: 2, name: 'データ', version: 1 },
         ],
       }),
     )
@@ -92,16 +95,18 @@ describe('useBookEditor', () => {
   it('保存に version を付け、成功したら registered を立てる', async () => {
     let sentVersion: number | undefined
     server.use(
-      getGetApiBooksIdMockHandler({
-        id: 1,
-        title: '本',
-        summary: 'まとめ',
-        comment: '感想',
-        rating: 3,
-        version: 5,
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.put('*/api/books/:id', async ({ request }) => {
+      getReadBookMockHandler(
+        createBookFixture({
+          id: 1,
+          title: '本',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 3,
+          version: 5,
+        }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.put('*/api/admin/books/:id', async ({ request }) => {
         const body = (await request.json()) as { version?: number }
         sentVersion = body.version
         return HttpResponse.json({ id: 1 })
@@ -118,16 +123,18 @@ describe('useBookEditor', () => {
 
   it('保存の400（無いタグ）は分野タグの誤りにし、競合扱いにしない', async () => {
     server.use(
-      getGetApiBooksIdMockHandler({
-        id: 1,
-        title: '本',
-        summary: 'まとめ',
-        comment: '感想',
-        rating: 3,
-        version: 5,
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.put('*/api/books/:id', () =>
+      getReadBookMockHandler(
+        createBookFixture({
+          id: 1,
+          title: '本',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 3,
+          version: 5,
+        }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.put('*/api/admin/books/:id', () =>
         HttpResponse.json(
           {
             message: 'invalid request',
@@ -153,16 +160,18 @@ describe('useBookEditor', () => {
 
   it('保存が409なら競合フラグを立て、入力は消えない', async () => {
     server.use(
-      getGetApiBooksIdMockHandler({
-        id: 1,
-        title: '本',
-        summary: 'まとめ',
-        comment: '感想',
-        rating: 3,
-        version: 5,
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.put('*/api/books/:id', () =>
+      getReadBookMockHandler(
+        createBookFixture({
+          id: 1,
+          title: '本',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 3,
+          version: 5,
+        }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.put('*/api/admin/books/:id', () =>
         HttpResponse.json({ message: 'conflict' }, { status: 409 }),
       ),
     )
@@ -189,8 +198,8 @@ describe('useBookEditor', () => {
           version: getCalls === 1 ? 5 : 6,
         })
       }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.put('*/api/books/:id', () =>
+      getSearchTagsMockHandler({ items: [] }),
+      http.put('*/api/admin/books/:id', () =>
         HttpResponse.json({ message: 'conflict' }, { status: 409 }),
       ),
     )
@@ -210,9 +219,11 @@ describe('useBookEditor', () => {
   it('削除の確認で確定すると削除し、キャンセルでは呼ばない', async () => {
     let deleteCalled = false
     server.use(
-      getGetApiBooksIdMockHandler({ id: 1, title: '本', version: 1 }),
-      getGetApiTagsMockHandler({ items: [] }),
-      getDeleteApiBooksIdMockHandler(() => {
+      getReadBookMockHandler(
+        createBookFixture({ id: 1, title: '本', version: 1 }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      getDeleteBookMockHandler(() => {
         deleteCalled = true
       }),
     )
@@ -246,8 +257,8 @@ describe('useBookEditor', () => {
           version: getCalls === 1 ? 5 : 6,
         })
       }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.put('*/api/books/:id', async ({ request }) => {
+      getSearchTagsMockHandler({ items: [] }),
+      http.put('*/api/admin/books/:id', async ({ request }) => {
         const body = (await request.json()) as { version?: number }
         sentVersion = body.version
         return HttpResponse.json({ id: 1 })
@@ -272,16 +283,18 @@ describe('useBookEditor', () => {
 
   it('保存が401ならログイン画面へ送り、競合扱いにしない', async () => {
     server.use(
-      getGetApiBooksIdMockHandler({
-        id: 1,
-        title: '本',
-        summary: 'まとめ',
-        comment: '感想',
-        rating: 4,
-        version: 1,
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.put('*/api/books/:id', () =>
+      getReadBookMockHandler(
+        createBookFixture({
+          id: 1,
+          title: '本',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 4,
+          version: 1,
+        }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.put('*/api/admin/books/:id', () =>
         HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
       ),
     )
@@ -296,9 +309,11 @@ describe('useBookEditor', () => {
 
   it('削除が401ならログイン画面へ送り、削除エラーを出さない', async () => {
     server.use(
-      getGetApiBooksIdMockHandler({ id: 1, title: '本', version: 1 }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.delete('*/api/books/:id', () =>
+      getReadBookMockHandler(
+        createBookFixture({ id: 1, title: '本', version: 1 }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.delete('*/api/admin/books/:id', () =>
         HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
       ),
     )
@@ -315,9 +330,11 @@ describe('useBookEditor', () => {
 
   it('削除に失敗したら、ダイアログにエラーを出し確定を押し直せる', async () => {
     server.use(
-      getGetApiBooksIdMockHandler({ id: 1, title: '本', version: 1 }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.delete('*/api/books/:id', () =>
+      getReadBookMockHandler(
+        createBookFixture({ id: 1, title: '本', version: 1 }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.delete('*/api/admin/books/:id', () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )
@@ -334,15 +351,17 @@ describe('useBookEditor', () => {
 
   it('必須項目を空にして送信後、直した項目のエラーは再送信前に消え、直していない項目は残る', async () => {
     server.use(
-      getGetApiBooksIdMockHandler({
-        id: 1,
-        title: '本',
-        summary: 'まとめ',
-        comment: '感想',
-        rating: 4,
-        version: 1,
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
+      getReadBookMockHandler(
+        createBookFixture({
+          id: 1,
+          title: '本',
+          summary: 'まとめ',
+          comment: '感想',
+          rating: 4,
+          version: 1,
+        }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
     )
     const { result } = renderUseBookEditor('1')
     await waitFor(() => expect(result.current.values).not.toBeNull())
@@ -383,12 +402,12 @@ describe('useBookEditor', () => {
           version: 1,
         })
       }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.put('*/api/books/:id', ({ request }) => {
+      getSearchTagsMockHandler({ items: [] }),
+      http.put('*/api/admin/books/:id', ({ request }) => {
         auth.put = request.headers.get('authorization')
         return HttpResponse.json({ id: 1 })
       }),
-      http.delete('*/api/books/:id', ({ request }) => {
+      http.delete('*/api/admin/books/:id', ({ request }) => {
         auth.delete = request.headers.get('authorization')
         return new HttpResponse(null, { status: 204 })
       }),

@@ -3,12 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import {
-  getGetApiCatalogIsbnMockHandler,
-  getGetApiTagsMockHandler,
+  getLookupCatalogMockHandler,
+  getSearchTagsMockHandler,
 } from '@/api/generated/api.msw'
 import { AppRoutes } from '@/app/router'
 import { renderWithProviders } from '@/testing/render'
 import { server } from '@/testing/server'
+import { createCatalogFixture } from '@/testing/fixtures'
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/一言まとめ/), 'まとめ')
@@ -20,13 +21,15 @@ describe('AdminBookNewRoute', () => {
   it('確かめると書誌と書影を見せる。書影が無ければ枠を出す', async () => {
     const user = userEvent.setup()
     server.use(
-      getGetApiCatalogIsbnMockHandler({
-        isbn: '9784297146221',
-        title: '良いコード／悪いコードで学ぶ設計入門',
-        authors: '仙塲大也',
-        publisher: '技術評論社',
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
+      getLookupCatalogMockHandler(
+        createCatalogFixture({
+          isbn: '9784297146221',
+          title: '良いコード／悪いコードで学ぶ設計入門',
+          authors: '仙塲大也',
+          publisher: '技術評論社',
+        }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
@@ -43,10 +46,10 @@ describe('AdminBookNewRoute', () => {
   it('カタログに無いISBNは見つからなかったことを伝える', async () => {
     const user = userEvent.setup()
     server.use(
-      http.get('*/api/catalog/:isbn', () =>
+      http.get('*/api/admin/catalog/:isbn', () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 }),
       ),
-      getGetApiTagsMockHandler({ items: [] }),
+      getSearchTagsMockHandler({ items: [] }),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
@@ -63,13 +66,13 @@ describe('AdminBookNewRoute', () => {
   it('ISBNの形式が不正なら、時間をおいても解消しないことが伝わる文言を出す', async () => {
     const user = userEvent.setup()
     server.use(
-      http.get('*/api/catalog/:isbn', () =>
+      http.get('*/api/admin/catalog/:isbn', () =>
         HttpResponse.json(
           { message: 'invalid: ISBNが不正です' },
           { status: 400 },
         ),
       ),
-      getGetApiTagsMockHandler({ items: [] }),
+      getSearchTagsMockHandler({ items: [] }),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
@@ -91,10 +94,10 @@ describe('AdminBookNewRoute', () => {
   it('カタログの確認が一時的な障害で失敗したら、時間をおいての再試行を促す', async () => {
     const user = userEvent.setup()
     server.use(
-      http.get('*/api/catalog/:isbn', () =>
+      http.get('*/api/admin/catalog/:isbn', () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
-      getGetApiTagsMockHandler({ items: [] }),
+      getSearchTagsMockHandler({ items: [] }),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
 
@@ -119,12 +122,14 @@ describe('AdminBookNewRoute', () => {
   it('確かめてから登録すると成功し、一覧へ戻る', async () => {
     const user = userEvent.setup()
     server.use(
-      getGetApiCatalogIsbnMockHandler({
-        isbn: '9784297146221',
-        title: '良いコード／悪いコードで学ぶ設計入門',
-      }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.post('*/api/books', () => HttpResponse.json({ id: 1 })),
+      getLookupCatalogMockHandler(
+        createCatalogFixture({
+          isbn: '9784297146221',
+          title: '良いコード／悪いコードで学ぶ設計入門',
+        }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.post('*/api/admin/books', () => HttpResponse.json({ id: 1 })),
       // 戻り先の一覧画面（本の一覧管理）の描画を確かめるのが目的ではないので、
       // faker の乱数（評価が1〜5の範囲外になり得る）に頼らず空の一覧にする
       http.get('*/api/books', () =>
@@ -147,9 +152,11 @@ describe('AdminBookNewRoute', () => {
     const user = userEvent.setup()
     let calls = 0
     server.use(
-      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.post('*/api/books', () => {
+      getLookupCatalogMockHandler(
+        createCatalogFixture({ isbn: '9784297146221', title: '本' }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.post('*/api/admin/books', () => {
         calls += 1
         return HttpResponse.json(
           {
@@ -182,11 +189,13 @@ describe('AdminBookNewRoute', () => {
   it('カタログに無いISBNと無いタグの400は、両方を項目の下に出し、要約に2か所と出す', async () => {
     const user = userEvent.setup()
     server.use(
-      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
-      getGetApiTagsMockHandler({
+      getLookupCatalogMockHandler(
+        createCatalogFixture({ isbn: '9784297146221', title: '本' }),
+      ),
+      getSearchTagsMockHandler({
         items: [{ id: 9, name: '設計', version: 1 }],
       }),
-      http.post('*/api/books', () =>
+      http.post('*/api/admin/books', () =>
         HttpResponse.json(
           {
             message: 'invalid request',
@@ -226,9 +235,11 @@ describe('AdminBookNewRoute', () => {
   it('サーバーのフィールドエラーを項目の文言として出す', async () => {
     const user = userEvent.setup()
     server.use(
-      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.post('*/api/books', () =>
+      getLookupCatalogMockHandler(
+        createCatalogFixture({ isbn: '9784297146221', title: '本' }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.post('*/api/admin/books', () =>
         HttpResponse.json(
           {
             message: 'invalid',
@@ -255,9 +266,11 @@ describe('AdminBookNewRoute', () => {
   it('登録に失敗しても入力した値は消えない', async () => {
     const user = userEvent.setup()
     server.use(
-      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.post('*/api/books', () =>
+      getLookupCatalogMockHandler(
+        createCatalogFixture({ isbn: '9784297146221', title: '本' }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.post('*/api/admin/books', () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )

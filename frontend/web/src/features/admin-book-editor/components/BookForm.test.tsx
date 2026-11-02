@@ -8,8 +8,8 @@ import type { BookFormValues } from '@/features/admin-book-editor/types'
 import { BookForm } from './BookForm'
 
 const tags: TagResponse[] = [
-  { id: 1, name: '設計' },
-  { id: 2, name: 'データ' },
+  { id: 1, name: '設計', version: 1 },
+  { id: 2, name: 'データ', version: 1 },
 ]
 
 function Wrapper({

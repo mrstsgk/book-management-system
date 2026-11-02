@@ -1,9 +1,9 @@
 import {
-  useDeleteApiTagsId,
-  useGetApiTags,
-  useGetApiTagsCounts,
-  usePostApiTags,
-  usePutApiTagsId,
+  useDeleteTag,
+  useSearchTags,
+  useCountBooks,
+  useRegisterTag,
+  useRenameTag,
 } from '@/api/generated/api'
 import { ApiError } from '@/api/mutator'
 import { useLoginRedirect } from '@/hooks/useLoginRedirect'
@@ -24,11 +24,11 @@ function nameError(e: unknown): string | undefined {
 
 export function useAdminTags() {
   const redirectIfUnauthorized = useLoginRedirect()
-  const tags = useGetApiTags()
-  const counts = useGetApiTagsCounts()
-  const addMutation = usePostApiTags()
-  const renameMutation = usePutApiTagsId()
-  const deleteMutation = useDeleteApiTagsId()
+  const tags = useSearchTags()
+  const counts = useCountBooks()
+  const addMutation = useRegisterTag()
+  const renameMutation = useRenameTag()
+  const deleteMutation = useDeleteTag()
 
   const refetchList = () => {
     void tags.refetch()

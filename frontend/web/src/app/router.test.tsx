@@ -44,7 +44,7 @@ describe('AppRoutes', () => {
 
   it('未ログインで /admin を開くとログイン画面へ送る', async () => {
     server.use(
-      http.get('*/api/auth/session', () =>
+      http.get('*/api/admin/auth/session', () =>
         HttpResponse.json({ message: 'x' }, { status: 401 }),
       ),
     )
