@@ -27,7 +27,7 @@ function Probe() {
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter initialEntries={['/admin/x']}>
+      <MemoryRouter initialEntries={['/x']}>
         <Probe />
         {children}
       </MemoryRouter>
@@ -70,7 +70,7 @@ describe('useBookEditor', () => {
   it('ID が不正なら見つからない扱いにし、API を呼ばない', () => {
     let called = false
     server.use(
-      http.get('*/api/books/:id', () => {
+      http.get('*/api/admin/books/:id', () => {
         called = true
         return HttpResponse.json({})
       }),
@@ -83,7 +83,7 @@ describe('useBookEditor', () => {
 
   it('API が404なら見つからない扱いにする', async () => {
     server.use(
-      http.get('*/api/books/:id', () =>
+      http.get('*/api/admin/books/:id', () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 }),
       ),
     )
@@ -187,7 +187,7 @@ describe('useBookEditor', () => {
   it('最新を読み込むと、競合を解いて取り直した値になる', async () => {
     let getCalls = 0
     server.use(
-      http.get('*/api/books/:id', () => {
+      http.get('*/api/admin/books/:id', () => {
         getCalls += 1
         return HttpResponse.json({
           id: 1,
@@ -246,7 +246,7 @@ describe('useBookEditor', () => {
     let getCalls = 0
     let sentVersion: number | undefined
     server.use(
-      http.get('*/api/books/:id', () => {
+      http.get('*/api/admin/books/:id', () => {
         getCalls += 1
         return HttpResponse.json({
           id: 1,
@@ -303,8 +303,8 @@ describe('useBookEditor', () => {
 
     act(() => result.current.submit())
 
-    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
-    expect(current.state).toEqual({ from: '/admin/x' })
+    await waitFor(() => expect(current.pathname).toBe('/login'))
+    expect(current.state).toEqual({ from: '/x' })
   })
 
   it('削除が401ならログイン画面へ送り、削除エラーを出さない', async () => {
@@ -323,8 +323,8 @@ describe('useBookEditor', () => {
     act(() => result.current.openDelete())
     act(() => result.current.confirmDelete())
 
-    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
-    expect(current.state).toEqual({ from: '/admin/x' })
+    await waitFor(() => expect(current.pathname).toBe('/login'))
+    expect(current.state).toEqual({ from: '/x' })
     expect(result.current.deleteError).toBeUndefined()
   })
 
@@ -391,7 +391,7 @@ describe('useBookEditor', () => {
   it('取得・保存・削除の要求にAuthorizationヘッダを付けない（認証はCookie）', async () => {
     const auth: Record<string, string | null> = {}
     server.use(
-      http.get('*/api/books/:id', ({ request }) => {
+      http.get('*/api/admin/books/:id', ({ request }) => {
         auth.get = request.headers.get('authorization')
         return HttpResponse.json({
           id: 1,

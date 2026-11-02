@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
-const testOrigin = 'http://localhost:3000'
+const testOrigin = 'http://localhost:3001'
 
 export default defineConfig({
   plugins: [react()],
@@ -14,16 +14,12 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 3001,
     proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
+      '/api/admin': {
+        target: 'http://localhost:8081',
         // Host を書き換えない: バックエンドの Origin 検証（RequireSameOrigin）が
-        // Origin と Host を比べるため、ブラウザの localhost:3000 のまま届ける
-        changeOrigin: false,
-      },
-      '/health': {
-        target: 'http://localhost:8080',
+        // Origin と Host を比べるため、ブラウザの localhost:3001 のまま届ける
         changeOrigin: false,
       },
     },

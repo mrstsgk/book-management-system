@@ -17,7 +17,7 @@ function makeWrapper(state?: unknown) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={createQueryClient()}>
-        <MemoryRouter initialEntries={[{ pathname: '/admin/login', state }]}>
+        <MemoryRouter initialEntries={[{ pathname: '/login', state }]}>
           <Probe />
           <Routes>
             <Route path="*" element={children} />
@@ -61,15 +61,15 @@ describe('useLoginForm', () => {
   it('成功したら from へ戻る', async () => {
     serveLogin(204)
     const { result } = renderHook(() => useLoginForm(), {
-      wrapper: makeWrapper({ from: '/admin/tags' }),
+      wrapper: makeWrapper({ from: '/tags' }),
     })
     act(() => result.current.setId('admin'))
     act(() => result.current.setPassword('pw'))
     act(() => result.current.submit())
-    await waitFor(() => expect(pathname).toBe('/admin/tags'))
+    await waitFor(() => expect(pathname).toBe('/tags'))
   })
 
-  it('from が無ければ /admin へ', async () => {
+  it('from が無ければ /books へ', async () => {
     serveLogin(204)
     const { result } = renderHook(() => useLoginForm(), {
       wrapper: makeWrapper(),
@@ -77,7 +77,7 @@ describe('useLoginForm', () => {
     act(() => result.current.setId('admin'))
     act(() => result.current.setPassword('pw'))
     act(() => result.current.submit())
-    await waitFor(() => expect(pathname).toBe('/admin'))
+    await waitFor(() => expect(pathname).toBe('/books'))
   })
 
   it.each([
@@ -93,7 +93,7 @@ describe('useLoginForm', () => {
     act(() => result.current.setPassword('pw'))
     act(() => result.current.submit())
     await waitFor(() => expect(result.current.error).toBe(message))
-    expect(pathname).toBe('/admin/login')
+    expect(pathname).toBe('/login')
     // 失敗しても入力は消えない
     expect(result.current.id).toBe('admin')
   })

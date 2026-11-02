@@ -64,7 +64,7 @@ describe('useAdminBooksList', () => {
   it('読み込みに失敗したら isError を返し、retry で取り直す', async () => {
     let calls = 0
     server.use(
-      http.get('*/api/books', () => {
+      http.get('*/api/admin/books', () => {
         calls += 1
         return calls === 1
           ? HttpResponse.json({ message: 'boom' }, { status: 500 })

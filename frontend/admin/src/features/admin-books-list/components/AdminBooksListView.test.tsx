@@ -55,7 +55,7 @@ describe('AdminBooksListView', () => {
     expect(within(row).getByText('記入済み')).toBeVisible()
     expect(within(row).getByRole('link', { name: '編集' })).toHaveAttribute(
       'href',
-      '/admin/books/7/edit',
+      '/books/7/edit',
     )
   })
 
@@ -72,7 +72,7 @@ describe('AdminBooksListView', () => {
 
     expect(screen.getByRole('link', { name: /本を登録/ })).toHaveAttribute(
       'href',
-      '/admin/books/new',
+      '/books/new',
     )
   })
 

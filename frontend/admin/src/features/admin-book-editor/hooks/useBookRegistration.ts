@@ -53,7 +53,7 @@ export function useBookRegistration() {
   // ISBN の確認もログイン済みでないと通らない。画面を開いたままセッションが切れた場合、
   // 一般エラーで止めずに登録と同じくログイン画面へ送る。
   // redirectIfUnauthorized は現在地が変わるたびに別の関数になるため effect の依存にしない
-  // （依存にすると、遷移後の現在地で二度目の遷移が走り state.from が /admin/login になる）
+  // （依存にすると、遷移後の現在地で二度目の遷移が走り state.from が /login になる）
   const catalogError = catalogQuery.error
   const onCatalogError = useEffectEvent((error: ApiError) => {
     redirectIfUnauthorized(error)
@@ -95,7 +95,7 @@ export function useBookRegistration() {
         onError: redirectIfUnauthorized,
         onSuccess: () => {
           setRegistered(true)
-          navigate('/admin', { state: { notice: '本を登録しました' } })
+          navigate('/books', { state: { notice: '本を登録しました' } })
         },
       },
     )

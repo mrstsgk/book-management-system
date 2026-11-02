@@ -13,21 +13,25 @@ interface AdminLayoutProps {
   logoutFailed?: boolean
 }
 
+// 本番は VITE_PUBLIC_SITE_URL で公開画面の URL を渡す。ローカルの開発サーバーの既定値は :3000
+const publicSiteUrl =
+  import.meta.env.VITE_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+
 export function AdminLayout({
   onLogout,
   logoutFailed = false,
 }: AdminLayoutProps) {
   const { pathname } = useLocation()
-  // 「本」は一覧・登録・編集のどれでも今いる画面にする（NavLink の前方一致だと /admin/tags まで当たる）
-  const onBooks = pathname === '/admin' || pathname.startsWith('/admin/books')
-  const onTags = pathname.startsWith('/admin/tags')
+  // 「本」は一覧・登録・編集のどれでも今いる画面にする（NavLink の前方一致だと /tags まで当たる）
+  const onBooks = pathname === '/books' || pathname.startsWith('/books')
+  const onTags = pathname.startsWith('/tags')
 
   return (
     <div className="flex min-h-full flex-col bg-ink-100">
       <header className="sticky top-0 z-40 bg-ink-900 text-white">
         <div className="container-wide flex h-14 items-center gap-6 md:h-16 md:gap-10">
           <Link
-            to="/admin"
+            to="/books"
             className="flex items-center gap-2.5 text-lg font-bold"
           >
             読んだ本
@@ -40,23 +44,27 @@ export function AdminLayout({
             className="flex h-full flex-1 gap-5 text-sm md:gap-7 md:text-[15px]"
           >
             <Link
-              to="/admin"
+              to="/books"
               aria-current={onBooks ? 'page' : undefined}
               className={navClass(onBooks)}
             >
               本
             </Link>
             <Link
-              to="/admin/tags"
+              to="/tags"
               aria-current={onTags ? 'page' : undefined}
               className={navClass(onTags)}
             >
               タグ
             </Link>
           </nav>
-          <Link to="/" className="text-sm text-ink-300 hover:text-white">
+          {/* 公開画面は別のアプリ（frontend/public）なので、ルーターの Link ではなく URL で開く */}
+          <a
+            href={publicSiteUrl}
+            className="text-sm text-ink-300 hover:text-white"
+          >
             公開画面を見る
-          </Link>
+          </a>
           <button
             type="button"
             onClick={onLogout}

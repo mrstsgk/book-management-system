@@ -12,7 +12,7 @@ async function findAdminNav() {
 }
 
 describe('AdminLayout', () => {
-  // /admin の本一覧は faker の乱数データに頼らず、空の一覧に固定する
+  // /books の本一覧は faker の乱数データに頼らず、空の一覧に固定する
   beforeEach(() => {
     server.use(
       getSearchBooksMockHandler({ items: [], total: 0, limit: 20, offset: 0 }),
@@ -20,10 +20,10 @@ describe('AdminLayout', () => {
   })
 
   it.each([
-    ['/admin', '本'],
-    ['/admin/books/new', '本'],
-    ['/admin/books/1/edit', '本'],
-    ['/admin/tags', 'タグ'],
+    ['/books', '本'],
+    ['/books/new', '本'],
+    ['/books/1/edit', '本'],
+    ['/tags', 'タグ'],
   ])('%s では「%s」を今いる画面にする', async (route, current) => {
     renderWithProviders(<AppRoutes />, { route })
 
@@ -39,21 +39,21 @@ describe('AdminLayout', () => {
   })
 
   it('管理画面の印と、公開画面へのリンクを出し、公開画面のナビは出さない', async () => {
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    renderWithProviders(<AppRoutes />, { route: '/books' })
 
     const nav = within(await findAdminNav())
     expect(nav.getByRole('link', { name: '本' })).toHaveAttribute(
       'href',
-      '/admin',
+      '/books',
     )
     expect(nav.getByRole('link', { name: 'タグ' })).toHaveAttribute(
       'href',
-      '/admin/tags',
+      '/tags',
     )
     expect(screen.getByText('管理')).toBeVisible()
     expect(
       screen.getByRole('link', { name: '公開画面を見る' }),
-    ).toHaveAttribute('href', '/')
+    ).toHaveAttribute('href', 'http://localhost:3000')
     expect(
       screen.queryByRole('navigation', { name: 'メイン' }),
     ).not.toBeInTheDocument()
@@ -73,7 +73,7 @@ describe('AdminLayout', () => {
           : new HttpResponse(null, { status: 204 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    renderWithProviders(<AppRoutes />, { route: '/books' })
     await userEvent.click(
       await screen.findByRole('button', { name: 'ログアウト' }),
     )
@@ -89,7 +89,7 @@ describe('AdminLayout', () => {
         HttpResponse.json({ message: 'internal' }, { status: 500 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    renderWithProviders(<AppRoutes />, { route: '/books' })
     await userEvent.click(
       await screen.findByRole('button', { name: 'ログアウト' }),
     )

@@ -27,7 +27,7 @@ function Probe() {
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter initialEntries={['/admin/x']}>
+      <MemoryRouter initialEntries={['/x']}>
         <Probe />
         {children}
       </MemoryRouter>
@@ -250,8 +250,8 @@ describe('useBookRegistration', () => {
     act(() => result.current.setIsbn('9784297146221'))
     act(() => result.current.confirm())
 
-    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
-    expect(current.state).toEqual({ from: '/admin/x' })
+    await waitFor(() => expect(current.pathname).toBe('/login'))
+    expect(current.state).toEqual({ from: '/x' })
   })
 
   it('登録が401ならログイン画面へ送る', async () => {
@@ -279,8 +279,8 @@ describe('useBookRegistration', () => {
     )
     act(() => result.current.submit())
 
-    await waitFor(() => expect(current.pathname).toBe('/admin/login'))
-    expect(current.state).toEqual({ from: '/admin/x' })
+    await waitFor(() => expect(current.pathname).toBe('/login'))
+    expect(current.state).toEqual({ from: '/x' })
   })
 
   it('フィールドエラーの400は summary の誤りとして返す', async () => {

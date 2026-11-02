@@ -19,7 +19,7 @@ interface AdminBooksListViewProps {
 
 const registerLink = (
   <Link
-    to="/admin/books/new"
+    to="/books/new"
     className="inline-flex h-12 items-center rounded-lg bg-brand-700 px-6 font-bold text-white hover:bg-brand-800"
   >
     ＋ 本を登録
@@ -102,7 +102,7 @@ function BooksTable({
                   : '未記入'}
               </td>
               <td className="px-5 py-4 text-right">
-                <Link to={`/admin/books/${book.id}/edit`} className="font-bold">
+                <Link to={`/books/${book.id}/edit`} className="font-bold">
                   編集
                 </Link>
               </td>

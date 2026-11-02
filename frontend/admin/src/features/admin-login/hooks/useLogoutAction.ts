@@ -16,7 +16,7 @@ export function useLogoutAction() {
       onSuccess: () => {
         // セッション確認の結果（ログイン済み）を捨てる。残すとログイン画面がそれを見て管理画面へ戻してしまう
         queryClient.removeQueries({ queryKey: getCheckSessionQueryKey() })
-        navigate('/admin/login', { replace: true })
+        navigate('/login', { replace: true })
       },
     })
   }

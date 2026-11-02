@@ -7,6 +7,7 @@ import {
   login,
   registerBook,
   tagRow,
+  PUBLIC_URL,
 } from './helpers'
 
 // Real World HTTP（openBD に書誌あり）。本のライフサイクル spec とは別の ISBN を使う。
@@ -43,19 +44,19 @@ test.describe('タグのライフサイクル', () => {
       })
 
       // 追加
-      await page.goto('/admin/tags')
+      await page.goto('/tags')
       await page.getByLabel('タグを追加 （必須）').fill(TAG_NAME)
       await page.getByRole('button', { name: '追加' }).click()
       await expect(tagRow(page, TAG_NAME)).toBeVisible()
 
       // 本への付与（編集画面のチェックボックスから）
-      await page.goto(`/admin/books/${bookId}/edit`)
+      await page.goto(`/books/${bookId}/edit`)
       await clickPillOption(page, TAG_NAME)
       await page.getByRole('button', { name: '保存する' }).click()
-      await expect(page).toHaveURL('/admin')
+      await expect(page).toHaveURL('/books')
 
       // 分野別の集計に反映され、そこから絞り込んだ一覧へ移れる
-      await page.goto('/tags')
+      await page.goto(`${PUBLIC_URL}/tags`)
       const tagLink = page.getByRole('link', {
         name: `${TAG_NAME} 1冊`,
         exact: true,
@@ -68,7 +69,7 @@ test.describe('タグのライフサイクル', () => {
       ).toBeVisible()
 
       // 名前変更が一覧・編集画面・公開詳細・分野別の集計すべてに反映される
-      await page.goto('/admin/tags')
+      await page.goto('/tags')
       await tagRow(page, TAG_NAME)
         .getByRole('button', { name: '名前を変更' })
         .click()
@@ -80,17 +81,17 @@ test.describe('タグのライフサイクル', () => {
       await tagRow(page, TAG_NAME).getByRole('button', { name: '保存' }).click()
       await expect(tagRow(page, TAG_NAME_RENAMED)).toBeVisible()
 
-      await page.goto(`/admin/books/${bookId}/edit`)
+      await page.goto(`/books/${bookId}/edit`)
       await expect(
         page.getByRole('checkbox', { name: TAG_NAME_RENAMED, exact: true }),
       ).toBeChecked()
 
-      await page.goto(`/books/${bookId}`)
+      await page.goto(`${PUBLIC_URL}/books/${bookId}`)
       await expect(
         page.getByText(TAG_NAME_RENAMED, { exact: true }),
       ).toBeVisible()
 
-      await page.goto('/tags')
+      await page.goto(`${PUBLIC_URL}/tags`)
       await expect(
         page.getByRole('link', {
           name: `${TAG_NAME_RENAMED} 1冊`,
@@ -99,7 +100,7 @@ test.describe('タグのライフサイクル', () => {
       ).toBeVisible()
 
       // 削除すると、本からもタグが外れる
-      await page.goto('/admin/tags')
+      await page.goto('/tags')
       await tagRow(page, TAG_NAME_RENAMED)
         .getByRole('button', { name: '削除' })
         .click()
@@ -110,7 +111,7 @@ test.describe('タグのライフサイクル', () => {
       await dialog.getByRole('button', { name: '削除する' }).click()
       await expect(tagRow(page, TAG_NAME_RENAMED)).toHaveCount(0)
 
-      await page.goto(`/books/${bookId}`)
+      await page.goto(`${PUBLIC_URL}/books/${bookId}`)
       await expect(
         page.getByText(TAG_NAME_RENAMED, { exact: true }),
       ).toHaveCount(0)

@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "admin",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,8 +11,6 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "preview": "vite preview",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build",
     "gen:api": "orval"
   },
   "dependencies": {
@@ -27,9 +25,6 @@
   "devDependencies": {
     "@faker-js/faker": "^10.6.0",
     "@playwright/test": "^1.64.1",
-    "@storybook/addon-a11y": "^10.6.5",
-    "@storybook/addon-docs": "^10.6.5",
-    "@storybook/react-vite": "^10.6.5",
     "@tailwindcss/container-queries": "^0.1.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
@@ -43,7 +38,6 @@
     "msw": "^2.15.0",
     "orval": "^8.46.0",
     "postcss": "^8.5.32",
-    "storybook": "^10.6.5",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.3",
     "vite": "^8.3.5",

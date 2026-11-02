@@ -16,7 +16,7 @@ export function useSession() {
     },
     retry: false,
     staleTime: Infinity,
-    // ガードが外れたら結果を捨てる: ログアウト後や期限切れ後に /admin へ戻ったとき、古い ok を使い回さず取り直す
+    // ガードが外れたら結果を捨てる: ログアウト後や期限切れ後に /books へ戻ったとき、古い ok を使い回さず取り直す
     gcTime: 0,
   })
   const status: SessionStatus = query.isPending

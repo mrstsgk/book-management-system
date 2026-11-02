@@ -36,9 +36,9 @@ function serveBooks(total = 25) {
 }
 
 describe('AdminBooksListRoute', () => {
-  it('/admin を開くと読み込み中のあと先頭20冊と冊数を表を出す', async () => {
+  it('/books を開くと読み込み中のあと先頭20冊と冊数を表を出す', async () => {
     serveBooks()
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    renderWithProviders(<AppRoutes />, { route: '/books' })
 
     expect(screen.getByRole('status')).toHaveTextContent('読み込み中…')
     expect(await screen.findByText('25冊中 20冊を表示')).toBeVisible()
@@ -47,7 +47,7 @@ describe('AdminBooksListRoute', () => {
 
   it('「もっと見る」で続きを読み、最後まで読んだらボタンが消える', async () => {
     serveBooks()
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    renderWithProviders(<AppRoutes />, { route: '/books' })
 
     await userEvent.click(
       await screen.findByRole('button', { name: 'もっと見る' }),
@@ -63,7 +63,7 @@ describe('AdminBooksListRoute', () => {
     serveBooks(0)
     renderWithProviders(<AppRoutes />, {
       route: {
-        pathname: '/admin',
+        pathname: '/books',
         state: { notice: '「本1」を削除しました。' },
       },
     })
@@ -76,7 +76,7 @@ describe('AdminBooksListRoute', () => {
 
   it('0件ならまだ本が無いことを伝える', async () => {
     serveBooks(0)
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    renderWithProviders(<AppRoutes />, { route: '/books' })
 
     expect(await screen.findByText('まだ本が登録されていません')).toBeVisible()
   })
@@ -84,14 +84,14 @@ describe('AdminBooksListRoute', () => {
   it('API がエラーなら伝え、再試行すると取得し直す', async () => {
     let calls = 0
     server.use(
-      http.get('*/api/books', () => {
+      http.get('*/api/admin/books', () => {
         calls += 1
         return calls === 1
           ? HttpResponse.json({ message: 'boom' }, { status: 500 })
           : HttpResponse.json({ offset: 0, limit: 20, total: 0, items: [] })
       }),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    renderWithProviders(<AppRoutes />, { route: '/books' })
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '本の一覧を読み込めませんでした',
@@ -104,12 +104,12 @@ describe('AdminBooksListRoute', () => {
 
   it('各行の編集リンクは対応する本の編集画面を指す', async () => {
     serveBooks(1)
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    renderWithProviders(<AppRoutes />, { route: '/books' })
 
     const row = await screen.findByRole('row', { name: /本1/ })
     expect(within(row).getByRole('link', { name: '編集' })).toHaveAttribute(
       'href',
-      '/admin/books/1/edit',
+      '/books/1/edit',
     )
   })
 })

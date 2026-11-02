@@ -1,13 +1,13 @@
 import { defineConfig } from 'orval'
 
 export default defineConfig({
-  web: {
-    // API 契約の正本 openapi/ をバンドルしたもの（BE の oapi-codegen と同じ入力。手編集しない）
-    input: '../../openapi/dist/web.yaml',
+  admin: {
+    // 管理チャネルの API 契約 openapi/ をバンドルしたもの（BE の oapi-codegen と同じ入力。手編集しない）
+    input: '../../openapi/dist/admin.yaml',
     output: {
       mode: 'split',
       target: 'src/api/generated/api.ts',
-      // 削除されたエンドポイントの生成物を残さない。zod/ は webZod の出力先なので消さない
+      // 削除されたエンドポイントの生成物を残さない。zod/ は adminZod の出力先なので消さない
       clean: ['**', '!zod', '!zod/**'],
       client: 'react-query',
       httpClient: 'fetch',
@@ -27,8 +27,8 @@ export default defineConfig({
     },
   },
   // フォームの入力チェック用。OpenAPI の制約（required・長さ・範囲・形式）から zod スキーマを生成する
-  webZod: {
-    input: '../../openapi/dist/web.yaml',
+  adminZod: {
+    input: '../../openapi/dist/admin.yaml',
     output: {
       mode: 'split',
       target: 'src/api/generated/zod/api.ts',

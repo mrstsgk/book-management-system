@@ -26,7 +26,7 @@ function Probe() {
 function wrapper({ children }: { children: ReactNode }) {
   return createElement(
     MemoryRouter,
-    { initialEntries: ['/admin/tags'] },
+    { initialEntries: ['/tags'] },
     createElement(Probe),
     createElement(
       QueryClientProvider,
@@ -112,8 +112,8 @@ describe('useAdminTags', () => {
     })
 
     expect(outcome).toEqual({ ok: false, message: 'ログインしてください' })
-    expect(current.pathname).toBe('/admin/login')
-    expect(current.state).toEqual({ from: '/admin/tags' })
+    expect(current.pathname).toBe('/login')
+    expect(current.state).toEqual({ from: '/tags' })
   })
 
   it('同じ名前が既にあれば（400 の tagNameDuplicated）名前の誤りの文言にする', async () => {

@@ -14,7 +14,7 @@ export function AdminLoginRoute() {
   if (status === 'ok') {
     // useLoginRedirect / AdminGuard が state.from に元の場所を入れる
     const from = (location.state as { from?: string } | null)?.from
-    return <Navigate to={from ?? '/admin'} replace />
+    return <Navigate to={from ?? '/books'} replace />
   }
   return (
     <main className="flex min-h-full flex-col items-center justify-center gap-8 px-4 py-16">

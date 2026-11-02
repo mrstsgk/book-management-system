@@ -31,7 +31,7 @@ describe('AdminBookNewRoute', () => {
       ),
       getSearchTagsMockHandler({ items: [] }),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
 
     await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
@@ -51,7 +51,7 @@ describe('AdminBookNewRoute', () => {
       ),
       getSearchTagsMockHandler({ items: [] }),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
 
     await user.type(await screen.findByLabelText(/ISBN/), '9780000000000')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
@@ -74,7 +74,7 @@ describe('AdminBookNewRoute', () => {
       ),
       getSearchTagsMockHandler({ items: [] }),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
 
     await user.type(await screen.findByLabelText(/ISBN/), '9784000000001')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
@@ -99,7 +99,7 @@ describe('AdminBookNewRoute', () => {
       ),
       getSearchTagsMockHandler({ items: [] }),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
 
     await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
@@ -112,7 +112,7 @@ describe('AdminBookNewRoute', () => {
   })
 
   it('確かめる前は登録するボタンを押せない', async () => {
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
 
     expect(
       await screen.findByRole('button', { name: '登録する' }),
@@ -132,11 +132,11 @@ describe('AdminBookNewRoute', () => {
       http.post('*/api/admin/books', () => HttpResponse.json({ id: 1 })),
       // 戻り先の一覧画面（本の一覧管理）の描画を確かめるのが目的ではないので、
       // faker の乱数（評価が1〜5の範囲外になり得る）に頼らず空の一覧にする
-      http.get('*/api/books', () =>
+      http.get('*/api/admin/books', () =>
         HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
     await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
     await screen.findByText('良いコード／悪いコードで学ぶ設計入門')
@@ -144,7 +144,7 @@ describe('AdminBookNewRoute', () => {
     await fillValidForm(user)
     await user.click(screen.getByRole('button', { name: '登録する' }))
 
-    // /admin へ戻り、一覧（本の一覧管理画面）に完了のお知らせが出る
+    // /books へ戻り、一覧（本の一覧管理画面）に完了のお知らせが出る
     expect(await screen.findByText('本を登録しました')).toBeVisible()
   })
 
@@ -167,7 +167,7 @@ describe('AdminBookNewRoute', () => {
         )
       }),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
     await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
     await screen.findByText('本', { selector: 'dd' })
@@ -208,7 +208,7 @@ describe('AdminBookNewRoute', () => {
         ),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
     await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
     await screen.findByText('本', { selector: 'dd' })
@@ -249,7 +249,7 @@ describe('AdminBookNewRoute', () => {
         ),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
     await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
     await screen.findByText('本', { selector: 'dd' })
@@ -274,7 +274,7 @@ describe('AdminBookNewRoute', () => {
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/new' })
+    renderWithProviders(<AppRoutes />, { route: '/books/new' })
     await user.type(await screen.findByLabelText(/ISBN/), '9784297146221')
     await user.click(screen.getByRole('button', { name: '確かめる' }))
     await screen.findByText('本', { selector: 'dd' })

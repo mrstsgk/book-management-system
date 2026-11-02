@@ -17,7 +17,7 @@ function loggedOut() {
 
 describe('AdminLoginRoute', () => {
   it('ログイン済みで開くと、フォームを出さずに管理画面へ移る', async () => {
-    renderWithProviders(<AppRoutes />, { route: '/admin/login' })
+    renderWithProviders(<AppRoutes />, { route: '/login' })
 
     expect(
       await screen.findByRole('navigation', { name: '管理メニュー' }),
@@ -29,7 +29,7 @@ describe('AdminLoginRoute', () => {
 
   it('ログイン済みで元の場所（from）付きで開くと、その場所へ移る', async () => {
     renderWithProviders(<AppRoutes />, {
-      route: { pathname: '/admin/login', state: { from: '/admin/tags' } },
+      route: { pathname: '/login', state: { from: '/tags' } },
     })
 
     expect(
@@ -41,7 +41,7 @@ describe('AdminLoginRoute', () => {
     server.use(
       http.get('*/api/admin/auth/session', () => new Promise(() => {})),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/login' })
+    renderWithProviders(<AppRoutes />, { route: '/login' })
 
     expect(screen.getByRole('status')).toHaveTextContent('読み込み中…')
     expect(
@@ -55,14 +55,14 @@ describe('AdminLoginRoute', () => {
         HttpResponse.json({ message: 'internal' }, { status: 500 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/login' })
+    renderWithProviders(<AppRoutes />, { route: '/login' })
 
     expect(
       await screen.findByRole('heading', { name: '管理画面にログイン' }),
     ).toBeVisible()
   })
 
-  it('/admin/login で ID とパスワードを入れてログインすると /admin の管理画面へ移る', async () => {
+  it('/login で ID とパスワードを入れてログインすると /books の管理画面へ移る', async () => {
     loggedOut()
     server.use(
       http.post(
@@ -70,7 +70,7 @@ describe('AdminLoginRoute', () => {
         () => new HttpResponse(null, { status: 204 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/login' })
+    renderWithProviders(<AppRoutes />, { route: '/login' })
 
     expect(
       await screen.findByRole('heading', { name: '管理画面にログイン' }),
@@ -98,7 +98,7 @@ describe('AdminLoginRoute', () => {
         HttpResponse.json({ message: 'unauthorized' }, { status: 401 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/login' })
+    renderWithProviders(<AppRoutes />, { route: '/login' })
 
     await userEvent.type(await screen.findByLabelText('ID （必須）'), 'admin')
     await userEvent.type(screen.getByLabelText('パスワード （必須）'), 'bad')

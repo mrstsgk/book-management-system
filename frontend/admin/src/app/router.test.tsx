@@ -6,20 +6,8 @@ import { server } from '@/testing/server'
 import { AppRoutes } from './router'
 
 describe('AppRoutes', () => {
-  it('知らない path ではページが見つからないことを伝え、一覧へ戻れる', () => {
-    renderWithProviders(<AppRoutes />, { route: '/unknown' })
-
-    expect(
-      screen.getByRole('heading', { name: 'ページが見つかりませんでした' }),
-    ).toBeVisible()
-    expect(screen.getByRole('link', { name: '一覧へ戻る' })).toHaveAttribute(
-      'href',
-      '/',
-    )
-  })
-
   it('管理画面の知らない path では、管理画面のレイアウトのままページが見つからないことを伝える', async () => {
-    renderWithProviders(<AppRoutes />, { route: '/admin/unknown' })
+    renderWithProviders(<AppRoutes />, { route: '/unknown' })
 
     expect(
       await screen.findByRole('heading', {
@@ -31,13 +19,13 @@ describe('AppRoutes', () => {
     ).toBeVisible()
   })
 
-  it('未ログインで /admin/login を開くと管理画面のレイアウトの外でログイン画面を出す', async () => {
+  it('未ログインで /login を開くと管理画面のレイアウトの外でログイン画面を出す', async () => {
     server.use(
       http.get('*/api/admin/auth/session', () =>
         HttpResponse.json({ message: 'x' }, { status: 401 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/login' })
+    renderWithProviders(<AppRoutes />, { route: '/login' })
 
     expect(
       await screen.findByRole('heading', { name: '管理画面にログイン' }),
@@ -47,13 +35,13 @@ describe('AppRoutes', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('未ログインで /admin を開くとログイン画面へ送る', async () => {
+  it('未ログインで /books を開くとログイン画面へ送る', async () => {
     server.use(
       http.get('*/api/admin/auth/session', () =>
         HttpResponse.json({ message: 'x' }, { status: 401 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin' })
+    renderWithProviders(<AppRoutes />, { route: '/books' })
 
     expect(
       await screen.findByRole('heading', { name: '管理画面にログイン' }),

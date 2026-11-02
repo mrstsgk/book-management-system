@@ -16,7 +16,7 @@ function Probe() {
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter initialEntries={['/admin/tags']}>
+      <MemoryRouter initialEntries={['/tags']}>
         <Probe />
         <Routes>
           <Route path="*" element={children} />
@@ -27,7 +27,7 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('useLogoutAction', () => {
-  it('POST /api/admin/auth/logout を呼び、成功したら /admin/login へ', async () => {
+  it('POST /api/admin/auth/logout を呼び、成功したら /login へ', async () => {
     let called = false
     server.use(
       http.post('*/api/admin/auth/logout', () => {
@@ -37,7 +37,7 @@ describe('useLogoutAction', () => {
     )
     const { result } = renderHook(() => useLogoutAction(), { wrapper })
     act(() => result.current.logout())
-    await waitFor(() => expect(pathname).toBe('/admin/login'))
+    await waitFor(() => expect(pathname).toBe('/login'))
     expect(called).toBe(true)
   })
 
@@ -53,11 +53,11 @@ describe('useLogoutAction', () => {
     const { result } = renderHook(() => useLogoutAction(), { wrapper })
     act(() => result.current.logout())
     await waitFor(() => expect(result.current.failed).toBe(true))
-    expect(pathname).toBe('/admin/tags')
+    expect(pathname).toBe('/tags')
 
     status = 204
     act(() => result.current.logout())
-    await waitFor(() => expect(pathname).toBe('/admin/login'))
+    await waitFor(() => expect(pathname).toBe('/login'))
     expect(result.current.failed).toBe(false)
   })
 })

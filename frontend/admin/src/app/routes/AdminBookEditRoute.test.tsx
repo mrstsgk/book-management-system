@@ -34,7 +34,7 @@ describe('AdminBookEditRoute', () => {
         ],
       }),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/1/edit' })
+    renderWithProviders(<AppRoutes />, { route: '/books/1/edit' })
 
     expect(
       await screen.findByRole('heading', { level: 1, name: '本を編集' }),
@@ -48,11 +48,11 @@ describe('AdminBookEditRoute', () => {
 
   it('存在しない本なら見つからないことを伝える', async () => {
     server.use(
-      http.get('*/api/books/:id', () =>
+      http.get('*/api/admin/books/:id', () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/99/edit' })
+    renderWithProviders(<AppRoutes />, { route: '/books/99/edit' })
 
     expect(
       await screen.findByText('この本は見つかりませんでした'),
@@ -76,11 +76,11 @@ describe('AdminBookEditRoute', () => {
       http.put('*/api/admin/books/:id', () => HttpResponse.json({ id: 1 })),
       // 戻り先の一覧画面（本の一覧管理）の描画を確かめるのが目的ではないので、
       // faker の乱数（評価が1〜5の範囲外になり得る）に頼らず空の一覧にする
-      http.get('*/api/books', () =>
+      http.get('*/api/admin/books', () =>
         HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/1/edit' })
+    renderWithProviders(<AppRoutes />, { route: '/books/1/edit' })
     await screen.findByRole('heading', { level: 1, name: '本を編集' })
 
     await user.click(screen.getByRole('button', { name: '保存する' }))
@@ -92,7 +92,7 @@ describe('AdminBookEditRoute', () => {
     const user = userEvent.setup()
     let getCalls = 0
     server.use(
-      http.get('*/api/books/:id', () => {
+      http.get('*/api/admin/books/:id', () => {
         getCalls += 1
         return HttpResponse.json({
           id: 1,
@@ -108,7 +108,7 @@ describe('AdminBookEditRoute', () => {
         HttpResponse.json({ message: 'conflict' }, { status: 409 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/1/edit' })
+    renderWithProviders(<AppRoutes />, { route: '/books/1/edit' })
     await screen.findByRole('heading', { level: 1, name: '本を編集' })
 
     await user.click(screen.getByRole('button', { name: '保存する' }))
@@ -149,11 +149,11 @@ describe('AdminBookEditRoute', () => {
       }),
       // 戻り先の一覧画面（本の一覧管理）の描画を確かめるのが目的ではないので、
       // faker の乱数（評価が1〜5の範囲外になり得る）に頼らず空の一覧にする
-      http.get('*/api/books', () =>
+      http.get('*/api/admin/books', () =>
         HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
       ),
     )
-    renderWithProviders(<AppRoutes />, { route: '/admin/books/1/edit' })
+    renderWithProviders(<AppRoutes />, { route: '/books/1/edit' })
     await screen.findByRole('heading', { level: 1, name: '本を編集' })
 
     await user.click(screen.getByRole('button', { name: 'この本を削除' }))

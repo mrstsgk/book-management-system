@@ -38,7 +38,7 @@ export function useLoginForm() {
       { data: { id, password } },
       {
         onSuccess: () => {
-          navigate(from ?? '/admin', { replace: true })
+          navigate(from ?? '/books', { replace: true })
         },
       },
     )

@@ -51,7 +51,7 @@ export default tseslint.config(
 
   {
     // HMR 対象はアプリのみ。packages/ui は variants 等を部品と同居で export する
-    files: ['web/src/**/*.tsx'],
+    files: ['{public,admin}/src/**/*.tsx'],
     plugins: { 'react-refresh': reactRefresh },
     rules: {
       'react-refresh/only-export-components': [
@@ -72,14 +72,12 @@ export default tseslint.config(
   ...(() => {
     // アプリごとの feature。アプリや feature を足したらここにも足す
     const appFeatures = {
-      web: [
+      public: ['book-detail', 'books-list', 'tag-counts'],
+      admin: [
         'admin-book-editor',
         'admin-books-list',
         'admin-login',
         'admin-tags',
-        'book-detail',
-        'books-list',
-        'tag-counts',
       ],
     }
     const parentMessage =
@@ -138,7 +136,10 @@ export default tseslint.config(
 
   {
     // default export は Storybook の meta だけ（§9）。Story と設定ファイルは対象外
-    files: ['web/src/**/*.{ts,tsx}', 'packages/ui/src/**/*.{ts,tsx}'],
+    files: [
+      '{public,admin}/src/**/*.{ts,tsx}',
+      'packages/ui/src/**/*.{ts,tsx}',
+    ],
     ignores: ['**/*.stories.{ts,tsx}'],
     rules: {
       // `export { Foo as default }` や再 export の default も禁止する

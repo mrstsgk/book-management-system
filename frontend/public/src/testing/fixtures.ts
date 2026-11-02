@@ -1,7 +1,6 @@
 import type {
   BookListItemResponse,
   BookResponse,
-  CatalogResponse,
 } from '@/api/generated/api.schemas'
 
 // 生成 faker（get<Op>ResponseMock）は欠けた項目を乱数で埋めるため、書影の有無などを
@@ -46,23 +45,6 @@ export function createBookListItemFixture(
     coverUrl: null,
     coverSource: null,
     rating: 1,
-    ...override,
-  }
-}
-
-/** 外部カタログの書誌のテスト用データを作る。 */
-export function createCatalogFixture(
-  override: Partial<CatalogResponse> = {},
-): CatalogResponse {
-  return {
-    isbn: '9784873118703',
-    title: '本',
-    authors: '',
-    publisher: '',
-    publishedOn: '',
-    amazonUrl: null,
-    coverUrl: null,
-    coverSource: null,
     ...override,
   }
 }

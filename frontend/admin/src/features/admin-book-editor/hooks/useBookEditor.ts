@@ -116,7 +116,7 @@ export function useBookEditor(rawId: string | undefined) {
         },
         onSuccess: () => {
           setSaved(true)
-          navigate('/admin', { state: { notice: '本を更新しました' } })
+          navigate('/books', { state: { notice: '本を更新しました' } })
         },
         onError: (err) => {
           if (redirectIfUnauthorized(err)) return
@@ -154,7 +154,7 @@ export function useBookEditor(rawId: string | undefined) {
           deletingRef.current = false
         },
         onSuccess: () => {
-          navigate('/admin', {
+          navigate('/books', {
             state: { notice: `『${title}』を削除しました` },
           })
         },

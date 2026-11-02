@@ -19,21 +19,21 @@ function serveSession(status: number) {
 describe('AdminGuard', () => {
   it('確認中は読み込み中を出す', () => {
     serveSession(204)
-    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
     expect(screen.getByRole('status')).toHaveTextContent('読み込み中…')
   })
 
   it('ログイン済みなら管理画面を出す', async () => {
     serveSession(204)
-    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
     expect(
       await screen.findByRole('heading', { name: '分野タグ' }),
     ).toBeVisible()
   })
 
-  it.each([401, 500])('%s なら /admin/login へ送る', async (status) => {
+  it.each([401, 500])('%s なら /login へ送る', async (status) => {
     serveSession(status)
-    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
     expect(
       await screen.findByRole('heading', { name: '管理画面にログイン' }),
     ).toBeVisible()
@@ -45,7 +45,7 @@ describe('AdminGuard', () => {
   it('ログインしたら元の管理画面へ戻る', async () => {
     serveSession(401)
     const user = userEvent.setup()
-    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
     await screen.findByRole('heading', { name: '管理画面にログイン' })
 
     server.use(

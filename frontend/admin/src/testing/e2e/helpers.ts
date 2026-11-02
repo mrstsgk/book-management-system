@@ -1,4 +1,8 @@
+/// <reference types="node" />
 import { expect, type Page } from '@playwright/test'
+
+// 公開画面は別のアプリ（frontend/public、:3000）。管理画面（baseURL、:3001）から開くときは絶対 URL で指す
+export const PUBLIC_URL = 'http://localhost:3000'
 
 // 本のライフサイクル・タグのライフサイクルの両 spec で共通に使う手順。
 
@@ -12,11 +16,11 @@ export async function login(page: Page) {
       'E2E_ADMIN_ID と E2E_ADMIN_PASSWORD を設定してください（frontend/README.md）',
     )
   }
-  await page.goto('/admin/login')
+  await page.goto('/login')
   await page.getByLabel('ID （必須）').fill(id)
   await page.getByLabel('パスワード （必須）').fill(password)
   await page.getByRole('button', { name: 'ログイン' }).click()
-  await expect(page).toHaveURL('/admin')
+  await expect(page).toHaveURL('/books')
 }
 
 export interface NewBookInput {
@@ -60,7 +64,7 @@ export async function registerBook(
   page: Page,
   input: NewBookInput,
 ): Promise<string> {
-  await page.goto('/admin/books/new')
+  await page.goto('/books/new')
   await page.getByLabel('ISBN （必須）').fill(input.isbn)
   await page.getByRole('button', { name: '確かめる' }).click()
   // 確かめるが成功すると登録するボタンが押せるようになる（失敗のままだと押せず、ここでタイムアウトする）
@@ -74,7 +78,7 @@ export async function registerBook(
   await clickPillOption(page, input.ratingLabel)
   await page.getByRole('button', { name: '登録する' }).click()
 
-  await expect(page).toHaveURL('/admin')
+  await expect(page).toHaveURL('/books')
   // お知らせ（role="status"）と、一覧自体の読み込み中表示（同じく role="status"）が
   // 一瞬同居しうるため、role ではなく文言そのもので探す
   await expect(page.getByText('本を登録しました')).toBeVisible()
@@ -90,18 +94,18 @@ export async function registerBook(
 // 既に削除済みの ID で呼んでも安全（何もしない）。spec の finally からは
 // 「本体で既に削除済みかどうか」を追跡せずに常に呼べるようにするため
 export async function deleteBookById(page: Page, bookId: string) {
-  await page.goto(`/admin/books/${bookId}/edit`)
+  await page.goto(`/books/${bookId}/edit`)
   await waitForLoaded(page)
   if (await page.getByText('この本は見つかりませんでした').isVisible()) return
   await page.getByRole('button', { name: 'この本を削除' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByRole('button', { name: '削除する' }).click()
-  await expect(page).toHaveURL('/admin')
+  await expect(page).toHaveURL('/books')
 }
 
 // 前回の実行が途中で落ちて後片付けできなかった場合の自己修復。通常時は何もしない
 export async function deleteBookIfPresent(page: Page, titleSubstring: string) {
-  await page.goto('/admin')
+  await page.goto('/books')
   await waitForLoaded(page)
   const row = bookRow(page, titleSubstring)
   if ((await row.count()) === 0) return
@@ -111,14 +115,14 @@ export async function deleteBookIfPresent(page: Page, titleSubstring: string) {
   await deleteBookById(page, extractIdFromEditHref(href))
 }
 
-// タグの一覧（/admin/tags）で、指定した名前の行（無ければ空のロケーター）
+// タグの一覧（/tags）で、指定した名前の行（無ければ空のロケーター）
 export function tagRow(page: Page, tagName: string) {
   return page.locator('ul li', { hasText: tagName })
 }
 
 // 前回の実行が途中で落ちて後片付けできなかった場合の自己修復。通常時は何もしない
 export async function deleteTagIfPresent(page: Page, tagName: string) {
-  await page.goto('/admin/tags')
+  await page.goto('/tags')
   await waitForLoaded(page)
   const row = tagRow(page, tagName)
   if ((await row.count()) === 0) return

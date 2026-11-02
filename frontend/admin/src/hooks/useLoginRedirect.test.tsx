@@ -16,7 +16,7 @@ function Probe() {
 }
 function wrapper({ children }: { children: ReactNode }) {
   return (
-    <MemoryRouter initialEntries={['/admin/tags']}>
+    <MemoryRouter initialEntries={['/tags']}>
       <Probe />
       <Routes>
         <Route path="*" element={children} />
@@ -33,8 +33,8 @@ describe('useLoginRedirect', () => {
       redirected = result.current(new ApiError(401, 'unauthorized'))
     })
     expect(redirected).toBe(true)
-    expect(current.pathname).toBe('/admin/login')
-    expect(current.state).toEqual({ from: '/admin/tags' })
+    expect(current.pathname).toBe('/login')
+    expect(current.state).toEqual({ from: '/tags' })
   })
 
   it.each([
@@ -44,6 +44,6 @@ describe('useLoginRedirect', () => {
   ])('%s なら何もせず false', (_label, error) => {
     const { result } = renderHook(() => useLoginRedirect(), { wrapper })
     expect(result.current(error)).toBe(false)
-    expect(current.pathname).toBe('/admin/tags')
+    expect(current.pathname).toBe('/tags')
   })
 })

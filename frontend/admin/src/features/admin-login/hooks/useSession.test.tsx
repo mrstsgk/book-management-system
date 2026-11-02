@@ -33,7 +33,7 @@ describe('useSession', () => {
     await waitFor(() => expect(result.current.status).toBe(expected))
   })
 
-  it('アンマウント後に再マウントしたら、前回の ok を使い回さず取り直す（ログアウト後の /admin に戻れない）', async () => {
+  it('アンマウント後に再マウントしたら、前回の ok を使い回さず取り直す（ログアウト後の /books に戻れない）', async () => {
     const client = createQueryClient()
     const sameClient = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>

@@ -21,13 +21,13 @@ function serveList(
 }
 
 describe('AdminTagsRoute', () => {
-  it('/admin/tags を開くと、読み込み中を出したあとタグの一覧を表示する', async () => {
+  it('/tags を開くと、読み込み中を出したあとタグの一覧を表示する', async () => {
     serveList(
       [{ id: 1, name: '設計', version: 1 }],
       [{ id: 1, name: '設計', bookCount: 3 }],
     )
 
-    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
 
     expect(
       await screen.findByRole('heading', { name: '分野タグ' }),
@@ -40,7 +40,7 @@ describe('AdminTagsRoute', () => {
   it('読み込みに失敗したらエラーを伝え、再試行すると取得し直す', async () => {
     let calls = 0
     server.use(
-      http.get('*/api/tags', () => {
+      http.get('*/api/admin/tags', () => {
         calls += 1
         return calls === 1
           ? HttpResponse.json({ message: 'boom' }, { status: 500 })
@@ -49,7 +49,7 @@ describe('AdminTagsRoute', () => {
       getCountBooksMockHandler({ items: [] }),
     )
 
-    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'タグを読み込めませんでした',
@@ -69,7 +69,7 @@ describe('AdminTagsRoute', () => {
       ),
     )
 
-    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
     await screen.findByText('設計')
 
     serveList([
@@ -89,12 +89,12 @@ describe('AdminTagsRoute', () => {
     serveList([{ id: 1, name: '設計', version: 1 }])
     server.use(
       http.delete(
-        '*/api/tags/1',
+        '*/api/admin/tags/1',
         () => new HttpResponse(null, { status: 204 }),
       ),
     )
 
-    renderWithProviders(<AppRoutes />, { route: '/admin/tags' })
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
     await screen.findByText('設計')
 
     serveList([])

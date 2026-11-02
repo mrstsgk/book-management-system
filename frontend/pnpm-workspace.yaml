@@ -1,5 +1,6 @@
 packages:
-  - 'web'
+  - 'public'
+  - 'admin'
   - 'packages/ui'
 # インストール時のスクリプトは既定で実行しない（pnpm 12）。esbuild はバイナリを npm の
 # optionalDependencies で入れ、msw の worker は使わない（テストは Node の setupServer）ため、どちらも不要

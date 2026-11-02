@@ -5,6 +5,7 @@ import {
   deleteBookIfPresent,
   login,
   registerBook,
+  PUBLIC_URL,
 } from './helpers'
 
 // リーダブルコード（openBD に書誌あり）。見本データ・他 spec のタグライフサイクルとは
@@ -38,7 +39,7 @@ test.describe('本のライフサイクル', () => {
       })
 
       // 公開一覧: キーワード検索で見つかり、詳細へ遷移できる
-      await page.goto('/')
+      await page.goto(`${PUBLIC_URL}/`)
       await page
         .getByRole('searchbox', { name: 'キーワード（書名・著者）' })
         .fill(TITLE)
@@ -46,7 +47,7 @@ test.describe('本のライフサイクル', () => {
       const listItem = page.getByRole('link', { name: TITLE, exact: false })
       await expect(listItem).toBeVisible()
       await listItem.click()
-      await expect(page).toHaveURL(`/books/${bookId}`)
+      await expect(page).toHaveURL(`${PUBLIC_URL}/books/${bookId}`)
 
       // 公開詳細: 登録した内容がすべて反映されている
       await expect(
@@ -62,29 +63,29 @@ test.describe('本のライフサイクル', () => {
       ).toHaveAttribute('href', /amazon\.co\.jp/)
 
       // 編集: 一言まとめを変えて保存すると、公開詳細にも反映される
-      await page.goto(`/admin/books/${bookId}/edit`)
+      await page.goto(`/books/${bookId}/edit`)
       await page
         .getByLabel('一言まとめ （必須）')
         .fill('E2Eで編集した一言まとめ')
       await page.getByRole('button', { name: '保存する' }).click()
-      await expect(page).toHaveURL('/admin')
+      await expect(page).toHaveURL('/books')
       await expect(page.getByText('本を更新しました')).toBeVisible()
 
-      await page.goto(`/books/${bookId}`)
+      await page.goto(`${PUBLIC_URL}/books/${bookId}`)
       await expect(page.getByText('E2Eで編集した一言まとめ')).toBeVisible()
 
       // 削除: 確認してから削除し、管理一覧・公開画面の両方から消える
-      await page.goto(`/admin/books/${bookId}/edit`)
+      await page.goto(`/books/${bookId}/edit`)
       await page.getByRole('button', { name: 'この本を削除' }).click()
       const dialog = page.getByRole('dialog')
       await expect(dialog).toBeVisible()
       await dialog.getByRole('button', { name: '削除する' }).click()
 
-      await expect(page).toHaveURL('/admin')
+      await expect(page).toHaveURL('/books')
       await expect(page.getByText(`『${TITLE}』を削除しました`)).toBeVisible()
       await expect(bookRow(page, TITLE)).toHaveCount(0)
 
-      await page.goto(`/books/${bookId}`)
+      await page.goto(`${PUBLIC_URL}/books/${bookId}`)
       await expect(page.getByText('この本は見つかりませんでした')).toBeVisible()
     } finally {
       // 途中で失敗しても後片付けする（削除まで成功していれば 404 になるだけなので無視）。

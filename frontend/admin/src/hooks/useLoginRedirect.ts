@@ -9,7 +9,7 @@ export function useLoginRedirect() {
   const { pathname } = useLocation()
   return (error: unknown): boolean => {
     if (!(error instanceof ApiError) || error.status !== 401) return false
-    navigate('/admin/login', { state: { from: pathname } })
+    navigate('/login', { state: { from: pathname } })
     return true
   }
 }
