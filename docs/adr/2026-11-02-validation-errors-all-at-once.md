@@ -3,7 +3,7 @@
 **日付:** 2026-11-02
 **状態:** 採用
 **カテゴリ:** architecture
-**参照:** [`docs/architecture.md`](../architecture.md) §4「バリデーションの全件返却」、[`docs/design/admin-screens.md`](../design/admin-screens.md)「相関ルール」
+**参照:** [PR #114](https://github.com/mrstsgk/book-management-system/pull/114)、[`docs/architecture.md`](../architecture.md) §4「バリデーションの全件返却」、[`docs/design/admin-screens.md`](../design/admin-screens.md)「相関ルール」
 
 ## 背景・経緯
 
