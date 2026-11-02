@@ -1,0 +1,101 @@
+package httpserver
+
+import (
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"github.com/labstack/echo/v4"
+
+	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
+)
+
+type ErrorResponse struct {
+	Message string `json:"message" example:"invalid"`
+	// Errors は項目ごとの違反。入力検証・VO・相関ルールの違反（400）だけに付く。rule は validate のキーワードか相関ルールの id。
+	Errors []FieldError `json:"errors,omitempty"`
+} // @name ErrorResponse
+
+type FieldError struct {
+	Field string `json:"field" example:"title"`
+	Rule  string `json:"rule" example:"required"`
+} // @name FieldError
+
+// 5xx では err.Error() を返さない（ドライバやネットワークのエラーはホスト名や資格情報を含む）。
+const internalMessage = "internal"
+
+// HTTPErrorHandler はエラーを HTTP レスポンスに変換する唯一の場所。Handler は return err するだけでよい。
+func HTTPErrorHandler(err error, c echo.Context) {
+	if c.Response().Committed {
+		return
+	}
+	status, res := toErrorResponse(err)
+
+	req := c.Request()
+	attrs := []any{
+		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
+		"error", err, "status", status, "method", req.Method, "path", req.URL.Path,
+	}
+	if status >= http.StatusInternalServerError {
+		slog.Error("request failed", attrs...)
+	} else {
+		slog.Warn("request rejected", attrs...)
+	}
+
+	if req.Method == http.MethodHead {
+		err = c.NoContent(status)
+	} else {
+		err = c.JSON(status, res)
+	}
+	if err != nil {
+		slog.Error("failed to write error response", "error", err)
+	}
+}
+
+// sentinelStatuses は domain の sentinel error と HTTP ステータスの対応。
+var sentinelStatuses = []struct {
+	err    error
+	status int
+}{
+	{domainerr.ErrNotFound, http.StatusNotFound},
+	{domainerr.ErrInvalid, http.StatusBadRequest},
+	{domainerr.ErrConflict, http.StatusConflict},
+	{domainerr.ErrUnauthorized, http.StatusUnauthorized},
+	{domainerr.ErrTooManyAttempts, http.StatusTooManyRequests},
+}
+
+// toErrorResponse はエラーを HTTP ステータスとボディへ変換する: validation
+// エラーはフィールド詳細付き 400、既知の domain sentinel はそれぞれのステータス、
+// echo の HTTPError はそのコード（5xx はメッセージを隠す）、それ以外は汎用 500。
+func toErrorResponse(err error) (int, ErrorResponse) {
+	var ve *ValidationError
+	if errors.As(err, &ve) {
+		return http.StatusBadRequest, ErrorResponse{Message: ve.Error(), Errors: ve.Fields}
+	}
+	// UseCase が集めた相関ルール・VO の違反も、入力検証と同じ形（400 + errors[{field, rule}]）で返す
+	var vs domainerr.Violations
+	if errors.As(err, &vs) {
+		fields := make([]FieldError, 0, len(vs))
+		for _, v := range vs {
+			fields = append(fields, FieldError{Field: v.Field, Rule: v.Rule})
+		}
+		return http.StatusBadRequest, ErrorResponse{Message: "invalid request", Errors: fields}
+	}
+	for _, m := range sentinelStatuses {
+		if errors.Is(err, m.err) {
+			return m.status, ErrorResponse{Message: err.Error()}
+		}
+	}
+	var he *echo.HTTPError
+	if errors.As(err, &he) {
+		if he.Code >= http.StatusInternalServerError {
+			return he.Code, ErrorResponse{Message: internalMessage}
+		}
+		msg, ok := he.Message.(string)
+		if !ok || msg == "" {
+			msg = http.StatusText(he.Code)
+		}
+		return he.Code, ErrorResponse{Message: msg}
+	}
+	return http.StatusInternalServerError, ErrorResponse{Message: internalMessage}
+}

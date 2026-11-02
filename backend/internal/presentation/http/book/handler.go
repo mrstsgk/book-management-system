@@ -5,11 +5,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
-	domaincommon "github.com/mrstsgk/book-management-system/backend/internal/domain/common"
-	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
-	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
-	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
+	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
+	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/command"
+	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 )
 
 type RegisterRequest struct {
@@ -117,15 +116,15 @@ func (h *Handler) Register(g *echo.Group) {
 // @Param        q      query string false "書名（上書きがあれば上書き）・著者の部分一致。大文字小文字を区別しない（100文字まで）"
 // @Param        tagId  query int    false "この分野タグが付いた本だけにする（1以上）"
 // @Success      200 {object} ListResponse
-// @Failure      400 {object} common.ErrorResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/books [get]
 func (h *Handler) Search(c echo.Context) error {
-	req, err := common.BindValidate[ListRequest](c)
+	req, err := httpserver.BindValidate[ListRequest](c)
 	if err != nil {
 		return err
 	}
-	limit, offset := domaincommon.DefaultListLimit, 0
+	limit, offset := bookdomain.DefaultListLimit, 0
 	if req.Limit != nil {
 		limit = *req.Limit
 	}
@@ -152,12 +151,12 @@ func (h *Handler) Search(c echo.Context) error {
 // @Produce      json
 // @Param        id path int true "読んだ本のID"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse
-// @Failure      404 {object} common.ErrorResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse
+// @Failure      404 {object} httpserver.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/books/{id} [get]
 func (h *Handler) Read(c echo.Context) error {
-	id, err := common.ParseID(c, "id")
+	id, err := httpserver.ParseID(c, "id")
 	if err != nil {
 		return err
 	}
@@ -176,15 +175,15 @@ func (h *Handler) Read(c echo.Context) error {
 // @Produce      json
 // @Param        body body RegisterRequest true "body"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
-// @Failure      401 {object} common.ErrorResponse
-// @Failure      403 {object} common.ErrorResponse
-// @Failure      409 {object} common.ErrorResponse "同じ ISBN の本と同時に登録されたとき（一意制約。通常は 400 の isbnDuplicated）"
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
+// @Failure      401 {object} httpserver.ErrorResponse
+// @Failure      403 {object} httpserver.ErrorResponse
+// @Failure      409 {object} httpserver.ErrorResponse "同じ ISBN の本と同時に登録されたとき（一意制約。通常は 400 の isbnDuplicated）"
+// @Failure      500 {object} httpserver.ErrorResponse
 // @x-correlation-rules [{"id":"isbnDuplicated","field":"isbn","rule":"登録する ISBN の本は未登録である","message":"MSG-A01"},{"id":"isbnNotInCatalog","field":"isbn","rule":"登録する ISBN は外部カタログに存在する","message":"MSG-A02"},{"id":"tagIdsNotFound","field":"tagIds","rule":"指定した分野タグ ID はすべて存在する","message":"MSG-A03"},{"id":"tagIdsDuplicated","field":"tagIds","rule":"分野タグ ID に重複が無い","message":"（共通）"}]
 // @Router       /api/books [post]
 func (h *Handler) RegisterBook(c echo.Context) error {
-	req, err := common.BindValidate[RegisterRequest](c)
+	req, err := httpserver.BindValidate[RegisterRequest](c)
 	if err != nil {
 		return err
 	}
@@ -206,20 +205,20 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 // @Param        id   path int           true "読んだ本のID"
 // @Param        body body UpdateRequest true "body"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
-// @Failure      401 {object} common.ErrorResponse
-// @Failure      403 {object} common.ErrorResponse
-// @Failure      404 {object} common.ErrorResponse
-// @Failure      409 {object} common.ErrorResponse "version が一致しない（他で先に更新された）"
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
+// @Failure      401 {object} httpserver.ErrorResponse
+// @Failure      403 {object} httpserver.ErrorResponse
+// @Failure      404 {object} httpserver.ErrorResponse
+// @Failure      409 {object} httpserver.ErrorResponse "version が一致しない（他で先に更新された）"
+// @Failure      500 {object} httpserver.ErrorResponse
 // @x-correlation-rules [{"id":"tagIdsNotFound","field":"tagIds","rule":"指定した分野タグ ID はすべて存在する","message":"MSG-A03"},{"id":"tagIdsDuplicated","field":"tagIds","rule":"分野タグ ID に重複が無い","message":"（共通）"}]
 // @Router       /api/books/{id} [put]
 func (h *Handler) Update(c echo.Context) error {
-	id, err := common.ParseID(c, "id")
+	id, err := httpserver.ParseID(c, "id")
 	if err != nil {
 		return err
 	}
-	req, err := common.BindValidate[UpdateRequest](c)
+	req, err := httpserver.BindValidate[UpdateRequest](c)
 	if err != nil {
 		return err
 	}
@@ -237,14 +236,14 @@ func (h *Handler) Update(c echo.Context) error {
 // @Tags         books
 // @Param        id path int true "読んだ本のID"
 // @Success      204
-// @Failure      400 {object} common.ErrorResponse
-// @Failure      401 {object} common.ErrorResponse
-// @Failure      403 {object} common.ErrorResponse
-// @Failure      404 {object} common.ErrorResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse
+// @Failure      401 {object} httpserver.ErrorResponse
+// @Failure      403 {object} httpserver.ErrorResponse
+// @Failure      404 {object} httpserver.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/books/{id} [delete]
 func (h *Handler) Delete(c echo.Context) error {
-	id, err := common.ParseID(c, "id")
+	id, err := httpserver.ParseID(c, "id")
 	if err != nil {
 		return err
 	}
@@ -254,7 +253,7 @@ func (h *Handler) Delete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func toResponse(d *domainbook.BookDetail) Response {
+func toResponse(d *bookdomain.BookDetail) Response {
 	return Response{
 		ID: int64(d.ID), ISBN: d.ISBN, Title: d.Title, Authors: d.Authors, Publisher: d.Publisher,
 		PublishedOn: d.PublishedOn, AmazonURL: d.AmazonURL, CoverURL: d.CoverURL, CoverSource: d.CoverSource,

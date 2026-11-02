@@ -12,10 +12,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	domaincommon "github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+	authcmd "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/command"
+	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 	httpauth "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/auth"
-	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
-	authcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/command"
 )
 
 type fakeLogin func(context.Context, authcmd.LoginCommand) (string, error)
@@ -40,14 +40,14 @@ func serve(t *testing.T, h *httpauth.Handler, method, path, body, cookie string)
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	t.Cleanup(func() { slog.SetDefault(orig) })
 
-	h.SameOrigin = common.RequireSameOrigin()
-	e := common.NewEcho()
+	h.SameOrigin = httpserver.RequireSameOrigin()
+	e := httpserver.NewEcho()
 	h.Register(e.Group("/api/auth"))
 	req := httptest.NewRequest(method, "http://localhost:3000"+path, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set("Origin", "http://localhost:3000")
 	if cookie != "" {
-		req.AddCookie(&http.Cookie{Name: common.SessionCookieName, Value: cookie})
+		req.AddCookie(&http.Cookie{Name: httpserver.SessionCookieName, Value: cookie})
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -57,11 +57,11 @@ func serve(t *testing.T, h *httpauth.Handler, method, path, body, cookie string)
 func sessionCookie(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
 	for _, ck := range rec.Result().Cookies() {
-		if ck.Name == common.SessionCookieName {
+		if ck.Name == httpserver.SessionCookieName {
 			return ck
 		}
 	}
-	t.Fatalf("no %s cookie in %v", common.SessionCookieName, rec.Header())
+	t.Fatalf("no %s cookie in %v", httpserver.SessionCookieName, rec.Header())
 	return nil
 }
 
@@ -90,8 +90,8 @@ func TestHandlerLogin(t *testing.T) {
 			t.Error("usecase must not be called")
 			return "", nil
 		})}
-		h.SameOrigin = common.RequireSameOrigin()
-		e := common.NewEcho()
+		h.SameOrigin = httpserver.RequireSameOrigin()
+		e := httpserver.NewEcho()
 		h.Register(e.Group("/api/auth"))
 		req := httptest.NewRequest(http.MethodPost, "http://localhost:3000/api/auth/login", strings.NewReader(`{"id":"a","password":"b"}`))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -111,8 +111,8 @@ func TestHandlerLogin(t *testing.T) {
 	}{
 		{name: "空欄は400でUseCaseを呼ばない", body: `{"id":"","password":""}`, want: http.StatusBadRequest},
 		{name: "JSONでなければ400", body: `not json`, want: http.StatusBadRequest},
-		{name: "不一致は401", body: `{"id":"admin","password":"bad"}`, err: domaincommon.ErrUnauthorized, want: http.StatusUnauthorized},
-		{name: "ロック中は429", body: `{"id":"admin","password":"bad"}`, err: domaincommon.ErrTooManyAttempts, want: http.StatusTooManyRequests},
+		{name: "不一致は401", body: `{"id":"admin","password":"bad"}`, err: domainerr.ErrUnauthorized, want: http.StatusUnauthorized},
+		{name: "ロック中は429", body: `{"id":"admin","password":"bad"}`, err: domainerr.ErrTooManyAttempts, want: http.StatusTooManyRequests},
 		{name: "UseCaseの障害は500", body: `{"id":"admin","password":"pw"}`, err: errors.New("db down"), want: http.StatusInternalServerError},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -127,7 +127,7 @@ func TestHandlerLogin(t *testing.T) {
 				t.Fatalf("status = %d, want %d (body=%s)", rec.Code, tt.want, rec.Body.String())
 			}
 			for _, ck := range rec.Result().Cookies() {
-				if ck.Name == common.SessionCookieName {
+				if ck.Name == httpserver.SessionCookieName {
 					t.Fatal("must not set a session cookie on failure")
 				}
 			}
@@ -171,7 +171,7 @@ func TestHandlerSession(t *testing.T) {
 		if id == "good" {
 			return nil
 		}
-		return domaincommon.ErrUnauthorized
+		return domainerr.ErrUnauthorized
 	})
 	for _, tt := range []struct {
 		name   string

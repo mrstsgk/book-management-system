@@ -5,9 +5,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
-	authcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/command"
-	authqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/query"
+	authcmd "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/command"
+	authqry "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/query"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 )
 
 type LoginRequest struct {
@@ -28,7 +28,7 @@ type Handler struct {
 func (h *Handler) Register(g *echo.Group) {
 	g.POST("/login", h.Login, h.SameOrigin)
 	g.POST("/logout", h.Logout, h.SameOrigin)
-	g.GET("/session", h.Session, common.RequireAdminSession(h.CheckSessionUsecase))
+	g.GET("/session", h.Session, httpserver.RequireAdminSession(h.CheckSessionUsecase))
 }
 
 // Login は、ID とパスワードでログインしてセッション Cookie を発行する（POST /api/auth/login）。
@@ -38,14 +38,14 @@ func (h *Handler) Register(g *echo.Group) {
 // @Accept       json
 // @Param        body body LoginRequest true "body"
 // @Success      204
-// @Failure      400 {object} common.ErrorResponse
-// @Failure      401 {object} common.ErrorResponse
-// @Failure      403 {object} common.ErrorResponse
-// @Failure      429 {object} common.ErrorResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse
+// @Failure      401 {object} httpserver.ErrorResponse
+// @Failure      403 {object} httpserver.ErrorResponse
+// @Failure      429 {object} httpserver.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/auth/login [post]
 func (h *Handler) Login(c echo.Context) error {
-	req, err := common.BindValidate[LoginRequest](c)
+	req, err := httpserver.BindValidate[LoginRequest](c)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (h *Handler) Login(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	common.SetSessionCookie(c, id)
+	httpserver.SetSessionCookie(c, id)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -62,16 +62,16 @@ func (h *Handler) Login(c echo.Context) error {
 // @Description  サーバー側のセッションを消し、Cookie も消す。ログインしていなくても 204
 // @Tags         auth
 // @Success      204
-// @Failure      403 {object} common.ErrorResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      403 {object} httpserver.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/auth/logout [post]
 func (h *Handler) Logout(c echo.Context) error {
-	if ck, err := c.Cookie(common.SessionCookieName); err == nil && ck.Value != "" {
+	if ck, err := c.Cookie(httpserver.SessionCookieName); err == nil && ck.Value != "" {
 		if err := h.LogoutUsecase.Execute(c.Request().Context(), ck.Value); err != nil {
 			return err
 		}
 	}
-	common.ClearSessionCookie(c)
+	httpserver.ClearSessionCookie(c)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -80,8 +80,8 @@ func (h *Handler) Logout(c echo.Context) error {
 // @Description  ログイン済みの Cookie（admin_session）が有効なら 204。画面のガードに使う。有効ならアイドル期限が延びる
 // @Tags         auth
 // @Success      204
-// @Failure      401 {object} common.ErrorResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      401 {object} httpserver.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/auth/session [get]
 func (h *Handler) Session(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)

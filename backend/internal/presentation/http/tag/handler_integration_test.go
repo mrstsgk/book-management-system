@@ -11,12 +11,12 @@ import (
 
 	"gorm.io/gorm"
 
-	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
-	pgtag "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/tag"
-	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
+	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
-	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
-	tagqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/query"
+	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
+	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
+	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
 
 // Presentation → Infrastructure の結合テスト（docs/rules/testing.md）。
@@ -28,7 +28,7 @@ import (
 // connectTestDB はローカルの開発用 DB に接続する。契約テストと同じ理由で、繋がらなければ skip せず失敗にする。
 func connectTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := pgcommon.Connect(pgcommon.Config{
+	db, err := pgplatform.Connect(pgplatform.Config{
 		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
 		DBName: "book_management", SSLMode: "disable",
 	})
@@ -202,7 +202,7 @@ func TestIntegration_RegisterTag_400_Duplicated(t *testing.T) {
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", firstTag.ID) })
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", body, true)
-	assertFieldErrors(t, rec, []common.FieldError{{Field: "name", Rule: "tagNameDuplicated"}})
+	assertFieldErrors(t, rec, []httpserver.FieldError{{Field: "name", Rule: "tagNameDuplicated"}})
 }
 
 func TestIntegration_Rename_400_Duplicated(t *testing.T) {
@@ -217,7 +217,7 @@ func TestIntegration_Rename_400_Duplicated(t *testing.T) {
 
 	rec := serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
 		fmt.Sprintf(`{"name":%q,"version":%d}`, otherName, created.Version), true)
-	assertFieldErrors(t, rec, []common.FieldError{{Field: "name", Rule: "tagNameDuplicated"}})
+	assertFieldErrors(t, rec, []httpserver.FieldError{{Field: "name", Rule: "tagNameDuplicated"}})
 	var got struct{ Name string }
 	db.Table("tag").Select("name").Where("id = ?", created.ID).Scan(&got)
 	if got.Name == otherName {
@@ -226,12 +226,12 @@ func TestIntegration_Rename_400_Duplicated(t *testing.T) {
 }
 
 // assertFieldErrors は 400 と errors[{field, rule}] の内容を確かめる。
-func assertFieldErrors(t *testing.T, rec *httptest.ResponseRecorder, want []common.FieldError) {
+func assertFieldErrors(t *testing.T, rec *httptest.ResponseRecorder, want []httpserver.FieldError) {
 	t.Helper()
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
 	}
-	var e common.ErrorResponse
+	var e httpserver.ErrorResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
 		t.Fatalf("invalid JSON body %q: %v", rec.Body.String(), err)
 	}

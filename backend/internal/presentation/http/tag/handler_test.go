@@ -14,11 +14,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	domaincommon "github.com/mrstsgk/book-management-system/backend/internal/domain/common"
-	domaintag "github.com/mrstsgk/book-management-system/backend/internal/domain/tag"
-	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
+	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
-	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
+	tagdomain "github.com/mrstsgk/book-management-system/backend/internal/tag/domain"
+	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
 )
 
 const testSession = "test-session"
@@ -27,7 +27,7 @@ const testSession = "test-session"
 // セッションの分岐は common のテストが担うので、ここでは「認証が要る経路に付いているか」だけを見る
 func fakeAdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if ck, err := c.Cookie(common.SessionCookieName); err != nil || ck.Value != testSession {
+		if ck, err := c.Cookie(httpserver.SessionCookieName); err != nil || ck.Value != testSession {
 			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
 		}
 		return next(c)
@@ -50,18 +50,18 @@ type fakeDelete func(context.Context, int64) error
 
 func (f fakeDelete) Execute(ctx context.Context, id int64) error { return f(ctx, id) }
 
-type fakeList func(context.Context) (*domaintag.TagList, error)
+type fakeList func(context.Context) (*tagdomain.TagList, error)
 
-func (f fakeList) Execute(ctx context.Context) (*domaintag.TagList, error) { return f(ctx) }
+func (f fakeList) Execute(ctx context.Context) (*tagdomain.TagList, error) { return f(ctx) }
 
-type fakeCountBooks func(context.Context) (*domaintag.TagBookCounts, error)
+type fakeCountBooks func(context.Context) (*tagdomain.TagBookCounts, error)
 
-func (f fakeCountBooks) Execute(ctx context.Context) (*domaintag.TagBookCounts, error) { return f(ctx) }
+func (f fakeCountBooks) Execute(ctx context.Context) (*tagdomain.TagBookCounts, error) { return f(ctx) }
 
 func TestHandlerCountBooks(t *testing.T) {
 	t.Run("ログイン無しでも分野タグごとの冊数を返す", func(t *testing.T) {
-		counts := &domaintag.TagBookCounts{Items: []*domaintag.TagBookCount{{ID: 1, Name: "設計", BookCount: 3}}}
-		h := &httptag.Handler{CountBooksUsecase: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return counts, nil })}
+		counts := &tagdomain.TagBookCounts{Items: []*tagdomain.TagBookCount{{ID: 1, Name: "設計", BookCount: 3}}}
+		h := &httptag.Handler{CountBooksUsecase: fakeCountBooks(func(context.Context) (*tagdomain.TagBookCounts, error) { return counts, nil })}
 
 		rec := serve(t, h, http.MethodGet, "/api/tags/counts", "", false)
 		if rec.Code != http.StatusOK {
@@ -78,7 +78,7 @@ func TestHandlerCountBooks(t *testing.T) {
 	})
 
 	t.Run("0件は空配列", func(t *testing.T) {
-		h := &httptag.Handler{CountBooksUsecase: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return &domaintag.TagBookCounts{}, nil })}
+		h := &httptag.Handler{CountBooksUsecase: fakeCountBooks(func(context.Context) (*tagdomain.TagBookCounts, error) { return &tagdomain.TagBookCounts{}, nil })}
 		rec := serve(t, h, http.MethodGet, "/api/tags/counts", "", false)
 		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"items":[]`) {
 			t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
@@ -86,7 +86,7 @@ func TestHandlerCountBooks(t *testing.T) {
 	})
 
 	t.Run("ユースケースの障害は500", func(t *testing.T) {
-		h := &httptag.Handler{CountBooksUsecase: fakeCountBooks(func(context.Context) (*domaintag.TagBookCounts, error) { return nil, errors.New("db: timeout") })}
+		h := &httptag.Handler{CountBooksUsecase: fakeCountBooks(func(context.Context) (*tagdomain.TagBookCounts, error) { return nil, errors.New("db: timeout") })}
 		if rec := serve(t, h, http.MethodGet, "/api/tags/counts", "", false); rec.Code != http.StatusInternalServerError {
 			t.Fatalf("status = %d, want 500", rec.Code)
 		}
@@ -111,12 +111,12 @@ func serve(t *testing.T, h *httptag.Handler, method, path, body string, withSess
 	t.Cleanup(func() { slog.SetDefault(orig) })
 
 	h.AdminOnly = fakeAdminOnly
-	e := common.NewEcho()
+	e := httpserver.NewEcho()
 	h.Register(e.Group("/api/tags"))
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	if withSession {
-		req.AddCookie(&http.Cookie{Name: common.SessionCookieName, Value: testSession})
+		req.AddCookie(&http.Cookie{Name: httpserver.SessionCookieName, Value: testSession})
 	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -128,8 +128,8 @@ func mustNotCall(t *testing.T) func() {
 }
 
 func TestHandlerList(t *testing.T) {
-	list := &domaintag.TagList{Items: []*domaintag.TagListItem{{ID: 1, Name: "データベース", Version: 1}}}
-	h := &httptag.Handler{SearchTagsUsecase: fakeList(func(context.Context) (*domaintag.TagList, error) { return list, nil })}
+	list := &tagdomain.TagList{Items: []*tagdomain.TagListItem{{ID: 1, Name: "データベース", Version: 1}}}
+	h := &httptag.Handler{SearchTagsUsecase: fakeList(func(context.Context) (*tagdomain.TagList, error) { return list, nil })}
 
 	rec := serve(t, h, http.MethodGet, "/api/tags", "", false)
 	if rec.Code != http.StatusOK {
@@ -176,10 +176,10 @@ func TestHandlerRegister(t *testing.T) {
 	for _, tt := range []struct {
 		name string
 		body string
-		want []common.FieldError
+		want []httpserver.FieldError
 	}{
-		{name: "必須項目なしは400", body: `{}`, want: []common.FieldError{{Field: "name", Rule: "required"}}},
-		{name: "31文字は400", body: `{"name":"` + strings.Repeat("あ", 31) + `"}`, want: []common.FieldError{{Field: "name", Rule: "max"}}},
+		{name: "必須項目なしは400", body: `{}`, want: []httpserver.FieldError{{Field: "name", Rule: "required"}}},
+		{name: "31文字は400", body: `{"name":"` + strings.Repeat("あ", 31) + `"}`, want: []httpserver.FieldError{{Field: "name", Rule: "max"}}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			called := mustNotCall(t)
@@ -191,8 +191,8 @@ func TestHandlerRegister(t *testing.T) {
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400", rec.Code)
 			}
-			if got := (func() []common.FieldError {
-				var e common.ErrorResponse
+			if got := (func() []httpserver.FieldError {
+				var e httpserver.ErrorResponse
 				_ = json.Unmarshal(rec.Body.Bytes(), &e)
 				return e.Errors
 			})(); !reflect.DeepEqual(got, tt.want) {
@@ -203,7 +203,7 @@ func TestHandlerRegister(t *testing.T) {
 
 	t.Run("同時追加で一意制約に当たったときは409", func(t *testing.T) {
 		h := &httptag.Handler{RegisterTagUsecase: fakeRegister(func(context.Context, tagcmd.RegisterTagCommand) (*tagcmd.TagView, error) {
-			return nil, domaincommon.ErrConflict
+			return nil, domainerr.ErrConflict
 		})}
 		if rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"データベース"}`, true); rec.Code != http.StatusConflict {
 			t.Fatalf("status = %d, want 409", rec.Code)
@@ -212,15 +212,15 @@ func TestHandlerRegister(t *testing.T) {
 
 	t.Run("同名のタグはusecaseの違反として400でerrorsに載る", func(t *testing.T) {
 		h := &httptag.Handler{RegisterTagUsecase: fakeRegister(func(context.Context, tagcmd.RegisterTagCommand) (*tagcmd.TagView, error) {
-			return nil, domaincommon.Violations{{Field: "name", Rule: "tagNameDuplicated"}}
+			return nil, domainerr.Violations{{Field: "name", Rule: "tagNameDuplicated"}}
 		})}
 		rec := serve(t, h, http.MethodPost, "/api/tags", `{"name":"データベース"}`, true)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
 		}
-		var e common.ErrorResponse
+		var e httpserver.ErrorResponse
 		_ = json.Unmarshal(rec.Body.Bytes(), &e)
-		if want := []common.FieldError{{Field: "name", Rule: "tagNameDuplicated"}}; !reflect.DeepEqual(e.Errors, want) {
+		if want := []httpserver.FieldError{{Field: "name", Rule: "tagNameDuplicated"}}; !reflect.DeepEqual(e.Errors, want) {
 			t.Fatalf("errors = %+v, want %+v", e.Errors, want)
 		}
 	})
@@ -255,9 +255,9 @@ func TestHandlerRename(t *testing.T) {
 		{name: "ログインしていなければ401", path: "/api/tags/5", body: body, withSession: false, want: http.StatusUnauthorized},
 		{name: "不正なIDは400", path: "/api/tags/abc", body: body, withSession: true, want: http.StatusBadRequest},
 		{name: "バージョンなしは400", path: "/api/tags/5", body: `{"name":"新名"}`, withSession: true, want: http.StatusBadRequest},
-		{name: "存在しないタグは404", path: "/api/tags/5", body: body, withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
-		{name: "楽観的ロックの競合は409", path: "/api/tags/5", body: body, withSession: true, err: domaincommon.ErrConflict, want: http.StatusConflict},
-		{name: "他のタグと同名はusecaseの違反として400", path: "/api/tags/5", body: body, withSession: true, err: domaincommon.Violations{{Field: "name", Rule: "tagNameDuplicated"}}, want: http.StatusBadRequest},
+		{name: "存在しないタグは404", path: "/api/tags/5", body: body, withSession: true, err: domainerr.ErrNotFound, want: http.StatusNotFound},
+		{name: "楽観的ロックの競合は409", path: "/api/tags/5", body: body, withSession: true, err: domainerr.ErrConflict, want: http.StatusConflict},
+		{name: "他のタグと同名はusecaseの違反として400", path: "/api/tags/5", body: body, withSession: true, err: domainerr.Violations{{Field: "name", Rule: "tagNameDuplicated"}}, want: http.StatusBadRequest},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &httptag.Handler{RenameTagUsecase: fakeRename(func(context.Context, tagcmd.RenameTagCommand) (*tagcmd.TagView, error) {
@@ -290,7 +290,7 @@ func TestHandlerDelete(t *testing.T) {
 		want        int
 	}{
 		{name: "ログインしていなければ401", withSession: false, want: http.StatusUnauthorized},
-		{name: "存在しないタグは404", withSession: true, err: domaincommon.ErrNotFound, want: http.StatusNotFound},
+		{name: "存在しないタグは404", withSession: true, err: domainerr.ErrNotFound, want: http.StatusNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &httptag.Handler{DeleteTagUsecase: fakeDelete(func(context.Context, int64) error {

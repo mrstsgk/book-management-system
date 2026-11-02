@@ -5,9 +5,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
-	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
-	tagqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/query"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
+	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
+	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
 
 type RegisterRequest struct {
@@ -64,7 +64,7 @@ func (h *Handler) Register(g *echo.Group) {
 // @Tags         tags
 // @Produce      json
 // @Success      200 {object} ListResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/tags [get]
 func (h *Handler) Search(c echo.Context) error {
 	out, err := h.SearchTagsUsecase.Execute(c.Request().Context())
@@ -84,7 +84,7 @@ func (h *Handler) Search(c echo.Context) error {
 // @Tags         tags
 // @Produce      json
 // @Success      200 {object} BookCountListResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/tags/counts [get]
 func (h *Handler) CountBooks(c echo.Context) error {
 	out, err := h.CountBooksUsecase.Execute(c.Request().Context())
@@ -106,15 +106,15 @@ func (h *Handler) CountBooks(c echo.Context) error {
 // @Produce      json
 // @Param        body body RegisterRequest true "body"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
-// @Failure      401 {object} common.ErrorResponse
-// @Failure      403 {object} common.ErrorResponse
-// @Failure      409 {object} common.ErrorResponse "同じ名前のタグと同時に追加されたとき（一意制約。通常は 400 の tagNameDuplicated）"
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
+// @Failure      401 {object} httpserver.ErrorResponse
+// @Failure      403 {object} httpserver.ErrorResponse
+// @Failure      409 {object} httpserver.ErrorResponse "同じ名前のタグと同時に追加されたとき（一意制約。通常は 400 の tagNameDuplicated）"
+// @Failure      500 {object} httpserver.ErrorResponse
 // @x-correlation-rules [{"id":"tagNameDuplicated","field":"name","rule":"タグ名は他のタグと重複しない","message":"MSG-A04"}]
 // @Router       /api/tags [post]
 func (h *Handler) RegisterTag(c echo.Context) error {
-	req, err := common.BindValidate[RegisterRequest](c)
+	req, err := httpserver.BindValidate[RegisterRequest](c)
 	if err != nil {
 		return err
 	}
@@ -134,20 +134,20 @@ func (h *Handler) RegisterTag(c echo.Context) error {
 // @Param        id   path int           true "タグのID"
 // @Param        body body RenameRequest true "body"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
-// @Failure      401 {object} common.ErrorResponse
-// @Failure      403 {object} common.ErrorResponse
-// @Failure      404 {object} common.ErrorResponse
-// @Failure      409 {object} common.ErrorResponse "version が一致しない（他で先に更新された）"
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
+// @Failure      401 {object} httpserver.ErrorResponse
+// @Failure      403 {object} httpserver.ErrorResponse
+// @Failure      404 {object} httpserver.ErrorResponse
+// @Failure      409 {object} httpserver.ErrorResponse "version が一致しない（他で先に更新された）"
+// @Failure      500 {object} httpserver.ErrorResponse
 // @x-correlation-rules [{"id":"tagNameDuplicated","field":"name","rule":"タグ名は自分以外のタグと重複しない","message":"MSG-A04"}]
 // @Router       /api/tags/{id} [put]
 func (h *Handler) Rename(c echo.Context) error {
-	id, err := common.ParseID(c, "id")
+	id, err := httpserver.ParseID(c, "id")
 	if err != nil {
 		return err
 	}
-	req, err := common.BindValidate[RenameRequest](c)
+	req, err := httpserver.BindValidate[RenameRequest](c)
 	if err != nil {
 		return err
 	}
@@ -164,14 +164,14 @@ func (h *Handler) Rename(c echo.Context) error {
 // @Tags         tags
 // @Param        id path int true "タグのID"
 // @Success      204
-// @Failure      400 {object} common.ErrorResponse
-// @Failure      401 {object} common.ErrorResponse
-// @Failure      403 {object} common.ErrorResponse
-// @Failure      404 {object} common.ErrorResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse
+// @Failure      401 {object} httpserver.ErrorResponse
+// @Failure      403 {object} httpserver.ErrorResponse
+// @Failure      404 {object} httpserver.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/tags/{id} [delete]
 func (h *Handler) Delete(c echo.Context) error {
-	id, err := common.ParseID(c, "id")
+	id, err := httpserver.ParseID(c, "id")
 	if err != nil {
 		return err
 	}

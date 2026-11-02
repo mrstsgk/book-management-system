@@ -17,11 +17,11 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
-	domainauth "github.com/mrstsgk/book-management-system/backend/internal/domain/auth"
-	pgauth "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/auth"
-	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
-	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
-	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
+	authdomain "github.com/mrstsgk/book-management-system/backend/internal/auth/domain"
+	pgauth "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/postgres"
+	pgbook "github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/postgres"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
+	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 )
 
 // run は非公開なので、このテストは package main に置く。
@@ -84,7 +84,7 @@ func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
 // Tags に本物の tag.Query を渡していることを、実際のリクエストで確かめる（配線漏れなら nil interface の
 // メソッド呼び出しでパニックする）。実DBが要るため繋がらなければ失敗する（CI は PostgreSQL を起動する）。
 func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
-	db, err := pgcommon.Connect(pgcommon.Config{
+	db, err := pgplatform.Connect(pgplatform.Config{
 		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
 		DBName: "book_management", SSLMode: "disable",
 	})
@@ -92,19 +92,19 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
 
-	e := httpcommon.NewEcho()
+	e := httpserver.NewEcho()
 	registerRoutes(e, db, nil, config.Config{})
 
 	// 書き込み系はセッションと Origin が要るので、有効なセッション行を1件作って Cookie に載せる
-	sid, err := domainauth.NewSessionID()
+	sid, err := authdomain.NewSessionID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := pgauth.NewRepository(db).Create(context.Background(), domainauth.NewSession(sid, time.Now())); err != nil {
+	if err := pgauth.NewRepository(db).Create(context.Background(), authdomain.NewSession(sid, time.Now())); err != nil {
 		t.Fatalf("save session: %v", err)
 	}
 	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(sid)) })
-	cookie := &http.Cookie{Name: httpcommon.SessionCookieName, Value: string(sid)}
+	cookie := &http.Cookie{Name: httpserver.SessionCookieName, Value: string(sid)}
 
 	body := `{"isbn":"4873118700","summary":"要約","tagIds":[999999999],"comment":"良書","rating":5}`
 	req := httptest.NewRequest(http.MethodPost, "/api/books", strings.NewReader(body))
@@ -148,7 +148,7 @@ func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
 // セッション検証と Origin 検証の両方が実際に掛かっていることを、実際のリクエストで確かめる。
 // 実DBが要るため繋がらなければ失敗する（CI は PostgreSQL を起動する）。
 func TestRegisterRoutes_AppliesSessionAndSameOriginToAdminRoutes(t *testing.T) {
-	db, err := pgcommon.Connect(pgcommon.Config{
+	db, err := pgplatform.Connect(pgplatform.Config{
 		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
 		DBName: "book_management", SSLMode: "disable",
 	})
@@ -156,18 +156,18 @@ func TestRegisterRoutes_AppliesSessionAndSameOriginToAdminRoutes(t *testing.T) {
 		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
 
-	e := httpcommon.NewEcho()
+	e := httpserver.NewEcho()
 	registerRoutes(e, db, nil, config.Config{})
 
-	sid, err := domainauth.NewSessionID()
+	sid, err := authdomain.NewSessionID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := pgauth.NewRepository(db).Create(context.Background(), domainauth.NewSession(sid, time.Now())); err != nil {
+	if err := pgauth.NewRepository(db).Create(context.Background(), authdomain.NewSession(sid, time.Now())); err != nil {
 		t.Fatalf("save session: %v", err)
 	}
 	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(sid)) })
-	cookie := &http.Cookie{Name: httpcommon.SessionCookieName, Value: string(sid)}
+	cookie := &http.Cookie{Name: httpserver.SessionCookieName, Value: string(sid)}
 
 	// 通り抜けた場合に備えて、作られうるタグ行も後片付けする
 	const tagName = "main-test-admin-guard"
@@ -221,12 +221,12 @@ func TestNewCatalog_ReturnsTheOpenBDCatalog(t *testing.T) {
 // backend/migrations の up を順に流す。ローカルの PostgreSQL に繋がらなければ失敗する。
 func migratedTempDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	base := pgcommon.Config{Host: "localhost", Port: "5432", User: "postgres", Password: "postgres", DBName: "book_management", SSLMode: "disable"}
-	admin, err := pgcommon.Connect(base)
+	base := pgplatform.Config{Host: "localhost", Port: "5432", User: "postgres", Password: "postgres", DBName: "book_management", SSLMode: "disable"}
+	admin, err := pgplatform.Connect(base)
 	if err != nil {
 		t.Fatalf("local Postgres not reachable (run `make db-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
 	}
-	t.Cleanup(func() { _ = pgcommon.Close(admin) })
+	t.Cleanup(func() { _ = pgplatform.Close(admin) })
 
 	name := fmt.Sprintf("book_management_seedtest_%d", time.Now().UnixNano())
 	if err := admin.Exec("CREATE DATABASE " + name).Error; err != nil {
@@ -236,11 +236,11 @@ func migratedTempDB(t *testing.T) *gorm.DB {
 
 	cfg := base
 	cfg.DBName = name
-	db, err := pgcommon.Connect(cfg)
+	db, err := pgplatform.Connect(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = pgcommon.Close(db) })
+	t.Cleanup(func() { _ = pgplatform.Close(db) })
 
 	files, err := filepath.Glob(filepath.Join("..", "..", "migrations", "*.up.sql"))
 	if err != nil || len(files) == 0 {

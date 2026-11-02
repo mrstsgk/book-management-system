@@ -21,21 +21,21 @@ import (
 
 	"gorm.io/gorm"
 
-	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
-	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
-	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
-	pgtag "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/tag"
+	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
+	pgbook "github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/postgres"
+	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/command"
+	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
+	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
-	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
-	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
-	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
+	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
 )
 
 // connectIntegrationDB はローカルの開発用 DB に接続する。実際の PostgreSQL に対する結合テストなので、
 // DB に繋がらなければ skip せず失敗にする（契約テストと同じ理由。docs/rules/testing.md）。
 func connectIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := pgcommon.Connect(pgcommon.Config{
+	db, err := pgplatform.Connect(pgplatform.Config{
 		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
 		DBName: "book_management", SSLMode: "disable",
 	})
@@ -51,16 +51,16 @@ func connectIntegrationDB(t *testing.T) *gorm.DB {
 // integrationFakeCatalog は外部カタログ（openBD）を差し替える手書き Fake。
 // gateway/openbd 自体は別途検証済みのため、ここでは実ネットワークに頼らない。
 type integrationFakeCatalog struct {
-	entry *domainbook.CatalogEntry
+	entry *bookdomain.CatalogEntry
 	err   error
 }
 
-func (f *integrationFakeCatalog) Lookup(context.Context, domainbook.ISBN) (*domainbook.CatalogEntry, error) {
+func (f *integrationFakeCatalog) Lookup(context.Context, bookdomain.ISBN) (*bookdomain.CatalogEntry, error) {
 	return f.entry, f.err
 }
 
 // newIntegrationHandler は本物の Repository/Query/UseCase を実DBに配線した Handler を返す（AdminOnly は serve() が付ける）。
-func newIntegrationHandler(db *gorm.DB, catalog domainbook.BookCatalog) *httpbook.Handler {
+func newIntegrationHandler(db *gorm.DB, catalog bookdomain.BookCatalog) *httpbook.Handler {
 	books := pgbook.NewRepository(db)
 	bookQuery := pgbook.NewQuery(db)
 	tagQuery := pgtag.NewQuery(db)
@@ -74,41 +74,41 @@ func newIntegrationHandler(db *gorm.DB, catalog domainbook.BookCatalog) *httpboo
 }
 
 // integrationCatalogEntry は Fake カタログが返す書誌・書影を組み立てる。
-func integrationCatalogEntry(t *testing.T, isbn string) *domainbook.CatalogEntry {
+func integrationCatalogEntry(t *testing.T, isbn string) *bookdomain.CatalogEntry {
 	t.Helper()
-	parsed, err := domainbook.NewISBN(isbn)
+	parsed, err := bookdomain.NewISBN(isbn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bib, err := domainbook.NewBibliography("結合テストの書名", "結合テスト著者", "結合テスト出版社", "202609")
+	bib, err := bookdomain.NewBibliography("結合テストの書名", "結合テスト著者", "結合テスト出版社", "202609")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &domainbook.CatalogEntry{ISBN: parsed, Bibliography: bib, Cover: nil}
+	return &bookdomain.CatalogEntry{ISBN: parsed, Bibliography: bib, Cover: nil}
 }
 
 // mustCreateIntegrationBook は Repository へ直接（外部カタログを経由せず）本を1冊作る。
 // 事前データの用意が目的で、登録APIそのもののテストではないため。
-func mustCreateIntegrationBook(t *testing.T, db *gorm.DB, isbn string) *domainbook.Book {
+func mustCreateIntegrationBook(t *testing.T, db *gorm.DB, isbn string) *bookdomain.Book {
 	t.Helper()
 	entry := integrationCatalogEntry(t, isbn)
-	summary, err := domainbook.NewSummary("結合テスト用の一言まとめ")
+	summary, err := bookdomain.NewSummary("結合テスト用の一言まとめ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	comment, err := domainbook.NewComment("結合テスト用の感想")
+	comment, err := bookdomain.NewComment("結合テスト用の感想")
 	if err != nil {
 		t.Fatal(err)
 	}
-	rating, err := domainbook.NewRating(4)
+	rating, err := bookdomain.NewRating(4)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tags, err := domainbook.NewTagSelection(nil)
+	tags, err := bookdomain.NewTagSelection(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := domainbook.New(entry.ISBN, entry.Bibliography, entry.Cover, summary, comment, rating, tags)
+	b := bookdomain.New(entry.ISBN, entry.Bibliography, entry.Cover, summary, comment, rating, tags)
 	if err := pgbook.NewRepository(db).Create(context.Background(), b); err != nil {
 		t.Fatalf("create book: %v", err)
 	}
@@ -228,14 +228,14 @@ func TestBookHandlerIntegration_Register(t *testing.T) {
 		mustCreateIntegrationBook(t, db, isbn)
 		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
 		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+isbn+`","summary":"要約","comment":"良書","rating":5}`, true)
-		assertFieldErrors(t, rec, []common.FieldError{{Field: "isbn", Rule: "isbnDuplicated"}})
+		assertFieldErrors(t, rec, []httpserver.FieldError{{Field: "isbn", Rule: "isbnDuplicated"}})
 	})
 
 	t.Run("400: 存在しない分野タグは相関ルール tagIdsNotFound", func(t *testing.T) {
 		isbn := nextIntegrationISBN(t)
 		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
 		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+isbn+`","summary":"要約","tagIds":[999999999],"comment":"良書","rating":5}`, true)
-		assertFieldErrors(t, rec, []common.FieldError{{Field: "tagIds", Rule: "tagIdsNotFound"}})
+		assertFieldErrors(t, rec, []httpserver.FieldError{{Field: "tagIds", Rule: "tagIdsNotFound"}})
 		var count int64
 		db.Table("book").Where("isbn = ?", isbn).Count(&count)
 		if count != 0 {
@@ -305,7 +305,7 @@ func TestBookHandlerIntegration_Update(t *testing.T) {
 
 // assertIntegrationBookUnchanged は、失敗したはずの更新リクエストの後で本の内容・バージョンが
 // 呼び出し前のまま変わっていないことを確認する（docs/rules/testing.md の「失敗時の非変化」）。
-func assertIntegrationBookUnchanged(t *testing.T, db *gorm.DB, before *domainbook.Book) {
+func assertIntegrationBookUnchanged(t *testing.T, db *gorm.DB, before *bookdomain.Book) {
 	t.Helper()
 	after, err := pgbook.NewRepository(db).FindByID(context.Background(), before.ID)
 	if err != nil {
@@ -349,12 +349,12 @@ func TestBookHandlerIntegration_Delete(t *testing.T) {
 }
 
 // assertFieldErrors は 400 と errors[{field, rule}] の内容（順序込み）を確かめる。
-func assertFieldErrors(t *testing.T, rec *httptest.ResponseRecorder, want []common.FieldError) {
+func assertFieldErrors(t *testing.T, rec *httptest.ResponseRecorder, want []httpserver.FieldError) {
 	t.Helper()
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
 	}
-	var e common.ErrorResponse
+	var e httpserver.ErrorResponse
 	if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
 		t.Fatalf("invalid JSON body %q: %v", rec.Body.String(), err)
 	}

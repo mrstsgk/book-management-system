@@ -5,9 +5,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
-	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
-	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
+	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
+	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 )
 
 // isbnMaxLength は書籍 API の isbn と同じ上限（13桁＋ハイフン）。
@@ -43,15 +43,15 @@ func (h *Handler) Register(g *echo.Group) {
 // @Produce      json
 // @Param        isbn path string true "ISBN（13桁または10桁。ハイフン可）"
 // @Success      200 {object} Response
-// @Failure      400 {object} common.ErrorResponse
-// @Failure      401 {object} common.ErrorResponse
-// @Failure      404 {object} common.ErrorResponse
-// @Failure      500 {object} common.ErrorResponse
+// @Failure      400 {object} httpserver.ErrorResponse
+// @Failure      401 {object} httpserver.ErrorResponse
+// @Failure      404 {object} httpserver.ErrorResponse
+// @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/catalog/{isbn} [get]
 func (h *Handler) Lookup(c echo.Context) error {
 	isbn := c.Param("isbn")
 	if len(isbn) > isbnMaxLength {
-		return &common.ValidationError{Fields: []common.FieldError{{Field: "isbn", Rule: "max"}}}
+		return &httpserver.ValidationError{Fields: []httpserver.FieldError{{Field: "isbn", Rule: "max"}}}
 	}
 	out, err := h.LookupCatalogUsecase.Execute(c.Request().Context(), isbn)
 	if err != nil {
@@ -60,7 +60,7 @@ func (h *Handler) Lookup(c echo.Context) error {
 	return c.JSON(http.StatusOK, toResponse(out))
 }
 
-func toResponse(e *domainbook.CatalogEntry) Response {
+func toResponse(e *bookdomain.CatalogEntry) Response {
 	b := e.Bibliography
 	res := Response{
 		ISBN: e.ISBN.String(), Title: b.Title(), Authors: b.Authors(), Publisher: b.Publisher(), PublishedOn: b.PublishedOn(),

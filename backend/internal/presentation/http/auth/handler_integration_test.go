@@ -12,16 +12,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	infraauth "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/auth"
-	pgauth "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/auth"
-	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
-	pgtag "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/tag"
+	authbcrypt "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/bcrypt"
+	pgauth "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/postgres"
+	authcmd "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/command"
+	authqry "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/query"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
+	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 	httpauth "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/auth"
-	"github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
-	authcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/command"
-	authqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/query"
-	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
+	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
+	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
 )
 
 // Presentation → Infrastructure の結合テスト（docs/rules/testing.md）。
@@ -30,7 +30,7 @@ import (
 
 func connectTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := pgcommon.Connect(pgcommon.Config{
+	db, err := pgplatform.Connect(pgplatform.Config{
 		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
 		DBName: "book_management", SSLMode: "disable",
 	})
@@ -53,17 +53,17 @@ func newIntegrationEcho(t *testing.T, db *gorm.DB) *echo.Echo {
 	sessions := pgauth.NewRepository(db)
 	check := &authqry.CheckSessionUsecaseImpl{Sessions: sessions, Now: time.Now}
 	adminOnly := func(next echo.HandlerFunc) echo.HandlerFunc {
-		return common.RequireSameOrigin()(common.RequireAdminSession(check)(next))
+		return httpserver.RequireSameOrigin()(httpserver.RequireAdminSession(check)(next))
 	}
 
-	e := common.NewEcho()
+	e := httpserver.NewEcho()
 	api := e.Group("/api")
 	(&httpauth.Handler{
 		LoginUsecase: &authcmd.LoginUsecaseImpl{
-			Admin: authcmd.AdminAccount{ID: "admin", PasswordHash: string(hash)}, Verifier: infraauth.NewBcryptVerifier(),
+			Admin: authcmd.AdminAccount{ID: "admin", PasswordHash: string(hash)}, Verifier: authbcrypt.NewBcryptVerifier(),
 			Sessions: sessions, Now: time.Now,
 		},
-		LogoutUsecase: &authcmd.LogoutUsecaseImpl{Sessions: sessions}, CheckSessionUsecase: check, SameOrigin: common.RequireSameOrigin(),
+		LogoutUsecase: &authcmd.LogoutUsecaseImpl{Sessions: sessions}, CheckSessionUsecase: check, SameOrigin: httpserver.RequireSameOrigin(),
 	}).Register(api.Group("/auth"))
 	repo := pgtag.NewRepository(db)
 	(&httptag.Handler{
@@ -87,7 +87,7 @@ func do(e *echo.Echo, method, path, body string, cookie *http.Cookie) *httptest.
 func cookieOf(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
 	for _, ck := range rec.Result().Cookies() {
-		if ck.Name == common.SessionCookieName {
+		if ck.Name == httpserver.SessionCookieName {
 			return ck
 		}
 	}
@@ -155,7 +155,7 @@ func TestIntegration_Session_204And401(t *testing.T) {
 	if rec = do(e, http.MethodGet, "/api/auth/session", "", session); rec.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want 204", rec.Code)
 	}
-	if rec = do(e, http.MethodGet, "/api/auth/session", "", &http.Cookie{Name: common.SessionCookieName, Value: "nope"}); rec.Code != http.StatusUnauthorized {
+	if rec = do(e, http.MethodGet, "/api/auth/session", "", &http.Cookie{Name: httpserver.SessionCookieName, Value: "nope"}); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 }

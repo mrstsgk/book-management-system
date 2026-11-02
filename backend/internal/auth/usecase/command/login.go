@@ -1,0 +1,105 @@
+package command
+
+import (
+	"context"
+	"crypto/subtle"
+	"fmt"
+	"sync"
+	"time"
+
+	authdomain "github.com/mrstsgk/book-management-system/backend/internal/auth/domain"
+	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
+)
+
+const (
+	maxFailures  = 5
+	lockDuration = time.Minute
+)
+
+// LoginCommand は LoginUsecase の入力。データだけを持ち、ロジックは持たない。
+type LoginCommand struct {
+	// 入力されたログイン ID。
+	ID string
+	// 入力されたパスワード。
+	Password string
+}
+
+// AdminAccount は環境変数から読んだ管理者の ID とパスワードのハッシュ。
+type AdminAccount struct {
+	// 管理者のログイン ID。
+	ID string
+	// パスワードの bcrypt ハッシュ。
+	PasswordHash string
+}
+
+// LoginUsecase は、ID とパスワードを照合してセッションを発行する。
+type LoginUsecase interface {
+	// Execute は照合に成功したらセッションを発行し、その ID を返す。
+	Execute(ctx context.Context, cmd LoginCommand) (string, error)
+}
+
+// LoginUsecaseImpl は 1 インスタンスを全リクエストで共有する（失敗回数を持つため）。
+type LoginUsecaseImpl struct {
+	Admin    AdminAccount
+	Verifier authdomain.PasswordVerifier
+	Sessions authdomain.SessionRepository
+	Now      func() time.Time
+
+	// 総当たり対策。利用者は 1 人なので ID ごとに分けない。
+	// ponytail: プロセス内メモリ。再起動で消え、複数プロセスでは共有されない。公開して多プロセスにするなら DB に移す
+	mu          sync.Mutex
+	failures    int
+	lockedUntil time.Time
+}
+
+// Execute は空欄 → ロック → ID とパスワードの照合 → セッション保存の順に進む。
+// ID が違ってもパスワードの照合を必ず行い、応答時間から ID の当たり外れが分からないようにする。
+func (u *LoginUsecaseImpl) Execute(ctx context.Context, cmd LoginCommand) (string, error) {
+	creds, err := authdomain.NewCredentials(cmd.ID, cmd.Password)
+	if err != nil {
+		return "", err
+	}
+	now := u.Now()
+	if err := u.attempt(creds, now); err != nil {
+		return "", err
+	}
+
+	id, err := authdomain.NewSessionID()
+	if err != nil {
+		return "", err
+	}
+	s := authdomain.NewSession(id, now)
+	if err := u.Sessions.Create(ctx, s); err != nil {
+		return "", err
+	}
+	return string(id), nil
+}
+
+// matches は ID を定数時間で比べ、その結果に関わらずパスワードも照合する。設定が空なら常に false。
+func (u *LoginUsecaseImpl) matches(creds authdomain.Credentials) bool {
+	idOK := subtle.ConstantTimeCompare([]byte(creds.ID()), []byte(u.Admin.ID)) == 1
+	pwOK := u.Verifier.Matches(u.Admin.PasswordHash, creds.Password())
+	return u.Admin.ID != "" && u.Admin.PasswordHash != "" && idOK && pwOK
+}
+
+// attempt はロック確認 → 照合 → 失敗回数の更新を 1 つの臨界区間で行う。
+// 分けると照合中に届いた並列の試行がすべてロックをすり抜けて照合されてしまう。
+// ponytail: 全ログインを 1 つの mutex で直列化する。管理者 1 人なら問題ない。複数ユーザーにするなら見直す
+func (u *LoginUsecaseImpl) attempt(creds authdomain.Credentials, now time.Time) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if now.Before(u.lockedUntil) {
+		return fmt.Errorf("%w: しばらく待ってからやり直してください", domainerr.ErrTooManyAttempts)
+	}
+	if u.matches(creds) {
+		u.failures = 0
+		return nil
+	}
+	// maxFailures に達したら lockDuration の間ロックして回数を戻す。
+	u.failures++
+	if u.failures >= maxFailures {
+		u.lockedUntil = now.Add(lockDuration)
+		u.failures = 0
+	}
+	return fmt.Errorf("%w: IDかパスワードが違います", domainerr.ErrUnauthorized)
+}

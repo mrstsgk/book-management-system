@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
-	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
+	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
 )
 
 // sampleBook は見本データ1冊分。書誌は外部カタログに頼らず自前で持つ（ネットに繋がらなくても起動できるように）。
@@ -123,30 +123,30 @@ var sampleBooks = []sampleBook{
 }
 
 // toBook は見本データを VO で検証して、保存前の本にする。
-func (s sampleBook) toBook() (*domainbook.Book, error) {
-	isbn, err := domainbook.NewISBN(s.isbn)
+func (s sampleBook) toBook() (*bookdomain.Book, error) {
+	isbn, err := bookdomain.NewISBN(s.isbn)
 	if err != nil {
 		return nil, err
 	}
-	bib, err := domainbook.NewBibliography(s.title, s.authors, s.publisher, s.publishedOn)
+	bib, err := bookdomain.NewBibliography(s.title, s.authors, s.publisher, s.publishedOn)
 	if err != nil {
 		return nil, err
 	}
-	summary, err := domainbook.NewSummary(s.summary)
+	summary, err := bookdomain.NewSummary(s.summary)
 	if err != nil {
 		return nil, err
 	}
-	comment, err := domainbook.NewComment(s.comment)
+	comment, err := bookdomain.NewComment(s.comment)
 	if err != nil {
 		return nil, err
 	}
-	rating, err := domainbook.NewRating(s.rating)
+	rating, err := bookdomain.NewRating(s.rating)
 	if err != nil {
 		return nil, err
 	}
-	b := domainbook.New(isbn, bib, nil, summary, comment, rating, domainbook.TagSelection{})
+	b := bookdomain.New(isbn, bib, nil, summary, comment, rating, bookdomain.TagSelection{})
 	if s.titleOverride != "" {
-		title, err := domainbook.NewTitle(s.titleOverride)
+		title, err := bookdomain.NewTitle(s.titleOverride)
 		if err != nil {
 			return nil, err
 		}
@@ -157,12 +157,12 @@ func (s sampleBook) toBook() (*domainbook.Book, error) {
 
 // seedIfEmpty は本が1冊も無いときだけ見本データを保存する。
 // 登録ユースケースは書誌を外部カタログから取る前提なので使わず、Repository に直接書く。
-func seedIfEmpty(ctx context.Context, books domainbook.Repository, query domainbook.Query, catalog domainbook.BookCatalog) error {
-	r, err := common.NewListRange(1, 0)
+func seedIfEmpty(ctx context.Context, books bookdomain.Repository, query bookdomain.Query, catalog bookdomain.BookCatalog) error {
+	r, err := bookdomain.NewListRange(1, 0)
 	if err != nil {
 		return err
 	}
-	list, err := query.Search(ctx, domainbook.ListCondition{}, r)
+	list, err := query.Search(ctx, bookdomain.ListCondition{}, r)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func seedIfEmpty(ctx context.Context, books domainbook.Repository, query domainb
 		return nil
 	}
 	// 途中まで保存された状態を残さないよう、全冊を先に検証する
-	prepared := make([]*domainbook.Book, 0, len(sampleBooks))
+	prepared := make([]*bookdomain.Book, 0, len(sampleBooks))
 	for _, s := range sampleBooks {
 		b, err := s.toBook()
 		if err != nil {
@@ -183,7 +183,7 @@ func seedIfEmpty(ctx context.Context, books domainbook.Repository, query domainb
 	}
 	// 1冊ずつ保存すると、途中で失敗したとき次の起動では「本がある」と判断されて残りが入らないため、まとめて保存する
 	if err := books.CreateAll(ctx, prepared); err != nil {
-		if errors.Is(err, common.ErrConflict) {
+		if errors.Is(err, domainerr.ErrConflict) {
 			// 同時に起動した別のプロセスが先に入れた
 			slog.InfoContext(ctx, "sample books already seeded by another process; skipping")
 			return nil
@@ -195,10 +195,10 @@ func seedIfEmpty(ctx context.Context, books domainbook.Repository, query domainb
 }
 
 // lookupSampleCover は書影だけ外部カタログから取る。取れなければ書影なしにする（ネットが無くても起動できるように）。
-func lookupSampleCover(ctx context.Context, catalog domainbook.BookCatalog, isbn domainbook.ISBN) *domainbook.Cover {
+func lookupSampleCover(ctx context.Context, catalog bookdomain.BookCatalog, isbn bookdomain.ISBN) *bookdomain.Cover {
 	entry, err := catalog.Lookup(ctx, isbn)
 	if err != nil {
-		if !errors.Is(err, common.ErrNotFound) {
+		if !errors.Is(err, domainerr.ErrNotFound) {
 			slog.WarnContext(ctx, "sample book cover lookup failed; seeding without a cover", "isbn", isbn.String(), "error", err)
 		}
 		return nil

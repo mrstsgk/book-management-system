@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
-	"github.com/mrstsgk/book-management-system/backend/internal/domain/common"
+	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
+	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
 )
 
 func TestSampleBooks_AreValidAndDistinct(t *testing.T) {
@@ -54,21 +54,21 @@ func TestSampleBooks_SummaryAndCommentAreDistinctPerBook(t *testing.T) {
 
 // fakeSeedBooks は book.Repository の手書き Fake。CreateAll は createAllErr を返すか、渡された全冊を保存する。
 type fakeSeedBooks struct {
-	created      []*domainbook.Book
+	created      []*bookdomain.Book
 	createAllErr error
 	singleCalls  int
 }
 
-func (f *fakeSeedBooks) FindByID(context.Context, domainbook.ID) (*domainbook.Book, error) {
-	return nil, common.ErrNotFound
+func (f *fakeSeedBooks) FindByID(context.Context, bookdomain.ID) (*bookdomain.Book, error) {
+	return nil, domainerr.ErrNotFound
 }
 
-func (f *fakeSeedBooks) Create(context.Context, *domainbook.Book) error {
+func (f *fakeSeedBooks) Create(context.Context, *bookdomain.Book) error {
 	f.singleCalls++
 	return nil
 }
 
-func (f *fakeSeedBooks) CreateAll(_ context.Context, books []*domainbook.Book) error {
+func (f *fakeSeedBooks) CreateAll(_ context.Context, books []*bookdomain.Book) error {
 	if f.createAllErr != nil {
 		return f.createAllErr
 	}
@@ -76,8 +76,8 @@ func (f *fakeSeedBooks) CreateAll(_ context.Context, books []*domainbook.Book) e
 	return nil
 }
 
-func (f *fakeSeedBooks) Update(context.Context, *domainbook.Book) error { return nil }
-func (f *fakeSeedBooks) Delete(context.Context, domainbook.ID) error    { return nil }
+func (f *fakeSeedBooks) Update(context.Context, *bookdomain.Book) error { return nil }
+func (f *fakeSeedBooks) Delete(context.Context, bookdomain.ID) error    { return nil }
 
 // fakeSeedQuery は book.Query の手書き Fake。total 冊の本がある DB を表す。
 type fakeSeedQuery struct {
@@ -85,19 +85,19 @@ type fakeSeedQuery struct {
 	err   error
 }
 
-func (f *fakeSeedQuery) FindDetailByID(context.Context, domainbook.ID) (*domainbook.BookDetail, error) {
-	return nil, common.ErrNotFound
+func (f *fakeSeedQuery) FindDetailByID(context.Context, bookdomain.ID) (*bookdomain.BookDetail, error) {
+	return nil, domainerr.ErrNotFound
 }
 
-func (f *fakeSeedQuery) ExistsByISBN(context.Context, domainbook.ISBN) (bool, error) {
+func (f *fakeSeedQuery) ExistsByISBN(context.Context, bookdomain.ISBN) (bool, error) {
 	return false, nil
 }
 
-func (f *fakeSeedQuery) Search(context.Context, domainbook.ListCondition, common.ListRange) (*domainbook.BookList, error) {
+func (f *fakeSeedQuery) Search(context.Context, bookdomain.ListCondition, bookdomain.ListRange) (*bookdomain.BookList, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	return &domainbook.BookList{Items: []*domainbook.BookListItem{}, Total: f.total}, nil
+	return &bookdomain.BookList{Items: []*bookdomain.BookListItem{}, Total: f.total}, nil
 }
 
 // fakeSeedCatalog は book.BookCatalog の手書き Fake。err が nil なら書影付きで返す。
@@ -106,16 +106,16 @@ type fakeSeedCatalog struct {
 	called int
 }
 
-func (f *fakeSeedCatalog) Lookup(_ context.Context, isbn domainbook.ISBN) (*domainbook.CatalogEntry, error) {
+func (f *fakeSeedCatalog) Lookup(_ context.Context, isbn bookdomain.ISBN) (*bookdomain.CatalogEntry, error) {
 	f.called++
 	if f.err != nil {
 		return nil, f.err
 	}
-	cover, err := domainbook.NewCover("https://cover.openbd.jp/"+isbn.String()+".jpg", domainbook.CoverSourceOpenBD)
+	cover, err := bookdomain.NewCover("https://cover.openbd.jp/"+isbn.String()+".jpg", bookdomain.CoverSourceOpenBD)
 	if err != nil {
 		return nil, err
 	}
-	return &domainbook.CatalogEntry{ISBN: isbn, Cover: &cover}, nil
+	return &bookdomain.CatalogEntry{ISBN: isbn, Cover: &cover}, nil
 }
 
 func TestSeedIfEmpty(t *testing.T) {
@@ -152,7 +152,7 @@ func TestSeedIfEmpty(t *testing.T) {
 		err  error
 	}{
 		{name: "カタログの障害", err: errors.New("openbd: timeout")},
-		{name: "カタログに該当なし", err: common.ErrNotFound},
+		{name: "カタログに該当なし", err: domainerr.ErrNotFound},
 	} {
 		t.Run(tt.name+"でも書影なしで全冊を保存する", func(t *testing.T) {
 			books := &fakeSeedBooks{}
@@ -171,7 +171,7 @@ func TestSeedIfEmpty(t *testing.T) {
 	}
 
 	t.Run("同時に起動した別のプロセスが先に入れていたら（Conflict）投入済みとして正常に終わる", func(t *testing.T) {
-		books := &fakeSeedBooks{createAllErr: common.ErrConflict}
+		books := &fakeSeedBooks{createAllErr: domainerr.ErrConflict}
 		if err := seedIfEmpty(ctx, books, &fakeSeedQuery{}, &fakeSeedCatalog{}); err != nil {
 			t.Fatalf("err = %v, want nil", err)
 		}
@@ -190,7 +190,7 @@ func TestSeedIfEmpty(t *testing.T) {
 		t.Cleanup(func() { sampleBooks = orig })
 		sampleBooks = append(append([]sampleBook{}, orig...), sampleBook{isbn: "123", title: "seed-test-不正", summary: "x", comment: "x", rating: 3})
 		books := &fakeSeedBooks{}
-		if err := seedIfEmpty(ctx, books, &fakeSeedQuery{}, &fakeSeedCatalog{}); !errors.Is(err, common.ErrInvalid) {
+		if err := seedIfEmpty(ctx, books, &fakeSeedQuery{}, &fakeSeedCatalog{}); !errors.Is(err, domainerr.ErrInvalid) {
 			t.Fatalf("err = %v, want ErrInvalid", err)
 		}
 		if len(books.created) != 0 {

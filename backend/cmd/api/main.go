@@ -12,24 +12,24 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mrstsgk/book-management-system/backend/config"
-	domainbook "github.com/mrstsgk/book-management-system/backend/internal/domain/book"
-	infraauth "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/auth"
-	"github.com/mrstsgk/book-management-system/backend/internal/infrastructure/gateway/openbd"
-	pgauth "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/auth"
-	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
-	pgcommon "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/common"
-	pgtag "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/tag"
+	authbcrypt "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/bcrypt"
+	pgauth "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/postgres"
+	authcmd "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/command"
+	authqry "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/query"
+	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
+	"github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/gateway/openbd"
+	pgbook "github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/postgres"
+	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/command"
+	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
+	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
+	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 	httpauth "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/auth"
 	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
 	httpcatalog "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/catalog"
-	httpcommon "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/common"
 	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
-	authcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/command"
-	authqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/auth/query"
-	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/command"
-	bookqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
-	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/command"
-	tagqry "github.com/mrstsgk/book-management-system/backend/internal/usecase/tag/query"
+	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
+	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
+	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
 
 // @title Book Management System API
@@ -51,7 +51,7 @@ func run() error {
 	}
 	slog.SetDefault(cfg.NewLogger())
 
-	db, err := pgcommon.Connect(pgcommon.Config{
+	db, err := pgplatform.Connect(pgplatform.Config{
 		Host:     cfg.DB.Host,
 		Port:     cfg.DB.Port,
 		User:     cfg.DB.User,
@@ -63,7 +63,7 @@ func run() error {
 		return err
 	}
 	defer func() {
-		if err := pgcommon.Close(db); err != nil {
+		if err := pgplatform.Close(db); err != nil {
 			slog.Error("failed to close db", "error", err)
 		}
 	}()
@@ -73,22 +73,22 @@ func run() error {
 		return err
 	}
 
-	e := httpcommon.NewEcho()
+	e := httpserver.NewEcho()
 	registerRoutes(e, db, bookCatalog, cfg)
 
-	return httpcommon.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
+	return httpserver.Serve(e, fmt.Sprintf(":%s", cfg.HTTPPort))
 }
 
 // catalogTimeout は外部カタログ1回の問い合わせの上限。遅い提供元にリクエストを長く占有させないため。
 const catalogTimeout = 5 * time.Second
 
 // newCatalog は書誌と書影を openBD から取る。
-func newCatalog(cfg config.CatalogConfig) domainbook.BookCatalog {
+func newCatalog(cfg config.CatalogConfig) bookdomain.BookCatalog {
 	return openbd.NewCatalog(cfg.OpenBDBaseURL, &http.Client{Timeout: catalogTimeout})
 }
 
 // registerRoutes は手書きの DI（infra → usecase → presentation）で各ハンドラを組み立てて登録する。
-func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalog, cfg config.Config) {
+func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog bookdomain.BookCatalog, cfg config.Config) {
 	books := pgbook.NewRepository(db)
 	bookQuery := pgbook.NewQuery(db)
 	tags := pgtag.NewRepository(db)
@@ -98,20 +98,20 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 	checkSession := &authqry.CheckSessionUsecaseImpl{Sessions: sessions, Now: time.Now}
 	// 書き込み系はセッションの検証と Origin の検証を両方通す
 	adminOnly := func(next echo.HandlerFunc) echo.HandlerFunc {
-		return httpcommon.RequireSameOrigin()(httpcommon.RequireAdminSession(checkSession)(next))
+		return httpserver.RequireSameOrigin()(httpserver.RequireAdminSession(checkSession)(next))
 	}
 
 	api := e.Group("/api")
 	(&httpauth.Handler{
 		LoginUsecase: &authcmd.LoginUsecaseImpl{
 			Admin:    authcmd.AdminAccount{ID: cfg.Admin.ID, PasswordHash: cfg.Admin.PasswordHash},
-			Verifier: infraauth.NewBcryptVerifier(),
+			Verifier: authbcrypt.NewBcryptVerifier(),
 			Sessions: sessions,
 			Now:      time.Now,
 		},
 		LogoutUsecase:       &authcmd.LogoutUsecaseImpl{Sessions: sessions},
 		CheckSessionUsecase: checkSession,
-		SameOrigin:          httpcommon.RequireSameOrigin(),
+		SameOrigin:          httpserver.RequireSameOrigin(),
 	}).Register(api.Group("/auth"))
 	(&httpbook.Handler{
 		RegisterBookUsecase: &bookcmd.RegisterBookUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
@@ -123,7 +123,7 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog domainbook.BookCatalo
 	}).Register(api.Group("/books"))
 	(&httpcatalog.Handler{
 		LookupCatalogUsecase: &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},
-		AdminOnly:            httpcommon.RequireAdminSession(checkSession), // GET なので Origin 検証は要らない
+		AdminOnly:            httpserver.RequireAdminSession(checkSession), // GET なので Origin 検証は要らない
 	}).Register(api.Group("/catalog"))
 
 	(&httptag.Handler{
