@@ -10,7 +10,6 @@ on:
       - '.mise.toml'
       - '!**/*.md'
   pull_request:
-    branches: [main, develop]
     paths:
       - 'frontend/**'
       - 'backend/api/docs/**'

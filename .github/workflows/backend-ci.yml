@@ -9,7 +9,6 @@ on:
       - '.mise.toml'
       - '!**/*.md'
   pull_request:
-    branches: [main, develop]
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
