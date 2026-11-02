@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,15 +19,19 @@ import (
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 
+	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
 	"github.com/mrstsgk/book-management-system/backend/config"
 	authdomain "github.com/mrstsgk/book-management-system/backend/internal/auth/domain"
-	pgauth "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/postgres"
+	authcmd "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/command"
+	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/postgres"
+	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
 	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
+	tagdomain "github.com/mrstsgk/book-management-system/backend/internal/tag/domain"
 )
 
-// run は非公開なので、このテストは package main に置く。
+// run・buildEcho は非公開なので、このテストは package main に置く。
 
 func TestRun_FailsFastOnInvalidConfig(t *testing.T) {
 	t.Setenv("STAGE", "local")
@@ -46,169 +53,200 @@ func TestRun_FailsWhenDBIsUnreachable(t *testing.T) {
 	}
 }
 
-func TestRegisterRoutes_ExposesBookAndCatalogAPI(t *testing.T) {
-	e := echo.New()
-	registerRoutes(e, nil, nil, config.Config{})
+// buildEcho に Fake を渡して、全ルートが Handler → UseCase を通って応答すること（依存の nil・登録漏れ）と、
+// 認証・入力検証の middleware が spec から掛かっていることを確かめる。DB と外部カタログには繋がない。
 
-	got := map[string]bool{}
-	for _, r := range e.Routes() {
-		got[r.Method+" "+r.Path] = true
-	}
-	for _, want := range []string{
-		"GET /api/books",
-		"GET /api/books/:id",
-		"POST /api/books",
-		"PUT /api/books/:id",
-		"DELETE /api/books/:id",
-		"GET /api/catalog/:isbn",
-		"POST /api/auth/login",
-		"POST /api/auth/logout",
-		"GET /api/auth/session",
-		"GET /api/tags",
-		"GET /api/tags/counts",
-		"POST /api/tags",
-		"PUT /api/tags/:id",
-		"DELETE /api/tags/:id",
-	} {
-		if !got[want] {
-			t.Errorf("route %q is not registered (got %v)", want, got)
-		}
-	}
-	// 楽天は撤去した（書影は openBD から取る）ので、楽天由来の情報を消す API も残さない
-	if got["DELETE /api/books/:id/rakuten"] {
-		t.Error("the Rakuten removal route must no longer be registered")
-	}
+type stubBooks struct{}
+
+func (stubBooks) FindByID(context.Context, bookdomain.ID) (*bookdomain.Book, error) {
+	isbn, _ := bookdomain.NewISBN("9784873118703")
+	bib, _ := bookdomain.NewBibliography("書名", "著者", "出版社", "202601")
+	summary, _ := bookdomain.NewSummary("まとめ")
+	comment, _ := bookdomain.NewComment("感想")
+	rating, _ := bookdomain.NewRating(4)
+	tags, _ := bookdomain.NewTagSelection(nil)
+	b := bookdomain.New(isbn, bib, nil, summary, comment, rating, tags)
+	b.ID, b.Version = 1, 1
+	return b, nil
+}
+func (stubBooks) Create(_ context.Context, b *bookdomain.Book) error {
+	b.ID, b.Version = 1, 1
+	return nil
+}
+func (stubBooks) CreateAll(context.Context, []*bookdomain.Book) error { return nil }
+func (stubBooks) Update(context.Context, *bookdomain.Book) error      { return nil }
+func (stubBooks) Delete(context.Context, bookdomain.ID) error         { return nil }
+
+type stubBookQuery struct{}
+
+func (stubBookQuery) FindDetailByID(context.Context, bookdomain.ID) (*bookdomain.BookDetail, error) {
+	return &bookdomain.BookDetail{ID: 1, ISBN: "9784873118703", Title: "書名", Authors: "著者", Publisher: "出版社", PublishedOn: "202601",
+		Summary: "まとめ", Tags: []string{}, Comment: "感想", Rating: 4, Version: 1}, nil
+}
+func (stubBookQuery) Search(context.Context, bookdomain.ListCondition, bookdomain.ListRange) (*bookdomain.BookList, error) {
+	return &bookdomain.BookList{Items: []*bookdomain.BookListItem{}}, nil
+}
+func (stubBookQuery) ExistsByISBN(context.Context, bookdomain.ISBN) (bool, error) { return false, nil }
+
+type stubCatalog struct{}
+
+func (stubCatalog) Lookup(_ context.Context, isbn bookdomain.ISBN) (*bookdomain.CatalogEntry, error) {
+	bib, _ := bookdomain.NewBibliography("書名", "著者", "出版社", "202601")
+	return &bookdomain.CatalogEntry{ISBN: isbn, Bibliography: bib}, nil
 }
 
-// TestRegisterRoutes_WiresTagQueryIntoBookUsecases は main.go が RegisterUsecaseImpl と UpdateUsecaseImpl の両方の
-// Tags に本物の tag.Query を渡していることを、実際のリクエストで確かめる（配線漏れなら nil interface の
-// メソッド呼び出しでパニックする）。実DBが要るため繋がらなければ失敗する（CI は PostgreSQL を起動する）。
-func TestRegisterRoutes_WiresTagQueryIntoBookUsecases(t *testing.T) {
-	db, err := pgplatform.Connect(pgplatform.Config{
-		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
-		DBName: "book_management", SSLMode: "disable",
-	})
-	if err != nil {
-		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
+type stubTags struct{}
+
+func (stubTags) FindByID(context.Context, tagdomain.ID) (*tagdomain.Tag, error) {
+	name, _ := tagdomain.NewName("タグ")
+	t := tagdomain.New(name)
+	t.ID, t.Version = 1, 1
+	return t, nil
+}
+func (stubTags) Create(_ context.Context, t *tagdomain.Tag) error { t.ID, t.Version = 1, 1; return nil }
+func (stubTags) Update(context.Context, *tagdomain.Tag) error     { return nil }
+func (stubTags) Delete(context.Context, tagdomain.ID) error       { return nil }
+
+type stubTagQuery struct{}
+
+func (stubTagQuery) FindAll(context.Context) (*tagdomain.TagList, error) {
+	return &tagdomain.TagList{Items: []*tagdomain.TagListItem{}}, nil
+}
+func (stubTagQuery) ExistsAll(context.Context, []tagdomain.ID) (bool, error) { return true, nil }
+func (stubTagQuery) ExistsByName(context.Context, string, tagdomain.ID) (bool, error) {
+	return false, nil
+}
+func (stubTagQuery) CountBooks(context.Context) (*tagdomain.TagBookCounts, error) {
+	return &tagdomain.TagBookCounts{Items: []*tagdomain.TagBookCount{}}, nil
+}
+
+// stubSessions は "ok" のセッションだけを有効とみなす。
+type stubSessions struct{}
+
+func (stubSessions) Create(context.Context, *authdomain.Session) error { return nil }
+func (stubSessions) FindByID(_ context.Context, id authdomain.SessionID) (*authdomain.Session, error) {
+	if id != "ok" {
+		return nil, domainerr.ErrNotFound
 	}
+	return authdomain.NewSession(id, time.Now()), nil
+}
+func (stubSessions) Delete(context.Context, authdomain.SessionID) error { return nil }
+func (stubSessions) UpdateExpiry(context.Context, authdomain.SessionID, time.Time) error {
+	return nil
+}
 
-	e := httpserver.NewEcho()
-	registerRoutes(e, db, nil, config.Config{})
+type stubVerifier struct{}
 
-	// 書き込み系はセッションと Origin が要るので、有効なセッション行を1件作って Cookie に載せる
-	sid, err := authdomain.NewSessionID()
+func (stubVerifier) Matches(_, password string) bool { return password == "pw" }
+
+func newTestEcho(t *testing.T) *echo.Echo {
+	t.Helper()
+	spec, err := webapi.GetSpec()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := pgauth.NewRepository(db).Create(context.Background(), authdomain.NewSession(sid, time.Now())); err != nil {
-		t.Fatalf("save session: %v", err)
+	e, err := buildEcho(spec, deps{
+		Books: stubBooks{}, BookQuery: stubBookQuery{}, Catalog: stubCatalog{},
+		Tags: stubTags{}, TagQuery: stubTagQuery{}, Sessions: stubSessions{},
+		Admin: authcmd.AdminAccount{ID: "admin", PasswordHash: "hash"}, Verifier: stubVerifier{}, Now: time.Now,
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(sid)) })
-	cookie := &http.Cookie{Name: httpserver.SessionCookieName, Value: string(sid)}
+	return e
+}
 
-	body := `{"isbn":"4873118700","summary":"要約","tagIds":[999999999],"comment":"良書","rating":5}`
-	req := httptest.NewRequest(http.MethodPost, "/api/books", strings.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set("Origin", "http://example.com")
-	req.AddCookie(cookie)
+func send(e *echo.Echo, method, path, body, cookie, origin string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	if body != "" {
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	}
+	req.Header.Set("Origin", origin)
+	if cookie != "" {
+		req.AddCookie(&http.Cookie{Name: httpserver.SessionCookieName, Value: cookie})
+	}
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
+	return rec
+}
 
-	// 存在しないタグIDは400（実在確認までTagsの配線が届いていないとここでpanicする）。
-	// タグ検証はカタログ問い合わせより前に行われるため、bookCatalog（nil）には到達しない。
+func TestBuildEcho_すべてのルートがHandlerとUseCaseを通って応答する(t *testing.T) {
+	silenceLog(t)
+	e := newTestEcho(t)
+	const self = "http://example.com"
+	tests := []struct {
+		method, path, body, cookie string
+		want                       int
+	}{
+		{http.MethodGet, "/api/books", "", "", http.StatusOK},
+		{http.MethodGet, "/api/books/1", "", "", http.StatusOK},
+		{http.MethodGet, "/api/tags", "", "", http.StatusOK},
+		{http.MethodGet, "/api/tags/counts", "", "", http.StatusOK},
+		{http.MethodPost, "/api/admin/books", `{"isbn":"9784873118703","summary":"まとめ","comment":"感想","rating":4}`, "ok", http.StatusOK},
+		{http.MethodPut, "/api/admin/books/1", `{"summary":"まとめ","comment":"感想","rating":4,"version":1}`, "ok", http.StatusOK},
+		{http.MethodDelete, "/api/admin/books/1", "", "ok", http.StatusNoContent},
+		{http.MethodGet, "/api/admin/catalog/9784873118703", "", "ok", http.StatusOK},
+		{http.MethodPost, "/api/admin/tags", `{"name":"タグ"}`, "ok", http.StatusOK},
+		{http.MethodPut, "/api/admin/tags/1", `{"name":"タグ","version":1}`, "ok", http.StatusOK},
+		{http.MethodDelete, "/api/admin/tags/1", "", "ok", http.StatusNoContent},
+		{http.MethodPost, "/api/admin/auth/login", `{"id":"admin","password":"pw"}`, "", http.StatusNoContent},
+		{http.MethodPost, "/api/admin/auth/logout", "", "ok", http.StatusNoContent},
+		{http.MethodGet, "/api/admin/auth/session", "", "ok", http.StatusNoContent},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
+			rec := send(e, tt.method, tt.path, tt.body, tt.cookie, self)
+			if rec.Code != tt.want {
+				t.Fatalf("status = %d, want %d (body=%s)", rec.Code, tt.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestBuildEcho_管理のAPIはセッションとOriginを確かめる(t *testing.T) {
+	silenceLog(t)
+	e := newTestEcho(t)
+	tests := []struct {
+		name, method, path, body, cookie, origin string
+		want                                     int
+	}{
+		{"書き込みはセッションが無ければ 401", http.MethodPost, "/api/admin/tags", `{"name":"タグ"}`, "", "http://example.com", http.StatusUnauthorized},
+		{"書き込みは Origin が違えば 403", http.MethodPost, "/api/admin/tags", `{"name":"タグ"}`, "ok", "http://evil.example", http.StatusForbidden},
+		{"カタログの確認はセッションが無ければ 401", http.MethodGet, "/api/admin/catalog/9784873118703", "", "", "http://evil.example", http.StatusUnauthorized},
+		{"ログインはセッション無しで使えるが Origin は確かめる", http.MethodPost, "/api/admin/auth/login", `{"id":"admin","password":"pw"}`, "", "http://evil.example", http.StatusForbidden},
+		{"閲覧はセッションも Origin も要らない", http.MethodGet, "/api/books", "", "", "http://evil.example", http.StatusOK},
+		{"未ログインの不正な入力には入力の形を返さず 401", http.MethodPost, "/api/admin/tags", `{"name":""}`, "", "http://example.com", http.StatusUnauthorized},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := send(e, tt.method, tt.path, tt.body, tt.cookie, tt.origin)
+			if rec.Code != tt.want {
+				t.Fatalf("status = %d, want %d (body=%s)", rec.Code, tt.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestBuildEcho_specに違反するリクエストは入力検証で400になる(t *testing.T) {
+	silenceLog(t)
+	rec := send(newTestEcho(t), http.MethodGet, "/api/books?limit=0", "", "", "http://example.com")
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
 	}
-
-	// 更新経路（UpdateUsecaseImpl.Tags）も同様に配線されていることを確かめる。
-	// 更新はまず対象の本を読むので、実在する本の行を1件作っておく。
-	var bookID int64
-	if err := db.Raw(
-		"INSERT INTO book (isbn, title, summary, comment, rating, version) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-		"9780000099990", "main-test-書名", "main-test-まとめ", "main-test-感想", 5, 1,
-	).Scan(&bookID).Error; err != nil {
-		t.Fatalf("insert book: %v", err)
+	var got httpserver.ErrorResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", bookID) })
-
-	updateBody := `{"summary":"main-test-まとめ","tagIds":[999999999],"comment":"main-test-感想","rating":4,"version":1}`
-	updateReq := httptest.NewRequest(http.MethodPut, "/api/books/"+strconv.FormatInt(bookID, 10), strings.NewReader(updateBody))
-	updateReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	updateReq.Header.Set("Origin", "http://example.com")
-	updateReq.AddCookie(cookie)
-	updateRec := httptest.NewRecorder()
-	e.ServeHTTP(updateRec, updateReq)
-
-	if updateRec.Code != http.StatusBadRequest {
-		t.Fatalf("PUT status = %d, want 400 (body=%s)", updateRec.Code, updateRec.Body.String())
+	if want := []httpserver.FieldError{{Field: "limit", Rule: "minimum"}}; !reflect.DeepEqual(got.Errors, want) {
+		t.Fatalf("errors = %+v, want %+v", got.Errors, want)
 	}
 }
 
-// TestRegisterRoutes_AppliesSessionAndSameOriginToAdminRoutes は書き込み系（と catalog）に
-// セッション検証と Origin 検証の両方が実際に掛かっていることを、実際のリクエストで確かめる。
-// 実DBが要るため繋がらなければ失敗する（CI は PostgreSQL を起動する）。
-func TestRegisterRoutes_AppliesSessionAndSameOriginToAdminRoutes(t *testing.T) {
-	db, err := pgplatform.Connect(pgplatform.Config{
-		Host: "localhost", Port: "5432", User: "postgres", Password: "postgres",
-		DBName: "book_management", SSLMode: "disable",
-	})
-	if err != nil {
-		t.Fatalf("local Postgres not reachable (run `make db-up migrate-up` first; DB を使うテストは skip しない。docs/rules/testing.md): %v", err)
-	}
-
-	e := httpserver.NewEcho()
-	registerRoutes(e, db, nil, config.Config{})
-
-	sid, err := authdomain.NewSessionID()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := pgauth.NewRepository(db).Create(context.Background(), authdomain.NewSession(sid, time.Now())); err != nil {
-		t.Fatalf("save session: %v", err)
-	}
-	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", string(sid)) })
-	cookie := &http.Cookie{Name: httpserver.SessionCookieName, Value: string(sid)}
-
-	// 通り抜けた場合に備えて、作られうるタグ行も後片付けする
-	const tagName = "main-test-admin-guard"
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name = ?", tagName) })
-
-	post := func(origin string, withCookie bool) int {
-		req := httptest.NewRequest(http.MethodPost, "/api/tags", strings.NewReader(`{"name":"`+tagName+`"}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		if origin != "" {
-			req.Header.Set("Origin", origin)
-		}
-		if withCookie {
-			req.AddCookie(cookie)
-		}
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, req)
-		return rec.Code
-	}
-
-	tests := []struct {
-		name       string
-		origin     string
-		withCookie bool
-		want       int
-	}{
-		{"Cookie無しなら401", "http://example.com", false, http.StatusUnauthorized},
-		{"有効なセッションでもOriginが無ければ403", "", true, http.StatusForbidden},
-		{"有効なセッションでも他サイトのOriginなら403", "http://evil.test", true, http.StatusForbidden},
-	}
-	for _, tt := range tests {
-		if got := post(tt.origin, tt.withCookie); got != tt.want {
-			t.Errorf("%s: status = %d, want %d", tt.name, got, tt.want)
-		}
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/api/catalog/9784873118703", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("catalog without cookie: status = %d, want 401", rec.Code)
-	}
+func silenceLog(t *testing.T) {
+	t.Helper()
+	orig := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(orig) })
 }
 
 func TestNewCatalog_ReturnsTheOpenBDCatalog(t *testing.T) {

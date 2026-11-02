@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
-.PHONY: help tidy run db-up db-down migrate-up migrate-down migrate-create swagger swagger-check fmt-check lint vuln test build tools
+.PHONY: help tidy run db-up db-down migrate-up migrate-down migrate-create openapi api-gen api-gen-check fmt-check lint vuln test build tools
 
-# CLI ツールは go.mod に入れず go install する。版はここで固定し、CI と揃える。
-SWAG_VERSION        := v1.16.6
+# CLI ツールは go.mod に入れず go install / go run する。版はここで固定し、CI と揃える。
+OAPI_CODEGEN_VERSION := v2.8.1
 MIGRATE_VERSION     := v4.20.1
 GOLANGCI_VERSION    := v2.15.0
 GOVULNCHECK_VERSION := v1.7.0
@@ -35,14 +35,18 @@ migrate-create: ## マイグレーションを新規作成（make migrate-create
 	@test -n "$(NAME)" || (echo "NAME を指定してください（例: make migrate-create NAME=create_books_table）" && exit 1)
 	migrate create -ext sql -dir ./migrations -seq $(NAME)
 
-# 排出物はコミットし、CI で再排出して git diff を検査する。
-# --parseDependency は付けない。標準ライブラリまで解析し、swag v1.16.6 が Go 1.27 のジェネリックなメソッドを
-# 読めずに失敗するため（DTO は internal にしか無く、付けなくても出力は同じ）
-swagger: ## OpenAPI を排出（api/docs は手編集禁止）
-	swag init -g cmd/api/main.go -o api/docs --parseInternal --outputTypes yaml,json
+# 正本は ../openapi/ の YAML。生成物（api/gen/）はコミットし、CI で git diff を検査する。
+openapi: ## OpenAPI を lint・バンドルし、BE のコードを再生成（YAML 変更後はこれ）
+	$(MAKE) -C ../openapi lint bundle
+	$(MAKE) api-gen
 
-swagger-check: swagger ## 排出物にドリフトがないか検査（CI と同じ）
-	git diff --exit-code -- api/docs/swagger.yaml api/docs/swagger.json
+api-gen: ## ../openapi/dist から HTTP 境界のコードを生成（api/gen は手編集禁止）
+	go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) \
+		-config api/gen/web/config.yaml ../openapi/dist/web.yaml
+
+api-gen-check: api-gen ## 生成物にドリフトがないか検査（CI と同じ）
+	git diff --exit-code -- api/gen/
+	@test -z "$$(git status --porcelain -- api/gen/)" || (git status --porcelain -- api/gen/ && exit 1)
 
 fmt-check: ## 未フォーマットのファイルがないか検査（CI と同じ）
 	@out=$$(gofmt -l ./cmd ./config ./internal) || exit 1; \
@@ -61,8 +65,7 @@ test: ## 全テストを実行（DB を使うテストは make db-up migrate-up 
 build: ## API をビルド（bin/）
 	go build -o bin/api ./cmd/api
 
-tools: ## CLI ツールを導入（swag / migrate / golangci-lint / govulncheck）
-	go install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
+tools: ## CLI ツールを導入（migrate / golangci-lint / govulncheck。oapi-codegen は go run で版固定）
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@$(MIGRATE_VERSION)
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
 	go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)

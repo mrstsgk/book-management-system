@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -40,7 +39,7 @@ func (r *repository) FindByID(ctx context.Context, id tagdomain.ID) (*tagdomain.
 	var row model
 	if err := r.db.WithContext(ctx).First(&row, int64(id)).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("%w: タグが見つかりません", domainerr.ErrNotFound)
+			return nil, domainerr.New(domainerr.ErrNotFound, "tagNotFound", "タグが見つかりません")
 		}
 		return nil, err
 	}
@@ -68,7 +67,7 @@ func (r *repository) Update(ctx context.Context, t *tagdomain.Tag) error {
 		return translateDuplicateName(res.Error)
 	}
 	if res.RowsAffected == 0 {
-		return fmt.Errorf("%w: タグの更新に失敗しました（他の更新と競合しました）", domainerr.ErrConflict)
+		return domainerr.New(domainerr.ErrConflict, "versionConflict", "タグの更新に失敗しました（他の更新と競合しました）")
 	}
 	t.Version = next
 	return nil
@@ -82,7 +81,7 @@ func (r *repository) Delete(ctx context.Context, id tagdomain.ID) error {
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
-		return fmt.Errorf("%w: タグが見つかりません", domainerr.ErrNotFound)
+		return domainerr.New(domainerr.ErrNotFound, "tagNotFound", "タグが見つかりません")
 	}
 	return nil
 }
@@ -93,7 +92,7 @@ const uniqueViolation = "23505"
 func translateDuplicateName(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == "uq_tag_name" {
-		return fmt.Errorf("%w: 同じ名前のタグが既にあります", domainerr.ErrConflict)
+		return domainerr.New(domainerr.ErrConflict, "tagNameDuplicated", "同じ名前のタグが既にあります")
 	}
 	return err
 }

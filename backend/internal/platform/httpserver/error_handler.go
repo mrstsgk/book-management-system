@@ -10,16 +10,26 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
 )
 
+// ErrorResponse は、エラーのときに返すボディ（openapi/common/schemas/ErrorResponse.yaml と同じ形）。
+// platform はチャネルの生成物を import しないので手で書く。形のずれは、レスポンスを spec で検証するテストで見つける。
 type ErrorResponse struct {
-	Message string `json:"message" example:"invalid"`
-	// Errors は項目ごとの違反。入力検証・VO・相関ルールの違反（400）だけに付く。rule は validate のキーワードか相関ルールの id。
+	// Message は開発者・ログ向けの説明。画面には出さない。
+	Message string `json:"message"`
+	// Code は業務ルールの違反のコード（x-error-codes）。5xx には付かない。
+	Code string `json:"code,omitempty"`
+	// Params は文言に差し込む値（BE しか知らない値だけ）。
+	Params map[string]any `json:"params,omitempty"`
+	// Errors は項目ごとの違反。入力検証・VO・相関ルールの違反（400）だけに付く。
 	Errors []FieldError `json:"errors,omitempty"`
-} // @name ErrorResponse
+}
 
+// FieldError は、1 つの項目の 1 つの違反。
 type FieldError struct {
-	Field string `json:"field" example:"title"`
-	Rule  string `json:"rule" example:"required"`
-} // @name FieldError
+	// Field は違反した項目の JSON 名（入れ子はドット区切り、パラメータはパラメータ名）。
+	Field string `json:"field"`
+	// Rule は OpenAPI の制約キーワード、VO の違反（format / invalid）、相関ルールの id のいずれか。
+	Rule string `json:"rule"`
+}
 
 // 5xx では err.Error() を返さない（ドライバやネットワークのエラーはホスト名や資格情報を含む）。
 const internalMessage = "internal"
@@ -64,9 +74,9 @@ var sentinelStatuses = []struct {
 	{domainerr.ErrTooManyAttempts, http.StatusTooManyRequests},
 }
 
-// toErrorResponse はエラーを HTTP ステータスとボディへ変換する: validation
-// エラーはフィールド詳細付き 400、既知の domain sentinel はそれぞれのステータス、
-// echo の HTTPError はそのコード（5xx はメッセージを隠す）、それ以外は汎用 500。
+// toErrorResponse はエラーを HTTP ステータスとボディへ変換する: 入力検証の違反と UseCase が集めた違反は
+// 項目ごとの errors 付きの 400、既知の分類はそれぞれのステータス（業務ルールの違反ならコードと差し込む値も）、
+// echo の HTTPError はそのコード（5xx は説明を隠す）、それ以外は汎用の 500。
 func toErrorResponse(err error) (int, ErrorResponse) {
 	if ve, ok := errors.AsType[*ValidationError](err); ok {
 		return http.StatusBadRequest, ErrorResponse{Message: ve.Error(), Errors: ve.Fields}
@@ -79,10 +89,13 @@ func toErrorResponse(err error) (int, ErrorResponse) {
 		}
 		return http.StatusBadRequest, ErrorResponse{Message: "invalid request", Errors: fields}
 	}
-	for _, m := range sentinelStatuses {
-		if errors.Is(err, m.err) {
-			return m.status, ErrorResponse{Message: err.Error()}
+	if status, ok := sentinelStatus(err); ok {
+		res := ErrorResponse{Message: err.Error()}
+		// 業務ルールの違反のコードと差し込む値は、包まれていても取り出す
+		if ce, ok := errors.AsType[*domainerr.CodedError](err); ok {
+			res.Code, res.Params = ce.Code, ce.Params
 		}
+		return status, res
 	}
 	if he, ok := errors.AsType[*echo.HTTPError](err); ok {
 		if he.Code >= http.StatusInternalServerError {
@@ -95,4 +108,13 @@ func toErrorResponse(err error) (int, ErrorResponse) {
 		return he.Code, ErrorResponse{Message: msg}
 	}
 	return http.StatusInternalServerError, ErrorResponse{Message: internalMessage}
+}
+
+func sentinelStatus(err error) (int, bool) {
+	for _, m := range sentinelStatuses {
+		if errors.Is(err, m.err) {
+			return m.status, true
+		}
+	}
+	return 0, false
 }

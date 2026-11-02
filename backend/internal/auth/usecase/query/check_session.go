@@ -3,7 +3,6 @@ package query
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	authdomain "github.com/mrstsgk/book-management-system/backend/internal/auth/domain"
@@ -25,14 +24,14 @@ type CheckSessionUsecaseImpl struct {
 func (u *CheckSessionUsecaseImpl) Execute(ctx context.Context, sessionID string) error {
 	s, err := u.Sessions.FindByID(ctx, authdomain.SessionID(sessionID))
 	if errors.Is(err, domainerr.ErrNotFound) {
-		return fmt.Errorf("%w: ログインしてください", domainerr.ErrUnauthorized)
+		return domainerr.New(domainerr.ErrUnauthorized, "unauthenticated", "ログインしてください")
 	}
 	if err != nil {
 		return err
 	}
 	now := u.Now()
 	if !s.IsValid(now) {
-		return fmt.Errorf("%w: ログインの期限が切れました", domainerr.ErrUnauthorized)
+		return domainerr.New(domainerr.ErrUnauthorized, "unauthenticated", "ログインの期限が切れました")
 	}
 	s.Extend(now)
 	return u.Sessions.UpdateExpiry(ctx, s.ID, s.ExpiresAt)

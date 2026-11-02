@@ -1,31 +1,26 @@
 package admin_test
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"gorm.io/gorm"
 
-	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
+	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	"github.com/mrstsgk/book-management-system/backend/internal/apitest"
 	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
+	tagdomain "github.com/mrstsgk/book-management-system/backend/internal/tag/domain"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
 	tagadmin "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/admin"
-	tagpublic "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/public"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
 )
 
-// Presentation → Infrastructure の結合テスト（docs/rules/testing.md）。
-// 実際の Repository/Query（実 PostgreSQL）を注入した Handler に、実 HTTP リクエストを通す。
-// 分岐網羅はしない（既存の Fake ベースの handler_test.go・usecase の Fake テスト・
-// postgres/tag の契約テストが担う）。ここでは各エンドポイントが返しうる HTTP ステータスごとに
-// 最低1件、配線が噛み合っていることだけを確かめる。
-
-// connectTestDB はローカルの開発用 DB に接続する。契約テストと同じ理由で、繋がらなければ skip せず失敗にする。
+// connectTestDB はローカルの開発用 DB に接続する。繋がらなければ skip せず失敗にする（docs/rules/testing.md）。
 func connectTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := pgplatform.Connect(pgplatform.Config{
@@ -41,226 +36,226 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// newIntegrationHandler は cmd/api/main.go と同じ形（実 Repository/Query を注入）で Handler を組み立てる。
-func newIntegrationHandler(db *gorm.DB) *tagadmin.Handler {
+// skipDuplicateCheck は、タグ名の重複の事前検査をすり抜ける Query。同時の追加・改名で DB の一意制約（最後の砦）に当たる状況を作る。
+type skipDuplicateCheck struct{ tagdomain.Query }
+
+func (skipDuplicateCheck) ExistsByName(context.Context, string, tagdomain.ID) (bool, error) {
+	return false, nil
+}
+
+type testServer struct {
+	apitest.Unimplemented
+	*tagadmin.Handler
+}
+
+// newServer は、本物の Repository/Query/UseCase を実 DB に配線した管理の Handler をサーバーに載せる。
+func newServer(t *testing.T, db *gorm.DB, q tagdomain.Query) *apitest.Server {
+	t.Helper()
 	repo := pgtag.NewRepository(db)
-	q := pgtag.NewQuery(db)
-	return &tagadmin.Handler{
+	if q == nil {
+		q = pgtag.NewQuery(db)
+	}
+	return apitest.NewServer(t, &testServer{Handler: &tagadmin.Handler{
 		RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: repo, TagQuery: q},
 		RenameTagUsecase:   &tagcmd.RenameTagUsecaseImpl{Tags: repo, TagQuery: q},
 		DeleteTagUsecase:   &tagcmd.DeleteTagUsecaseImpl{Tags: repo},
-	}
+	}}, apitest.AcceptSession{})
 }
 
-// decodeOK はステータスを先に確かめてからデコードする（エラー応答はレスポンスの形が違うため、
-// ステータスを見ずにデコードすると想定外のエラーを見逃して成功したかのように扱ってしまう）。
-func decodeOK[T any](t *testing.T, rec *httptest.ResponseRecorder, want int) T {
-	t.Helper()
-	if rec.Code != want {
-		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, want, rec.Body.String())
-	}
-	var v T
-	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil {
-		t.Fatalf("decode %s: %v", rec.Body.Bytes(), err)
-	}
-	return v
-}
-
-// uniqueTagName は実行のたびに異なるタグ名を返す（固定名だと、共有DBに前回のテスト行が
-// 残っている場合や同時実行で一意制約に落ちるため）。タグ名の上限（30文字）に収まるよう、
-// 接頭辞と連番を短くしている。
+// uniqueTagName は実行のたびに異なる、上限（30 文字）に収まるタグ名を返す（共有 DB に残った行と一意制約で衝突しないため）。
 func uniqueTagName(t *testing.T, label string) string {
 	t.Helper()
-	return fmt.Sprintf("pt-%s-%06d", label, time.Now().UnixNano()%1_000_000)
+	return fmt.Sprintf("it-%s-%09d", label, time.Now().UnixNano()%1_000_000_000)
 }
 
-func TestIntegration_RegisterTag_200(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	name := uniqueTagName(t, "登録")
-	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, name), true)
-	got := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", got.ID) })
-	if got.Name != name || got.ID == 0 || got.Version != 1 {
-		t.Fatalf("got %+v", got)
-	}
-}
-
-func TestIntegration_RegisterTag_400(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	rec := serve(t, h, http.MethodPost, "/api/tags", `{}`, true)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
-	}
-}
-
-func TestIntegration_RegisterTag_401(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "無認証")), false)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
-	}
-}
-
-func TestIntegration_RegisterTag_400_Duplicated(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	body := fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "重複"))
-	first := serve(t, h, http.MethodPost, "/api/tags", body, true)
-	firstTag := decodeOK[tagpublic.Response](t, first, http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", firstTag.ID) })
-
-	rec := serve(t, h, http.MethodPost, "/api/tags", body, true)
-	assertFieldErrors(t, rec, []httpserver.FieldError{{Field: "name", Rule: "tagNameDuplicated"}})
-}
-
-func TestIntegration_Rename_400_Duplicated(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	otherName := uniqueTagName(t, "改名先の既存")
-	other := decodeOK[tagpublic.Response](t, serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, otherName), true), http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", other.ID) })
-	created := decodeOK[tagpublic.Response](t, serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "改名元")), true), http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
-
-	rec := serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
-		fmt.Sprintf(`{"name":%q,"version":%d}`, otherName, created.Version), true)
-	assertFieldErrors(t, rec, []httpserver.FieldError{{Field: "name", Rule: "tagNameDuplicated"}})
-	var got struct{ Name string }
-	db.Table("tag").Select("name").Where("id = ?", created.ID).Scan(&got)
-	if got.Name == otherName {
-		t.Fatal("the tag must not be renamed when the name is duplicated")
-	}
-}
-
-// assertFieldErrors は 400 と errors[{field, rule}] の内容を確かめる。
-func assertFieldErrors(t *testing.T, rec *httptest.ResponseRecorder, want []httpserver.FieldError) {
+// mustCreateTag は DB へ直接タグを作り、ID と版を返す。
+func mustCreateTag(t *testing.T, db *gorm.DB, name string) (int64, int) {
 	t.Helper()
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
+	var row struct {
+		ID      int64
+		Version int
 	}
-	var e httpserver.ErrorResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
-		t.Fatalf("invalid JSON body %q: %v", rec.Body.String(), err)
+	if err := db.Raw("INSERT INTO tag (name, version) VALUES (?, 1) RETURNING id, version", name).Scan(&row).Error; err != nil {
+		t.Fatalf("insert tag: %v", err)
 	}
-	if !reflect.DeepEqual(e.Errors, want) {
-		t.Fatalf("errors = %+v, want %+v", e.Errors, want)
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", row.ID) })
+	return row.ID, row.Version
+}
+
+func tagNameOf(t *testing.T, db *gorm.DB, id int64) string {
+	t.Helper()
+	var name string
+	db.Raw("SELECT name FROM tag WHERE id = ?", id).Scan(&name)
+	return name
+}
+
+func path(id int64) string { return "/api/admin/tags/" + strconv.FormatInt(id, 10) }
+
+func TestRegisterTag(t *testing.T) {
+	db := connectTestDB(t)
+
+	t.Run("200: 追加したタグを返す", func(t *testing.T) {
+		name := uniqueTagName(t, "reg")
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: apitest.Session, Body: `{"name":"` + name + `"}`})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		got := apitest.Decode[webapi.TagResponse](t, rec)
+		t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", got.ID) })
+		if got.Name != name || got.Version != 1 || got.ID < 1 {
+			t.Fatalf("response = %+v", got)
+		}
+	})
+
+	t.Run("400: 同じ名前は tagNameDuplicated", func(t *testing.T) {
+		name := uniqueTagName(t, "dup")
+		mustCreateTag(t, db, name)
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: apitest.Session, Body: `{"name":"` + name + `"}`})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("name", "tagNameDuplicated"))
+	})
+
+	t.Run("401: 未ログイン", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Body: `{"name":"x"}`})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("403: Origin が違う", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: apitest.Session, Origin: "http://evil.example", Body: `{"name":"x"}`})
+		apitest.AssertStatus(t, rec, http.StatusForbidden)
+	})
+
+	t.Run("409: 事前の検査をすり抜けた同時追加は一意制約で tagNameDuplicated", func(t *testing.T) {
+		name := uniqueTagName(t, "race")
+		mustCreateTag(t, db, name)
+		rec := newServer(t, db, skipDuplicateCheck{pgtag.NewQuery(db)}).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: apitest.Session, Body: `{"name":"` + name + `"}`})
+		apitest.AssertCode(t, rec, http.StatusConflict, "tagNameDuplicated")
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: apitest.Session, Body: `{"name":"x"}`, Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
+}
+
+// TestTagName_Constraints は、YAML に書いた name・version・id の制約 1 つにつき、通る値と弾かれる値を 1 組ずつ確かめる。
+func TestTagName_Constraints(t *testing.T) {
+	db := connectTestDB(t)
+	s := newServer(t, db, nil)
+	tests := []struct {
+		name, method, path, body, field, rule string
+		pass                                  bool
+	}{
+		{"追加: name 欠落は弾く", http.MethodPost, "/api/admin/tags", `{}`, "name", "required", false},
+		{"追加: name 0 文字は弾く", http.MethodPost, "/api/admin/tags", `{"name":""}`, "name", "minLength", false},
+		{"追加: name 31 文字は弾く", http.MethodPost, "/api/admin/tags", `{"name":"` + strings.Repeat("あ", 31) + `"}`, "name", "maxLength", false},
+		{"追加: name 30 文字は通る", http.MethodPost, "/api/admin/tags", `{"name":"` + strings.Repeat("あ", 30) + `"}`, "name", "maxLength", true},
+		{"改名: version 欠落は弾く", http.MethodPut, "/api/admin/tags/1", `{"name":"x"}`, "version", "required", false},
+		{"改名: name 31 文字は弾く", http.MethodPut, "/api/admin/tags/1", `{"name":"` + strings.Repeat("あ", 31) + `","version":1}`, "name", "maxLength", false},
+		{"改名: id 0 は弾く", http.MethodPut, "/api/admin/tags/0", `{"name":"x","version":1}`, "id", "minimum", false},
+		{"改名: id 1 は通る", http.MethodPut, "/api/admin/tags/999999999", `{"name":"x","version":1}`, "id", "minimum", true},
+		{"削除: id 0 は弾く", http.MethodDelete, "/api/admin/tags/0", "", "id", "minimum", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := s.Do(t, apitest.Request{Method: tt.method, Path: tt.path, Cookie: apitest.Session, Body: tt.body})
+			if tt.pass {
+				apitest.AssertNoFieldError(t, rec, tt.field, tt.rule)
+				if rec.Code == http.StatusOK {
+					db.Exec("DELETE FROM tag WHERE name = ?", strings.Repeat("あ", 30))
+				}
+				return
+			}
+			apitest.AssertFieldErrors(t, rec, apitest.FieldError(tt.field, tt.rule))
+		})
 	}
 }
 
-func TestIntegration_Rename_200(t *testing.T) {
+func TestRenameTag(t *testing.T) {
 	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
 
-	afterName := uniqueTagName(t, "改名後")
-	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "改名前")), true)
-	created := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
+	t.Run("200: 改名したタグを返し、版が進む", func(t *testing.T) {
+		id, version := mustCreateTag(t, db, uniqueTagName(t, "old"))
+		newName := uniqueTagName(t, "new")
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPut, Path: path(id), Cookie: apitest.Session, Body: `{"name":"` + newName + `","version":` + strconv.Itoa(version) + `}`})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		got := apitest.Decode[webapi.TagResponse](t, rec)
+		if got.ID != id || got.Name != newName || got.Version != version+1 {
+			t.Fatalf("response = %+v", got)
+		}
+	})
 
-	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
-		fmt.Sprintf(`{"name":%q,"version":%d}`, afterName, created.Version), true)
-	got := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
-	if got.Name != afterName || got.Version != created.Version+1 {
-		t.Fatalf("got %+v", got)
-	}
+	t.Run("400: 自分以外と同じ名前は tagNameDuplicated で、名前は変わらない", func(t *testing.T) {
+		taken := uniqueTagName(t, "taken")
+		mustCreateTag(t, db, taken)
+		before := uniqueTagName(t, "keep")
+		id, version := mustCreateTag(t, db, before)
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPut, Path: path(id), Cookie: apitest.Session, Body: `{"name":"` + taken + `","version":` + strconv.Itoa(version) + `}`})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("name", "tagNameDuplicated"))
+		if got := tagNameOf(t, db, id); got != before {
+			t.Fatalf("name changed to %q on a failed rename", got)
+		}
+	})
+
+	t.Run("401: 未ログイン", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPut, Path: path(1), Body: `{"name":"x","version":1}`})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("403: Origin が違う", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPut, Path: path(1), Cookie: apitest.Session, Origin: "http://evil.example", Body: `{"name":"x","version":1}`})
+		apitest.AssertStatus(t, rec, http.StatusForbidden)
+	})
+
+	t.Run("404: 存在しない ID は tagNotFound", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPut, Path: path(999999999), Cookie: apitest.Session, Body: `{"name":"x","version":1}`})
+		apitest.AssertCode(t, rec, http.StatusNotFound, "tagNotFound")
+	})
+
+	t.Run("409: 版が一致しなければ versionConflict で、名前は変わらない", func(t *testing.T) {
+		before := uniqueTagName(t, "ver")
+		id, version := mustCreateTag(t, db, before)
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPut, Path: path(id), Cookie: apitest.Session, Body: `{"name":"` + uniqueTagName(t, "x") + `","version":` + strconv.Itoa(version+1) + `}`})
+		apitest.AssertCode(t, rec, http.StatusConflict, "versionConflict")
+		if got := tagNameOf(t, db, id); got != before {
+			t.Fatalf("name changed to %q on a failed rename", got)
+		}
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodPut, Path: path(1), Cookie: apitest.Session, Body: `{"name":"x","version":1}`, Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
 }
 
-func TestIntegration_Rename_400(t *testing.T) {
+func TestDeleteTag(t *testing.T) {
 	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
 
-	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "不正入力対象")), true)
-	created := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
+	t.Run("204: 削除すると DB から消える", func(t *testing.T) {
+		id, _ := mustCreateTag(t, db, uniqueTagName(t, "del"))
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodDelete, Path: path(id), Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusNoContent)
+		var count int64
+		db.Table("tag").Where("id = ?", id).Count(&count)
+		if count != 0 {
+			t.Fatal("the tag must be deleted")
+		}
+	})
 
-	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID), `{"name":""}`, true)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
-	}
-}
+	t.Run("401: 未ログイン", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodDelete, Path: path(1)})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
 
-func TestIntegration_Rename_401(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
+	t.Run("403: Origin が違う", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodDelete, Path: path(1), Cookie: apitest.Session, Origin: "http://evil.example"})
+		apitest.AssertStatus(t, rec, http.StatusForbidden)
+	})
 
-	rec := serve(t, h, http.MethodPut, "/api/tags/1", fmt.Sprintf(`{"name":%q,"version":1}`, uniqueTagName(t, "無認証改名")), false)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
-	}
-}
+	t.Run("404: 存在しない ID は tagNotFound", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodDelete, Path: path(999999999), Cookie: apitest.Session})
+		apitest.AssertCode(t, rec, http.StatusNotFound, "tagNotFound")
+	})
 
-func TestIntegration_Rename_404(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	rec := serve(t, h, http.MethodPut, "/api/tags/999999999", fmt.Sprintf(`{"name":%q,"version":1}`, uniqueTagName(t, "存在しない")), true)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404 (body=%s)", rec.Code, rec.Body.String())
-	}
-}
-
-func TestIntegration_Rename_409(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "競合対象")), true)
-	created := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
-
-	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
-		fmt.Sprintf(`{"name":%q,"version":%d}`, uniqueTagName(t, "競合後"), created.Version+1), true)
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want 409 (body=%s)", rec.Code, rec.Body.String())
-	}
-}
-
-func TestIntegration_Delete_204(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "削除対象")), true)
-	created := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
-	// 本題のDELETEアサーションが失敗して先に t.Fatalf で止まっても、この行は残さない。
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
-
-	rec = serve(t, h, http.MethodDelete, fmt.Sprintf("/api/tags/%d", created.ID), "", true)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want 204 (body=%s)", rec.Code, rec.Body.String())
-	}
-
-	// 一覧の API は閲覧側の Handler の担当なので、消えたことは DB で確かめる
-	var n int64
-	if err := db.Raw("SELECT COUNT(*) FROM tag WHERE id = ?", created.ID).Scan(&n).Error; err != nil {
-		t.Fatalf("count tag: %v", err)
-	}
-	if n != 0 {
-		t.Fatalf("tag %d still present after delete", created.ID)
-	}
-}
-
-func TestIntegration_Delete_401(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	rec := serve(t, h, http.MethodDelete, "/api/tags/1", "", false)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
-	}
-}
-
-func TestIntegration_Delete_404(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	rec := serve(t, h, http.MethodDelete, "/api/tags/999999999", "", true)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404 (body=%s)", rec.Code, rec.Body.String())
-	}
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db, nil).Do(t, apitest.Request{Method: http.MethodDelete, Path: path(1), Cookie: apitest.Session, Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
 }

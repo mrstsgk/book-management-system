@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
+	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	"github.com/mrstsgk/book-management-system/backend/internal/apitest"
 	authbcrypt "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/bcrypt"
 	pgauth "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/postgres"
 	authadmin "github.com/mrstsgk/book-management-system/backend/internal/auth/presentation/http/admin"
@@ -23,10 +23,6 @@ import (
 	tagadmin "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/admin"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
 )
-
-// Presentation → Infrastructure の結合テスト（docs/rules/testing.md）。
-// 実 DB のセッションと bcrypt を通して、login → 書き込み API → logout → 同じ Cookie で 401 の配線を確かめる。
-// 分岐網羅は handler_test.go・usecase・契約テストが担う。
 
 func connectTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
@@ -43,129 +39,148 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// newIntegrationEcho は cmd/api/main.go と同じ形で auth と tag を配線する。bcrypt はテストが速いよう最小コスト。
-func newIntegrationEcho(t *testing.T, db *gorm.DB) *echo.Echo {
+// testServer は、ログインの Handler と、セッションが要る書き込みの例として分野タグの管理の Handler を載せる。
+type testServer struct {
+	apitest.Unimplemented
+	*authadmin.Handler
+	tagHandler
+}
+
+type tagHandler = *tagadmin.Handler
+
+// newServer は、実 DB のセッションと bcrypt を配線する。セッションの確認も本物を使う（ログイン → 書き込み → ログアウトの配線を確かめるため）。
+func newServer(t *testing.T, db *gorm.DB) *apitest.Server {
 	t.Helper()
+	// テストが速いよう、bcrypt は最小のコストで作る
 	hash, err := bcrypt.GenerateFromPassword([]byte("pw"), bcrypt.MinCost)
 	if err != nil {
 		t.Fatal(err)
 	}
 	sessions := pgauth.NewRepository(db)
-	check := &authqry.CheckSessionUsecaseImpl{Sessions: sessions, Now: time.Now}
-	adminOnly := func(next echo.HandlerFunc) echo.HandlerFunc {
-		return httpserver.RequireSameOrigin()(httpserver.RequireAdminSession(check)(next))
-	}
-
-	e := httpserver.NewEcho()
-	api := e.Group("/api")
-	(&authadmin.Handler{
-		LoginUsecase: &authcmd.LoginUsecaseImpl{
-			Admin: authcmd.AdminAccount{ID: "admin", PasswordHash: string(hash)}, Verifier: authbcrypt.NewBcryptVerifier(),
-			Sessions: sessions, Now: time.Now,
-		},
-		LogoutUsecase: &authcmd.LogoutUsecaseImpl{Sessions: sessions}, CheckSessionUsecase: check, SameOrigin: httpserver.RequireSameOrigin(),
-	}).Register(api.Group("/auth"))
 	repo := pgtag.NewRepository(db)
-	(&tagadmin.Handler{
-		RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: repo, TagQuery: pgtag.NewQuery(db)}, DeleteTagUsecase: &tagcmd.DeleteTagUsecaseImpl{Tags: repo}, AdminOnly: adminOnly,
-	}).Register(api.Group("/tags"))
-	return e
+	return apitest.NewServer(t, &testServer{
+		Handler: &authadmin.Handler{
+			LoginUsecase: &authcmd.LoginUsecaseImpl{
+				Admin: authcmd.AdminAccount{ID: "admin", PasswordHash: string(hash)}, Verifier: authbcrypt.NewBcryptVerifier(),
+				Sessions: sessions, Now: time.Now,
+			},
+			LogoutUsecase: &authcmd.LogoutUsecaseImpl{Sessions: sessions},
+		},
+		tagHandler: &tagadmin.Handler{
+			RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: repo, TagQuery: pgtag.NewQuery(db)},
+		},
+	}, &authqry.CheckSessionUsecaseImpl{Sessions: sessions, Now: time.Now})
 }
 
-func do(e *echo.Echo, method, path, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, "http://localhost:3000"+path, strings.NewReader(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set("Origin", "http://localhost:3000")
-	if cookie != nil {
-		req.AddCookie(cookie)
-	}
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	return rec
-}
-
-func cookieOf(t *testing.T, rec *httptest.ResponseRecorder) *http.Cookie {
+func sessionOf(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
 	for _, ck := range rec.Result().Cookies() {
-		if ck.Name == httpserver.SessionCookieName {
-			return ck
+		if ck.Name == httpserver.SessionCookieName && ck.Value != "" {
+			return ck.Value
 		}
 	}
 	t.Fatalf("no session cookie (status=%d body=%s)", rec.Code, rec.Body.String())
-	return nil
+	return ""
 }
 
-func TestIntegration_LoginWriteLogout(t *testing.T) {
+func login(t *testing.T, db *gorm.DB, s *apitest.Server) string {
+	t.Helper()
+	rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/login", Body: `{"id":"admin","password":"pw"}`})
+	apitest.AssertStatus(t, rec, http.StatusNoContent)
+	session := sessionOf(t, rec)
+	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", session) })
+	return session
+}
+
+func TestLogin(t *testing.T) {
 	db := connectTestDB(t)
-	e := newIntegrationEcho(t, db)
 
-	rec := do(e, http.MethodPost, "/api/auth/login", `{"id":"admin","password":"pw"}`, nil)
-	if rec.Code != http.StatusNoContent {
-		t.Fatalf("login status = %d (body=%s)", rec.Code, rec.Body.String())
-	}
-	session := cookieOf(t, rec)
-	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", session.Value) })
+	t.Run("204: ログインで発行した Cookie で書き込めて、ログアウト後は 401", func(t *testing.T) {
+		s := newServer(t, db)
+		session := login(t, db, s)
 
-	name := fmt.Sprintf("pt-auth-%06d", time.Now().UnixNano()%1_000_000)
-	rec = do(e, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, name), session)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("write with session: status = %d (body=%s)", rec.Code, rec.Body.String())
-	}
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name = ?", name) })
+		name := fmt.Sprintf("pt-auth-%09d", time.Now().UnixNano()%1_000_000_000)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: session, Body: fmt.Sprintf(`{"name":%q}`, name)})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE name = ?", name) })
 
-	if rec = do(e, http.MethodPost, "/api/auth/logout", "", session); rec.Code != http.StatusNoContent {
-		t.Fatalf("logout status = %d", rec.Code)
-	}
-	if rec = do(e, http.MethodPost, "/api/tags", `{"name":"after-logout"}`, session); rec.Code != http.StatusUnauthorized {
-		t.Fatalf("write after logout: status = %d, want 401", rec.Code)
-	}
+		apitest.AssertStatus(t, s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/logout", Cookie: session}), http.StatusNoContent)
+		rec = s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/tags", Cookie: session, Body: `{"name":"after-logout"}`})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("400: ID が 0 文字なら minLength、パスワードが無ければ required", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/login", Body: `{"id":""}`})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("id", "minLength"), apitest.FieldError("password", "required"))
+	})
+
+	t.Run("通す: ID とパスワードが 1 文字（違えば 401）", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/login", Body: `{"id":"a","password":"b"}`})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "loginFailed")
+	})
+
+	t.Run("403: Origin が違う", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/login", Origin: "http://evil.example", Body: `{"id":"admin","password":"pw"}`})
+		apitest.AssertStatus(t, rec, http.StatusForbidden)
+	})
+
+	t.Run("429: 5 回続けて失敗すると、正しくても tooManyLoginAttempts と待つ秒数を返す", func(t *testing.T) {
+		s := newServer(t, db)
+		for range 5 {
+			s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/login", Body: `{"id":"admin","password":"wrong"}`})
+		}
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/login", Body: `{"id":"admin","password":"pw"}`})
+		apitest.AssertCode(t, rec, http.StatusTooManyRequests, "tooManyLoginAttempts")
+		body := apitest.Decode[webapi.ErrorResponse](t, rec)
+		if body.Params == nil {
+			t.Fatal("params must carry retryAfterSeconds")
+		}
+		if secs, ok := (*body.Params)["retryAfterSeconds"].(float64); !ok || secs < 1 || secs > 60 {
+			t.Fatalf("retryAfterSeconds = %v, want 1..60", (*body.Params)["retryAfterSeconds"])
+		}
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/login", Body: `{"id":"admin","password":"pw"}`, Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
 }
 
-func TestIntegration_Login_401(t *testing.T) {
-	e := newIntegrationEcho(t, connectTestDB(t))
-	if rec := do(e, http.MethodPost, "/api/auth/login", `{"id":"admin","password":"wrong"}`, nil); rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", rec.Code)
-	}
-}
-
-func TestIntegration_Login_400(t *testing.T) {
-	e := newIntegrationEcho(t, connectTestDB(t))
-	if rec := do(e, http.MethodPost, "/api/auth/login", `{}`, nil); rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", rec.Code)
-	}
-}
-
-func TestIntegration_Login_429(t *testing.T) {
-	e := newIntegrationEcho(t, connectTestDB(t))
-	for range 5 {
-		do(e, http.MethodPost, "/api/auth/login", `{"id":"admin","password":"wrong"}`, nil)
-	}
-	if rec := do(e, http.MethodPost, "/api/auth/login", `{"id":"admin","password":"pw"}`, nil); rec.Code != http.StatusTooManyRequests {
-		t.Fatalf("status = %d, want 429", rec.Code)
-	}
-}
-
-func TestIntegration_Session_204And401(t *testing.T) {
+func TestLogout(t *testing.T) {
 	db := connectTestDB(t)
-	e := newIntegrationEcho(t, db)
-	rec := do(e, http.MethodPost, "/api/auth/login", `{"id":"admin","password":"pw"}`, nil)
-	session := cookieOf(t, rec)
-	t.Cleanup(func() { db.Exec("DELETE FROM admin_session WHERE id = ?", session.Value) })
 
-	if rec = do(e, http.MethodGet, "/api/auth/session", "", session); rec.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want 204", rec.Code)
-	}
-	if rec = do(e, http.MethodGet, "/api/auth/session", "", &http.Cookie{Name: httpserver.SessionCookieName, Value: "nope"}); rec.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, want 401", rec.Code)
-	}
+	t.Run("204: ログインしていなくても成功する", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/logout"})
+		apitest.AssertStatus(t, rec, http.StatusNoContent)
+	})
+
+	t.Run("403: Origin が違う", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/logout", Origin: "http://evil.example"})
+		apitest.AssertStatus(t, rec, http.StatusForbidden)
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/auth/logout", Cookie: "some-session", Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
 }
 
-func TestIntegration_Logout_403WithoutOrigin(t *testing.T) {
-	e := newIntegrationEcho(t, connectTestDB(t))
-	req := httptest.NewRequest(http.MethodPost, "http://localhost:3000/api/auth/logout", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want 403", rec.Code)
-	}
+func TestCheckSession(t *testing.T) {
+	db := connectTestDB(t)
+
+	t.Run("204: 有効なセッション", func(t *testing.T) {
+		s := newServer(t, db)
+		session := login(t, db, s)
+		apitest.AssertStatus(t, s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/auth/session", Cookie: session}), http.StatusNoContent)
+	})
+
+	t.Run("401: 無効なセッションは unauthenticated", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/auth/session", Cookie: "nope"})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/auth/session", Cookie: "nope", Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
 }

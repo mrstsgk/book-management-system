@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"gorm.io/gorm"
@@ -27,7 +26,7 @@ func (q *query) FindDetailByID(ctx context.Context, id bookdomain.ID) (*bookdoma
 	var row model
 	if err := q.db.WithContext(ctx).First(&row, int64(id)).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("%w: 読んだ本が見つかりません", domainerr.ErrNotFound)
+			return nil, domainerr.New(domainerr.ErrNotFound, "bookNotFound", "読んだ本が見つかりません")
 		}
 		return nil, err
 	}

@@ -172,3 +172,53 @@ func serveError(t *testing.T, method string, err error) *httptest.ResponseRecord
 	e.ServeHTTP(rec, httptest.NewRequest(method, "/boom", nil))
 	return rec
 }
+
+func TestHTTPErrorHandler_業務ルールの違反はコードと差し込む値を返す(t *testing.T) {
+	silenceLog(t)
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus int
+		wantCode   string
+		wantParams map[string]any
+	}{
+		{
+			name:       "包まれた 404 のコード",
+			err:        fmt.Errorf("wrap: %w", domainerr.New(domainerr.ErrNotFound, "bookNotFound", "読んだ本が見つかりません")),
+			wantStatus: http.StatusNotFound, wantCode: "bookNotFound",
+		},
+		{
+			name:       "409 のコード",
+			err:        domainerr.New(domainerr.ErrConflict, "versionConflict", "競合"),
+			wantStatus: http.StatusConflict, wantCode: "versionConflict",
+		},
+		{
+			name:       "429 のコードと差し込む値",
+			err:        domainerr.New(domainerr.ErrTooManyAttempts, "tooManyLoginAttempts", "待って").WithParams(map[string]any{"retryAfterSeconds": 30}),
+			wantStatus: http.StatusTooManyRequests, wantCode: "tooManyLoginAttempts", wantParams: map[string]any{"retryAfterSeconds": float64(30)},
+		},
+		{
+			name:       "分類だけのエラーにはコードを付けない",
+			err:        domainerr.ErrNotFound,
+			wantStatus: http.StatusNotFound,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := serveError(t, http.MethodGet, tt.err)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+			var got httpserver.ErrorResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatalf("invalid JSON body %q: %v", rec.Body.String(), err)
+			}
+			if got.Code != tt.wantCode {
+				t.Errorf("code = %q, want %q", got.Code, tt.wantCode)
+			}
+			if !reflect.DeepEqual(got.Params, tt.wantParams) {
+				t.Errorf("params = %v, want %v", got.Params, tt.wantParams)
+			}
+		})
+	}
+}

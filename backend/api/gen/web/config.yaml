@@ -1,0 +1,12 @@
+# oapi-codegen の設定（make api-gen が使う）。入力は openapi/dist/web.yaml。
+package: web
+output: api/gen/web/api.gen.go
+generate:
+  echo-server: true
+  models: true
+  embedded-spec: true
+output-options:
+  # ID / URL などを Go の慣習どおり大文字にする（Id → ID）
+  name-normalizer: ToCamelCaseWithInitialisms
+# 正本はリポジトリ内のファイルだけ。外部 URL の $ref は取りに行かない
+allow-remote-refs-from: []

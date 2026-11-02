@@ -32,8 +32,8 @@ func TestSetSessionCookie(t *testing.T) {
 	if ck.Name != httpserver.SessionCookieName || ck.Value != "sid" {
 		t.Fatalf("cookie = %s=%s", ck.Name, ck.Value)
 	}
-	if !ck.HttpOnly || ck.SameSite != http.SameSiteLaxMode || ck.Path != "/api" || ck.MaxAge != 86400 {
-		t.Fatalf("attributes = %+v, want HttpOnly, Lax, Path=/api, Max-Age=86400", ck)
+	if !ck.HttpOnly || ck.SameSite != http.SameSiteLaxMode || ck.Path != "/api/admin" || ck.MaxAge != 86400 {
+		t.Fatalf("attributes = %+v, want HttpOnly, Lax, Path=/api/admin, Max-Age=86400", ck)
 	}
 	// ローカルの http でしか動かさないため Secure は付けない（session_cookie.go の判断）。https で公開するときにこのテストを反転する
 	if ck.Secure {
@@ -49,7 +49,7 @@ func TestClearSessionCookie(t *testing.T) {
 	if ck.Name != httpserver.SessionCookieName || ck.Value != "" || ck.MaxAge != -1 {
 		t.Fatalf("cookie = %+v, want an empty value with Max-Age=0", ck)
 	}
-	if !ck.HttpOnly || ck.Path != "/api" {
+	if !ck.HttpOnly || ck.Path != "/api/admin" {
 		t.Fatalf("clearing cookie must keep the same Path and HttpOnly: %+v", ck)
 	}
 }

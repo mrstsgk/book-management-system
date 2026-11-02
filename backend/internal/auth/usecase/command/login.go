@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"crypto/subtle"
-	"fmt"
 	"sync"
 	"time"
 
@@ -89,7 +88,8 @@ func (u *LoginUsecaseImpl) attempt(creds authdomain.Credentials, now time.Time) 
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	if now.Before(u.lockedUntil) {
-		return fmt.Errorf("%w: しばらく待ってからやり直してください", domainerr.ErrTooManyAttempts)
+		return domainerr.New(domainerr.ErrTooManyAttempts, "tooManyLoginAttempts", "しばらく待ってからやり直してください").
+			WithParams(map[string]any{"retryAfterSeconds": retryAfterSeconds(u.lockedUntil.Sub(now))})
 	}
 	if u.matches(creds) {
 		u.failures = 0
@@ -101,5 +101,10 @@ func (u *LoginUsecaseImpl) attempt(creds authdomain.Credentials, now time.Time) 
 		u.lockedUntil = now.Add(lockDuration)
 		u.failures = 0
 	}
-	return fmt.Errorf("%w: IDかパスワードが違います", domainerr.ErrUnauthorized)
+	return domainerr.New(domainerr.ErrUnauthorized, "loginFailed", "IDかパスワードが違います")
+}
+
+// retryAfterSeconds は、ロックが解けるまでの残り時間を秒に切り上げる（0 秒と表示して直後にまた拒否されないため）。
+func retryAfterSeconds(d time.Duration) int {
+	return int((d + time.Second - 1) / time.Second)
 }

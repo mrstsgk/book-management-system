@@ -2,30 +2,31 @@ package admin_test
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"reflect"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"gorm.io/gorm"
 
+	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	"github.com/mrstsgk/book-management-system/backend/internal/apitest"
 	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/postgres"
 	bookadmin "github.com/mrstsgk/book-management-system/backend/internal/book/presentation/http/admin"
-	bookpublic "github.com/mrstsgk/book-management-system/backend/internal/book/presentation/http/public"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/command"
-	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
+	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
+	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
 	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
 )
 
 // connectIntegrationDB はローカルの開発用 DB に接続する。実際の PostgreSQL に対する結合テストなので、
-// DB に繋がらなければ skip せず失敗にする（契約テストと同じ理由。docs/rules/testing.md）。
+// DB に繋がらなければ skip せず失敗にする（docs/rules/testing.md）。
 func connectIntegrationDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := pgplatform.Connect(pgplatform.Config{
@@ -41,31 +42,50 @@ func connectIntegrationDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// integrationFakeCatalog は外部カタログ（openBD）を差し替える手書き Fake。
+// fakeCatalog は外部カタログ（openBD）を差し替える手書き Fake。
 // gateway/openbd 自体は別途検証済みのため、ここでは実ネットワークに頼らない。
-type integrationFakeCatalog struct {
+type fakeCatalog struct {
 	entry *bookdomain.CatalogEntry
 	err   error
 }
 
-func (f *integrationFakeCatalog) Lookup(context.Context, bookdomain.ISBN) (*bookdomain.CatalogEntry, error) {
+func (f *fakeCatalog) Lookup(context.Context, bookdomain.ISBN) (*bookdomain.CatalogEntry, error) {
 	return f.entry, f.err
 }
 
-// newIntegrationHandler は本物の Repository/Query/UseCase を実DBに配線した Handler を返す（AdminOnly は serve() が付ける）。
-func newIntegrationHandler(db *gorm.DB, catalog bookdomain.BookCatalog) *bookadmin.Handler {
-	books := pgbook.NewRepository(db)
-	bookQuery := pgbook.NewQuery(db)
-	tagQuery := pgtag.NewQuery(db)
-	return &bookadmin.Handler{
-		RegisterBookUsecase: &bookcmd.RegisterBookUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery},
-		UpdateBookUsecase:   &bookcmd.UpdateBookUsecaseImpl{Books: books, Catalog: catalog, Details: bookQuery, Tags: tagQuery},
-		DeleteBookUsecase:   &bookcmd.DeleteBookUsecaseImpl{Books: books},
-	}
+// skipDuplicateCheck は、ISBN の重複の事前検査をすり抜ける Query。同時登録で DB の一意制約（最後の砦）に当たる状況を作る。
+type skipDuplicateCheck struct{ bookdomain.Query }
+
+func (skipDuplicateCheck) ExistsByISBN(context.Context, bookdomain.ISBN) (bool, error) {
+	return false, nil
 }
 
-// integrationCatalogEntry は Fake カタログが返す書誌・書影を組み立てる。
-func integrationCatalogEntry(t *testing.T, isbn string) *bookdomain.CatalogEntry {
+type testServer struct {
+	apitest.Unimplemented
+	*bookadmin.Handler
+	*bookadmin.CatalogHandler
+}
+
+// newServer は、本物の Repository/Query/UseCase を実 DB に配線した管理の Handler をサーバーに載せる。
+func newServer(t *testing.T, db *gorm.DB, catalog bookdomain.BookCatalog, details bookdomain.Query) *apitest.Server {
+	t.Helper()
+	books := pgbook.NewRepository(db)
+	if details == nil {
+		details = pgbook.NewQuery(db)
+	}
+	tagQuery := pgtag.NewQuery(db)
+	return apitest.NewServer(t, &testServer{
+		Handler: &bookadmin.Handler{
+			RegisterBookUsecase: &bookcmd.RegisterBookUsecaseImpl{Books: books, Catalog: catalog, Details: details, Tags: tagQuery},
+			UpdateBookUsecase:   &bookcmd.UpdateBookUsecaseImpl{Books: books, Catalog: catalog, Details: details, Tags: tagQuery},
+			DeleteBookUsecase:   &bookcmd.DeleteBookUsecaseImpl{Books: books},
+		},
+		CatalogHandler: &bookadmin.CatalogHandler{LookupCatalogUsecase: &bookqry.LookupCatalogUsecaseImpl{Catalog: catalog}},
+	}, apitest.AcceptSession{})
+}
+
+// catalogEntry は Fake カタログが返す書誌（書影なし）を組み立てる。
+func catalogEntry(t *testing.T, isbn string) *bookdomain.CatalogEntry {
 	t.Helper()
 	parsed, err := bookdomain.NewISBN(isbn)
 	if err != nil {
@@ -78,27 +98,14 @@ func integrationCatalogEntry(t *testing.T, isbn string) *bookdomain.CatalogEntry
 	return &bookdomain.CatalogEntry{ISBN: parsed, Bibliography: bib, Cover: nil}
 }
 
-// mustCreateIntegrationBook は Repository へ直接（外部カタログを経由せず）本を1冊作る。
-// 事前データの用意が目的で、登録APIそのもののテストではないため。
-func mustCreateIntegrationBook(t *testing.T, db *gorm.DB, isbn string) *bookdomain.Book {
+// mustCreateBook は Repository へ直接（外部カタログを経由せず）本を 1 冊作る。登録 API のテストではない準備のため。
+func mustCreateBook(t *testing.T, db *gorm.DB, isbn string) *bookdomain.Book {
 	t.Helper()
-	entry := integrationCatalogEntry(t, isbn)
-	summary, err := bookdomain.NewSummary("結合テスト用の一言まとめ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	comment, err := bookdomain.NewComment("結合テスト用の感想")
-	if err != nil {
-		t.Fatal(err)
-	}
-	rating, err := bookdomain.NewRating(4)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tags, err := bookdomain.NewTagSelection(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	entry := catalogEntry(t, isbn)
+	summary, _ := bookdomain.NewSummary("結合テスト用の一言まとめ")
+	comment, _ := bookdomain.NewComment("結合テスト用の感想")
+	rating, _ := bookdomain.NewRating(4)
+	tags, _ := bookdomain.NewTagSelection(nil)
 	b := bookdomain.New(entry.ISBN, entry.Bibliography, entry.Cover, summary, comment, rating, tags)
 	if err := pgbook.NewRepository(db).Create(context.Background(), b); err != nil {
 		t.Fatalf("create book: %v", err)
@@ -109,16 +116,13 @@ func mustCreateIntegrationBook(t *testing.T, db *gorm.DB, isbn string) *bookdoma
 
 func itoa(v int64) string { return strconv.FormatInt(v, 10) }
 
-// integrationISBNSeq は nextIntegrationISBN の一意性を同一プロセス内の複数呼び出しでも保証するための連番。
-var integrationISBNSeq atomic.Int64
+var isbnSeq atomic.Int64
 
-// nextIntegrationISBN は結合テストごとに一意な、チェックディジットが正しい ISBN-13 を生成する。
-// 固定リテラルだと、前回実行のクリーンアップ漏れ（プロセスの強制終了など）で同じ ISBN の行が
-// 開発用 DB に残っていた場合、Repository がユニーク制約違反を ErrConflict に変換してしまい、
-// Handler の検証（本テストの目的）に届く前にテストが落ちてしまうため。
-func nextIntegrationISBN(t *testing.T) string {
+// nextISBN は、テストごとに一意でチェックディジットが正しい ISBN-13 を作る。
+// 固定値だと、前回の実行の片付け漏れで同じ ISBN が DB に残っていたときに、検証したいこと以外で落ちるため。
+func nextISBN(t *testing.T) string {
 	t.Helper()
-	n := time.Now().UnixNano() + integrationISBNSeq.Add(1)
+	n := time.Now().UnixNano() + isbnSeq.Add(1)
 	first12 := fmt.Sprintf("978%09d", n%1_000_000_000)
 	sum := 0
 	for i, r := range first12 {
@@ -131,123 +135,245 @@ func nextIntegrationISBN(t *testing.T) string {
 	return first12 + strconv.Itoa((10-sum%10)%10)
 }
 
-func TestBookHandlerIntegration_Register(t *testing.T) {
+func registerBody(isbn string) string {
+	return `{"isbn":"` + isbn + `","summary":"要約","comment":"良書","rating":5}`
+}
+
+func TestRegisterBook(t *testing.T) {
 	db := connectIntegrationDB(t)
 
-	t.Run("200: ハッピーパス", func(t *testing.T) {
-		isbn := nextIntegrationISBN(t)
-		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
-		body := `{"isbn":"` + isbn + `","summary":"要約","comment":"良書","rating":5}`
-		rec := serve(t, h, http.MethodPost, "/api/books", body, true)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
-		}
-		got := decode[bookpublic.Response](t, rec)
+	t.Run("200: 登録した本を返し、DB に全項目が入る", func(t *testing.T) {
+		isbn := nextISBN(t)
+		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, isbn)}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session,
+			Body: `{"isbn":"` + isbn + `","summary":"要約","titleOverride":"上書きの書名","comment":"良書","rating":5}`})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		got := apitest.Decode[webapi.BookResponse](t, rec)
 		t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", got.ID) })
-		if got.ISBN != isbn {
-			t.Fatalf("isbn = %q, want %s", got.ISBN, isbn)
+		if got.Isbn != isbn || got.Title != "上書きの書名" || got.Summary != "要約" || got.Comment != "良書" || got.Rating != 5 ||
+			got.Authors != "結合テスト著者" || got.Publisher != "結合テスト出版社" || got.PublishedOn != "202609" ||
+			got.TitleOverride == nil || *got.TitleOverride != "上書きの書名" || len(got.Tags) != 0 || got.Version != 1 || got.CoverURL != nil {
+			t.Fatalf("response = %+v", got)
 		}
 	})
 
-	t.Run("400: バリデーション不正", func(t *testing.T) {
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"123","summary":"要約","comment":"良書","rating":5}`, true)
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
-		}
+	t.Run("400: 独立した入力・相関ルールの違反をまとめて返し、保存しない", func(t *testing.T) {
+		isbn := nextISBN(t)
+		mustCreateBook(t, db, isbn)
+		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, isbn)}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session,
+			Body: `{"isbn":"` + isbn + `","summary":"要約","tagIds":[999999999],"comment":"良書","rating":5}`})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("isbn", "isbnDuplicated"), apitest.FieldError("tagIds", "tagIdsNotFound"))
 	})
 
-	t.Run("401: 未ログイン", func(t *testing.T) {
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+nextIntegrationISBN(t)+`","summary":"要約","comment":"良書","rating":5}`, false)
-		if rec.Code != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
-		}
-	})
-
-	t.Run("400: 同じISBNの登録済みは相関ルール isbnDuplicated", func(t *testing.T) {
-		isbn := nextIntegrationISBN(t)
-		mustCreateIntegrationBook(t, db, isbn)
-		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
-		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+isbn+`","summary":"要約","comment":"良書","rating":5}`, true)
-		assertFieldErrors(t, rec, []httpserver.FieldError{{Field: "isbn", Rule: "isbnDuplicated"}})
-	})
-
-	t.Run("400: 存在しない分野タグは相関ルール tagIdsNotFound", func(t *testing.T) {
-		isbn := nextIntegrationISBN(t)
-		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
-		rec := serve(t, h, http.MethodPost, "/api/books", `{"isbn":"`+isbn+`","summary":"要約","tagIds":[999999999],"comment":"良書","rating":5}`, true)
-		assertFieldErrors(t, rec, []httpserver.FieldError{{Field: "tagIds", Rule: "tagIdsNotFound"}})
+	t.Run("400: 外部カタログに無い ISBN は isbnNotInCatalog", func(t *testing.T) {
+		isbn := nextISBN(t)
+		s := newServer(t, db, &fakeCatalog{err: domainerr.New(domainerr.ErrNotFound, "catalogEntryNotFound", "無い")}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session, Body: registerBody(isbn)})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("isbn", "isbnNotInCatalog"))
 		var count int64
 		db.Table("book").Where("isbn = ?", isbn).Count(&count)
 		if count != 0 {
 			t.Fatal("the book must not be saved when a violation exists")
 		}
 	})
-}
 
-func TestBookHandlerIntegration_Update(t *testing.T) {
-	db := connectIntegrationDB(t)
-
-	t.Run("200: ハッピーパス", func(t *testing.T) {
-		isbn := nextIntegrationISBN(t)
-		b := mustCreateIntegrationBook(t, db, isbn)
-		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
-		body := `{"summary":"読み返した要約","comment":"読み返した感想","rating":3,"version":` + itoa(int64(b.Version)) + `}`
-		rec := serve(t, h, http.MethodPut, "/api/books/"+itoa(int64(b.ID)), body, true)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
-		}
-		got := decode[bookpublic.Response](t, rec)
-		if got.Comment != "読み返した感想" {
-			t.Fatalf("comment = %q, want 読み返した感想", got.Comment)
-		}
-	})
-
-	t.Run("400: バリデーション不正", func(t *testing.T) {
-		isbn := nextIntegrationISBN(t)
-		b := mustCreateIntegrationBook(t, db, isbn)
-		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
-		body := `{"summary":"要約","comment":"","rating":3,"version":` + itoa(int64(b.Version)) + `}`
-		rec := serve(t, h, http.MethodPut, "/api/books/"+itoa(int64(b.ID)), body, true)
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
-		}
-		assertIntegrationBookUnchanged(t, db, b)
+	t.Run("400: ISBN の形式が合わなければ format（外部カタログは照会しない）", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{err: errors.New("must not be called")}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session, Body: registerBody("9784873118700")})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("isbn", "format"))
 	})
 
 	t.Run("401: 未ログイン", func(t *testing.T) {
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodPut, "/api/books/1", `{"summary":"要約","comment":"良書","rating":3,"version":1}`, false)
-		if rec.Code != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
-		}
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Body: registerBody(nextISBN(t))})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
 	})
 
-	t.Run("404: 存在しないID", func(t *testing.T) {
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodPut, "/api/books/999999999", `{"summary":"要約","comment":"良書","rating":3,"version":1}`, true)
-		if rec.Code != http.StatusNotFound {
-			t.Fatalf("status = %d, want 404 (body=%s)", rec.Code, rec.Body.String())
-		}
+	t.Run("403: Origin が違う", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session, Origin: "http://evil.example", Body: registerBody(nextISBN(t))})
+		apitest.AssertStatus(t, rec, http.StatusForbidden)
 	})
 
-	t.Run("409: バージョン不一致", func(t *testing.T) {
-		isbn := nextIntegrationISBN(t)
-		b := mustCreateIntegrationBook(t, db, isbn)
-		h := newIntegrationHandler(db, &integrationFakeCatalog{entry: integrationCatalogEntry(t, isbn)})
-		body := `{"summary":"要約","comment":"良書","rating":3,"version":` + itoa(int64(b.Version)+1) + `}`
-		rec := serve(t, h, http.MethodPut, "/api/books/"+itoa(int64(b.ID)), body, true)
-		if rec.Code != http.StatusConflict {
-			t.Fatalf("status = %d, want 409 (body=%s)", rec.Code, rec.Body.String())
-		}
-		assertIntegrationBookUnchanged(t, db, b)
+	t.Run("409: 事前の検査をすり抜けた同時登録は一意制約で isbnDuplicated", func(t *testing.T) {
+		isbn := nextISBN(t)
+		mustCreateBook(t, db, isbn)
+		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, isbn)}, skipDuplicateCheck{pgbook.NewQuery(db)})
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session, Body: registerBody(isbn)})
+		apitest.AssertCode(t, rec, http.StatusConflict, "isbnDuplicated")
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, "9784873118703")}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session, Body: registerBody(nextISBN(t)), Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
 	})
 }
 
-// assertIntegrationBookUnchanged は、失敗したはずの更新リクエストの後で本の内容・バージョンが
-// 呼び出し前のまま変わっていないことを確認する（docs/rules/testing.md の「失敗時の非変化」）。
-func assertIntegrationBookUnchanged(t *testing.T, db *gorm.DB, before *bookdomain.Book) {
+// TestRegisterBook_Constraints は、YAML に書いた入力の制約 1 つにつき、通る値と弾かれる値を 1 組ずつ確かめる。
+func TestRegisterBook_Constraints(t *testing.T) {
+	db := connectIntegrationDB(t)
+	s := newServer(t, db, &fakeCatalog{err: errors.New("catalog is not reached in constraint checks")}, nil)
+	// 他の項目が正しい本文に、1 項目だけ差し替える
+	body := func(field, value string) string {
+		m := map[string]string{"isbn": `"9784873118703"`, "summary": `"要約"`, "comment": `"良書"`, "rating": `5`}
+		if value == "" {
+			delete(m, field)
+		} else {
+			m[field] = value
+		}
+		parts := make([]string, 0, len(m))
+		for k, v := range m {
+			parts = append(parts, `"`+k+`":`+v)
+		}
+		return "{" + strings.Join(parts, ",") + "}"
+	}
+	tagIDs := func(n int) string {
+		ids := make([]string, n)
+		for i := range ids {
+			ids[i] = strconv.Itoa(900000000 + i)
+		}
+		return "[" + strings.Join(ids, ",") + "]"
+	}
+	tests := []struct {
+		name, field, value, rule string
+	}{
+		{"isbn 欠落", "isbn", "", "required"},
+		{"isbn 0 文字", "isbn", `""`, "minLength"},
+		{"isbn 18 文字", "isbn", `"978-4-87311-870-33"`, "maxLength"},
+		{"summary 欠落", "summary", "", "required"},
+		{"summary 0 文字", "summary", `""`, "minLength"},
+		{"summary 101 文字", "summary", `"` + strings.Repeat("あ", 101) + `"`, "maxLength"},
+		{"titleOverride 256 文字", "titleOverride", `"` + strings.Repeat("あ", 256) + `"`, "maxLength"},
+		{"tagIds 11 個", "tagIds", tagIDs(11), "maxItems"},
+		{"comment 欠落", "comment", "", "required"},
+		{"comment 0 文字", "comment", `""`, "minLength"},
+		{"comment 5001 文字", "comment", `"` + strings.Repeat("あ", 5001) + `"`, "maxLength"},
+		{"rating 欠落", "rating", "", "required"},
+		{"rating 0", "rating", `0`, "minimum"},
+		{"rating 6", "rating", `6`, "maximum"},
+		{"rating 文字列", "rating", `"5"`, "type"},
+	}
+	for _, tt := range tests {
+		t.Run("弾く: "+tt.name, func(t *testing.T) {
+			rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session, Body: body(tt.field, tt.value)})
+			apitest.AssertFieldErrors(t, rec, apitest.FieldError(tt.field, tt.rule))
+		})
+	}
+	passes := []struct {
+		name, field, value, rule string
+	}{
+		{"isbn 1 文字", "isbn", `"9"`, "minLength"},
+		{"isbn 17 文字", "isbn", `"978-4-87311-870-3"`, "maxLength"},
+		{"summary 1 文字", "summary", `"あ"`, "minLength"},
+		{"summary 100 文字", "summary", `"` + strings.Repeat("あ", 100) + `"`, "maxLength"},
+		{"titleOverride 255 文字", "titleOverride", `"` + strings.Repeat("あ", 255) + `"`, "maxLength"},
+		{"tagIds 10 個", "tagIds", tagIDs(10), "maxItems"},
+		{"comment 1 文字", "comment", `"あ"`, "minLength"},
+		{"comment 5000 文字", "comment", `"` + strings.Repeat("あ", 5000) + `"`, "maxLength"},
+		{"rating 1", "rating", `1`, "minimum"},
+		{"rating 5", "rating", `5`, "maximum"},
+	}
+	for _, tt := range passes {
+		t.Run("通す: "+tt.name, func(t *testing.T) {
+			rec := s.Do(t, apitest.Request{Method: http.MethodPost, Path: "/api/admin/books", Cookie: apitest.Session, Body: body(tt.field, tt.value)})
+			apitest.AssertNoFieldError(t, rec, tt.field, tt.rule)
+		})
+	}
+}
+
+func updateBody(version int) string {
+	return `{"summary":"読み返した要約","comment":"読み返した感想","rating":3,"version":` + strconv.Itoa(version) + `}`
+}
+
+func TestUpdateBook(t *testing.T) {
+	db := connectIntegrationDB(t)
+
+	t.Run("200: 更新した本を返し、版が進む", func(t *testing.T) {
+		isbn := nextISBN(t)
+		b := mustCreateBook(t, db, isbn)
+		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, isbn)}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: "/api/admin/books/" + itoa(int64(b.ID)), Cookie: apitest.Session, Body: updateBody(b.Version)})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		got := apitest.Decode[webapi.BookResponse](t, rec)
+		if got.Summary != "読み返した要約" || got.Comment != "読み返した感想" || got.Rating != 3 || got.Version != b.Version+1 {
+			t.Fatalf("response = %+v", got)
+		}
+	})
+
+	t.Run("400: 存在しない分野タグは tagIdsNotFound で、本は変わらない", func(t *testing.T) {
+		isbn := nextISBN(t)
+		b := mustCreateBook(t, db, isbn)
+		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, isbn)}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: "/api/admin/books/" + itoa(int64(b.ID)), Cookie: apitest.Session,
+			Body: `{"summary":"要約","tagIds":[999999999],"comment":"良書","rating":3,"version":` + strconv.Itoa(b.Version) + `}`})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("tagIds", "tagIdsNotFound"))
+		assertBookUnchanged(t, db, b)
+	})
+
+	t.Run("401: 未ログイン", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: "/api/admin/books/1", Body: updateBody(1)})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("403: Origin が違う", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: "/api/admin/books/1", Cookie: apitest.Session, Origin: "http://evil.example", Body: updateBody(1)})
+		apitest.AssertStatus(t, rec, http.StatusForbidden)
+	})
+
+	t.Run("404: 存在しない ID は bookNotFound", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: "/api/admin/books/999999999", Cookie: apitest.Session, Body: updateBody(1)})
+		apitest.AssertCode(t, rec, http.StatusNotFound, "bookNotFound")
+	})
+
+	t.Run("409: 版が一致しなければ versionConflict で、本は変わらない", func(t *testing.T) {
+		isbn := nextISBN(t)
+		b := mustCreateBook(t, db, isbn)
+		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, isbn)}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: "/api/admin/books/" + itoa(int64(b.ID)), Cookie: apitest.Session, Body: updateBody(b.Version + 1)})
+		apitest.AssertCode(t, rec, http.StatusConflict, "versionConflict")
+		assertBookUnchanged(t, db, b)
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: "/api/admin/books/1", Cookie: apitest.Session, Body: updateBody(1), Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
+}
+
+// TestUpdateBook_Constraints は、更新に固有の制約（path の id・version）を確かめる。本文の項目の制約は登録と同じスキーマの値を TestRegisterBook_Constraints で確かめている。
+func TestUpdateBook_Constraints(t *testing.T) {
+	db := connectIntegrationDB(t)
+	s := newServer(t, db, &fakeCatalog{}, nil)
+	tests := []struct {
+		name, path, body, field, rule string
+	}{
+		{"id 0", "/api/admin/books/0", updateBody(1), "id", "minimum"},
+		{"id 数字以外", "/api/admin/books/abc", updateBody(1), "id", "type"},
+		{"version 欠落", "/api/admin/books/1", `{"summary":"要約","comment":"良書","rating":3}`, "version", "required"},
+		{"summary 101 文字", "/api/admin/books/1", `{"summary":"` + strings.Repeat("あ", 101) + `","comment":"良書","rating":3,"version":1}`, "summary", "maxLength"},
+		{"comment 5001 文字", "/api/admin/books/1", `{"summary":"要約","comment":"` + strings.Repeat("あ", 5001) + `","rating":3,"version":1}`, "comment", "maxLength"},
+		{"rating 6", "/api/admin/books/1", `{"summary":"要約","comment":"良書","rating":6,"version":1}`, "rating", "maximum"},
+	}
+	for _, tt := range tests {
+		t.Run("弾く: "+tt.name, func(t *testing.T) {
+			rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: tt.path, Cookie: apitest.Session, Body: tt.body})
+			apitest.AssertFieldErrors(t, rec, apitest.FieldError(tt.field, tt.rule))
+		})
+	}
+	t.Run("通す: id 1（存在しなければ 404）", func(t *testing.T) {
+		rec := s.Do(t, apitest.Request{Method: http.MethodPut, Path: "/api/admin/books/999999999", Cookie: apitest.Session, Body: updateBody(1)})
+		apitest.AssertNoFieldError(t, rec, "id", "minimum")
+	})
+}
+
+// assertBookUnchanged は、失敗したはずの更新の後で本の内容と版が呼び出し前のままであることを確かめる。
+func assertBookUnchanged(t *testing.T, db *gorm.DB, before *bookdomain.Book) {
 	t.Helper()
 	after, err := pgbook.NewRepository(db).FindByID(context.Background(), before.ID)
 	if err != nil {
@@ -255,52 +381,97 @@ func assertIntegrationBookUnchanged(t *testing.T, db *gorm.DB, before *bookdomai
 	}
 	if after.Comment.String() != before.Comment.String() || after.Summary.String() != before.Summary.String() ||
 		after.Rating.Int() != before.Rating.Int() || after.Version != before.Version {
-		t.Fatalf("book changed on a failed update: got comment=%q summary=%q rating=%d version=%d, want comment=%q summary=%q rating=%d version=%d",
-			after.Comment.String(), after.Summary.String(), after.Rating.Int(), after.Version,
-			before.Comment.String(), before.Summary.String(), before.Rating.Int(), before.Version)
+		t.Fatalf("book changed on a failed update: %+v", after)
 	}
 }
 
-func TestBookHandlerIntegration_Delete(t *testing.T) {
+func TestDeleteBook(t *testing.T) {
 	db := connectIntegrationDB(t)
 
-	t.Run("204: ハッピーパス", func(t *testing.T) {
-		b := mustCreateIntegrationBook(t, db, nextIntegrationISBN(t))
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodDelete, "/api/books/"+itoa(int64(b.ID)), "", true)
-		if rec.Code != http.StatusNoContent {
-			t.Fatalf("status = %d, want 204 (body=%s)", rec.Code, rec.Body.String())
+	t.Run("204: 削除すると DB から消える", func(t *testing.T) {
+		b := mustCreateBook(t, db, nextISBN(t))
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodDelete, Path: "/api/admin/books/" + itoa(int64(b.ID)), Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusNoContent)
+		var count int64
+		db.Table("book").Where("id = ?", int64(b.ID)).Count(&count)
+		if count != 0 {
+			t.Fatal("the book must be deleted")
 		}
+	})
+
+	t.Run("400: id が 0", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodDelete, Path: "/api/admin/books/0", Cookie: apitest.Session})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("id", "minimum"))
 	})
 
 	t.Run("401: 未ログイン", func(t *testing.T) {
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodDelete, "/api/books/1", "", false)
-		if rec.Code != http.StatusUnauthorized {
-			t.Fatalf("status = %d, want 401 (body=%s)", rec.Code, rec.Body.String())
-		}
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodDelete, Path: "/api/admin/books/1"})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
 	})
 
-	t.Run("404: 存在しないID", func(t *testing.T) {
-		h := newIntegrationHandler(db, &integrationFakeCatalog{})
-		rec := serve(t, h, http.MethodDelete, "/api/books/999999999", "", true)
-		if rec.Code != http.StatusNotFound {
-			t.Fatalf("status = %d, want 404 (body=%s)", rec.Code, rec.Body.String())
-		}
+	t.Run("403: Origin が違う", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodDelete, Path: "/api/admin/books/1", Cookie: apitest.Session, Origin: "http://evil.example"})
+		apitest.AssertStatus(t, rec, http.StatusForbidden)
+	})
+
+	t.Run("404: 存在しない ID は bookNotFound", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodDelete, Path: "/api/admin/books/999999999", Cookie: apitest.Session})
+		apitest.AssertCode(t, rec, http.StatusNotFound, "bookNotFound")
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodDelete, Path: "/api/admin/books/1", Cookie: apitest.Session, Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
 	})
 }
 
-// assertFieldErrors は 400 と errors[{field, rule}] の内容（順序込み）を確かめる。
-func assertFieldErrors(t *testing.T, rec *httptest.ResponseRecorder, want []httpserver.FieldError) {
-	t.Helper()
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400 (body=%s)", rec.Code, rec.Body.String())
-	}
-	var e httpserver.ErrorResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
-		t.Fatalf("invalid JSON body %q: %v", rec.Body.String(), err)
-	}
-	if !reflect.DeepEqual(e.Errors, want) {
-		t.Fatalf("errors = %+v, want %+v", e.Errors, want)
-	}
+func TestLookupCatalog(t *testing.T) {
+	db := connectIntegrationDB(t)
+
+	t.Run("200: 外部カタログの書誌を返す", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{entry: catalogEntry(t, "9784873118703")}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/catalog/978-4-87311-870-3", Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		got := apitest.Decode[webapi.CatalogResponse](t, rec)
+		if got.Isbn != "9784873118703" || got.Title != "結合テストの書名" || got.Authors != "結合テスト著者" || got.AmazonURL == nil || got.CoverURL != nil {
+			t.Fatalf("response = %+v", got)
+		}
+	})
+
+	t.Run("400: ISBN が 18 文字なら maxLength", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/catalog/978-4-87311-870-33", Cookie: apitest.Session})
+		apitest.AssertFieldErrors(t, rec, apitest.FieldError("isbn", "maxLength"))
+	})
+
+	t.Run("通す: ISBN 17 文字（形式が合わなければ errors の無い 400）", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/catalog/978-4-87311-870-0", Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusBadRequest)
+		apitest.AssertNoFieldError(t, rec, "isbn", "maxLength")
+	})
+
+	t.Run("401: 未ログイン", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/catalog/9784873118703"})
+		apitest.AssertCode(t, rec, http.StatusUnauthorized, "unauthenticated")
+	})
+
+	t.Run("404: 外部カタログに無ければ catalogEntryNotFound", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{err: domainerr.New(domainerr.ErrNotFound, "catalogEntryNotFound", "無い")}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/catalog/9784873118703", Cookie: apitest.Session})
+		apitest.AssertCode(t, rec, http.StatusNotFound, "catalogEntryNotFound")
+	})
+
+	t.Run("500: 外部カタログの障害", func(t *testing.T) {
+		s := newServer(t, db, &fakeCatalog{err: errors.New("openbd down")}, nil)
+		rec := s.Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/admin/catalog/9784873118703", Cookie: apitest.Session})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
 }

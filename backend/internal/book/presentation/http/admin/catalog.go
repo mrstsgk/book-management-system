@@ -5,54 +5,18 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
 	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
 	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
-	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 )
 
-// isbnMaxLength は書籍 API の isbn と同じ上限（13桁＋ハイフン）。
-const isbnMaxLength = 17
-
-type CatalogResponse struct {
-	ISBN        string  `json:"isbn" example:"9784873118703"`
-	Title       string  `json:"title" example:"データ指向アプリケーションデザイン"`
-	Authors     string  `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
-	Publisher   string  `json:"publisher" example:"オーム社"`
-	PublishedOn string  `json:"publishedOn" example:"201907"`
-	AmazonURL   *string `json:"amazonUrl" example:"https://www.amazon.co.jp/dp/4873118700"`
-	CoverURL    *string `json:"coverUrl" example:"https://cover.openbd.jp/9784873118703.jpg"`
-	CoverSource *string `json:"coverSource" enums:"openbd" example:"openbd"`
-} // @name CatalogResponse
-
-// CatalogHandler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
+// CatalogHandler は、登録前に外部カタログを確かめる API を処理する（自分だけ）。
 type CatalogHandler struct {
 	LookupCatalogUsecase bookqry.LookupCatalogUsecase
-	// AdminOnly は登録画面でだけ使うための認証（外部カタログへの中継を誰にでも開放しないため）。
-	AdminOnly echo.MiddlewareFunc
 }
 
-// Register は、外部カタログ確認の API のルートを g に登録する。
-func (h *CatalogHandler) Register(g *echo.Group) {
-	g.GET("/:isbn", h.Lookup, h.AdminOnly)
-}
-
-// Lookup は、ISBN で外部カタログの書誌と書影を確かめる（GET /api/catalog/{isbn}）。
-// @Summary      ISBNで外部カタログの書誌と書影を確かめる（自分だけ）
-// @Description  登録前の確認用。書誌と書影は openBD から取得する
-// @Tags         catalog
-// @Produce      json
-// @Param        isbn path string true "ISBN（13桁または10桁。ハイフン可）"
-// @Success      200 {object} CatalogResponse
-// @Failure      400 {object} httpserver.ErrorResponse
-// @Failure      401 {object} httpserver.ErrorResponse
-// @Failure      404 {object} httpserver.ErrorResponse
-// @Failure      500 {object} httpserver.ErrorResponse
-// @Router       /api/catalog/{isbn} [get]
-func (h *CatalogHandler) Lookup(c echo.Context) error {
-	isbn := c.Param("isbn")
-	if len(isbn) > isbnMaxLength {
-		return &httpserver.ValidationError{Fields: []httpserver.FieldError{{Field: "isbn", Rule: "max"}}}
-	}
+// LookupCatalog は、ISBN で外部カタログの書誌と書影を確かめる（GET /api/admin/catalog/{isbn}）。
+func (h *CatalogHandler) LookupCatalog(c echo.Context, isbn string) error {
 	out, err := h.LookupCatalogUsecase.Execute(c.Request().Context(), isbn)
 	if err != nil {
 		return err
@@ -60,16 +24,16 @@ func (h *CatalogHandler) Lookup(c echo.Context) error {
 	return c.JSON(http.StatusOK, toCatalogResponse(out))
 }
 
-func toCatalogResponse(e *bookdomain.CatalogEntry) CatalogResponse {
+func toCatalogResponse(e *bookdomain.CatalogEntry) webapi.CatalogResponse {
 	b := e.Bibliography
-	res := CatalogResponse{
-		ISBN: e.ISBN.String(), Title: b.Title(), Authors: b.Authors(), Publisher: b.Publisher(), PublishedOn: b.PublishedOn(),
+	res := webapi.CatalogResponse{
+		Isbn: e.ISBN.String(), Title: b.Title(), Authors: b.Authors(), Publisher: b.Publisher(), PublishedOn: b.PublishedOn(),
 	}
 	if u, ok := e.ISBN.AmazonURL(); ok {
 		res.AmazonURL = &u
 	}
 	if e.Cover != nil {
-		u, src := e.Cover.URL(), string(e.Cover.Source())
+		u, src := e.Cover.URL(), webapi.CatalogResponseCoverSource(e.Cover.Source())
 		res.CoverURL, res.CoverSource = &u, &src
 	}
 	return res

@@ -1,28 +1,22 @@
 package public_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"gorm.io/gorm"
 
+	webapi "github.com/mrstsgk/book-management-system/backend/api/gen/web"
+	"github.com/mrstsgk/book-management-system/backend/internal/apitest"
 	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
 	tagpublic "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/public"
 	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
 
-// Presentation → Infrastructure の結合テスト（docs/rules/testing.md）。
-// 実際の Repository/Query（実 PostgreSQL）を注入した Handler に、実 HTTP リクエストを通す。
-// 分岐網羅はしない（既存の Fake ベースの handler_test.go・usecase の Fake テスト・
-// postgres/tag の契約テストが担う）。ここでは各エンドポイントが返しうる HTTP ステータスごとに
-// 最低1件、配線が噛み合っていることだけを確かめる。
-
-// connectTestDB はローカルの開発用 DB に接続する。契約テストと同じ理由で、繋がらなければ skip せず失敗にする。
+// connectTestDB はローカルの開発用 DB に接続する。繋がらなければ skip せず失敗にする（docs/rules/testing.md）。
 func connectTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := pgplatform.Connect(pgplatform.Config{
@@ -38,32 +32,41 @@ func connectTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// newIntegrationHandler は cmd/api/main.go と同じ形（実 Repository/Query を注入）で Handler を組み立てる。
-func newIntegrationHandler(db *gorm.DB) *tagpublic.Handler {
+type testServer struct {
+	apitest.Unimplemented
+	*tagpublic.Handler
+}
+
+func newServer(t *testing.T, db *gorm.DB) *apitest.Server {
+	t.Helper()
 	q := pgtag.NewQuery(db)
-	return &tagpublic.Handler{
+	return apitest.NewServer(t, &testServer{Handler: &tagpublic.Handler{
 		SearchTagsUsecase: &tagqry.SearchTagsUsecaseImpl{Tags: q},
 		CountBooksUsecase: &tagqry.CountBooksUsecaseImpl{Tags: q},
-	}
+	}}, apitest.AcceptSession{})
 }
 
-// decodeOK はステータスを先に確かめてからデコードする（エラー応答はレスポンスの形が違うため、
-// ステータスを見ずにデコードすると想定外のエラーを見逃して成功したかのように扱ってしまう）。
-func decodeOK[T any](t *testing.T, rec *httptest.ResponseRecorder, want int) T {
+// uniqueTagName は実行のたびに異なる、上限（30 文字）に収まるタグ名を返す。
+func uniqueTagName(t *testing.T, label string) string {
 	t.Helper()
-	if rec.Code != want {
-		t.Fatalf("status = %d, want %d (body=%s)", rec.Code, want, rec.Body.String())
-	}
-	var v T
-	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil {
-		t.Fatalf("decode %s: %v", rec.Body.Bytes(), err)
-	}
-	return v
+	return fmt.Sprintf("pt-%s-%09d", label, time.Now().UnixNano()%1_000_000_000)
 }
 
-// isbn13CheckDigit は internal/domain/book.isbn13CheckDigit と同じ計算（重み1/3の交互和）。
-// 非公開なのでこのテストからは呼べず、同じアルゴリズムをここに複製している。
-func isbn13CheckDigit(twelve string) byte {
+// mustCreateTag はタグを DB に直接 1 件入れる（追加の API は管理側の Handler の担当のため）。
+func mustCreateTag(t *testing.T, db *gorm.DB, name string) int64 {
+	t.Helper()
+	var id int64
+	if err := db.Raw("INSERT INTO tag (name, version) VALUES (?, 1) RETURNING id", name).Scan(&id).Error; err != nil {
+		t.Fatalf("setup: insert tag %q: %v", name, err)
+	}
+	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", id) })
+	return id
+}
+
+// mustCreateTaggedBook は本を DB に直接 1 件入れ、tagID を付ける。
+func mustCreateTaggedBook(t *testing.T, db *gorm.DB, tagID int64) {
+	t.Helper()
+	twelve := fmt.Sprintf("978%09d", time.Now().UnixNano()%1_000_000_000)
 	sum := 0
 	for i, d := range twelve {
 		w := 1
@@ -72,90 +75,70 @@ func isbn13CheckDigit(twelve string) byte {
 		}
 		sum += int(d-'0') * w
 	}
-	return byte((10-sum%10)%10) + '0'
-}
-
-// mustUniqueISBN は実行のたびに異なる、チェックディジットの正しい ISBN-13 を返す
-// （固定のISBN文字列だと、共有DBに前回のテスト行が残っている場合や同時実行で一意制約に落ちるため）。
-func mustUniqueISBN(t *testing.T) string {
-	t.Helper()
-	twelve := fmt.Sprintf("978%09d", time.Now().UnixNano()%1_000_000_000)
-	return twelve + string(isbn13CheckDigit(twelve))
-}
-
-// uniqueTagName は実行のたびに異なるタグ名を返す（固定名だと、共有DBに前回のテスト行が
-// 残っている場合や同時実行で一意制約に落ちるため）。タグ名の上限（30文字）に収まるよう、
-// 接頭辞と連番を短くしている。
-func uniqueTagName(t *testing.T, label string) string {
-	t.Helper()
-	return fmt.Sprintf("pt-%s-%06d", label, time.Now().UnixNano()%1_000_000)
-}
-
-func TestIntegration_List_200(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	name := uniqueTagName(t, "一覧")
-	created := mustCreateTag(t, db, name)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
-
-	rec := serve(t, h, http.MethodGet, "/api/tags", "", false)
-	got := decodeOK[tagpublic.ListResponse](t, rec, http.StatusOK)
-	found := false
-	for _, it := range got.Items {
-		if it.Name == name {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("items = %+v, want to contain the registered tag", got.Items)
-	}
-}
-
-func TestIntegration_CountBooks_200(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	tagged := mustCreateTag(t, db, uniqueTagName(t, "集計あり"))
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", tagged.ID) })
-
-	untagged := mustCreateTag(t, db, uniqueTagName(t, "0冊"))
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", untagged.ID) })
-
-	bookISBN := mustUniqueISBN(t)
+	isbn := twelve + string(byte((10-sum%10)%10)+'0')
 	var bookID int64
 	if err := db.Raw(
 		"INSERT INTO book (isbn, title, summary, comment, rating, version) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-		bookISBN, "pres-tag-test-書名", "pres-tag-test-まとめ", "pres-tag-test-感想", 5, 1,
+		isbn, "pres-tag-test-書名", "pres-tag-test-まとめ", "pres-tag-test-感想", 5, 1,
 	).Scan(&bookID).Error; err != nil {
 		t.Fatalf("setup: insert book: %v", err)
 	}
 	t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", bookID) })
-	if err := db.Exec("INSERT INTO book_tag (book_id, tag_id) VALUES (?, ?)", bookID, tagged.ID).Error; err != nil {
+	if err := db.Exec("INSERT INTO book_tag (book_id, tag_id) VALUES (?, ?)", bookID, tagID).Error; err != nil {
 		t.Fatalf("setup: insert book_tag: %v", err)
-	}
-
-	rec := serve(t, h, http.MethodGet, "/api/tags/counts", "", false)
-	got := decodeOK[tagpublic.BookCountListResponse](t, rec, http.StatusOK)
-	byID := map[int64]tagpublic.BookCountResponse{}
-	for _, it := range got.Items {
-		byID[it.ID] = it
-	}
-	if it, ok := byID[tagged.ID]; !ok || it.BookCount != 1 {
-		t.Fatalf("tagged item = %+v, want bookCount=1", it)
-	}
-	if _, ok := byID[untagged.ID]; ok {
-		t.Fatalf("items = %+v, want the 0-book tag excluded", got.Items)
 	}
 }
 
-// mustCreateTag はテスト用のタグを DB に直接 1 件入れる（追加の API は管理側の Handler の担当で、
-// 閲覧側のテストからは使えないため）。
-func mustCreateTag(t *testing.T, db *gorm.DB, name string) tagpublic.Response {
-	t.Helper()
-	var id int64
-	if err := db.Raw("INSERT INTO tag (name, version) VALUES (?, 1) RETURNING id", name).Scan(&id).Error; err != nil {
-		t.Fatalf("setup: insert tag %q: %v", name, err)
-	}
-	return tagpublic.Response{ID: id, Name: name, Version: 1}
+func TestSearchTags(t *testing.T) {
+	db := connectTestDB(t)
+
+	t.Run("200: 登録したタグを全項目で返す", func(t *testing.T) {
+		name := uniqueTagName(t, "list")
+		id := mustCreateTag(t, db, name)
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/tags"})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		for _, it := range apitest.Decode[webapi.SearchTagsResponse](t, rec).Items {
+			if it.ID == id {
+				if it.Name != name || it.Version != 1 {
+					t.Fatalf("item = %+v", it)
+				}
+				return
+			}
+		}
+		t.Fatalf("tag %d not in the response", id)
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/tags", Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
+}
+
+func TestCountBooks(t *testing.T) {
+	db := connectTestDB(t)
+
+	t.Run("200: 本が付いたタグだけを冊数付きで返す", func(t *testing.T) {
+		taggedName := uniqueTagName(t, "cnt")
+		tagged := mustCreateTag(t, db, taggedName)
+		untagged := mustCreateTag(t, db, uniqueTagName(t, "zero"))
+		mustCreateTaggedBook(t, db, tagged)
+
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/tags/counts"})
+		apitest.AssertStatus(t, rec, http.StatusOK)
+		byID := map[int64]webapi.TagBookCountResponse{}
+		for _, it := range apitest.Decode[webapi.CountBooksResponse](t, rec).Items {
+			byID[it.ID] = it
+		}
+		if it, ok := byID[tagged]; !ok || it.BookCount != 1 || it.Name != taggedName {
+			t.Fatalf("tagged item = %+v, want bookCount=1", it)
+		}
+		if _, ok := byID[untagged]; ok {
+			t.Fatal("a tag with no books must be excluded")
+		}
+	})
+
+	t.Run("500: DB の呼び出しが失敗", func(t *testing.T) {
+		rec := newServer(t, db).Do(t, apitest.Request{Method: http.MethodGet, Path: "/api/tags/counts", Cancelled: true})
+		apitest.AssertStatus(t, rec, http.StatusInternalServerError)
+	})
 }

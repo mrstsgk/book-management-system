@@ -55,7 +55,7 @@ func (c *catalog) Lookup(ctx context.Context, isbn bookdomain.ISBN) (*bookdomain
 		return nil, fmt.Errorf("openbd: decode: %w", err)
 	}
 	if len(records) == 0 || records[0] == nil {
-		return nil, fmt.Errorf("%w: openBDに該当する書籍がありません", domainerr.ErrNotFound)
+		return nil, domainerr.New(domainerr.ErrNotFound, "catalogEntryNotFound", "openBDに該当する書籍がありません")
 	}
 	s := records[0].Summary
 	bib, err := bookdomain.NewBibliography(s.Title, s.Author, s.Publisher, s.PubDate)

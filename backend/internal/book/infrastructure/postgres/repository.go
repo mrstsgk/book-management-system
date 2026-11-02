@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -51,7 +50,7 @@ func (r *repository) FindByID(ctx context.Context, id bookdomain.ID) (*bookdomai
 	var row model
 	if err := r.db.WithContext(ctx).First(&row, int64(id)).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("%w: 読んだ本が見つかりません", domainerr.ErrNotFound)
+			return nil, domainerr.New(domainerr.ErrNotFound, "bookNotFound", "読んだ本が見つかりません")
 		}
 		return nil, err
 	}
@@ -124,7 +123,7 @@ func (r *repository) Update(ctx context.Context, b *bookdomain.Book) error {
 			return res.Error
 		}
 		if res.RowsAffected == 0 {
-			return fmt.Errorf("%w: 読んだ本の更新に失敗しました（他の更新と競合しました）", domainerr.ErrConflict)
+			return domainerr.New(domainerr.ErrConflict, "versionConflict", "読んだ本の更新に失敗しました（他の更新と競合しました）")
 		}
 		if err := tx.Where("book_id = ?", int64(b.ID)).Delete(&bookTagModel{}).Error; err != nil {
 			return err
@@ -179,7 +178,7 @@ func (r *repository) Delete(ctx context.Context, id bookdomain.ID) error {
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
-		return fmt.Errorf("%w: 読んだ本が見つかりません", domainerr.ErrNotFound)
+		return domainerr.New(domainerr.ErrNotFound, "bookNotFound", "読んだ本が見つかりません")
 	}
 	return nil
 }
@@ -191,7 +190,7 @@ const uniqueViolation = "23505"
 func translateDuplicateISBN(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == "uq_book_isbn" {
-		return fmt.Errorf("%w: 同じISBNの本が既に登録されています", domainerr.ErrConflict)
+		return domainerr.New(domainerr.ErrConflict, "isbnDuplicated", "同じISBNの本が既に登録されています")
 	}
 	return err
 }

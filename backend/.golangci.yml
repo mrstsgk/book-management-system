@@ -40,8 +40,8 @@ linters:
 
   exclusions:
     paths:
-      # swag の生成物は対象外（手編集禁止）
-      - api/docs/
+      # oapi-codegen の生成物は対象外（手編集禁止）
+      - api/gen/
     rules:
       # テストは表明の書きやすさを優先する
       - path: _test\.go$
@@ -63,7 +63,7 @@ formatters:
         - github.com/mrstsgk/book-management-system/backend
   exclusions:
     paths:
-      - api/docs/
+      - api/gen/
 
 issues:
   max-issues-per-linter: 0
