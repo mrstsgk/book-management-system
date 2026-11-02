@@ -31,11 +31,16 @@ describe('AppRoutes', () => {
     ).toBeVisible()
   })
 
-  it('/admin/login は管理画面のレイアウトの外でログイン画面を出す', () => {
+  it('未ログインで /admin/login を開くと管理画面のレイアウトの外でログイン画面を出す', async () => {
+    server.use(
+      http.get('*/api/admin/auth/session', () =>
+        HttpResponse.json({ message: 'x' }, { status: 401 }),
+      ),
+    )
     renderWithProviders(<AppRoutes />, { route: '/admin/login' })
 
     expect(
-      screen.getByRole('heading', { name: '管理画面にログイン' }),
+      await screen.findByRole('heading', { name: '管理画面にログイン' }),
     ).toBeVisible()
     expect(
       screen.queryByRole('navigation', { name: '管理メニュー' }),

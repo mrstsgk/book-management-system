@@ -66,6 +66,12 @@ describe('AdminLayout', () => {
         called = true
         return new HttpResponse(null, { status: 204 })
       }),
+      // ログアウトした後はセッションが無い（ログイン画面はログイン済みなら管理画面へ戻すため）
+      http.get('*/api/admin/auth/session', () =>
+        called
+          ? HttpResponse.json({ message: 'unauthorized' }, { status: 401 })
+          : new HttpResponse(null, { status: 204 }),
+      ),
     )
     renderWithProviders(<AppRoutes />, { route: '/admin' })
     await userEvent.click(
