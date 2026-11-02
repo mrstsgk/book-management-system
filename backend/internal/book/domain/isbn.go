@@ -9,6 +9,7 @@ import (
 
 // ISBN は書籍の ISBN の VO。常に13桁で保持し、10桁の入力は 978 付きの13桁に変換する。
 type ISBN struct {
+	// ISBN の値。
 	value string
 }
 

@@ -20,6 +20,7 @@ var (
 // TagSelection は本に付ける分野タグの ID の集合の VO。タグの実体は持たず、ID の妥当性（上限・重複）だけを保証する。
 // タグが実在するかどうかは、外部データを見る必要があるため VO では検証できず、ユースケースが確認する。
 type TagSelection struct {
+	// 本に付ける分野タグの ID。
 	ids []tagdomain.ID
 }
 

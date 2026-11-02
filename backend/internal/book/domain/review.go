@@ -18,6 +18,7 @@ const (
 // Comment は自分が書く感想の VO。前後の空白を除いて1〜5000文字。本文なので改行とタブは使えるが、
 // それ以外の制御文字は受け付けない。
 type Comment struct {
+	// 感想の本文。
 	value string
 }
 
@@ -42,6 +43,7 @@ func isDisallowedInBody(r rune) bool {
 
 // Rating は自分が付ける評価の VO（1〜5 の5段階）。
 type Rating struct {
+	// 評価の段階。
 	value int
 }
 
