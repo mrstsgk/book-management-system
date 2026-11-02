@@ -42,6 +42,42 @@ describe('AdminGuard', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('表示中の読み取りがセッション切れ（401）になったら、元の場所を添えて /login へ送る', async () => {
+    // 最初の確認ではログイン済み、その後にセッションが切れた状況
+    let sessionChecks = 0
+    server.use(
+      http.get('*/api/admin/auth/session', () => {
+        sessionChecks += 1
+        return sessionChecks === 1
+          ? new HttpResponse(null, { status: 204 })
+          : HttpResponse.json({ message: 'unauthenticated' }, { status: 401 })
+      }),
+      http.get('*/api/admin/tags', () =>
+        HttpResponse.json({ message: 'unauthenticated' }, { status: 401 }),
+      ),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
+    expect(
+      await screen.findByRole('heading', { name: '管理画面にログイン' }),
+    ).toBeVisible()
+  })
+
+  it('読み取りが 401 以外で失敗しても /login へは送らない', async () => {
+    serveSession(204)
+    server.use(
+      http.get('*/api/admin/tags', () =>
+        HttpResponse.json({ message: 'internal' }, { status: 500 }),
+      ),
+    )
+    renderWithProviders(<AppRoutes />, { route: '/tags' })
+    expect(
+      await screen.findByRole('heading', { name: '分野タグ' }),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('heading', { name: '管理画面にログイン' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('ログインしたら元の管理画面へ戻る', async () => {
     serveSession(401)
     const user = userEvent.setup()
