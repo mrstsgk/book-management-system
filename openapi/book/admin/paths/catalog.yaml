@@ -1,0 +1,59 @@
+parameters:
+  - name: isbn
+    in: path
+    required: true
+    description: ISBN（13 桁か 10 桁。ハイフン可）
+    schema:
+      type: string
+      maxLength: 17
+    example: '9784873118703'
+get:
+  operationId: lookupCatalog
+  summary: Lookup a catalog entry
+  description: |
+    登録前の確認用に、ISBN で外部カタログ（openBD）の書誌と書影を返す。
+    ISBN の形式が不正なら 400（errors なし）。外部カタログへの中継を誰にでも開放しないため、ログインが要る。
+  tags:
+    - catalog
+  security:
+    - adminSession: []
+  x-error-codes:
+    - code: unauthenticated
+      status: 401
+      rule: ログインしていない、またはセッションの期限が切れている
+      message: （ログイン画面へ移る。文言は出さない）
+    - code: catalogEntryNotFound
+      status: 404
+      rule: 外部カタログにその ISBN の本が無い
+      message: MSG-A02
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/CatalogResponse.yaml
+    '400':
+      description: 'path・query パラメータの入力検証の違反（errors[{field, rule}]）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '401':
+      description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '404':
+      description: '対象が無い（code: catalogEntryNotFound）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml

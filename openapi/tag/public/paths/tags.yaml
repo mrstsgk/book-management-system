@@ -1,0 +1,20 @@
+get:
+  operationId: searchTags
+  summary: Search tags
+  description: 分野タグをすべて返す。
+  tags:
+    - tag
+  security: []
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: ../schemas/SearchTagsResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml

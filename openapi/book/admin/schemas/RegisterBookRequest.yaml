@@ -1,0 +1,44 @@
+type: object
+required:
+  - isbn
+  - summary
+  - comment
+  - rating
+properties:
+  isbn:
+    type: string
+    minLength: 1
+    maxLength: 17
+    description: 13 桁か 10 桁（ハイフン可）。書誌と書影はこれで外部カタログから取得する
+    example: '9784873118703'
+  summary:
+    type: string
+    minLength: 1
+    maxLength: 100
+    description: 一覧で見せる一言まとめ
+    example: 分散データの設計を体系的に学べる
+  titleOverride:
+    type: string
+    maxLength: 255
+    description: 外部カタログの書名が実際と違うときに自分で付ける書名。省略・空（空白だけも）なら上書きしない
+  tagIds:
+    type: array
+    maxItems: 10
+    description: 付ける分野タグの ID
+    items:
+      type: integer
+      format: int64
+    example:
+      - 1
+      - 2
+  comment:
+    type: string
+    minLength: 1
+    maxLength: 5000
+    description: 詳細で見せる感想（改行できる）
+    example: 分散システムの設計を体系的に学べた
+  rating:
+    type: integer
+    minimum: 1
+    maximum: 5
+    example: 5

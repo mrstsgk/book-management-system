@@ -1,0 +1,28 @@
+get:
+  operationId: checkSession
+  summary: Check the session
+  description: ログイン済みの Cookie（admin_session）が有効なら 204。画面のガードに使う。有効ならアイドル期限が延びる。
+  tags:
+    - auth
+  security:
+    - adminSession: []
+  x-error-codes:
+    - code: unauthenticated
+      status: 401
+      rule: ログインしていない、またはセッションの期限が切れている
+      message: （ログイン画面へ移る。文言は出さない）
+  responses:
+    '204':
+      description: ログイン中
+    '401':
+      description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml

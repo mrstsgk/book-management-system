@@ -1,0 +1,80 @@
+post:
+  operationId: registerBook
+  summary: Register a book
+  description: |
+    読んだ本を登録する。書誌と書影は ISBN で外部カタログ（openBD）から取得する。
+    ISBN の形式（13 桁か 10 桁・チェックディジット）は VO が判定し、違反は errors の rule format。
+    独立して判定できる入力・VO・相関ルールの違反はすべて errors に返す（順不同）。詳細は docs/architecture.md §4。
+  tags:
+    - book
+  security:
+    - adminSession: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../schemas/RegisterBookRequest.yaml
+  x-correlation-rules:
+    - id: isbnDuplicated
+      field: isbn
+      rule: 登録する ISBN の本は未登録である
+      message: MSG-A01
+    - id: isbnNotInCatalog
+      field: isbn
+      rule: 登録する ISBN は外部カタログに存在する（外部カタログの照会は他の違反が無いときだけ行う）
+      message: MSG-A02
+    - id: tagIdsNotFound
+      field: tagIds
+      rule: 指定した分野タグ ID はすべて存在する
+      message: MSG-A03
+    - id: tagIdsDuplicated
+      field: tagIds
+      rule: 分野タグ ID に重複が無い
+      message: 入力を見直してください
+  x-error-codes:
+    - code: unauthenticated
+      status: 401
+      rule: ログインしていない、またはセッションの期限が切れている
+      message: （ログイン画面へ移る。文言は出さない）
+    - code: isbnDuplicated
+      status: 409
+      rule: 同じ ISBN の本が同時に登録された（DB の一意制約。通常は 400 の isbnDuplicated になる）
+      message: MSG-A01
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: ../../public/schemas/BookResponse.yaml
+    '400':
+      description: '入力検証・VO・相関ルールの違反（errors に独立して判定できるものをすべて。順不同）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '401':
+      description: '未ログイン・セッションの期限切れ（code: unauthenticated）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '403':
+      description: 'Origin が自分と一致しない（CSRF 対策）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '409':
+      description: '競合（code: isbnDuplicated）'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
+    '500':
+      description: 'Internal Server Error'
+      content:
+        application/json:
+          schema:
+            $ref: ../../../common/schemas/ErrorResponse.yaml
