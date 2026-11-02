@@ -68,13 +68,11 @@ var sentinelStatuses = []struct {
 // エラーはフィールド詳細付き 400、既知の domain sentinel はそれぞれのステータス、
 // echo の HTTPError はそのコード（5xx はメッセージを隠す）、それ以外は汎用 500。
 func toErrorResponse(err error) (int, ErrorResponse) {
-	var ve *ValidationError
-	if errors.As(err, &ve) {
+	if ve, ok := errors.AsType[*ValidationError](err); ok {
 		return http.StatusBadRequest, ErrorResponse{Message: ve.Error(), Errors: ve.Fields}
 	}
 	// UseCase が集めた相関ルール・VO の違反も、入力検証と同じ形（400 + errors[{field, rule}]）で返す
-	var vs domainerr.Violations
-	if errors.As(err, &vs) {
+	if vs, ok := errors.AsType[domainerr.Violations](err); ok {
 		fields := make([]FieldError, 0, len(vs))
 		for _, v := range vs {
 			fields = append(fields, FieldError{Field: v.Field, Rule: v.Rule})
@@ -86,8 +84,7 @@ func toErrorResponse(err error) (int, ErrorResponse) {
 			return m.status, ErrorResponse{Message: err.Error()}
 		}
 	}
-	var he *echo.HTTPError
-	if errors.As(err, &he) {
+	if he, ok := errors.AsType[*echo.HTTPError](err); ok {
 		if he.Code >= http.StatusInternalServerError {
 			return he.Code, ErrorResponse{Message: internalMessage}
 		}

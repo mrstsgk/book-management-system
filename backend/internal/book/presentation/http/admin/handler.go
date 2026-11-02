@@ -56,7 +56,7 @@ func (h *Handler) Register(g *echo.Group) {
 // @Accept       json
 // @Produce      json
 // @Param        body body RegisterRequest true "body"
-// @Success      200 {object} bookpublic.Response
+// @Success      200 {object} internal_book_presentation_http_public.Response
 // @Failure      400 {object} httpserver.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
 // @Failure      401 {object} httpserver.ErrorResponse
 // @Failure      403 {object} httpserver.ErrorResponse
@@ -86,7 +86,7 @@ func (h *Handler) RegisterBook(c echo.Context) error {
 // @Produce      json
 // @Param        id   path int           true "読んだ本のID"
 // @Param        body body UpdateRequest true "body"
-// @Success      200 {object} bookpublic.Response
+// @Success      200 {object} internal_book_presentation_http_public.Response
 // @Failure      400 {object} httpserver.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
 // @Failure      401 {object} httpserver.ErrorResponse
 // @Failure      403 {object} httpserver.ErrorResponse

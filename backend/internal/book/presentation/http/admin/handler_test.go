@@ -78,12 +78,11 @@ func decode[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
 	return v
 }
 
-func strPtr(s string) *string { return &s }
-
+//go:fix inline
 var detail = &bookdomain.BookDetail{
 	ID: 1, ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
-	Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
-	CoverURL: strPtr("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: strPtr("openbd"),
+	Publisher: "オーム社", PublishedOn: "201907", AmazonURL: new("https://www.amazon.co.jp/dp/4873118700"),
+	CoverURL: new("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: new("openbd"),
 	Summary: "分散データの設計を学べる", Tags: []string{"データベース"}, Comment: "良書\n2行目", Rating: 5, Version: 1,
 }
 
