@@ -2,6 +2,7 @@
 
 本プロジェクトの PR 運用ルール。レビューフローの効率化と一貫性のため、PR 作成・マージ時は以下に従う。
 
+
 ## レビュー分類の決定（AIが提案し、人が選ぶ）
 
 PRを作成するAI（Claude Code / Codex等）が変更内容を確認し、分類と理由を提案する。**人が決定するまでPRの作成・分類ラベルの付与を待つ**。コード・テスト・PR本文の準備は先に済ませる。CodeRabbit自身が作成前に質問する仕組みではない。
@@ -39,7 +40,8 @@ PRを作成するAI（Claude Code / Codex等）が変更内容を確認し、分
 - 未分類・分類重複は自動レビューを停止する。CI `Review Policy / classification` も失敗する。人に確認して1つに修正する。CIはラベル数を検査するもので、人の回答の真正性までは検証しない。
 - CodeRabbitによるラベルの自動付与は無効。ヒアリングの実施はAI向けルールとPR本文の記録で運用する。
 - 設計ラベルのみDraftの自動レビューを有効化する。ローカルCLIなどPR情報が無い場合は `chill` とし、人の分類とみなさない。PRの分類連動レビューはCodeRabbitのGitHub連携で確認する。
-- ローカル確認: リポジトリ直下で `npm ci --ignore-scripts` → `npm run typecheck` → `npm test`（Node は `.mise.toml` で固定した版）。フロントエンドのpnpm環境とは別のレビュー設定専用ツール。
+- ローカル確認: `.mise.toml` の Node で、ルートにて `npm ci --ignore-scripts` → `npm run typecheck` → `npm test`。フロントエンドのpnpm環境とは別のレビュー設定専用ツール。
+- CodeRabbit の自動レビューが始まらないとき（ベースが `develop` / `main` 以外の積み上げた PR、無料枠の上限など）は、PR で `@coderabbitai full review` を依頼する。それでも受けられないときは、AI のセルフレビュー（Claude Code の `/code-review`）で代え、見つかった指摘と対応を PR に記録する。指摘への対応の仕方は下の「レビュー指摘対応」と同じ。
 - `Review Policy` をマージ必須にする場合は、ブランチ保護に `classification` と `config` のチェックを登録する。ワークフローの追加だけでブランチ保護が変更されるわけではない。
 
 ### 初回導入
@@ -64,15 +66,6 @@ gh label create 'review:skip' --color 'cccccc' --description '人が決定: Code
 - ベースは `develop` ブランチへマージ（`hotfix/*` のみ `main`。[ブランチ運用ルール](./git-branch.md) 参照）
 - マージ後はブランチを削除
 
-## 作成フロー
-
-1. AIがレビュー分類と理由を提案し、人が決定する
-2. リモートに push して **Draft** で PR を作成し、分類ラベルを1つ付ける
-3. CI 失敗があれば全て修正
-4. CodeRabbit の指摘に対応する（下の「レビュー指摘対応」）
-5. 「確認事項」のチェックボックスをすべて埋め、Ready にしてレビュー依頼する
-6. レビュー承認後にマージ（基本 `develop`）し、ブランチを削除する
-
 ## レビュー指摘対応
 
 レビューの指摘に対応する際は、対応の追跡性とレビュアーの再確認を容易にするため以下に従う。
@@ -82,7 +75,7 @@ gh label create 'review:skip' --color 'cccccc' --description '人が決定: Code
   - この PR のスコープと、リポジトリの規則・仕様に根拠があるか（一般論や好みだけの指摘ではないか）
   - 直す手間と、直して得られるものが見合うか
   - CodeRabbit が「Unverified」などと断っている指摘は、とくに裏取りを先に行う
-- 吟味の結果、**妥当なら対応する**。妥当でない・不要なら対応せず、その理由を同じスレッドに返信する。疑うのは検証のためで、指摘を却下するためではない（極端に対応しない姿勢にはしない。吟味して妥当だったものは素直に直す）。見送った指摘は理由をスレッドに返信し、規則や設計に関わるなら、その規則を持つ文書の該当箇所に理由を書く。
+- 吟味の結果、**妥当なら対応する**。妥当でない・不要なら対応せず、その理由を同じスレッドに返信する。疑うのは検証のためで、指摘を却下するためではない（極端に対応しない姿勢にはしない。吟味して妥当だったものは素直に直す）。
 - **指摘ごとにコミットを分ける**：1 つの指摘対応 = 1 コミット。複数の指摘をまとめてコミットしない。
 - **指摘のスレッドにリプライする**：対応した指摘ごとに、該当コミットの **コミット ID** と **対応内容** をそのスレッドへコメントする。CodeRabbit の指摘も同様に扱う。
   - スレッド返信可能なレビューコメント（行に紐づく review comment）は `gh api repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies -X POST -f body='<返信本文>'` でそのスレッドへ返信する。新規の PR コメントとして書き起こさない。
@@ -90,7 +83,7 @@ gh label create 'review:skip' --color 'cccccc' --description '人が決定: Code
 
 ## PR テンプレート
 
-実体は `.github/pull_request_template.md`（PR 作成時に GitHub が自動挿入する）。内容は以下と同一に保つ（`npm test` が一致を検査する）。
+実体は `.github/pull_request_template.md`（PR 作成時に GitHub が自動挿入する）。内容は以下と同一に保つ。
 
 ````markdown
 <!-- type: feat / fix / chore / docs / refactor / test / hotfix -->
@@ -150,4 +143,5 @@ PR 本文の「確認事項」は **この PR をマージしてよいかを判�
 - 不要なセクションは削除して OK
 - PR 全体で MECE を意識して端的にまとめる
 
-関連: [ブランチ運用ルール](./git-branch.md) / [コミットメッセージ規約](./git-commit-message.md) / [開発の流れ](./development-flow.md)
+関連: [ブランチ運用ルール](./git-branch.md) / [コミットメッセージ規約](./git-commit-message.md)
+
