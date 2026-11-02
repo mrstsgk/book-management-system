@@ -1,4 +1,4 @@
-package tag
+package admin
 
 import (
 	"net/http"
@@ -6,8 +6,8 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
+	tagpublic "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/public"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
-	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
 
 type RegisterRequest struct {
@@ -19,83 +19,20 @@ type RenameRequest struct {
 	Version *int   `json:"version" validate:"required" example:"1"`
 } // @name RenameTagRequest
 
-type Response struct {
-	ID      int64  `json:"id" example:"1"`
-	Name    string `json:"name" example:"データベース"`
-	Version int    `json:"version" example:"1"`
-} // @name TagResponse
-
-type ListResponse struct {
-	Items []Response `json:"items"`
-} // @name TagListResponse
-
-type BookCountResponse struct {
-	ID        int64  `json:"id" example:"1"`
-	Name      string `json:"name" example:"データベース"`
-	BookCount int    `json:"bookCount" example:"3"`
-} // @name TagBookCountResponse
-
-type BookCountListResponse struct {
-	Items []BookCountResponse `json:"items"`
-} // @name TagBookCountListResponse
-
-// Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
+// Handler は、分野タグの追加・改名・削除の API を処理する（自分だけ）。
 type Handler struct {
 	RegisterTagUsecase tagcmd.RegisterTagUsecase
 	RenameTagUsecase   tagcmd.RenameTagUsecase
 	DeleteTagUsecase   tagcmd.DeleteTagUsecase
-	SearchTagsUsecase  tagqry.SearchTagsUsecase
-	CountBooksUsecase  tagqry.CountBooksUsecase
-	// AdminOnly は追加・改名・削除に掛ける認証（閲覧は誰でもできる）。
+	// AdminOnly は書き込みに掛ける認証（セッションと Origin の検証）。
 	AdminOnly echo.MiddlewareFunc
 }
 
-// Register は、分野タグの API のルートを g に登録する。
+// Register は、分野タグの書き込みの API のルートを g に登録する。
 func (h *Handler) Register(g *echo.Group) {
-	g.GET("", h.Search)
-	g.GET("/counts", h.CountBooks)
 	g.POST("", h.RegisterTag, h.AdminOnly)
 	g.PUT("/:id", h.Rename, h.AdminOnly)
 	g.DELETE("/:id", h.Delete, h.AdminOnly)
-}
-
-// Search は、分野タグの一覧を参照する（GET /api/tags）。
-// @Summary      分野タグの一覧を取得する
-// @Tags         tags
-// @Produce      json
-// @Success      200 {object} ListResponse
-// @Failure      500 {object} httpserver.ErrorResponse
-// @Router       /api/tags [get]
-func (h *Handler) Search(c echo.Context) error {
-	out, err := h.SearchTagsUsecase.Execute(c.Request().Context())
-	if err != nil {
-		return err
-	}
-	items := make([]Response, 0, len(out.Items))
-	for _, it := range out.Items {
-		items = append(items, Response{ID: int64(it.ID), Name: it.Name, Version: it.Version})
-	}
-	return c.JSON(http.StatusOK, ListResponse{Items: items})
-}
-
-// CountBooks は、分野タグごとの冊数を返す（GET /api/tags/counts）。
-// @Summary      分野タグごとの冊数を取得する
-// @Description  本が1冊も付いていないタグは含めない。冊数の多い順、同数ならタグ名順
-// @Tags         tags
-// @Produce      json
-// @Success      200 {object} BookCountListResponse
-// @Failure      500 {object} httpserver.ErrorResponse
-// @Router       /api/tags/counts [get]
-func (h *Handler) CountBooks(c echo.Context) error {
-	out, err := h.CountBooksUsecase.Execute(c.Request().Context())
-	if err != nil {
-		return err
-	}
-	items := make([]BookCountResponse, 0, len(out.Items))
-	for _, it := range out.Items {
-		items = append(items, BookCountResponse{ID: int64(it.ID), Name: it.Name, BookCount: it.BookCount})
-	}
-	return c.JSON(http.StatusOK, BookCountListResponse{Items: items})
 }
 
 // RegisterTag は、分野タグを追加する（POST /api/tags）。
@@ -105,7 +42,7 @@ func (h *Handler) CountBooks(c echo.Context) error {
 // @Accept       json
 // @Produce      json
 // @Param        body body RegisterRequest true "body"
-// @Success      200 {object} Response
+// @Success      200 {object} tagpublic.Response
 // @Failure      400 {object} httpserver.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
 // @Failure      401 {object} httpserver.ErrorResponse
 // @Failure      403 {object} httpserver.ErrorResponse
@@ -133,7 +70,7 @@ func (h *Handler) RegisterTag(c echo.Context) error {
 // @Produce      json
 // @Param        id   path int           true "タグのID"
 // @Param        body body RenameRequest true "body"
-// @Success      200 {object} Response
+// @Success      200 {object} tagpublic.Response
 // @Failure      400 {object} httpserver.ErrorResponse "入力・VO・相関ルールの違反（errors に全件）"
 // @Failure      401 {object} httpserver.ErrorResponse
 // @Failure      403 {object} httpserver.ErrorResponse
@@ -181,6 +118,6 @@ func (h *Handler) Delete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func toResponse(v *tagcmd.TagView) Response {
-	return Response{ID: v.ID, Name: v.Name, Version: v.Version}
+func toResponse(v *tagcmd.TagView) tagpublic.Response {
+	return tagpublic.Response{ID: v.ID, Name: v.Name, Version: v.Version}
 }

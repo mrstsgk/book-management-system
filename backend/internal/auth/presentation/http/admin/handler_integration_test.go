@@ -1,4 +1,4 @@
-package auth_test
+package admin_test
 
 import (
 	"fmt"
@@ -14,13 +14,13 @@ import (
 
 	authbcrypt "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/bcrypt"
 	pgauth "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/postgres"
+	authadmin "github.com/mrstsgk/book-management-system/backend/internal/auth/presentation/http/admin"
 	authcmd "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/command"
 	authqry "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/query"
 	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
-	httpauth "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/auth"
-	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
+	tagadmin "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/admin"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
 )
 
@@ -58,7 +58,7 @@ func newIntegrationEcho(t *testing.T, db *gorm.DB) *echo.Echo {
 
 	e := httpserver.NewEcho()
 	api := e.Group("/api")
-	(&httpauth.Handler{
+	(&authadmin.Handler{
 		LoginUsecase: &authcmd.LoginUsecaseImpl{
 			Admin: authcmd.AdminAccount{ID: "admin", PasswordHash: string(hash)}, Verifier: authbcrypt.NewBcryptVerifier(),
 			Sessions: sessions, Now: time.Now,
@@ -66,7 +66,7 @@ func newIntegrationEcho(t *testing.T, db *gorm.DB) *echo.Echo {
 		LogoutUsecase: &authcmd.LogoutUsecaseImpl{Sessions: sessions}, CheckSessionUsecase: check, SameOrigin: httpserver.RequireSameOrigin(),
 	}).Register(api.Group("/auth"))
 	repo := pgtag.NewRepository(db)
-	(&httptag.Handler{
+	(&tagadmin.Handler{
 		RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: repo, TagQuery: pgtag.NewQuery(db)}, DeleteTagUsecase: &tagcmd.DeleteTagUsecaseImpl{Tags: repo}, AdminOnly: adminOnly,
 	}).Register(api.Group("/tags"))
 	return e

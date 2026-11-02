@@ -7,7 +7,7 @@
 # （BE の正は Go の Handler で、swagger.json は CI のドリフト検査で Handler と一致している）。
 #
 # 判定（テスト・ソースはコメントを除いて見る）:
-#   BE: backend/internal/presentation/http/ 配下の *_test.go のいずれかに、そのパスの文字列（{id} は任意の 1 セグメント）と
+#   BE: backend/internal/*/presentation/http/ 配下の *_test.go のいずれかに、そのパスの文字列（{id} は任意の 1 セグメント）と
 #       HTTP メソッド（http.MethodGet または "GET"）の両方があること
 #   FE: アプリのコード（生成物・テスト・Story・src/testing 以外）が生成モジュール api/generated/api から
 #       この operation の hook・関数（use<Op> / use<Op>Infinite / get<Op>QueryOptions / get<Op>QueryKey / <op>）を
@@ -99,7 +99,7 @@ op_name() {
 
 be_tests=()
 while IFS= read -r f; do be_tests+=("$f"); done < <(
-  find "$root/backend/internal/presentation/http" -type f -name '*_test.go' 2>/dev/null
+  find "$root/backend/internal" -type f -path '*/presentation/http/*' -name '*_test.go' 2>/dev/null
 )
 
 app_src="$root/frontend/web/src"
@@ -136,7 +136,7 @@ while read -r http_method path; do
   if any_match_both "\"(https?://[^/\"]*)?${path_re}[\"?]" "(http\.Method${method_word}[^A-Za-z0-9_]|\"${http_method}\")" "${be_tests[@]+"${be_tests[@]}"}"; then
     echo "ok  BE ${http_method} ${path}"
   else
-    echo "::error title=BE のテストがない::${http_method} ${path} のテストが backend/internal/presentation/http/ の *_test.go にありません。http.Method${method_word} で ${path} にリクエストするテストを追加してください"
+    echo "::error title=BE のテストがない::${http_method} ${path} のテストが backend/internal/*/presentation/http/ の *_test.go にありません。http.Method${method_word} で ${path} にリクエストするテストを追加してください"
     fail=1
   fi
 

@@ -1,4 +1,4 @@
-package catalog_test
+package admin_test
 
 import (
 	"context"
@@ -10,26 +10,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/labstack/echo/v4"
-
 	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
+	bookadmin "github.com/mrstsgk/book-management-system/backend/internal/book/presentation/http/admin"
 	"github.com/mrstsgk/book-management-system/backend/internal/domainerr"
 	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
-	httpcatalog "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/catalog"
 )
-
-const testSession = "test-session"
-
-// fakeAdminOnly は本物の RequireAdminSession の代わり（Cookie の値が testSession なら通す）。
-// セッションの分岐は common のテストが担うので、ここでは「認証が要る経路に付いているか」だけを見る
-func fakeAdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		if ck, err := c.Cookie(httpserver.SessionCookieName); err != nil || ck.Value != testSession {
-			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
-		}
-		return next(c)
-	}
-}
 
 type fakeLookup func(context.Context, string) (*bookdomain.CatalogEntry, error)
 
@@ -37,8 +22,8 @@ func (f fakeLookup) Execute(ctx context.Context, isbn string) (*bookdomain.Catal
 	return f(ctx, isbn)
 }
 
-// serve は cmd/api/main.go と同じ形（NewEcho + Register）でハンドラを組み立ててリクエストを流す。
-func serve(t *testing.T, h *httpcatalog.Handler, path string, withSession bool) *httptest.ResponseRecorder {
+// serveCatalog は cmd/api/main.go と同じ形（NewEcho + Register）でハンドラを組み立ててリクエストを流す。
+func serveCatalog(t *testing.T, h *bookadmin.CatalogHandler, path string, withSession bool) *httptest.ResponseRecorder {
 	t.Helper()
 	orig := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -76,11 +61,11 @@ func TestHandlerLookup(t *testing.T) {
 			t.Fatal(err)
 		}
 		var gotISBN string
-		h := &httpcatalog.Handler{LookupCatalogUsecase: fakeLookup(func(_ context.Context, isbn string) (*bookdomain.CatalogEntry, error) {
+		h := &bookadmin.CatalogHandler{LookupCatalogUsecase: fakeLookup(func(_ context.Context, isbn string) (*bookdomain.CatalogEntry, error) {
 			gotISBN = isbn
 			return entry(t, "9784873118703", &cover), nil
 		})}
-		rec := serve(t, h, "/api/catalog/978-4-87311-870-3", true)
+		rec := serveCatalog(t, h, "/api/catalog/978-4-87311-870-3", true)
 
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
@@ -88,11 +73,11 @@ func TestHandlerLookup(t *testing.T) {
 		if gotISBN != "978-4-87311-870-3" {
 			t.Fatalf("usecase received %q", gotISBN)
 		}
-		var got httpcatalog.Response
+		var got bookadmin.CatalogResponse
 		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 			t.Fatal(err)
 		}
-		want := httpcatalog.Response{
+		want := bookadmin.CatalogResponse{
 			ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
 			Publisher: "オーム社", PublishedOn: "201907", AmazonURL: new("https://www.amazon.co.jp/dp/4873118700"),
 			CoverURL: new("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: new("openbd"),
@@ -103,11 +88,11 @@ func TestHandlerLookup(t *testing.T) {
 	})
 
 	t.Run("書影が無く979のISBNなら書影もAmazonリンクもnull", func(t *testing.T) {
-		h := &httpcatalog.Handler{LookupCatalogUsecase: fakeLookup(func(context.Context, string) (*bookdomain.CatalogEntry, error) {
+		h := &bookadmin.CatalogHandler{LookupCatalogUsecase: fakeLookup(func(context.Context, string) (*bookdomain.CatalogEntry, error) {
 			return entry(t, "9791032305690", nil), nil
 		})}
-		var got httpcatalog.Response
-		if err := json.Unmarshal(serve(t, h, "/api/catalog/9791032305690", true).Body.Bytes(), &got); err != nil {
+		var got bookadmin.CatalogResponse
+		if err := json.Unmarshal(serveCatalog(t, h, "/api/catalog/9791032305690", true).Body.Bytes(), &got); err != nil {
 			t.Fatal(err)
 		}
 		if got.CoverURL != nil || got.CoverSource != nil || got.AmazonURL != nil {
@@ -128,13 +113,13 @@ func TestHandlerLookup(t *testing.T) {
 		{name: "該当なしは404", path: "/api/catalog/9784873118703", withSession: true, err: domainerr.ErrNotFound, want: http.StatusNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &httpcatalog.Handler{LookupCatalogUsecase: fakeLookup(func(context.Context, string) (*bookdomain.CatalogEntry, error) {
+			h := &bookadmin.CatalogHandler{LookupCatalogUsecase: fakeLookup(func(context.Context, string) (*bookdomain.CatalogEntry, error) {
 				if tt.err == nil {
 					t.Error("usecase must not be called")
 				}
 				return nil, tt.err
 			})}
-			if rec := serve(t, h, tt.path, tt.withSession); rec.Code != tt.want {
+			if rec := serveCatalog(t, h, tt.path, tt.withSession); rec.Code != tt.want {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.want)
 			}
 		})

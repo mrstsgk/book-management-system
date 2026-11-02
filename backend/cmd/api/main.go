@@ -14,20 +14,21 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/config"
 	authbcrypt "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/bcrypt"
 	pgauth "github.com/mrstsgk/book-management-system/backend/internal/auth/infrastructure/postgres"
+	authadmin "github.com/mrstsgk/book-management-system/backend/internal/auth/presentation/http/admin"
 	authcmd "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/command"
 	authqry "github.com/mrstsgk/book-management-system/backend/internal/auth/usecase/query"
 	bookdomain "github.com/mrstsgk/book-management-system/backend/internal/book/domain"
 	"github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/gateway/openbd"
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/book/infrastructure/postgres"
+	bookadmin "github.com/mrstsgk/book-management-system/backend/internal/book/presentation/http/admin"
+	bookpublic "github.com/mrstsgk/book-management-system/backend/internal/book/presentation/http/public"
 	bookcmd "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/command"
 	bookqry "github.com/mrstsgk/book-management-system/backend/internal/book/usecase/query"
 	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
-	httpauth "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/auth"
-	httpbook "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/book"
-	httpcatalog "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/catalog"
-	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
+	tagadmin "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/admin"
+	tagpublic "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/public"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
 	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
@@ -89,7 +90,7 @@ func newCatalog(cfg config.CatalogConfig) bookdomain.BookCatalog {
 
 // registerRoutes は手書きの DI（infra → usecase → presentation）で各ハンドラを組み立てて登録する。
 func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog bookdomain.BookCatalog, cfg config.Config) {
-	books := pgbook.NewRepository(db)
+	bookRepo := pgbook.NewRepository(db)
 	bookQuery := pgbook.NewQuery(db)
 	tags := pgtag.NewRepository(db)
 	tagQuery := pgtag.NewQuery(db)
@@ -102,7 +103,21 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog bookdomain.BookCatalo
 	}
 
 	api := e.Group("/api")
-	(&httpauth.Handler{
+	books := api.Group("/books")
+	tagsGroup := api.Group("/tags")
+
+	// 閲覧（誰でも使える）
+	(&bookpublic.Handler{
+		ReadBookUsecase:    &bookqry.ReadBookUsecaseImpl{Books: bookQuery},
+		SearchBooksUsecase: &bookqry.SearchBooksUsecaseImpl{Books: bookQuery},
+	}).Register(books)
+	(&tagpublic.Handler{
+		SearchTagsUsecase: &tagqry.SearchTagsUsecaseImpl{Tags: tagQuery},
+		CountBooksUsecase: &tagqry.CountBooksUsecaseImpl{Tags: tagQuery},
+	}).Register(tagsGroup)
+
+	// 管理（自分だけ）
+	(&authadmin.Handler{
 		LoginUsecase: &authcmd.LoginUsecaseImpl{
 			Admin:    authcmd.AdminAccount{ID: cfg.Admin.ID, PasswordHash: cfg.Admin.PasswordHash},
 			Verifier: authbcrypt.NewBcryptVerifier(),
@@ -113,25 +128,20 @@ func registerRoutes(e *echo.Echo, db *gorm.DB, bookCatalog bookdomain.BookCatalo
 		CheckSessionUsecase: checkSession,
 		SameOrigin:          httpserver.RequireSameOrigin(),
 	}).Register(api.Group("/auth"))
-	(&httpbook.Handler{
-		RegisterBookUsecase: &bookcmd.RegisterBookUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
-		UpdateBookUsecase:   &bookcmd.UpdateBookUsecaseImpl{Books: books, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
-		DeleteBookUsecase:   &bookcmd.DeleteBookUsecaseImpl{Books: books},
-		ReadBookUsecase:     &bookqry.ReadBookUsecaseImpl{Books: bookQuery},
-		SearchBooksUsecase:  &bookqry.SearchBooksUsecaseImpl{Books: bookQuery},
+	(&bookadmin.Handler{
+		RegisterBookUsecase: &bookcmd.RegisterBookUsecaseImpl{Books: bookRepo, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
+		UpdateBookUsecase:   &bookcmd.UpdateBookUsecaseImpl{Books: bookRepo, Catalog: bookCatalog, Details: bookQuery, Tags: tagQuery},
+		DeleteBookUsecase:   &bookcmd.DeleteBookUsecaseImpl{Books: bookRepo},
 		AdminOnly:           adminOnly,
-	}).Register(api.Group("/books"))
-	(&httpcatalog.Handler{
+	}).Register(books)
+	(&bookadmin.CatalogHandler{
 		LookupCatalogUsecase: &bookqry.LookupCatalogUsecaseImpl{Catalog: bookCatalog},
 		AdminOnly:            httpserver.RequireAdminSession(checkSession), // GET なので Origin 検証は要らない
 	}).Register(api.Group("/catalog"))
-
-	(&httptag.Handler{
+	(&tagadmin.Handler{
 		RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: tags, TagQuery: tagQuery},
 		RenameTagUsecase:   &tagcmd.RenameTagUsecaseImpl{Tags: tags, TagQuery: tagQuery},
 		DeleteTagUsecase:   &tagcmd.DeleteTagUsecaseImpl{Tags: tags},
-		SearchTagsUsecase:  &tagqry.SearchTagsUsecaseImpl{Tags: tagQuery},
-		CountBooksUsecase:  &tagqry.CountBooksUsecaseImpl{Tags: tagQuery},
 		AdminOnly:          adminOnly,
-	}).Register(api.Group("/tags"))
+	}).Register(tagsGroup)
 }

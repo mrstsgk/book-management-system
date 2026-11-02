@@ -1,4 +1,4 @@
-package catalog
+package admin
 
 import (
 	"net/http"
@@ -13,7 +13,7 @@ import (
 // isbnMaxLength は書籍 API の isbn と同じ上限（13桁＋ハイフン）。
 const isbnMaxLength = 17
 
-type Response struct {
+type CatalogResponse struct {
 	ISBN        string  `json:"isbn" example:"9784873118703"`
 	Title       string  `json:"title" example:"データ指向アプリケーションデザイン"`
 	Authors     string  `json:"authors" example:"Kleppmann,Martin 斉藤,太郎 玉川,竜司"`
@@ -24,15 +24,15 @@ type Response struct {
 	CoverSource *string `json:"coverSource" enums:"openbd" example:"openbd"`
 } // @name CatalogResponse
 
-// Handler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
-type Handler struct {
+// CatalogHandler は HTTP と UseCase の変換だけを行う（業務ロジックは持たない）。
+type CatalogHandler struct {
 	LookupCatalogUsecase bookqry.LookupCatalogUsecase
 	// AdminOnly は登録画面でだけ使うための認証（外部カタログへの中継を誰にでも開放しないため）。
 	AdminOnly echo.MiddlewareFunc
 }
 
 // Register は、外部カタログ確認の API のルートを g に登録する。
-func (h *Handler) Register(g *echo.Group) {
+func (h *CatalogHandler) Register(g *echo.Group) {
 	g.GET("/:isbn", h.Lookup, h.AdminOnly)
 }
 
@@ -42,13 +42,13 @@ func (h *Handler) Register(g *echo.Group) {
 // @Tags         catalog
 // @Produce      json
 // @Param        isbn path string true "ISBN（13桁または10桁。ハイフン可）"
-// @Success      200 {object} Response
+// @Success      200 {object} CatalogResponse
 // @Failure      400 {object} httpserver.ErrorResponse
 // @Failure      401 {object} httpserver.ErrorResponse
 // @Failure      404 {object} httpserver.ErrorResponse
 // @Failure      500 {object} httpserver.ErrorResponse
 // @Router       /api/catalog/{isbn} [get]
-func (h *Handler) Lookup(c echo.Context) error {
+func (h *CatalogHandler) Lookup(c echo.Context) error {
 	isbn := c.Param("isbn")
 	if len(isbn) > isbnMaxLength {
 		return &httpserver.ValidationError{Fields: []httpserver.FieldError{{Field: "isbn", Rule: "max"}}}
@@ -57,12 +57,12 @@ func (h *Handler) Lookup(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(http.StatusOK, toResponse(out))
+	return c.JSON(http.StatusOK, toCatalogResponse(out))
 }
 
-func toResponse(e *bookdomain.CatalogEntry) Response {
+func toCatalogResponse(e *bookdomain.CatalogEntry) CatalogResponse {
 	b := e.Bibliography
-	res := Response{
+	res := CatalogResponse{
 		ISBN: e.ISBN.String(), Title: b.Title(), Authors: b.Authors(), Publisher: b.Publisher(), PublishedOn: b.PublishedOn(),
 	}
 	if u, ok := e.ISBN.AmazonURL(); ok {

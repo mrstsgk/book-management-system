@@ -1,4 +1,4 @@
-package tag_test
+package admin_test
 
 import (
 	"encoding/json"
@@ -13,10 +13,10 @@ import (
 
 	"github.com/mrstsgk/book-management-system/backend/internal/platform/httpserver"
 	pgplatform "github.com/mrstsgk/book-management-system/backend/internal/platform/postgres"
-	httptag "github.com/mrstsgk/book-management-system/backend/internal/presentation/http/tag"
 	pgtag "github.com/mrstsgk/book-management-system/backend/internal/tag/infrastructure/postgres"
+	tagadmin "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/admin"
+	tagpublic "github.com/mrstsgk/book-management-system/backend/internal/tag/presentation/http/public"
 	tagcmd "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/command"
-	tagqry "github.com/mrstsgk/book-management-system/backend/internal/tag/usecase/query"
 )
 
 // Presentation → Infrastructure の結合テスト（docs/rules/testing.md）。
@@ -42,15 +42,13 @@ func connectTestDB(t *testing.T) *gorm.DB {
 }
 
 // newIntegrationHandler は cmd/api/main.go と同じ形（実 Repository/Query を注入）で Handler を組み立てる。
-func newIntegrationHandler(db *gorm.DB) *httptag.Handler {
+func newIntegrationHandler(db *gorm.DB) *tagadmin.Handler {
 	repo := pgtag.NewRepository(db)
 	q := pgtag.NewQuery(db)
-	return &httptag.Handler{
+	return &tagadmin.Handler{
 		RegisterTagUsecase: &tagcmd.RegisterTagUsecaseImpl{Tags: repo, TagQuery: q},
 		RenameTagUsecase:   &tagcmd.RenameTagUsecaseImpl{Tags: repo, TagQuery: q},
 		DeleteTagUsecase:   &tagcmd.DeleteTagUsecaseImpl{Tags: repo},
-		SearchTagsUsecase:  &tagqry.SearchTagsUsecaseImpl{Tags: q},
-		CountBooksUsecase:  &tagqry.CountBooksUsecaseImpl{Tags: q},
 	}
 }
 
@@ -68,28 +66,6 @@ func decodeOK[T any](t *testing.T, rec *httptest.ResponseRecorder, want int) T {
 	return v
 }
 
-// isbn13CheckDigit は internal/domain/book.isbn13CheckDigit と同じ計算（重み1/3の交互和）。
-// 非公開なのでこのテストからは呼べず、同じアルゴリズムをここに複製している。
-func isbn13CheckDigit(twelve string) byte {
-	sum := 0
-	for i, d := range twelve {
-		w := 1
-		if i%2 == 1 {
-			w = 3
-		}
-		sum += int(d-'0') * w
-	}
-	return byte((10-sum%10)%10) + '0'
-}
-
-// mustUniqueISBN は実行のたびに異なる、チェックディジットの正しい ISBN-13 を返す
-// （固定のISBN文字列だと、共有DBに前回のテスト行が残っている場合や同時実行で一意制約に落ちるため）。
-func mustUniqueISBN(t *testing.T) string {
-	t.Helper()
-	twelve := fmt.Sprintf("978%09d", time.Now().UnixNano()%1_000_000_000)
-	return twelve + string(isbn13CheckDigit(twelve))
-}
-
 // uniqueTagName は実行のたびに異なるタグ名を返す（固定名だと、共有DBに前回のテスト行が
 // 残っている場合や同時実行で一意制約に落ちるため）。タグ名の上限（30文字）に収まるよう、
 // 接頭辞と連番を短くしている。
@@ -98,74 +74,13 @@ func uniqueTagName(t *testing.T, label string) string {
 	return fmt.Sprintf("pt-%s-%06d", label, time.Now().UnixNano()%1_000_000)
 }
 
-func TestIntegration_List_200(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	name := uniqueTagName(t, "一覧")
-	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, name), true)
-	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
-
-	rec = serve(t, h, http.MethodGet, "/api/tags", "", false)
-	got := decodeOK[httptag.ListResponse](t, rec, http.StatusOK)
-	found := false
-	for _, it := range got.Items {
-		if it.Name == name {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("items = %+v, want to contain the registered tag", got.Items)
-	}
-}
-
-func TestIntegration_CountBooks_200(t *testing.T) {
-	db := connectTestDB(t)
-	h := newIntegrationHandler(db)
-
-	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "集計あり")), true)
-	tagged := decodeOK[httptag.Response](t, rec, http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", tagged.ID) })
-
-	rec = serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "0冊")), true)
-	untagged := decodeOK[httptag.Response](t, rec, http.StatusOK)
-	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", untagged.ID) })
-
-	bookISBN := mustUniqueISBN(t)
-	var bookID int64
-	if err := db.Raw(
-		"INSERT INTO book (isbn, title, summary, comment, rating, version) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-		bookISBN, "pres-tag-test-書名", "pres-tag-test-まとめ", "pres-tag-test-感想", 5, 1,
-	).Scan(&bookID).Error; err != nil {
-		t.Fatalf("setup: insert book: %v", err)
-	}
-	t.Cleanup(func() { db.Exec("DELETE FROM book WHERE id = ?", bookID) })
-	if err := db.Exec("INSERT INTO book_tag (book_id, tag_id) VALUES (?, ?)", bookID, tagged.ID).Error; err != nil {
-		t.Fatalf("setup: insert book_tag: %v", err)
-	}
-
-	rec = serve(t, h, http.MethodGet, "/api/tags/counts", "", false)
-	got := decodeOK[httptag.BookCountListResponse](t, rec, http.StatusOK)
-	byID := map[int64]httptag.BookCountResponse{}
-	for _, it := range got.Items {
-		byID[it.ID] = it
-	}
-	if it, ok := byID[tagged.ID]; !ok || it.BookCount != 1 {
-		t.Fatalf("tagged item = %+v, want bookCount=1", it)
-	}
-	if _, ok := byID[untagged.ID]; ok {
-		t.Fatalf("items = %+v, want the 0-book tag excluded", got.Items)
-	}
-}
-
 func TestIntegration_RegisterTag_200(t *testing.T) {
 	db := connectTestDB(t)
 	h := newIntegrationHandler(db)
 
 	name := uniqueTagName(t, "登録")
 	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, name), true)
-	got := decodeOK[httptag.Response](t, rec, http.StatusOK)
+	got := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", got.ID) })
 	if got.Name != name || got.ID == 0 || got.Version != 1 {
 		t.Fatalf("got %+v", got)
@@ -198,7 +113,7 @@ func TestIntegration_RegisterTag_400_Duplicated(t *testing.T) {
 
 	body := fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "重複"))
 	first := serve(t, h, http.MethodPost, "/api/tags", body, true)
-	firstTag := decodeOK[httptag.Response](t, first, http.StatusOK)
+	firstTag := decodeOK[tagpublic.Response](t, first, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", firstTag.ID) })
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", body, true)
@@ -210,9 +125,9 @@ func TestIntegration_Rename_400_Duplicated(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	otherName := uniqueTagName(t, "改名先の既存")
-	other := decodeOK[httptag.Response](t, serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, otherName), true), http.StatusOK)
+	other := decodeOK[tagpublic.Response](t, serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, otherName), true), http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", other.ID) })
-	created := decodeOK[httptag.Response](t, serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "改名元")), true), http.StatusOK)
+	created := decodeOK[tagpublic.Response](t, serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "改名元")), true), http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec := serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
@@ -246,12 +161,12 @@ func TestIntegration_Rename_200(t *testing.T) {
 
 	afterName := uniqueTagName(t, "改名後")
 	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "改名前")), true)
-	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
+	created := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
 		fmt.Sprintf(`{"name":%q,"version":%d}`, afterName, created.Version), true)
-	got := decodeOK[httptag.Response](t, rec, http.StatusOK)
+	got := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
 	if got.Name != afterName || got.Version != created.Version+1 {
 		t.Fatalf("got %+v", got)
 	}
@@ -262,7 +177,7 @@ func TestIntegration_Rename_400(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "不正入力対象")), true)
-	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
+	created := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID), `{"name":""}`, true)
@@ -296,7 +211,7 @@ func TestIntegration_Rename_409(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "競合対象")), true)
-	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
+	created := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
 	rec = serve(t, h, http.MethodPut, fmt.Sprintf("/api/tags/%d", created.ID),
@@ -311,7 +226,7 @@ func TestIntegration_Delete_204(t *testing.T) {
 	h := newIntegrationHandler(db)
 
 	rec := serve(t, h, http.MethodPost, "/api/tags", fmt.Sprintf(`{"name":%q}`, uniqueTagName(t, "削除対象")), true)
-	created := decodeOK[httptag.Response](t, rec, http.StatusOK)
+	created := decodeOK[tagpublic.Response](t, rec, http.StatusOK)
 	// 本題のDELETEアサーションが失敗して先に t.Fatalf で止まっても、この行は残さない。
 	t.Cleanup(func() { db.Exec("DELETE FROM tag WHERE id = ?", created.ID) })
 
@@ -320,12 +235,13 @@ func TestIntegration_Delete_204(t *testing.T) {
 		t.Fatalf("status = %d, want 204 (body=%s)", rec.Code, rec.Body.String())
 	}
 
-	rec = serve(t, h, http.MethodGet, "/api/tags", "", false)
-	got := decodeOK[httptag.ListResponse](t, rec, http.StatusOK)
-	for _, it := range got.Items {
-		if it.ID == created.ID {
-			t.Fatalf("tag %d still present after delete", created.ID)
-		}
+	// 一覧の API は閲覧側の Handler の担当なので、消えたことは DB で確かめる
+	var n int64
+	if err := db.Raw("SELECT COUNT(*) FROM tag WHERE id = ?", created.ID).Scan(&n).Error; err != nil {
+		t.Fatalf("count tag: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("tag %d still present after delete", created.ID)
 	}
 }
 
