@@ -1,8 +1,8 @@
 import {
   type ComponentProps,
-  forwardRef,
   type MouseEvent,
   type ReactNode,
+  type Ref,
 } from 'react'
 import { Slot } from './Slot'
 
@@ -78,37 +78,33 @@ export type ButtonProps = {
  * デジタル庁 DS Button（上流ソースから取り込み）。
  * @see https://github.com/digital-go-jp/design-system-example-components-react
  */
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (props, ref) => {
-    const { asChild, children, className, variant, size, ...rest } = props
+export function Button(props: ButtonProps & { ref?: Ref<HTMLButtonElement> }) {
+  const { asChild, children, className, variant, size, ref, ...rest } = props
 
-    const classNames = `${buttonBaseStyle} ${buttonSizeStyle[size]} ${
-      variant ? buttonVariantStyle[variant] : ''
-    } ${className ?? ''}`
+  const classNames = `${buttonBaseStyle} ${buttonSizeStyle[size]} ${
+    variant ? buttonVariantStyle[variant] : ''
+  } ${className ?? ''}`
 
-    if (asChild) {
-      return (
-        <Slot className={classNames} {...rest}>
-          {children}
-        </Slot>
-      )
-    }
-
-    const handleDisabled = (e: MouseEvent<HTMLButtonElement>) => {
-      e.preventDefault()
-    }
-
+  if (asChild) {
     return (
-      <button
-        className={classNames}
-        onClick={props['aria-disabled'] ? handleDisabled : props.onClick}
-        {...rest}
-        ref={ref}
-      >
+      <Slot className={classNames} {...rest}>
         {children}
-      </button>
+      </Slot>
     )
-  },
-)
+  }
 
-Button.displayName = 'Button'
+  const handleDisabled = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+  }
+
+  return (
+    <button
+      className={classNames}
+      onClick={props['aria-disabled'] ? handleDisabled : props.onClick}
+      {...rest}
+      ref={ref}
+    >
+      {children}
+    </button>
+  )
+}

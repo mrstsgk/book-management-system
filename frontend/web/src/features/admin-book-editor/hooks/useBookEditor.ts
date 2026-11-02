@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   useDeleteApiBooksId,
@@ -75,34 +75,29 @@ export function useBookEditor(rawId: string | undefined) {
   const [saved, setSaved] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteError, setDeleteError] = useState<string | undefined>(undefined)
-  const submitting = useRef(false)
-  const deleting = useRef(false)
+  const submittingRef = useRef(false)
+  const deletingRef = useRef(false)
 
   const tags = tagsQuery.data?.items ?? []
 
-  // 本とタグ一覧が揃ったら初期値を作る。一度作ったら、ユーザーの入力を上書きしない
-  // （reloadLatest が明示的に null に戻したときだけ、ここでもう一度作り直す）
-  useEffect(() => {
-    if (values !== null) return
-    if (!bookQuery.data || !tagsQuery.data) return
-    // 取得が終わった時点で 1 回だけフォームの初期値を作る。レンダー中に導出すると、
-    // ユーザーの入力中に再取得が走ったとき初期値で上書きしてしまうため、effect で values が null のときに限る
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // 本とタグ一覧が揃ったら、レンダー中に 1 回だけ初期値を作る（effect で作ると、空のフォームを
+  // 1 回描いてから作り直すことになる）。values が null のときに限るので、再取得が走っても
+  // ユーザーの入力を上書きしない
+  if (values === null && bookQuery.data && tagsQuery.data) {
     setValues(buildFormValues(bookQuery.data, tags))
     setEditingVersion(bookQuery.data.version ?? null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookQuery.data, tagsQuery.data, values])
+  }
 
   const notFound = isNotFound(id, bookQuery.error?.status)
 
   const submit = () => {
-    if (submitting.current || !values || id === undefined) return
+    if (submittingRef.current || !values || id === undefined) return
     const errors = validateBookForm(values)
     setLocalErrors(errors)
     if (Object.keys(errors).length > 0) return
     if (editingVersion === null) return
 
-    submitting.current = true
+    submittingRef.current = true
     updateMutation.mutate(
       {
         id,
@@ -117,7 +112,7 @@ export function useBookEditor(rawId: string | undefined) {
       },
       {
         onSettled: () => {
-          submitting.current = false
+          submittingRef.current = false
         },
         onSuccess: () => {
           setSaved(true)
@@ -131,7 +126,7 @@ export function useBookEditor(rawId: string | undefined) {
     )
   }
 
-  // 取り直した本を直接使って値とversionを作る。setValues(null) → useEffect の順に
+  // 取り直した本を直接使って値とversionを作る。setValues(null) でレンダー中の初期化に
   // 任せると、refetch が終わる前の古い bookQuery.data で一瞬埋め直されてしまう競合があるため
   const reloadLatest = async () => {
     setConflict(false)
@@ -148,15 +143,15 @@ export function useBookEditor(rawId: string | undefined) {
   const closeDelete = () => setDeleteOpen(false)
 
   const confirmDelete = () => {
-    if (deleting.current || id === undefined) return
-    deleting.current = true
+    if (deletingRef.current || id === undefined) return
+    deletingRef.current = true
     setDeleteError(undefined)
     const title = bookQuery.data?.title ?? ''
     deleteMutation.mutate(
       { id },
       {
         onSettled: () => {
-          deleting.current = false
+          deletingRef.current = false
         },
         onSuccess: () => {
           navigate('/admin', {
