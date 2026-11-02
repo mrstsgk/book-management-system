@@ -26,14 +26,14 @@
 
 ```mermaid
 flowchart LR
-  G["未ログインで /admin 配下"] -->|ログイン画面へ| LG[ログイン /admin/login]
+  G["未ログインで管理アプリの画面を開く"] -->|ログイン画面へ| LG[ログイン /login]
   LG -->|ログイン済みで開いた| B
-  LG -->|成功| B[本の一覧（管理） /admin]
+  LG -->|成功| B[本の一覧（管理） /books]
   LG -->|元の画面があれば| ORIG[元の画面]
   LG -->|失敗・ロック中| LG
-  B -->|本を登録| N[本の登録 /admin/books/new]
-  B -->|編集| E["本の編集 /admin/books/:id/edit"]
-  B -->|タグ| T[タグの管理 /admin/tags]
+  B -->|本を登録| N[本の登録 /books/new]
+  B -->|編集| E["本の編集 /books/:id/edit"]
+  B -->|タグ| T[タグの管理 /tags]
   N -->|登録成功| B
   N -->|入力エラー・カタログに無い・登録済み| N
   E -->|保存成功| B

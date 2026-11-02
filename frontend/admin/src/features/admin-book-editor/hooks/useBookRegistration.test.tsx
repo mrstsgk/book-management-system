@@ -193,9 +193,11 @@ describe('useBookRegistration', () => {
 
   it('登録時の ISBN の誤りは、ISBN を書き換えたら消え、送った ISBN に戻すとまた出る', async () => {
     server.use(
-      getGetApiCatalogIsbnMockHandler({ isbn: '9784297146221', title: '本' }),
-      getGetApiTagsMockHandler({ items: [] }),
-      http.post('*/api/books', () =>
+      getLookupCatalogMockHandler(
+        createCatalogFixture({ isbn: '9784297146221', title: '本' }),
+      ),
+      getSearchTagsMockHandler({ items: [] }),
+      http.post('*/api/admin/books', () =>
         HttpResponse.json(
           {
             message: 'invalid request',
