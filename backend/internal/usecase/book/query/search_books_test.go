@@ -11,8 +11,6 @@ import (
 	"github.com/mrstsgk/book-management-system/backend/internal/usecase/book/query"
 )
 
-func int64Ptr(v int64) *int64 { return &v }
-
 func TestSearchBooksUsecase_Execute(t *testing.T) {
 	t.Parallel()
 
@@ -35,7 +33,7 @@ func TestSearchBooksUsecase_Execute(t *testing.T) {
 	t.Run("キーワードと分野タグを条件として渡す", func(t *testing.T) {
 		t.Parallel()
 		q := &fakeQuery{list: &book.BookList{}}
-		in := query.SearchBooksInput{Keyword: " 設計 ", TagID: int64Ptr(3), Limit: 20}
+		in := query.SearchBooksInput{Keyword: " 設計 ", TagID: new(int64(3)), Limit: 20}
 		if _, err := (&query.SearchBooksUsecaseImpl{Books: q}).Execute(context.Background(), in); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -55,7 +53,7 @@ func TestSearchBooksUsecase_Execute(t *testing.T) {
 		{name: "limit 0", in: query.SearchBooksInput{Limit: 0}},
 		{name: "offset負", in: query.SearchBooksInput{Limit: 10, Offset: -1}},
 		{name: "キーワード101文字", in: query.SearchBooksInput{Keyword: strings.Repeat("あ", 101), Limit: 10}},
-		{name: "タグID 0", in: query.SearchBooksInput{TagID: int64Ptr(0), Limit: 10}},
+		{name: "タグID 0", in: query.SearchBooksInput{TagID: new(int64(0)), Limit: 10}},
 	} {
 		t.Run(tt.name+"はエラーで検索しない", func(t *testing.T) {
 			t.Parallel()

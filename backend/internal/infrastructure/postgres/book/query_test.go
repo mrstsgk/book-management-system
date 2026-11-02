@@ -12,8 +12,6 @@ import (
 	pgbook "github.com/mrstsgk/book-management-system/backend/internal/infrastructure/postgres/book"
 )
 
-func strPtr(s string) *string { return &s }
-
 func TestQuery_FindDetailByID(t *testing.T) {
 	db := connectTestDB(t)
 	qry := pgbook.NewQuery(db)
@@ -24,7 +22,7 @@ func TestQuery_FindDetailByID(t *testing.T) {
 		cover         *domainbook.Cover
 		wantAmazonURL *string
 	}{
-		{name: "978のISBNからAmazonのリンクを導出し書影も返す", isbn: "9780000000057", cover: mustCover(t, "https://cover.openbd.jp/q.jpg"), wantAmazonURL: strPtr("https://www.amazon.co.jp/dp/0000000051")},
+		{name: "978のISBNからAmazonのリンクを導出し書影も返す", isbn: "9780000000057", cover: mustCover(t, "https://cover.openbd.jp/q.jpg"), wantAmazonURL: new("https://www.amazon.co.jp/dp/0000000051")},
 		{name: "979のISBNはAmazonのリンクなし、書影なしはnull", isbn: "9791032305690", cover: nil, wantAmazonURL: nil},
 	}
 	for _, tt := range tests {
@@ -41,7 +39,7 @@ func TestQuery_FindDetailByID(t *testing.T) {
 				PublishedOn: "201907", AmazonURL: tt.wantAmazonURL, Summary: "一言まとめ", Tags: []string{}, Comment: "感想\n2行目", Rating: 4, Version: 1,
 			}
 			if tt.cover != nil {
-				want.CoverURL, want.CoverSource = strPtr(tt.cover.URL()), strPtr("openbd")
+				want.CoverURL, want.CoverSource = new(tt.cover.URL()), new("openbd")
 			}
 			if !reflect.DeepEqual(got, want) {
 				t.Fatalf("got %+v\nwant %+v", got, want)
@@ -84,9 +82,9 @@ func TestQuery_Search(t *testing.T) {
 		}
 		want := &domainbook.BookList{Total: all.Total, Items: []*domainbook.BookListItem{
 			{ID: newer.ID, ISBN: "9780000000071", Title: "list-test-newer", Summary: "一言まとめ", Tags: []string{}, Authors: "Kleppmann,Martin",
-				AmazonURL: strPtr("https://www.amazon.co.jp/dp/0000000078"), CoverURL: strPtr("https://cover.openbd.jp/newer.jpg"), CoverSource: strPtr("openbd"), Rating: 5},
+				AmazonURL: new("https://www.amazon.co.jp/dp/0000000078"), CoverURL: new("https://cover.openbd.jp/newer.jpg"), CoverSource: new("openbd"), Rating: 5},
 			{ID: older.ID, ISBN: "9780000000064", Title: "list-test-older", Summary: "一言まとめ", Tags: []string{}, Authors: "Kleppmann,Martin",
-				AmazonURL: strPtr("https://www.amazon.co.jp/dp/000000006X"), Rating: 3},
+				AmazonURL: new("https://www.amazon.co.jp/dp/000000006X"), Rating: 3},
 		}}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("got %+v\nwant %+v", got, want)

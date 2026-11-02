@@ -4,7 +4,7 @@
 # CLI ツールは go.mod に入れず go install する。版はここで固定し、CI と揃える。
 SWAG_VERSION        := v1.16.6
 MIGRATE_VERSION     := v4.20.1
-GOLANGCI_VERSION    := v2.12.2
+GOLANGCI_VERSION    := v2.15.0
 GOVULNCHECK_VERSION := v1.7.0
 
 DB_URL ?= postgres://postgres:postgres@localhost:5432/book_management?sslmode=disable
@@ -35,9 +35,11 @@ migrate-create: ## マイグレーションを新規作成（make migrate-create
 	@test -n "$(NAME)" || (echo "NAME を指定してください（例: make migrate-create NAME=create_books_table）" && exit 1)
 	migrate create -ext sql -dir ./migrations -seq $(NAME)
 
-# Output is committed; regenerate and check git diff in CI.
+# 排出物はコミットし、CI で再排出して git diff を検査する。
+# --parseDependency は付けない。標準ライブラリまで解析し、swag v1.16.6 が Go 1.27 のジェネリックなメソッドを
+# 読めずに失敗するため（DTO は internal にしか無く、付けなくても出力は同じ）
 swagger: ## OpenAPI を排出（api/docs は手編集禁止）
-	swag init -g cmd/api/main.go -o api/docs --parseDependency --parseInternal --outputTypes yaml,json
+	swag init -g cmd/api/main.go -o api/docs --parseInternal --outputTypes yaml,json
 
 swagger-check: swagger ## 排出物にドリフトがないか検査（CI と同じ）
 	git diff --exit-code -- api/docs/swagger.yaml api/docs/swagger.json

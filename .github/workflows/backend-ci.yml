@@ -58,7 +58,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.12.2
+          version: v2.15.0
           working-directory: backend
 
   vulnerability-check:

@@ -165,13 +165,13 @@ func TestReadModels_UsePlainFieldTypes(t *testing.T) {
 		reflect.TypeFor[book.Book]():         true,
 	}
 	for _, typ := range []reflect.Type{reflect.TypeFor[book.BookDetail](), reflect.TypeFor[book.BookListItem]()} {
-		for i := range typ.NumField() {
-			ft := typ.Field(i).Type
+		for field := range typ.Fields() {
+			ft := field.Type
 			for ft.Kind() == reflect.Pointer || ft.Kind() == reflect.Slice {
 				ft = ft.Elem()
 			}
 			if writeSide[ft] {
-				t.Errorf("%s.%s uses write-side type %s", typ.Name(), typ.Field(i).Name, ft)
+				t.Errorf("%s.%s uses write-side type %s", typ.Name(), field.Name, ft)
 			}
 		}
 	}

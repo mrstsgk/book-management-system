@@ -69,8 +69,6 @@ func entry(t *testing.T, isbn string, cover *domainbook.Cover) *domainbook.Catal
 	return &domainbook.CatalogEntry{ISBN: v, Bibliography: bib, Cover: cover}
 }
 
-func strPtr(s string) *string { return &s }
-
 func TestHandlerLookup(t *testing.T) {
 	t.Run("書誌・書影・Amazonリンクを返し、入力はそのままusecaseに渡す", func(t *testing.T) {
 		cover, err := domainbook.NewCover("https://cover.openbd.jp/9784873118703.jpg", domainbook.CoverSourceOpenBD)
@@ -96,8 +94,8 @@ func TestHandlerLookup(t *testing.T) {
 		}
 		want := httpcatalog.Response{
 			ISBN: "9784873118703", Title: "データ指向アプリケーションデザイン", Authors: "Kleppmann,Martin",
-			Publisher: "オーム社", PublishedOn: "201907", AmazonURL: strPtr("https://www.amazon.co.jp/dp/4873118700"),
-			CoverURL: strPtr("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: strPtr("openbd"),
+			Publisher: "オーム社", PublishedOn: "201907", AmazonURL: new("https://www.amazon.co.jp/dp/4873118700"),
+			CoverURL: new("https://cover.openbd.jp/9784873118703.jpg"), CoverSource: new("openbd"),
 		}
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("body = %+v\nwant %+v", got, want)
