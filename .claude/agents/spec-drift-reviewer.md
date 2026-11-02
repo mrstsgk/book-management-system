@@ -21,8 +21,8 @@ If the caller didn't supply the changed-file list, stop and ask for it — do no
 
 1. Take the changed-file list from the caller's prompt (see above).
 2. Find the relevant design/requirements doc(s):
-   - There is no fixed location yet — design docs may land anywhere under `docs/`. Use `Glob "docs/**/*.md"` and search by keywords from the branch name, changed file/module names, and (if given) a PR title/body or `refs: #NNN` issue reference.
-   - Also check `docs/superpowers/specs/` and `docs/superpowers/plans/` first — these are the Spec-Driven Development design docs and implementation plans, and are the most likely match if the branch was built via that workflow.
+   - Sources of truth (see `docs/rules/development-flow.md`): requirements `docs/requirements.md` / `docs/specifications.md`, per-feature design `docs/superpowers/specs/` (check first — the most likely match) with HTML mockups `docs/design/`, implementation plans `docs/superpowers/plans/`, decisions `docs/adr/`, and the architecture/rule docs (`docs/architecture.md`, `backend/architecture.md`, `frontend/architecture.md`, `docs/rules/*.md`). The API contract is the Go DTO/Handler emitted to `backend/api/docs/swagger.yaml`.
+   - Start from the doc linked under 合意済み設計 in the PR body if given. Otherwise search by keywords from the branch name, changed file/module names, and (if given) a PR title/body or `refs: #NNN` issue reference.
    - If the caller gave you an explicit doc path or issue number, start there instead of searching.
    - If you cannot find any doc that plausibly governs this change, say so explicitly and stop — do not fabricate compliance or silently skip the check.
 3. Read the full doc(s) found — not just a grep snippet. Extract concrete, checkable claims: endpoints/behaviors, data shapes, validation rules, error handling, edge cases, explicitly out-of-scope items.

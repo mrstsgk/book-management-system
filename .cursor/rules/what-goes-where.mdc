@@ -9,6 +9,7 @@ alwaysApply: true
 - **Test code** writes **What** — the expected behavior/spec.
 - **Commit log** writes **Why** — the motivation for the change.
 - **Code comments** write **Why not** — rejected alternatives, non-obvious constraints.
-- Two exceptions write **What** instead, in **Japanese** (unlike other code comments): (1) a **Repository**'s type/class and every one of its methods always get a one-line What comment (the only class-level comment requirement — other classes follow Why-not); (2) any **complex method** anywhere (non-obvious control flow, several branches, a non-trivial algorithm) gets a one-line What comment.
+- Exception: the types, fields and functions listed per layer in `docs/rules/code-comments.md` (Domain types and fields, Repository/Query IFs and implementations, UseCase IFs and Command DTOs, Handler methods with HTTP method + path; frontend types, components, hooks, utils), and any **complex function** in any layer, get a one-line **What** doc comment (Go `//` starting with the identifier, TSDoc `/** */`) in **Japanese**. No constraints or conditions in the comment — the code expresses them. Generated files are out of scope.
+- All code comments are Japanese.
 
-Do not put implementation narration in comments. Do not embed expected specs in source. Put change motivation in the commit message.
+Do not put implementation narration in comments. Do not embed expected specs in source. Put change motivation in the commit message. Detail: `docs/rules/code-comments.md` (Japanese).
