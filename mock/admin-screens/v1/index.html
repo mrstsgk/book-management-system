@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>admin-screens Mock v1</title>
+<style>
+  body { font-family: "Noto Sans JP", system-ui, sans-serif; margin: 0; padding: 24px; line-height: 1.6; color: #1a1a1c; }
+  .mockbar { font-size: 13px; color: #555; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 16px; }
+  li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="mockbar">admin-screens Mock v1 / 2026-09-30 / Target: US-005・US-006・US-007・US-008</div>
+<h1>管理画面のモック</h1>
+<p>画面の見た目・文言・状態別の表示の正。概要設計は <code>docs/design/admin-screens.md</code>。ログイン画面のモックは無い。<code>[ ]</code> で囲んだ文字は仮置き。</p>
+<ul>
+  <li><a href="books.html">本の一覧（管理）</a> — 登録済みの本を表で並べ、各行から編集へ</li>
+  <li><a href="book-new.html">本の登録</a> — ISBN で書誌と書影を確かめてから登録。入力エラーと ISBN のエラーの例</li>
+  <li><a href="book-edit.html">本の編集</a> — 先に更新されていたときの表示と削除の確認ダイアログ</li>
+  <li><a href="tags.html">タグの管理</a> — 一覧・追加・名前の変更・削除。同名の追加と削除の確認ダイアログ</li>
+</ul>
+</body>
+</html>
