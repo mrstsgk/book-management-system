@@ -3,6 +3,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { FormField } from '@/components/form/FormField'
 import { describedBy } from '@/components/form/describedBy'
 import type { TagWithCount } from '@/features/admin-tags/utils/mergeTagCounts'
+import { registerTagBodyNameMax } from '@/api/generated/zod/api'
 
 type Outcome = { ok: true } | { ok: false; message: string; stale?: boolean }
 
@@ -103,7 +104,7 @@ export function TagsView({ items, onAdd, onRename, onDelete }: TagsViewProps) {
           label="タグを追加"
           required
           error={addError}
-          hint="1〜30文字"
+          hint={`1〜${registerTagBodyNameMax}文字`}
         >
           <div className="flex gap-2">
             <input

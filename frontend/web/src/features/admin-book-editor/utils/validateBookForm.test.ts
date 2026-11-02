@@ -42,6 +42,18 @@ describe('validateBookForm', () => {
     ).toBe('100文字以内にしてください')
   })
 
+  it('一言まとめは絵文字（UTF-16 で 2 単位）も 1 文字と数え、100 文字ちょうどなら誤りにしない', () => {
+    expect(
+      validateBookForm(values({ summary: '📚'.repeat(100) })).summary,
+    ).toBeUndefined()
+  })
+
+  it('一言まとめが絵文字 101 文字なら誤りにする', () => {
+    expect(
+      validateBookForm(values({ summary: '📚'.repeat(101) })).summary,
+    ).toBe('100文字以内にしてください')
+  })
+
   it('感想が空なら入力してくださいと返す', () => {
     expect(validateBookForm(values({ comment: '' })).comment).toBe(
       '感想を入力してください',

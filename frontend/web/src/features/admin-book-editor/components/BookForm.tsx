@@ -6,6 +6,12 @@ import type {
   BookFormErrors,
   BookFormValues,
 } from '@/features/admin-book-editor/types'
+import {
+  registerBookBodyCommentMax,
+  registerBookBodySummaryMax,
+  registerBookBodyTitleOverrideMax,
+} from '@/api/generated/zod/api'
+import { codePointLength } from '@/utils/codePointLength'
 
 const RATING_LABELS: Record<number, string> = {
   1: '★',
@@ -74,7 +80,10 @@ export function BookForm({
         label={FIELD_LABELS.titleOverride}
         hint="外部カタログの書名が実際と違うときだけ入力する"
         error={errors.titleOverride}
-        count={{ current: values.titleOverride.length, max: 255 }}
+        count={{
+          current: codePointLength(values.titleOverride),
+          max: registerBookBodyTitleOverrideMax,
+        }}
       >
         <input
           id="titleOverride"
@@ -93,7 +102,10 @@ export function BookForm({
         label={FIELD_LABELS.summary}
         required
         error={errors.summary}
-        count={{ current: values.summary.length, max: 100 }}
+        count={{
+          current: codePointLength(values.summary),
+          max: registerBookBodySummaryMax,
+        }}
       >
         <input
           id="summary"
@@ -110,7 +122,10 @@ export function BookForm({
         label={FIELD_LABELS.comment}
         required
         error={errors.comment}
-        count={{ current: values.comment.length, max: 5000 }}
+        count={{
+          current: codePointLength(values.comment),
+          max: registerBookBodyCommentMax,
+        }}
       >
         <textarea
           id="comment"
