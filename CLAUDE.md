@@ -58,16 +58,15 @@ Team Git conventions (Japanese human-facing docs). Production branch is `main`; 
 @docs/rules/git-commit-message.md
 @docs/rules/git-pull-request.md
 
-## Decision Records, Testing, DB Docs
+## Decision Reasons, Testing, DB Docs
 
 Japanese sources of truth. Stop hooks in `.claude/hooks/` enforce the mechanically checkable parts (bypass env vars are documented in each rule); CI enforces the rest for every PR, including human-written ones.
 
-- Non-trivial judgment calls (library/infra choice, dismissed review suggestion, root-cause decision) → `docs/adr/YYYY-MM-DD-<slug>.md` (Stop hook `require-adr-on-decision.sh`)
+- Record the reason for a non-obvious decision (library/infra choice, dismissed review suggestion, root-cause decision) next to the rule it shapes, in the owning doc (`docs/architecture.md`, `backend/architecture.md`, `frontend/architecture.md`, `docs/rules/*.md`, `docs/specifications.md`) as 「採用理由」/「採らなかった案」. There is no separate decision-record directory
 - Behavior-changing source changes ship with colocated tests (`*_test.go` / `*.test.ts(x)`). CI `Test Presence` fails when an API operation has no Handler test or no generated-MSW-handler test on the FE, and warns when a changed source has no test change in the same directory (`.github/scripts/check-api-tests.sh`, `warn-missing-tests.sh`)
 - `backend/migrations/*.sql` changes ship with `docs/db/backend-schema.{json,md}` updates (Stop hook `require-db-docs-on-migration.sh`)
 - Tests that need PostgreSQL fail (not skip) when it is unreachable: run `make db-up migrate-up` before `make test`
 
-@docs/rules/adr.md
 @docs/rules/testing.md
 @docs/rules/db-documentation.md
 

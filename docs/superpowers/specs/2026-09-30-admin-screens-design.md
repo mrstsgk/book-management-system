@@ -1,7 +1,7 @@
 # 管理画面（単位3）の設計
 
 **日付:** 2026-09-30
-**参照:** [要件定義 §3](../../specifications.md#3-管理画面自分だけ)、[画面イメージ](../../design/admin-screens/README.md)、[ADR](../../adr/2026-09-30-admin-token-from-env.md)
+**参照:** [要件定義 §3](../../specifications.md#3-管理画面自分だけ)、[画面イメージ](../../design/admin-screens/README.md)、ADR
 
 自分だけが使う書き込み用の画面（本の一覧・登録・編集・削除、タグの管理）を `frontend/web` に作る。見た目は画面イメージを、振る舞いは要件定義 §3 を正とする。API は揃っているので、バックエンドは変えない。
 

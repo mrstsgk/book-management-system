@@ -3453,7 +3453,7 @@ git commit -m "test: E2Eの各導線の先頭でログインする"
 ```markdown
 ### 3.1 ログイン
 
-- ID とパスワードでログインする。利用者は自分 1 人なので、ID・パスワードのハッシュはバックエンドの環境変数に置き、ユーザー管理は持たない（[ADR](./adr/2026-09-30-admin-login-with-server-side-session.md)）
+- ID とパスワードでログインする。利用者は自分 1 人なので、ID・パスワードのハッシュはバックエンドの環境変数に置き、ユーザー管理は持たない（ADR）
 - ログイン済みかはサーバー側のセッションで判定する。操作が無いまま 1 時間、またはログインから 24 時間で切れる。ログアウトで即座に切れる
 - 未ログインで管理画面を開いたらログイン画面へ送り、ログインしたら元の画面へ戻す
 - 失敗が続いたら（5 回で 1 分）しばらく受け付けない。どちらが違うかは伝えない
@@ -3478,7 +3478,7 @@ git commit -m "test: E2Eの各導線の先頭でログインする"
 `README.md`: 管理画面の行を「実装済み」に、92 行目を「# 書き込み系 API はログイン（POST /api/auth/login）で得た Cookie が要る」に。「設計の方針」の表に 1 行足す:
 
 ```markdown
-| 認証 | 管理画面は ID + パスワードでログインし、サーバー側セッションを httpOnly Cookie で持つ。脅威ごとに対策を選び、それぞれをテストで担保する | [ADR](./docs/adr/2026-09-30-admin-login-with-server-side-session.md)・[設計](./docs/superpowers/specs/2026-09-30-admin-login-design.md) |
+| 認証 | 管理画面は ID + パスワードでログインし、サーバー側セッションを httpOnly Cookie で持つ。脅威ごとに対策を選び、それぞれをテストで担保する | ADR・[設計](./docs/superpowers/specs/2026-09-30-admin-login-design.md) |
 ```
 
 `admin-screens-design.md` の「## ログインは後回し」の直下に `> 2026-09-30: [ログインの設計](./2026-09-30-admin-login-design.md) で置き換えた。以下は当時の判断。` を足す。

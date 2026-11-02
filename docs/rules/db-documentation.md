@@ -99,4 +99,3 @@ nullableなカラムは `text note "nullable"` のようにダブルクオート
 
 バイパス: `SKIP_DB_DOCS_CHECK=1`（ドキュメントを伴わない理由がある場合のみ使用し、PRにその理由を明記する）。
 
-関連: [ADRルール](./adr.md)

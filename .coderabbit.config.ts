@@ -42,8 +42,8 @@ Branch, commit, and PR conventions follow \`docs/rules/git-branch.md\` / \`docs/
 - PRs to \`main\` are only releases from \`develop\` or \`hotfix/*\`. \`hotfix/*\` branches from \`main\` and is applied to both \`main\` and \`develop\`
 - Branch names must not contain an issue number (names like \`feat/issue-83-xxx\` are to be flagged)
 
-## Decision records
-- A non-trivial judgment (library/infra choice, a dismissed review finding, a root-cause decision) must have an ADR in \`docs/adr/YYYY-MM-DD-<slug>.md\` (\`docs/rules/adr.md\`). Changes to \`go.mod\`, \`package.json\`, workflows, or Dockerfiles without an ADR in the same PR are to be flagged
+## Decision reasons
+- A non-trivial decision (library/infra choice, a dismissed review finding, a root-cause decision) must record its reason next to the rule it shapes, in the doc that owns the rule (\`docs/architecture.md\`, \`backend/architecture.md\`, \`frontend/architecture.md\`, \`docs/rules/*.md\`, \`docs/specifications.md\`). There is no separate decision-record directory
 
 ## Security
 - Are secrets (API keys, passwords, tokens, DB connection strings, signing keys, etc.) included in logs, error responses, or commits?

@@ -216,7 +216,7 @@ flowchart LR
 
 使う既存テーブル: [docs/db/backend-schema.md](../db/backend-schema.md) の `book`、`tag`、`book_tag`、`admin_session`。新規・変更は無い。
 
-一意制約（`uq_book_isbn`・`uq_tag_name`）は相関ルール CR-01・CR-04 の最後の砦で、UseCase の検査をすり抜けた同時登録は制約違反（409）で止まる。
+一意制約（`uq_book_isbn`・`uq_tag_name`）は相関ルール CR-01・CR-04 の最後の砦で、UseCase の検査をすり抜けた同時登録は制約違反（409）で止まる。別々のタグを同じ名前へ同時に改名したときも 409 になり、FE は版の競合として扱う。採らなかった案: 一意制約違反を `tagNameDuplicated` の 400 に読み替える。管理者 1 人のアプリでは起きず、起きても DB が同名を作らせないため、変換とそのテストを足すほどの価値が無い（利用者が増えて同時に編集しうる画面になったら見直す）。
 
 ## 7. CRUD 表
 

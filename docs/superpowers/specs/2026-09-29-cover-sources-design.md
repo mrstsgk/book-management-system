@@ -1,9 +1,9 @@
 # 書影の取得元の見直し（openBD だけ、楽天は撤去）の設計
 
 **日付:** 2026-09-29（2026-09-30 改訂）
-**参照:** [ADR（楽天の撤去）](../../adr/2026-09-29-cover-from-google-books-and-openbd.md)、[ADR（openBD だけにする）](../../adr/2026-09-30-cover-from-openbd-only.md)、[書影の取得元の調査](#調査の要約)
+**参照:** ADR（楽天の撤去）、ADR（openBD だけにする）、[書影の取得元の調査](#調査の要約)
 
-> **変更（2026-09-30）:** 当初は「Google Books → openBD → なし」の順にする設計だったが、Google Books も API キーが必要で、キーを持たない人の環境では書影が出ないため使わないことにした（[ADR](../../adr/2026-09-30-cover-from-openbd-only.md)）。Google Books の配線（#93）は閉じ、Gateway（#89）は消した。以下は改訂後の設計。
+> **変更（2026-09-30）:** 当初は「Google Books → openBD → なし」の順にする設計だったが、Google Books も API キーが必要で、キーを持たない人の環境では書影が出ないため使わないことにした（ADR）。Google Books の配線（#93）は閉じ、Gateway（#89）は消した。以下は改訂後の設計。
 
 ## 目的
 

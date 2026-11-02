@@ -26,13 +26,13 @@ pnpm build-storybook
 
 ## 管理画面のログイン
 
-バックエンドを `ADMIN_ID` / `ADMIN_PASSWORD_HASH` を設定して起動し（手順は [`backend/README.md`](../backend/README.md)）、`http://localhost:3000/admin/login` から ID とパスワードでログインする（[ADR](../docs/adr/2026-09-30-admin-login-with-server-side-session.md)）。
+バックエンドを `ADMIN_ID` / `ADMIN_PASSWORD_HASH` を設定して起動し（手順は [`backend/README.md`](../backend/README.md)）、`http://localhost:3000/admin/login` から ID とパスワードでログインする（脅威ごとの対策は [ログインの設計](../docs/superpowers/specs/2026-09-30-admin-login-design.md)）。
 
 Vite のプロキシは Host を書き換えないので、開発サーバーを普通に開けば、バックエンドの書き込み時の Origin と Host の一致確認を通る。
 
 ## E2E テスト（Playwright、ローカル実行のみ）
 
-本のライフサイクル・タグのライフサイクルの重要導線だけを、実バックエンド・実 DB・実フロントエンドサーバーに対して確認する（[ADR](../docs/adr/2026-09-30-introduce-playwright-e2e.md)）。**CI では実行しない。** 事前に次を起動しておく。
+本のライフサイクル・タグのライフサイクルの重要導線だけを、実バックエンド・実 DB・実フロントエンドサーバーに対して確認する（CI に載せない理由は [`architecture.md`](./architecture.md) §8）。**CI では実行しない。** 事前に次を起動しておく。
 
 ```bash
 # 1. バックエンド（別ターミナル）

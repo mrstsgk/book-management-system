@@ -6,7 +6,7 @@
 
 - 読んだ本と感想から、学び続けていること
 - 設計・実装・テスト・CI から、設計と実装を丁寧に進めていること
-- ADR・`CLAUDE.md`・hooks・PR の進め方から、AI とどう協業し、そのためのハーネスをどう作っているか
+- 規則と設計の文書に残した判断の理由・`CLAUDE.md`・hooks・PR の進め方から、AI とどう協業し、そのためのハーネスをどう作っているか
 
 本書は資料の**入口**で、読む順番と各資料の役割だけを書く。規則の中身は各資料が正で、ここには書き写さない（各資料の管轄は [`docs/architecture.md`「文書の言語」](./docs/architecture.md#文書の言語) の表）。
 
@@ -36,7 +36,6 @@
 | | [`docs/specifications.md`](./docs/specifications.md) | システムと開発の進め方が満たすこと |
 | 設計 | [`docs/superpowers/specs/`](./docs/superpowers/specs/) | 機能ごとの設計 |
 | | [`docs/design/`](./docs/design/) | 機能ごとの概要設計 `docs/design/<機能>.md`（テンプレート `_template.md`）と、画面の HTML モック（公開画面・管理画面） |
-| | [`docs/adr/`](./docs/adr/)・[`docs/rules/adr.md`](./docs/rules/adr.md) | 自明でない判断の記録と、その残し方 |
 | バックエンド | [`backend/README.md`](./backend/README.md) | ローカルでの起動とコマンド |
 | | [`backend/architecture.md`](./backend/architecture.md) | 層・命名・HTTP（OpenAPI からの生成）・ディレクトリ |
 | | [`docs/rules/db-documentation.md`](./docs/rules/db-documentation.md) | migration を変えたときの DB 資料の更新 |
@@ -49,7 +48,6 @@
 | 資料 | 何が書いてあるか |
 |---|---|
 | [`docs/db/backend-schema.md`](./docs/db/backend-schema.md) | DB のテーブル構成（ER 図。AI 向けの JSON は同じディレクトリ） |
-| [`docs/adr/`](./docs/adr/) | 判断の記録（採用しなかった案・見送ったレビュー指摘も残す） |
 | [`docs/superpowers/plans/`](./docs/superpowers/plans/) | 機能ごとの実装計画 |
 
 ## 環境構築（ローカル）
@@ -93,7 +91,6 @@ pnpm dev                  # http://localhost:3000
 │   └── packages/          #   アプリ横断の共有（ui/ = デジタル庁 DS）
 ├── docs/                  # 人が読む資料（本書の 1〜3 を参照）
 │   ├── rules/             #   開発の規則
-│   ├── adr/               #   判断の記録
 │   ├── db/                #   DB スキーマ資料
 │   ├── design/            #   画面の HTML モック
 │   └── superpowers/       #   機能ごとの設計（specs/）と実装計画（plans/）
@@ -119,9 +116,7 @@ pnpm dev                  # http://localhost:3000
 | hook | タイミング | 何を確かめるか |
 |---|---|---|
 | `require-tests-on-change.sh` | Stop（ブロック） | ソースを変えたのに、同じ場所に同名のテストの変更が無い（AI の作業時の先行チェック。正は CI の `Test Presence`） |
-| `require-adr-on-decision.sh` | Stop（ブロック） | 依存・インフラのファイル（`go.mod`・`package.json`・CI 設定など）を変えたのに ADR が無い |
 | `require-db-docs-on-migration.sh` | Stop（ブロック） | マイグレーションを変えたのに DB の資料（AI 向け JSON・人向け ER 図）が更新されていない |
-| `adr-reminder.sh` | Stop（ブロックなし） | 直前にデバッグ・レビュー系のスキルを使っていたら、根本原因の判断や見送ったレビュー指摘を ADR に残すよう促す |
 | `precompact-save-evidence.sh` / `postcompact-load-evidence.sh` | 会話の圧縮の前後 | 圧縮前の作業ツリーの状態を保存し、圧縮後に読み戻す |
 
 テストの書き忘れの正は CI の `Test Presence`（人が書いた PR も検査するため）。hook は AI の作業時に早く気づくための先行チェック。
@@ -131,7 +126,7 @@ pnpm dev                  # http://localhost:3000
 - 要求（[`requirements.md`](./docs/requirements.md)）→ 要件（[`specifications.md`](./docs/specifications.md)）→ 機能ごとの設計（[`docs/superpowers/specs/`](./docs/superpowers/specs/)）→ 実装計画（[`docs/superpowers/plans/`](./docs/superpowers/plans/)）→ TDD で実装、の順に進める（[開発の流れ](./docs/rules/development-flow.md)）
 - 独立した機能は、AI のエージェントを別々の git worktree で並行に動かし、それぞれ PR にする
 - PR を作る前に AI がレビュー分類（設計・仕様 / 通常の実装 / 重要な実装 / レビュー不要）を提案し、人が選ぶ。選んだ分類のラベルで CodeRabbit（[`.coderabbit.config.ts`](./.coderabbit.config.ts)）の profile と観点が切り替わる。指摘は吟味してから1件ごとにコミットし、そのスレッドへコミット ID を添えて返信する（[PR のルール](./docs/rules/git-pull-request.md)）
-- 自明でない判断は ADR に残す。採用しなかった案や、見送ったレビュー指摘も残す（[`docs/adr/`](./docs/adr/)）
+- 自明でない判断の理由は、その規則を持つ文書の該当箇所に「採用理由」「採らなかった案」として残す（別の判断記録の置き場は持たない。理由と規則が 2 か所に分かれると片方だけ古くなるため）
 
 ## 品質
 
@@ -144,7 +139,7 @@ pnpm dev                  # http://localhost:3000
 | Repository／Query／外部ゲートウェイ | 実際の PostgreSQL や外部サービスの mock に対する契約テスト（Repository／Query は SQL が複雑なものを優先） |
 | Presentation → Infrastructure | Handler ごとに、返しうる HTTP ステータスごとと、YAML の入力の制約ごとの結合テスト（本物の spec の入力検証・認証・実 DB。全レスポンスを spec で検証する。DB に繋がらなければ失敗にする） |
 | フロントエンド | Vitest + React Testing Library。API の境界は MSW（Orval が生成したハンドラ）で差し替える |
-| E2E | Playwright。本の登録・編集・削除、タグの追加・本への付与・分野別集計への反映・改名・削除の重要導線だけを実バックエンド・実 DB に対して確認（[ADR](./docs/adr/2026-09-30-introduce-playwright-e2e.md)）。**ローカル実行のみ、CI には含めない**。手順は [`frontend/README.md`](./frontend/README.md#e2e-テストplaywrightローカル実行のみ) |
+| E2E | Playwright。本の登録・編集・削除、タグの追加・本への付与・分野別集計への反映・改名・削除の重要導線だけを実バックエンド・実 DB に対して確認（CI に載せない理由は [`frontend/architecture.md`](./frontend/architecture.md) §8）。**ローカル実行のみ、CI には含めない**。手順は [`frontend/README.md`](./frontend/README.md#e2e-テストplaywrightローカル実行のみ) |
 
 **CI**（[`.github/workflows/`](./.github/workflows/)）
 
